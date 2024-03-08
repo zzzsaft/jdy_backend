@@ -233,4 +233,4 @@ class FormDataApiClient extends ApiClient {
   }
 }
 
-export default new FormDataApiClient("v5");
+export const formDataApiClient = new FormDataApiClient("v5");

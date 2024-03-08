@@ -1,6 +1,7 @@
 import {
   getAppList,
   getEntryList,
+  getFormWidgets,
 } from "../../controllers/frontend/jdy.controller";
 
 export const JdyRoutes = [
@@ -13,5 +14,10 @@ export const JdyRoutes = [
     path: "/frontend/jdy/getEntryList/:app_id",
     method: "get",
     action: getEntryList,
+  },
+  {
+    path: "/frontend/jdy/getFormWidgets",
+    method: "get",
+    action: getFormWidgets,
   },
 ];

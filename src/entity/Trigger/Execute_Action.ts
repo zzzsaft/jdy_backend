@@ -27,7 +27,7 @@ export class Execute_Action extends AbstractContent {
   @Column()
   entry_name: string;
 
-  @Column()
+  @Column({ nullable: true })
   extension_subform_name: string;
 
   @Column()
