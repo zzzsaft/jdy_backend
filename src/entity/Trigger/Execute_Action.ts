@@ -33,7 +33,10 @@ export class Execute_Action extends AbstractContent {
   @Column()
   is_start_workflow: boolean;
 
-  @ManyToOne(() => Trigger)
+  @ManyToOne(() => Trigger, {
+    cascade: true,
+    onDelete: "CASCADE",
+  })
   trigger: Relation<Trigger>;
 
   @OneToMany(

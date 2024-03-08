@@ -6,14 +6,15 @@ import { AppDataSource } from "./data-source";
 import { Trigger } from "./entity/Trigger/Trigger";
 import bodyParser from "body-parser";
 import { AppRoutes } from "./routes";
-
+import cors from "cors";
 dotenv.config();
 
 AppDataSource.initialize()
   .then(async () => {
     const app = express();
-    const port = process.env.PORT;
+    const port = parseInt(process.env.PORT);
 
+    app.use(cors());
     app.use(bodyParser.json());
 
     // register all application routes
@@ -29,7 +30,7 @@ AppDataSource.initialize()
       );
     });
     // run app
-    app.listen(port, () => {
+    app.listen(port, "127.0.0.1", () => {
       console.log(`[server]: Server is running at http://localhost:${port}`);
     });
   })

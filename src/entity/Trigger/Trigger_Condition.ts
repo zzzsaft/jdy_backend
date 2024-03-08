@@ -23,6 +23,9 @@ export class Trigger_Condition extends AbstractContent {
   @Column()
   value: string;
 
-  @ManyToOne(() => Trigger, (trigger) => trigger.trigger_conditions)
+  @ManyToOne(() => Trigger, (trigger) => trigger.trigger_conditions, {
+    cascade: true,
+    onDelete: "CASCADE",
+  })
   trigger: Relation<Trigger>;
 }

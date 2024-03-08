@@ -34,7 +34,11 @@ export class Execute_Action_Condition extends AbstractContent {
 
   @ManyToOne(
     () => Execute_Action,
-    (execute_action) => execute_action.execute_action_conditions
+    (execute_action) => execute_action.execute_action_conditions,
+    {
+      cascade: true,
+      onDelete: "CASCADE",
+    }
   )
   execute_action: Relation<Execute_Action>;
 }
