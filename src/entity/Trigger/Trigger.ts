@@ -2,6 +2,7 @@ import { Entity, Column, ManyToOne, OneToMany, Relation } from "typeorm";
 import AbstractContent from "../AbstractContent";
 import { Execute_Action } from "./Execute_Action";
 import { Trigger_Condition } from "./Trigger_Condition";
+import { Flow_State_Change } from "./Flow_State_Change";
 
 @Entity()
 export class Trigger extends AbstractContent {
@@ -19,6 +20,16 @@ export class Trigger extends AbstractContent {
   trigger_action: string;
   @Column()
   isActive: boolean;
+
+  @OneToMany(
+    () => Flow_State_Change,
+    (flow_state_change) => flow_state_change.trigger,
+    {
+      cascade: true,
+      onDelete: "CASCADE",
+    }
+  )
+  flow_state_change_list: Relation<Flow_State_Change[]>;
 
   @OneToMany(
     () => Trigger_Condition,
