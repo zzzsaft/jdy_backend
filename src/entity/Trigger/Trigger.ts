@@ -1,8 +1,17 @@
-import { Entity, Column, ManyToOne, OneToMany, Relation } from "typeorm";
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  OneToMany,
+  Relation,
+  AfterLoad,
+  BeforeInsert,
+} from "typeorm";
 import AbstractContent from "../AbstractContent";
 import { Execute_Action } from "./Execute_Action";
 import { Trigger_Condition } from "./Trigger_Condition";
 import { Flow_State_Change } from "./Flow_State_Change";
+import { before } from "lodash";
 
 @Entity()
 export class Trigger extends AbstractContent {
@@ -39,4 +48,17 @@ export class Trigger extends AbstractContent {
 
   @OneToMany(() => Execute_Action, (execute_action) => execute_action.trigger)
   trigger_actions: Relation<Execute_Action[]>;
+
+  trigger_action_list: string[];
+
+  @AfterLoad()
+  trigger_action_listArray(): string[] {
+    return (this.trigger_action_list = this.trigger_action.split(","));
+  }
+
+  @BeforeInsert()
+  trigger_action_listString(): string {
+    if (this.trigger_action_list)
+      return (this.trigger_action = this.trigger_action_list.join(","));
+  }
 }
