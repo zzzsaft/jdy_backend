@@ -30,7 +30,6 @@ class Token {
     try {
       const response = await axios.get<AccessTokenResponse>(url);
       const response_json = response.data;
-
       if (response_json.errcode === 0 && response_json.access_token) {
         console.log("企业微信 access_token 获取成功！");
       } else {
@@ -69,5 +68,9 @@ const config: TokenConfig = {
   corp_id: process.env.CORP_ID,
   corp_secret: process.env.CORP_SECRET,
 };
-
+const config2: TokenConfig = {
+  corp_id: process.env.CORP_ID,
+  corp_secret: process.env.CORP_SECRET_CHECKIN,
+};
 export const token = new Token(config);
+export const token_checkin = new Token(config2);

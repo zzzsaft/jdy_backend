@@ -1,26 +1,13 @@
 import _ from "lodash";
 import axios from "axios";
 import qs from "querystring";
-import { jdyLimiter } from "../limiter";
+import { wechatLimiter } from "../limiter";
 import { ILimitOpion, IRequestOptions } from "../../type/IType";
-import dotenv from "dotenv";
+import { token } from "./token";
 export class ApiClient {
-  host: string;
-  apiKey: string;
-  version: string;
-  /**
-   * 构造方法
-   * @param { String } apiKey - apiKey
-   * @param { String } host - host
-   * @param { String } version - version
-   */
-  constructor(version) {
-    dotenv.config();
+  host: string = "https://qyapi.weixin.qq.com";
 
-    this.host = process.env.JDY_HOST;
-    this.apiKey = process.env.JDY_API_KEY;
-    this.version = version;
-  }
+  constructor() {}
 
   /**
    * 发送http请求
@@ -32,23 +19,21 @@ export class ApiClient {
    * @param { Object } options.payload - 请求参数,可选
    */
   async doRequest(options: IRequestOptions, limitOption: ILimitOpion) {
+    const query =
+      options.query && !("access_token" in options.query)
+        ? { ...options.query, access_token: await token.get_token() }
+        : options.query;
     const httpMethod = _.toUpper(options.method);
-    const query = options.query ? `?${qs.stringify(options.query)}` : "";
+    const queryString = query ? `?${qs.stringify(query)}` : "";
     const axiosRequestConfig = {
       method: httpMethod,
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-type": "application/json;charset=utf-8",
-      },
-      url: `${this.host}/${options.version ?? this.version}/${
-        options.path
-      }${query}`,
+      url: `${this.host}${options.path}${queryString}`,
       data: options.payload,
       timeout: 5000,
     };
     let response;
     try {
-      await jdyLimiter.tryBeforeRun(limitOption);
+      await wechatLimiter.tryBeforeRun(limitOption);
       response = await axios(axiosRequestConfig);
       return response.data;
     } catch (e) {

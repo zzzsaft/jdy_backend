@@ -1,13 +1,3 @@
-import exp from "constants";
-
-export interface IJdyOptions {
-  version: string;
-  method: "GET" | "POST";
-  path: string;
-  query?: any;
-  payload?: any;
-}
-
 export interface IAppList {
   skip?: number;
   limit?: number;

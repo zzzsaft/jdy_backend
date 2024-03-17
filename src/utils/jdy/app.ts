@@ -1,4 +1,4 @@
-import { IAppList, IEntryList } from "../../type/Jdy/IOptions";
+import { IAppList, IEntryList } from "../../type/jdy/IOptions";
 import { ILimitOpion } from "../../type/IType";
 import { ApiClient } from "./api_client";
 

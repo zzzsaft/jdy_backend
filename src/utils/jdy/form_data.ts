@@ -1,14 +1,93 @@
 import { ILimitOpion } from "../../type/IType";
-import { IFormData } from "../../type/Jdy/IData";
+import { IFormData } from "../../type/jdy/IData";
 import {
   IDataCreateOption,
   IDataQueryOption,
   IDataUpdateOption,
   IDatasCreateOption,
-} from "../../type/Jdy/IOptions";
+} from "../../type/jdy/IOptions";
 import { ApiClient } from "./api_client";
 
 const FORM_DATA_BASE_PATH = "app/entry/data/";
+
+const jdyDict = {
+  旧_离职申请: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "5d6f47cfa1d9c3578ccb6043",
+  },
+  离职申请: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "6580fbeabeab377a1508c1a1",
+  },
+  员工档案: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "6414573264b9920007c82491",
+  },
+  加班申请表: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "64ccdcf9a03b0f000875fcde",
+  },
+  奖罚申请: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "65029fdb90a93800071c22db",
+  },
+  "奖罚申请（批量）": {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "65026a1b41606f00080315b8",
+  },
+  转正审批: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "5c862c6e2444081a3681f651",
+  },
+  入职申请: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "5cfef54d0fc84505a1d270f4",
+  },
+  澄江离职流程: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "6580fb9014e09eec3dc7a150",
+  },
+  新前离职流程: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "6581656ed377c4471bba6768",
+  },
+  调岗申请: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "64b0e2e9662a0e000853edc8",
+  },
+  住房公积金: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "640eab4c943d4800083be723",
+  },
+  加班异常处理: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "65057c5274ed7e000732dfa7",
+  },
+  请假申请: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "64cd0135ed93c0000a3bf072",
+  },
+  部门信息: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "64ae39f26539200009d018ef",
+  },
+  补卡申请: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "65a3f4504fd8460626989bfc",
+  },
+  入职情况汇报: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "6461e857cecad50008ce15c3",
+  },
+  薪资表: {
+    appid: "659e53729b4d587a5c95f75b",
+    entryid: "659e6935f9d3d50ea578b0d0",
+  },
+  薪资确认单: {
+    appid: "659e53729b4d587a5c95f75b",
+    entryid: "65ac0d89a777807dd0fcc143",
+  },
+};
 
 class FormDataApiClient extends ApiClient {
   validVersions = ["v5"];
@@ -22,6 +101,10 @@ class FormDataApiClient extends ApiClient {
       this.version = this.defaultVersion;
     }
     return super.doRequest(options, limitOption);
+  }
+
+  getFormId(formName: keyof typeof jdyDict) {
+    return jdyDict[formName];
   }
 
   /**
@@ -162,6 +245,21 @@ class FormDataApiClient extends ApiClient {
    * 查询多条数据接口
    */
   async batchDataQuery(app_id, entry_id, options: IDataQueryOption) {
+    let data = await this._batchDataQuery(app_id, entry_id, options);
+    let result = [...data];
+    while (data && data.length == 100) {
+      const option = { ...options, data_id: result[-1]["_id"] };
+      data = await this._batchDataQuery(app_id, entry_id, option);
+      result = result.concat(data);
+    }
+    return result;
+  }
+
+  private async _batchDataQuery(
+    app_id,
+    entry_id,
+    options: IDataQueryOption
+  ): Promise<object[]> {
     return await this.doRequest(
       {
         method: "POST",
@@ -177,7 +275,7 @@ class FormDataApiClient extends ApiClient {
         duration: 1000,
         limit: 30,
       }
-    );
+    )["data"];
   }
 
   /**
