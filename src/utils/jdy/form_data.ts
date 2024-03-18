@@ -1,5 +1,5 @@
 import { ILimitOpion } from "../../type/IType";
-import { IFormData } from "../../type/jdy/IData";
+import { IFormData } from "../../type/Jdy/IData";
 import {
   IDataCreateOption,
   IDataQueryOption,
@@ -246,9 +246,9 @@ class FormDataApiClient extends ApiClient {
    */
   async batchDataQuery(app_id, entry_id, options: IDataQueryOption) {
     let data = await this._batchDataQuery(app_id, entry_id, options);
-    let result = [...data];
+    let result = data;
     while (data && data.length == 100) {
-      const option = { ...options, data_id: result[-1]["_id"] };
+      const option = { ...options, data_id: result[result.length - 1]["_id"] };
       data = await this._batchDataQuery(app_id, entry_id, option);
       result = result.concat(data);
     }
@@ -260,7 +260,7 @@ class FormDataApiClient extends ApiClient {
     entry_id,
     options: IDataQueryOption
   ): Promise<object[]> {
-    return await this.doRequest(
+    const data = await this.doRequest(
       {
         method: "POST",
         path: FORM_DATA_BASE_PATH + "list",
@@ -275,7 +275,8 @@ class FormDataApiClient extends ApiClient {
         duration: 1000,
         limit: 30,
       }
-    )["data"];
+    );
+    return data["data"];
   }
 
   /**

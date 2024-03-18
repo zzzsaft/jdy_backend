@@ -1,5 +1,5 @@
 import _ from "lodash";
-import axios from "axios";
+import axios, { AxiosResponse } from "axios";
 import qs from "querystring";
 import { jdyLimiter } from "../limiter";
 import { ILimitOpion, IRequestOptions } from "../../type/IType";
@@ -46,7 +46,7 @@ export class ApiClient {
       data: options.payload,
       timeout: 5000,
     };
-    let response;
+    let response: AxiosResponse<any>;
     try {
       await jdyLimiter.tryBeforeRun(limitOption);
       response = await axios(axiosRequestConfig);

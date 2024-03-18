@@ -6,6 +6,7 @@ import bodyParser from "body-parser";
 import { AppRoutes } from "./routes";
 import cors from "cors";
 import { checkinApiClient } from "./utils/wechat/chekin";
+import { getUserList } from "./schedule/checkinCalculator";
 dotenv.config();
 
 // AppDataSource.initialize()
@@ -36,12 +37,12 @@ dotenv.config();
 //   .catch((err) => {
 //     console.error("Error during Data Source initialization:", err);
 //   });
-checkinApiClient
-  .get_hardware_checkin_data({
-    starttime: new Date().getTime() / 1000 - 3600 * 24 * 4,
-    endtime: new Date().getTime() / 1000 - 3600 * 24 * 3,
-    useridlist: ["LuBin"],
-  })
-  .then((res) => {
-    console.log(res);
-  });
+// checkinApiClient
+//   .get_hardware_checkin_data({
+//     starttime: new Date().getTime() / 1000 - 3600 * 24 * 4,
+//     endtime: new Date().getTime() / 1000 - 3600 * 24 * 3,
+//     useridlist: ["LuBin"],
+//   })
+//   .then((res) => {
+//     console.log(res);
+//   });
