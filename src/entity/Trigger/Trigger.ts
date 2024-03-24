@@ -25,7 +25,7 @@ export class Trigger extends AbstractContent {
   entry_id: string;
   @Column()
   entry_name: string;
-  @Column()
+  @Column("varchar")
   trigger_action: string;
   @Column()
   isActive: boolean;
@@ -52,13 +52,15 @@ export class Trigger extends AbstractContent {
   trigger_action_list: string[];
 
   @AfterLoad()
-  trigger_action_listArray(): string[] {
-    return (this.trigger_action_list = this.trigger_action.split(","));
+  trigger_action_listArray() {
+    this.trigger_action_list = this.trigger_action.split(",");
   }
 
   @BeforeInsert()
-  trigger_action_listString(): string {
-    if (this.trigger_action_list)
-      return (this.trigger_action = this.trigger_action_list.join(","));
+  trigger_action_listString() {
+    console.log(this.trigger_action_list);
+    if (this.trigger_action_list) {
+      this.trigger_action = this.trigger_action_list.join(",");
+    }
   }
 }

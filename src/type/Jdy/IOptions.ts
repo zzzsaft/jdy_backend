@@ -37,7 +37,7 @@ export interface Filter {
   cond: FilterCondition[];
 }
 
-interface FilterCondition {
+export interface FilterCondition {
   field: string;
   type?: string;
   method: FilterMethod;

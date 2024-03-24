@@ -9,7 +9,7 @@ interface Payload {
   op: "data_create" | "data_update" | "data_remove" | "data_recover";
 }
 
-class 智能助手 {
+export class 智能助手 {
   private formName: string;
   private entryId: string;
   private appId: string;
@@ -190,7 +190,7 @@ class 智能助手 {
     action: Execute_Action,
     checked_data: any[]
   ): Promise<void> {
-    const data = this.create_data();
+    const data = this.create_data(action);
     if (action.extension_subform_name == "") {
       const ids = checked_data.map((i: any) => i["_id"]);
       await formDataApiClient.batchDataUpdate(
@@ -216,7 +216,7 @@ class 智能助手 {
   }
 
   private add(action: Execute_Action): any[] {
-    const data = this.create_data();
+    const data = this.create_data(action);
     const dataList: any[] = [];
     // # 源数据子表，目标数据非子表
     const temp = action.execute_action_contents.filter(
@@ -260,9 +260,9 @@ class 智能助手 {
     return dataList;
   }
 
-  private create_data(): any {
+  private create_data(action: Execute_Action): any {
     const data: any = {};
-    for (const i of this.execute_action_contents) {
+    for (const i of action.execute_action_contents) {
       if (!i.subform_name && !i.value_subform_name) {
         if (i.set_type === "fixed") {
           data[i.name] = { value: i.value };
@@ -273,7 +273,7 @@ class 智能助手 {
         }
       }
     }
-    const temp = this.execute_action_contents.filter(
+    const temp = action.execute_action_contents.filter(
       (i: Execute_Action_Content) => i.subform_name
     );
     temp.sort((a: Execute_Action_Content, b: Execute_Action_Content) =>
@@ -295,7 +295,7 @@ class 智能助手 {
     for (const object of grouped_objects) {
       subforms[object[0].name] = {};
       for (const content of object) {
-        if (!content.value_subform_name && content.set_type === "trigger") {
+        if (!content.value_subform_name && content.set_type === "dynamic") {
           subforms[object[0].name][content.subform_name] = {
             value: this.value_type_convert(
               content.type,
@@ -315,7 +315,7 @@ class 智能助手 {
     for (const object of grouped_objects) {
       const value_contents = object.filter(
         (content: Execute_Action_Content) =>
-          content.value_subform_name && content.set_type === "trigger"
+          content.value_subform_name && content.set_type === "dynamic"
       );
       if (value_contents.length === 0) {
         continue;

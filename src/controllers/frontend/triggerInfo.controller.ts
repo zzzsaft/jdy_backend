@@ -21,6 +21,7 @@ export const GetTrigger = async (request: Request, response: Response) => {
       "trigger_actions.execute_action_contents",
       "trigger_actions.execute_action_conditions",
       "trigger_conditions",
+      "flow_state_change_list",
     ],
   });
   // return loaded posts
@@ -29,6 +30,8 @@ export const GetTrigger = async (request: Request, response: Response) => {
 
 export async function createTriggerInfos(request: Request, response: Response) {
   const trigger = Trigger.create(request.body);
+  console.log(request.body);
+  trigger.trigger_action_list = request.body.trigger_action_list;
   await trigger.save();
   response.send(trigger);
 }
