@@ -1,5 +1,5 @@
 import { ILimitOpion } from "../../type/IType";
-import { IFormData } from "../../type/Jdy/IData";
+import { IFormData } from "../../type/jdy/IData";
 import {
   IDataCreateOption,
   IDataQueryOption,

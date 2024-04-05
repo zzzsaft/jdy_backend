@@ -1,13 +1,15 @@
 // import { AppDataSource } from "./data-source";
+import "./utils/env";
 import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
-import { AppDataSource } from "./data-source";
+import { AppDataSource } from "./utils/data-source";
 import bodyParser from "body-parser";
 import { AppRoutes } from "./routes";
 import cors from "cors";
 import { checkinApiClient } from "./utils/wechat/chekin";
 import { getUserList } from "./schedule/checkinCalculator";
-dotenv.config();
+import { getRtick } from "./utils/bestsign/util";
+import logger from "morgan";
 
 AppDataSource.initialize()
   .then(async () => {
@@ -46,3 +48,5 @@ AppDataSource.initialize()
 //   .then((res) => {
 //     console.log(res);
 //   });
+// console.log(getRtick());
+// console.log(await bestSignToken.get_token());
