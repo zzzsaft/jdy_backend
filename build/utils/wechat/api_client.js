@@ -1,7 +1,7 @@
 import _ from "lodash";
 import axios from "axios";
 import qs from "querystring";
-import { wechatLimiter } from "../limiter";
+import { wechatLimiter } from "../../config/limiter";
 import { token } from "./token";
 export class ApiClient {
     host = "https://qyapi.weixin.qq.com";
@@ -31,6 +31,12 @@ export class ApiClient {
         try {
             await wechatLimiter.tryBeforeRun(limitOption);
             response = await axios(axiosRequestConfig);
+            if (response) {
+                const { status, data } = response;
+                if (status && status > 200 && data.code && data.msg) {
+                    throw new Error(`请求错误！Error Code: ${data.code}, Error Msg: ${data.msg},body: ${options.payload}`);
+                }
+            }
             return response.data;
         }
         catch (e) {
@@ -39,7 +45,7 @@ export class ApiClient {
             if (response) {
                 const { status, data } = response;
                 if (status && status > 200 && data.code && data.msg) {
-                    throw new Error(`请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`);
+                    throw new Error(`请求错误！Error Code: ${data.code}, Error Msg: ${data.msg},body: ${options.payload}`);
                 }
             }
             throw e;

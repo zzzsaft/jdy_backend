@@ -2,12 +2,12 @@ import { ICheckinOption } from "../../type/wechat/IOption";
 import { ApiClient } from "./api_client";
 import { token_checkin } from "./token";
 
-class CheckinApiClient extends ApiClient {
-  async getHardwareCheckinData(options: ICheckinOption) {
+class MessageApiClient extends ApiClient {
+  async sendMessage(options: ICheckinOption) {
     return await this.doRequest(
       {
         method: "POST",
-        path: "/cgi-bin/hardware/get_hardware_checkin_data",
+        path: "/cgi-bin/message/send",
         payload: {
           ...options,
         },
@@ -16,9 +16,9 @@ class CheckinApiClient extends ApiClient {
         },
       },
       {
-        name: "get_hardware_checkin_data",
+        name: "sendMessage",
         duration: 1000,
-        limit: 20,
+        limit: 30,
       }
     );
   }
@@ -43,4 +43,4 @@ class CheckinApiClient extends ApiClient {
     );
   }
 }
-export const checkinApiClient = new CheckinApiClient();
+export const checkinApiClient = new MessageApiClient();

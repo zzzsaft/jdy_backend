@@ -1,14 +1,14 @@
 import { JdyRoutes } from "./frontend/JdyRoutes";
 import { TriggerRoutes } from "./frontend/TriggerRoutes";
-import { JdyCustomRoutes } from "./jdy/JdyCustomRoutes";
-import { JdyDataRoutes } from "./jdy/JdyDataRoutes";
+import { WechatRoutes } from "./WechatRoutes";
 /**
  * All application routes.
  */
 export const AppRoutes = [
     ...TriggerRoutes,
     ...JdyRoutes,
-    ...JdyDataRoutes,
-    ...JdyCustomRoutes,
+    ...WechatRoutes,
+    // ...JdyDataRoutes,
+    // ...JdyCustomRoutes,
 ];
 //# sourceMappingURL=index.js.map

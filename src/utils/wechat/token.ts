@@ -52,6 +52,7 @@ class Token {
   }
 
   public async get_token(): Promise<string> {
+    // return "P4ay5RlD2sjHkPrZPigEOnm7iw8RJ4kPXIAlUuNDWUWJulezYs_-utmyQMSiguhyaEbV6q7vHDahdqd9VH5Q03UXFnEQoILVbf7Zkjt3OM_eY_x5FcqYgCZF4vCJX9GTaW5BkXXsdYi4HF-9PXKF18ZZy99FwKK9DtAX2W1sbGANGAMq_RWhWrAscxihotutCco7U3aehaTI2yUupauaSA";
     if (Date.now() < this.expire * 1000) {
       return this.accessToken;
     } else {
@@ -72,5 +73,10 @@ const config2: TokenConfig = {
   corp_id: process.env.CORP_ID,
   corp_secret: process.env.CORP_SECRET_CHECKIN,
 };
+const config3: TokenConfig = {
+  corp_id: process.env.CORP_ID,
+  corp_secret: process.env.CORP_SECRET_ADDRESS,
+};
 export const token = new Token(config);
 export const token_checkin = new Token(config2);
+export const token_address = new Token(config3);

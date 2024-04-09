@@ -7,7 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { Entity, Column, OneToMany, AfterLoad, BeforeInsert, } from "typeorm";
+import { Entity, Column, OneToMany, } from "typeorm";
 import AbstractContent from "../AbstractContent";
 import { Execute_Action } from "./Execute_Action";
 import { Trigger_Condition } from "./Trigger_Condition";
@@ -24,13 +24,6 @@ let Trigger = class Trigger extends AbstractContent {
     trigger_conditions;
     trigger_actions;
     trigger_action_list;
-    trigger_action_listArray() {
-        return (this.trigger_action_list = this.trigger_action.split(","));
-    }
-    trigger_action_listString() {
-        if (this.trigger_action_list)
-            return (this.trigger_action = this.trigger_action_list.join(","));
-    }
 };
 __decorate([
     Column(),
@@ -53,8 +46,8 @@ __decorate([
     __metadata("design:type", String)
 ], Trigger.prototype, "entry_name", void 0);
 __decorate([
-    Column(),
-    __metadata("design:type", String)
+    Column("varchar", { array: true }),
+    __metadata("design:type", Array)
 ], Trigger.prototype, "trigger_action", void 0);
 __decorate([
     Column(),
@@ -75,18 +68,6 @@ __decorate([
     OneToMany(() => Execute_Action, (execute_action) => execute_action.trigger),
     __metadata("design:type", Object)
 ], Trigger.prototype, "trigger_actions", void 0);
-__decorate([
-    AfterLoad(),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Array)
-], Trigger.prototype, "trigger_action_listArray", null);
-__decorate([
-    BeforeInsert(),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", String)
-], Trigger.prototype, "trigger_action_listString", null);
 Trigger = __decorate([
     Entity()
 ], Trigger);

@@ -7,7 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { Entity, Column, ManyToOne } from "typeorm";
+import { Entity, Column, ManyToOne, } from "typeorm";
 import AbstractContent from "../AbstractContent";
 import { Trigger } from "./Trigger";
 let Flow_State_Change = class Flow_State_Change extends AbstractContent {
@@ -16,8 +16,8 @@ let Flow_State_Change = class Flow_State_Change extends AbstractContent {
     trigger;
 };
 __decorate([
-    Column(),
-    __metadata("design:type", String)
+    Column("varchar", { array: true }),
+    __metadata("design:type", Array)
 ], Flow_State_Change.prototype, "flow_state_action", void 0);
 __decorate([
     Column(),

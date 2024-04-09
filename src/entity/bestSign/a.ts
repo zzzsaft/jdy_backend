@@ -11,7 +11,7 @@ import AbstractContent from "../AbstractContent";
 import { before } from "lodash";
 
 @Entity()
-export class Trigger extends AbstractContent {
+class Trigger extends AbstractContent {
   @Column()
   trigger_name: string;
   @Column()

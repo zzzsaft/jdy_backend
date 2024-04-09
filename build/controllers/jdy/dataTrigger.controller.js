@@ -1,7 +1,7 @@
 import { Trigger } from "../../entity/Trigger/Trigger";
 import { formDataApiClient } from "../../utils/jdy/form_data";
 import _ from "lodash";
-class 智能助手 {
+export class 智能助手 {
     formName;
     entryId;
     appId;
@@ -151,7 +151,7 @@ class 智能助手 {
         }
     }
     async update(action, checked_data) {
-        const data = this.create_data();
+        const data = this.create_data(action);
         if (action.extension_subform_name == "") {
             const ids = checked_data.map((i) => i["_id"]);
             await formDataApiClient.batchDataUpdate(action.app_id, action.entry_id, ids, data);
@@ -167,7 +167,7 @@ class 智能助手 {
         }
     }
     add(action) {
-        const data = this.create_data();
+        const data = this.create_data(action);
         const dataList = [];
         // # 源数据子表，目标数据非子表
         const temp = action.execute_action_contents.filter((i) => !i.subform_name && i.value_subform_name);
@@ -204,9 +204,9 @@ class 智能助手 {
         console.log(dataList);
         return dataList;
     }
-    create_data() {
+    create_data(action) {
         const data = {};
-        for (const i of this.execute_action_contents) {
+        for (const i of action.execute_action_contents) {
             if (!i.subform_name && !i.value_subform_name) {
                 if (i.set_type === "fixed") {
                     data[i.name] = { value: i.value };
@@ -218,7 +218,7 @@ class 智能助手 {
                 }
             }
         }
-        const temp = this.execute_action_contents.filter((i) => i.subform_name);
+        const temp = action.execute_action_contents.filter((i) => i.subform_name);
         temp.sort((a, b) => a.name.localeCompare(b.name));
         const grouped_objects = temp.reduce((acc, cur) => {
             const last = acc[acc.length - 1];
@@ -234,7 +234,7 @@ class 智能助手 {
         for (const object of grouped_objects) {
             subforms[object[0].name] = {};
             for (const content of object) {
-                if (!content.value_subform_name && content.set_type === "trigger") {
+                if (!content.value_subform_name && content.set_type === "dynamic") {
                     subforms[object[0].name][content.subform_name] = {
                         value: this.value_type_convert(content.type, this.data[content.value]),
                     };
@@ -248,7 +248,7 @@ class 智能助手 {
             }
         }
         for (const object of grouped_objects) {
-            const value_contents = object.filter((content) => content.value_subform_name && content.set_type === "trigger");
+            const value_contents = object.filter((content) => content.value_subform_name && content.set_type === "dynamic");
             if (value_contents.length === 0) {
                 continue;
             }

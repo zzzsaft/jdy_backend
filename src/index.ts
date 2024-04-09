@@ -1,23 +1,29 @@
 // import { AppDataSource } from "./data-source";
-import "./utils/env";
-import express, { Express, Request, Response } from "express";
-import dotenv from "dotenv";
-import { AppDataSource } from "./utils/data-source";
+import "./config/env";
+import express, { Request, Response } from "express";
+import { AppDataSource, PgDataSource } from "./config/data-source";
 import bodyParser from "body-parser";
 import { AppRoutes } from "./routes";
 import cors from "cors";
 import { checkinApiClient } from "./utils/wechat/chekin";
-import { getUserList } from "./schedule/checkinCalculator";
 import { getRtick } from "./utils/bestsign/util";
-import logger from "morgan";
+import { getCheckinData, initCheckinTable } from "./schedule/getCheckinData";
+import { getApprovalDetail } from "./controllers/wechat/approval.wechat.controller";
+import { insertApprovalToDb } from "./utils/wechat/temp";
+import "./config/logger";
+import { logger } from "./config/logger";
+import { schedule } from "./schedule";
+import { autoParse } from "./config/autoParse";
+import { updateUserByJdy, updateUserList } from "./schedule/wechat";
 
-AppDataSource.initialize()
+PgDataSource.initialize()
   .then(async () => {
+    logger.info("Data Source has been initialized!");
     const app = express();
     const port = parseInt(process.env.PORT);
 
     app.use(cors());
-    app.use(bodyParser.json());
+    app.use(autoParse);
 
     // register all application routes
     AppRoutes.forEach((route) => {
@@ -31,22 +37,23 @@ AppDataSource.initialize()
         }
       );
     });
+
+    // schedule.forEach((task) => {
+    //   task.start();
+    // });
+    // insertApprovalToDb();
     // run app
     app.listen(port, () => {
-      console.log(`[server]: Server is running at http://localhost:${port}`);
+      logger.info(`[server]: Server is running at http://localhost:${port}`);
     });
+    await updateUserList();
+    // await updateUserByJdy();
   })
   .catch((err) => {
-    console.error("Error during Data Source initialization:", err);
+    logger.error("Error during Data Source initialization:", err);
   });
-// checkinApiClient
-//   .get_hardware_checkin_data({
-//     starttime: new Date().getTime() / 1000 - 3600 * 24 * 4,
-//     endtime: new Date().getTime() / 1000 - 3600 * 24 * 3,
-//     useridlist: ["LuBin"],
-//   })
-//   .then((res) => {
-//     console.log(res);
-//   });
-// console.log(getRtick());
-// console.log(await bestSignToken.get_token());
+// process.on("unhandledRejection", (reason, promise) => {
+//   logger.error("Unhandled Rejection:", reason);
+// });
+// getCheckinData.getNextRawCheckinData();
+// console.log(await departmentApiClient.getDepartmentList());

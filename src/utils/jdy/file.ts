@@ -2,7 +2,7 @@ import axios from "axios";
 import { ILimitOpion } from "../../type/IType";
 import { ApiClient } from "./api_client";
 import { uniqueId } from "lodash";
-import { jdyLimiter } from "../limiter";
+import { jdyLimiter } from "../../config/limiter";
 
 const FORM_BASE_PATH = "app/entry/";
 

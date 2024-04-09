@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { Trigger } from "../../entity/Trigger/Trigger";
+import { error } from "console";
 
 /**
  * Loads all posts from the database.
@@ -8,9 +9,9 @@ export async function GetAllTriggerInfos(request: Request, response: Response) {
   const triggers = await Trigger.find({
     relations: ["trigger_actions"],
   });
-
-  // return loaded posts
   response.send(triggers);
+  // throw new error("error");
+  // return loaded posts
 }
 
 export const GetTrigger = async (request: Request, response: Response) => {

@@ -19,8 +19,8 @@ export const PgDataSource = new DataSource({
   port: 5433,
   username: process.env.PgUser,
   password: process.env.PgPassword,
-  database: "test",
+  database: "db",
   entities: ["src/entity/*.ts", "src/entity/*/*.ts"],
   logging: true,
-  synchronize: false,
+  synchronize: true,
 });

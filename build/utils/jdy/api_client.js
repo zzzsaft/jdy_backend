@@ -1,7 +1,7 @@
 import _ from "lodash";
 import axios from "axios";
 import qs from "querystring";
-import { jdyLimiter } from "../limiter";
+import { jdyLimiter } from "../../config/limiter";
 import dotenv from "dotenv";
 export class ApiClient {
     host;
@@ -48,7 +48,7 @@ export class ApiClient {
             return response.data;
         }
         catch (e) {
-            console.log(e);
+            // console.log(e);
             response = e.response;
             if (response) {
                 const { status, data } = response;

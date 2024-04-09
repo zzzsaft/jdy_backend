@@ -6,8 +6,9 @@ export async function GetAllTriggerInfos(request, response) {
     const triggers = await Trigger.find({
         relations: ["trigger_actions"],
     });
-    // return loaded posts
     response.send(triggers);
+    // throw new error("error");
+    // return loaded posts
 }
 export const GetTrigger = async (request, response) => {
     const trigger = await Trigger.findOne({
@@ -17,6 +18,7 @@ export const GetTrigger = async (request, response) => {
             "trigger_actions.execute_action_contents",
             "trigger_actions.execute_action_conditions",
             "trigger_conditions",
+            "flow_state_change_list",
         ],
     });
     // return loaded posts
@@ -24,6 +26,8 @@ export const GetTrigger = async (request, response) => {
 };
 export async function createTriggerInfos(request, response) {
     const trigger = Trigger.create(request.body);
+    console.log(request.body);
+    trigger.trigger_action_list = request.body.trigger_action_list;
     await trigger.save();
     response.send(trigger);
 }

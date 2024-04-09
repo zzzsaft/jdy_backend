@@ -211,7 +211,7 @@ async function get_request(uri: string, headerParams: any): Promise<any> {
     header: headers,
   };
 
-  console.log(requestOptions);
+  //   console.log(requestOptions);
   let result = {};
   await axios(requestOptions)
     .then(async (res: AxiosResponse) => {
@@ -249,4 +249,4 @@ async function handleResponse(res: AxiosResponse): Promise<any> {
   }
 }
 
-export { getSignature, genHeaders, signWidthRSA, getMD5RequestBody, serialize };
+export { post_request, get_request, handleResponse };

@@ -1,9 +1,10 @@
 import _ from "lodash";
 import axios, { AxiosResponse } from "axios";
 import qs from "querystring";
-import { jdyLimiter } from "../limiter";
+import { jdyLimiter } from "../../config/limiter";
 import { ILimitOpion, IRequestOptions } from "../../type/IType";
 import dotenv from "dotenv";
+import { logger } from "../../config/logger";
 export class ApiClient {
   host: string;
   apiKey: string;
@@ -50,13 +51,17 @@ export class ApiClient {
     try {
       await jdyLimiter.tryBeforeRun(limitOption);
       response = await axios(axiosRequestConfig);
+      logger.info(`${axiosRequestConfig.url}请求成功！`);
       return response.data;
     } catch (e) {
-      console.log(e);
+      // console.log(e);
       response = e.response;
       if (response) {
         const { status, data } = response;
         if (status && status > 200 && data.code && data.msg) {
+          logger.error(
+            `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`
+          );
           throw new Error(
             `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`
           );
