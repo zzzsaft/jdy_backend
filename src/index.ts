@@ -15,6 +15,7 @@ import { logger } from "./config/logger";
 import { schedule } from "./schedule";
 import { autoParse } from "./config/autoParse";
 import { updateUserByJdy, updateUserList } from "./schedule/wechat";
+import cron from "node-cron";
 
 PgDataSource.initialize()
   .then(async () => {
@@ -46,8 +47,8 @@ PgDataSource.initialize()
     app.listen(port, () => {
       logger.info(`[server]: Server is running at http://localhost:${port}`);
     });
-    await updateUserList();
-    // await updateUserByJdy();
+    // await updateUserList();
+    await updateUserByJdy();
   })
   .catch((err) => {
     logger.error("Error during Data Source initialization:", err);

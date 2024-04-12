@@ -40,7 +40,7 @@ async function sleep(time) {
   });
 }
 
-class LimiterSet {
+export class LimiterSet {
   limiterSet: {
     [key: string]: Limiter;
   };
@@ -64,4 +64,4 @@ class LimiterSet {
 }
 
 export let jdyLimiter = new LimiterSet(1000, 50);
-export let wechatLimiter = new LimiterSet(60000, 3000);
+export let wechatLimiter = new LimiterSet(1000, 50);

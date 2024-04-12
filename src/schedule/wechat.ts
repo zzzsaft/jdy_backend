@@ -23,7 +23,7 @@ const updateDepartmentList = async () => {
 };
 
 export const updateUserList = async () => {
-  const result = [];
+  let result = [];
   const existDepartment = await Department.find({ where: { is_exist: true } });
   const department_ids = existDepartment.map(
     (department) => department.department_id
@@ -42,7 +42,7 @@ export const updateUserList = async () => {
       );
     });
   }
-
+  result = _.uniqBy(result, "user_id");
   await User.insertOrUpdateUsers(result);
 };
 
@@ -58,6 +58,7 @@ export const updateUserByJdy = async () => {
           method: "ne",
           value: ["离职"],
         },
+        { field: "_widget_1691239227137", method: "not_empty" },
       ],
     },
     fields: ["_widget_1691239227137", "_widget_1705252329045"],
@@ -69,14 +70,12 @@ export const updateUserByJdy = async () => {
   );
   const result = [];
   userList.forEach((user: any) => {
-    result.push(
-      User.create({
-        user_id: user._widget_1691239227137,
-        attendance: user._widget_1705252329045,
-      })
-    );
+    result.push({
+      user_id: user._widget_1691239227137,
+      attendance: user._widget_1705252329045,
+    });
   });
-  await User.save(result);
+  await User.upsert(result, ["user_id"]);
 };
 
 export const checkinDateScheduleAt1 = cron.schedule("* * 1 * * *", async () => {
