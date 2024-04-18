@@ -8,9 +8,11 @@ const resolveApp = (relativePath) => path.resolve(appDirectory, relativePath);
 const pathsDotenv = resolveApp(".env");
 
 // dotenv.config({ path: `${pathsDotenv}` })
+// process.env.NODE_ENV = "production";
 
-if (process.env.env === "dev") {
+if (process.env.NODE_ENV === "dev") {
   dotenv.config({ path: `${pathsDotenv}.dev` });
-} else if (process.env.NODE_ENV === "prod") {
+} else if (process.env.NODE_ENV === "production") {
   dotenv.config({ path: `${pathsDotenv}.prod` });
 }
+process.env.PORT = "2001";

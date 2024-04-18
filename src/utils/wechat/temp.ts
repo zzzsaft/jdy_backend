@@ -4,14 +4,15 @@ import _ from "lodash";
 
 const getApprovalList = async () => {
   const starttime = new Date("2024-4-8").getTime() / 1000;
-  const nowDay = new Date("2024-4-9").getTime() / 1000;
+  const nowDay = new Date("2024-4-17").getTime() / 1000;
   const timestamps = _.range(starttime, nowDay, 60 * 60 * 24 * 2);
   const periods = _.zip(timestamps, _.drop(timestamps, 1).concat([nowDay]));
-  const approvalList = [];
+  const approvalList: any = [];
   let cursor = "";
   let flag = true;
   for (const period of periods) {
     while (flag) {
+      if (!period[0] || !period[1]) continue;
       const result = await approvalApiClient.getApprovalList({
         starttime: period[0].toString(),
         endtime: period[1].toString(),

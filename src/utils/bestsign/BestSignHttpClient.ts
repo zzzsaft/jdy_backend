@@ -16,8 +16,8 @@ interface Headers {
   Authorization: string;
 }
 
-const clientId = process.env.BESTSIGN_CLIENT_ID;
-const privateKey = process.env.BESTSIGN_CLIENT_SECRET;
+const clientId = process.env.BESTSIGN_CLIENT_ID ?? "";
+const privateKey = process.env.BESTSIGN_CLIENT_SECRET ?? "";
 
 function serialize(obj: Params, split = "", encode = false): string {
   return Object.entries(obj)
@@ -190,7 +190,7 @@ async function get_request(uri: string, headerParams: any): Promise<any> {
     uri,
     method,
     headerParams,
-    null,
+    undefined,
     timestamp,
     clientId,
     privateKey

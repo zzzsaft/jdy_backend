@@ -3,6 +3,8 @@ import { ILimitOpion } from "../../type/IType";
 import { ApiClient } from "./api_client";
 import { uniqueId } from "lodash";
 import { jdyLimiter } from "../../config/limiter";
+import { error } from "console";
+import { logger } from "../../config/logger";
 
 const FORM_BASE_PATH = "app/entry/";
 
@@ -70,9 +72,13 @@ class FileApiClient extends ApiClient {
   }
 
   async uploadFileList(fileList: File[]) {
-    let uploadResultList = [];
+    let uploadResultList: any = [];
     fileList.forEach(async (file) => {
       const uploadInfo = this.UploadInfoList.pop();
+      if (!uploadInfo) {
+        logger.error("uploadFileList", uploadInfo);
+        return;
+      }
       const uploadResult = await this.uploadFile(
         uploadInfo.url,
         uploadInfo.token,

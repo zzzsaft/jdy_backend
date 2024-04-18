@@ -9,8 +9,8 @@ export class User extends BaseEntity {
   is_employed: boolean;
   @Column({ nullable: true })
   name: string;
-  //   @Column({ nullable: true, array: true })
-  //   department_id: number[];
+  @Column("simple-array", { nullable: true })
+  department_id: number[];
   @Column({ nullable: true })
   attendance: string;
 

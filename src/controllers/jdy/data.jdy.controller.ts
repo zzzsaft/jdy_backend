@@ -16,8 +16,8 @@ function getSignature(
 }
 
 export const JdyWebhook = (request: Request, response: Response) => {
-  dotenv.config();
-  const webhook_token = process.env.JDY_WEBHOOK_TOKEN;
+  // dotenv.config();
+  const webhook_token = process.env.JDY_WEBHOOK_TOKEN ?? "";
   const payload = JSON.stringify(request.body);
   const nonce = request.query.nonce as string;
   const timestamp = request.query.timestamp as string;

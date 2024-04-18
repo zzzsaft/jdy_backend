@@ -4,10 +4,10 @@ import { formDataApiClient } from "../utils/jdy/form_data";
 import { checkinApiClient } from "../utils/wechat/chekin";
 import { HardwareCheckinData } from "../entity/wechat/HardwareCheckinData";
 import { CheckinData } from "../entity/wechat/CheckinData";
-import { Checkin } from "../entity/wechat/Checkin";
 import { Between, In } from "typeorm";
 import cron from "node-cron";
 import { logger } from "../config/logger";
+import { Checkin } from "../entity/wechat/Checkin";
 
 class GetCheckinData {
   twoDaysInSeconds = 2 * 24 * 60 * 60;
@@ -21,7 +21,8 @@ class GetCheckinData {
     const periods = _.zip(timestamps, _.drop(timestamps, 1).concat([nowDay]));
 
     for (const period of periods) {
-      await this.getHardwareCheckinData(userList, period[0], period[1]);
+      if (period[0] && period[1])
+        await this.getHardwareCheckinData(userList, period[0], period[1]);
     }
   };
 
@@ -33,7 +34,8 @@ class GetCheckinData {
 
     const userList = await getUserList();
     for (const period of periods) {
-      await this.getCheckinData(userList, period[0], period[1]);
+      if (period[0] && period[1])
+        await this.getCheckinData(userList, period[0], period[1]);
     }
   };
 
@@ -287,7 +289,7 @@ export const initCheckinTable = async () => {
       .offset(offset)
       .limit(pageSize)
       .getMany();
-    const newCheckinList = data.reduce((accumulator, currentA) => {
+    const newCheckinList = data.reduce((accumulator: Checkin[], currentA) => {
       // 检查当前日期是否在表B中已存在
       const existingBData = checkinList.find(
         (b) => b.date === currentA.checkin_date && b.userid === currentA.userid
@@ -330,32 +332,33 @@ const setCheckin = async () => {
 };
 
 //每天的第 1 小时触发任务
-const checkinDateScheduleAt1 = cron.schedule("* * 1 * * *", () => {
+const checkinDateScheduleAt1 = cron.schedule("27 1 * * *", () => {
   logger.info("checkinDateScheduleAt1");
 });
 
 //每天的第 8 小时（即 8 点）触发任务
-const checkinDateScheduleAt8 = cron.schedule("* * 8 * * *", async () => {
+const checkinDateScheduleAt8 = cron.schedule("0 8 * * *", async () => {
   await getCheckinData.getNextRawCheckinData();
   await getCheckinData.getNextCheckinData();
   logger.info("checkinDateScheduleAt8");
 });
 
 //每天的第 14 小时（即 14 点）触发任务
-const checkinDateScheduleAt14 = cron.schedule("* * 14 * * *", async () => {
+const checkinDateScheduleAt14 = cron.schedule("0 14 * * *", async () => {
   await getCheckinData.getNextRawCheckinData();
   await getCheckinData.getNextCheckinData();
   logger.info("checkinDateScheduleAt14");
 });
 
 //每天的第 23 小时（即 23 点）触发任务
-const checkinDateScheduleAt23 = cron.schedule("* * 23 * * *", async () => {
+const checkinDateScheduleAt23 = cron.schedule("0 23 * * *", async () => {
   await getCheckinData.getNextRawCheckinData();
   await getCheckinData.getNextCheckinData();
   logger.info("checkinDateScheduleAt23");
 });
 
 export const checkinDateSchedule = [
+  checkinDateScheduleAt1,
   checkinDateScheduleAt8,
   checkinDateScheduleAt14,
   checkinDateScheduleAt23,

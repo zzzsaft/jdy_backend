@@ -16,10 +16,10 @@ export class ApiClient {
    * @param { String } version - version
    */
   constructor(version) {
-    dotenv.config();
+    // dotenv.config();
 
-    this.host = process.env.JDY_HOST;
-    this.apiKey = process.env.JDY_API_KEY;
+    this.host = process.env.JDY_HOST ?? "";
+    this.apiKey = process.env.JDY_API_KEY ?? "";
     this.version = version;
   }
 

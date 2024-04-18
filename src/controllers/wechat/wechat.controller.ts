@@ -3,9 +3,10 @@ import { Request, Response } from "express";
 import convert from "xml-js";
 import { logger } from "../../config/logger";
 import { handleApprovalEvent } from "./approval.wechat.controller";
+import { handleContactEvent } from "./contact.wechat.controller";
 
 export async function wechatWebHookCheck(request: Request, response: Response) {
-  const encodingAESKey = process.env.WECHAT_ENCODING_AES_KEY;
+  const encodingAESKey = process.env.WECHAT_ENCODING_AES_KEY ?? "";
   const payload = request.query.echostr as string;
   const { message, id } = decrypt(encodingAESKey, payload);
 
@@ -14,7 +15,7 @@ export async function wechatWebHookCheck(request: Request, response: Response) {
 }
 
 export async function wechatWebHook(request: Request, response: Response) {
-  const encodingAESKey = process.env.WECHAT_ENCODING_AES_KEY;
+  const encodingAESKey = process.env.WECHAT_ENCODING_AES_KEY ?? "";
   let payload = request.body;
   let { message, id } = decrypt(encodingAESKey, payload["xml"]["Encrypt"][0]);
   message = convert.xml2json(message, {
@@ -39,6 +40,9 @@ const handleWechatMessage = async (msg) => {
         ApprovalInfo["SpNo"]["value"],
         ApprovalInfo["SpStatus"]["value"]
       );
+    }
+    if (message["Event"]["value"] === "change_contact") {
+      await handleContactEvent(message);
     }
   } catch (e) {
     logger.error(e);

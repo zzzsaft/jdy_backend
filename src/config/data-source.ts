@@ -20,7 +20,10 @@ export const PgDataSource = new DataSource({
   username: process.env.PgUser,
   password: process.env.PgPassword,
   database: "db",
-  entities: ["src/entity/*.ts", "src/entity/*/*.ts"],
+  entities:
+    process.env.NODE_ENV === "production"
+      ? ["src/entity/*.js", "src/entity/*/*.js"]
+      : ["src/entity/*.ts", "src/entity/*/*.ts"],
   logging: true,
-  synchronize: true,
+  synchronize: false,
 });

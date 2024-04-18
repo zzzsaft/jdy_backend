@@ -63,19 +63,19 @@ class Token {
     }
   }
 }
-dotenv.config();
+// dotenv.config();
 // Example usage
 const config: TokenConfig = {
-  corp_id: process.env.CORP_ID,
-  corp_secret: process.env.CORP_SECRET,
+  corp_id: process.env.CORP_ID ?? "",
+  corp_secret: process.env.CORP_SECRET ?? "",
 };
 const config2: TokenConfig = {
-  corp_id: process.env.CORP_ID,
-  corp_secret: process.env.CORP_SECRET_CHECKIN,
+  corp_id: process.env.CORP_ID ?? "",
+  corp_secret: process.env.CORP_SECRET_CHECKIN ?? "",
 };
 const config3: TokenConfig = {
-  corp_id: process.env.CORP_ID,
-  corp_secret: process.env.CORP_SECRET_ADDRESS,
+  corp_id: process.env.CORP_ID ?? "",
+  corp_secret: process.env.CORP_SECRET_ADDRESS ?? "",
 };
 export const token = new Token(config);
 export const token_checkin = new Token(config2);

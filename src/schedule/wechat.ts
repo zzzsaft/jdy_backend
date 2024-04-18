@@ -3,12 +3,13 @@ import { Department } from "../entity/wechat/Department";
 import { User } from "../entity/wechat/User";
 import { IDataQueryOption } from "../type/jdy/IOptions";
 import { formDataApiClient } from "../utils/jdy/form_data";
-import { userApiClient } from "../utils/wechat/department";
+import { userApiClient } from "../utils/wechat/user";
 import cron from "node-cron";
+import { logger } from "../config/logger";
 
-const updateDepartmentList = async () => {
+export const updateDepartmentList = async () => {
   const departmentList = await userApiClient.getDepartmentList();
-  const result = [];
+  const result: Department[] = [];
   departmentList["department"].forEach((department: any) => {
     result.push(
       Department.create({
@@ -23,7 +24,7 @@ const updateDepartmentList = async () => {
 };
 
 export const updateUserList = async () => {
-  let result = [];
+  let result: User[] = [];
   const existDepartment = await Department.find({ where: { is_exist: true } });
   const department_ids = existDepartment.map(
     (department) => department.department_id
@@ -68,7 +69,7 @@ export const updateUserByJdy = async () => {
     entryid,
     option
   );
-  const result = [];
+  const result: any = [];
   userList.forEach((user: any) => {
     result.push({
       user_id: user._widget_1691239227137,
@@ -78,8 +79,9 @@ export const updateUserByJdy = async () => {
   await User.upsert(result, ["user_id"]);
 };
 
-export const checkinDateScheduleAt1 = cron.schedule("* * 1 * * *", async () => {
+export const checkinDateScheduleAt1 = cron.schedule("0 1 * * *", async () => {
   await updateUserList();
   await updateUserByJdy();
   await updateDepartmentList();
+  logger.info("checkinDateScheduleAt1, update user list and department list");
 });

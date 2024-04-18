@@ -2,6 +2,24 @@ import { ApiClient } from "./api_client";
 import { token, token_address } from "./token";
 
 class UserApiClient extends ApiClient {
+  async getUser(userid: string) {
+    return await this.doRequest(
+      {
+        method: "POST",
+        path: "/cgi-bin/user/get",
+        payload: {},
+        query: {
+          access_token: await token.get_token(),
+          userid: userid,
+        },
+      },
+      {
+        name: "getUser",
+        duration: 1000,
+        limit: 30,
+      }
+    );
+  }
   async getDepartmentList() {
     return await this.doRequest(
       {
