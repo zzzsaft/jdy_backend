@@ -7,6 +7,7 @@ import cors from "cors";
 import { logger } from "./config/logger";
 import { schedule } from "./schedule";
 import { autoParse } from "./config/autoParse";
+import { orgnizationApiClient } from "./utils/xft/orgnization";
 
 PgDataSource.initialize()
   .then(async () => {
@@ -33,6 +34,7 @@ PgDataSource.initialize()
     app.listen(port, () => {
       logger.info(`[server]: Server is running at http://localhost:${port}`);
     });
+    await orgnizationApiClient.getOrgnization();
   })
   .catch((err) => {
     console.log(err);
@@ -41,6 +43,6 @@ PgDataSource.initialize()
 // process.on("unhandledRejection", (reason, promise) => {
 //   logger.error("Unhandled Rejection:", reason);
 // });
-schedule.forEach((task) => {
-  task.start();
-});
+// schedule.forEach((task) => {
+//   task.start();
+// });

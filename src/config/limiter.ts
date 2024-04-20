@@ -65,3 +65,4 @@ export class LimiterSet {
 
 export let jdyLimiter = new LimiterSet(1000, 50);
 export let wechatLimiter = new LimiterSet(1000, 50);
+export let xftLimiter = new LimiterSet(1000, 50);
