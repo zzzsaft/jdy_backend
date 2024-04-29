@@ -39,9 +39,10 @@ function getMD5RequestBody(requestBody: Params): string {
 function signWidthRSA(data: string, privateKey: string): string {
   const key = new NodeRSA({ b: 1024 });
   key.importKey(privateKey, "pkcs8");
-  key.setOptions({ signingScheme: "sha256" });
-  const signature = key.sign(data, "base64", "utf8");
-  return signature;
+  // key.setOptions({ signingScheme: "sha256" });
+  // const signature = key.sign(data, "base64", "utf8");
+  // return signature;
+  return "";
 }
 
 function getSignature(

@@ -21,7 +21,7 @@ export class Department extends BaseEntity {
   third_name: string;
   @Column({ nullable: true })
   fourth_name: string;
-  @Column()
+  @Column({ nullable: true, default: true })
   is_exist: boolean;
 
   parent_department: Department;
@@ -38,7 +38,9 @@ export class Department extends BaseEntity {
       return undefined;
     }
   }
-  static async insertOrUpdateUsers(departments: Department[]): Promise<void> {
+  static async insertOrUpdateDepartment(
+    departments: Department[]
+  ): Promise<void> {
     try {
       // 1. 找出数据库中所有 is_employed 为 true 的用户
       const existDepartment = await Department.find({

@@ -3,12 +3,12 @@ import { Department } from "../entity/wechat/Department";
 import { User } from "../entity/wechat/User";
 import { IDataQueryOption } from "../type/jdy/IOptions";
 import { formDataApiClient } from "../utils/jdy/form_data";
-import { userApiClient } from "../utils/wechat/user";
+import { contactApiClient } from "../utils/wechat/contact";
 import cron from "node-cron";
 import { logger } from "../config/logger";
 
 export const updateDepartmentList = async () => {
-  const departmentList = await userApiClient.getDepartmentList();
+  const departmentList = await contactApiClient.getDepartmentList();
   const result: Department[] = [];
   departmentList["department"].forEach((department: any) => {
     result.push(
@@ -17,10 +17,11 @@ export const updateDepartmentList = async () => {
         parent_id: department.parentid,
         name: department.name,
         department_leader: department.department_leader,
+        is_exist: true,
       })
     );
   });
-  await Department.insertOrUpdateUsers(result);
+  await Department.insertOrUpdateDepartment(result);
 };
 
 export const updateUserList = async () => {
@@ -31,7 +32,7 @@ export const updateUserList = async () => {
   );
 
   for (const department_id of department_ids) {
-    const userList = await userApiClient.getUserList(department_id);
+    const userList = await contactApiClient.getUserList(department_id);
     _.uniqBy(userList["userlist"], "userid").forEach((user: any) => {
       result.push(
         User.create({

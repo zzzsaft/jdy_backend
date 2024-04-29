@@ -8,6 +8,9 @@ import { logger } from "./config/logger";
 import { schedule } from "./schedule";
 import { autoParse } from "./config/autoParse";
 import { orgnizationApiClient } from "./utils/xft/orgnization";
+import { updateDepartmentList } from "./schedule/wechat";
+import { importDepartmentToXft, testRSA } from "./utils/xft/temp";
+import { contactApiClient } from "./utils/wechat/contact";
 
 PgDataSource.initialize()
   .then(async () => {
@@ -30,15 +33,16 @@ PgDataSource.initialize()
         }
       );
     });
+    // console.log(await orgnizationApiClient.getOrgnization("187"));
     // run app
+    testRSA();
     app.listen(port, () => {
       logger.info(`[server]: Server is running at http://localhost:${port}`);
     });
-    await orgnizationApiClient.getOrgnization();
   })
   .catch((err) => {
     console.log(err);
-    // logger.error("Error during Data Source initialization:", err);
+    logger.error("Error during Data Source initialization:", err);
   });
 // process.on("unhandledRejection", (reason, promise) => {
 //   logger.error("Unhandled Rejection:", reason);
@@ -46,3 +50,4 @@ PgDataSource.initialize()
 // schedule.forEach((task) => {
 //   task.start();
 // });
+// testRSA();
