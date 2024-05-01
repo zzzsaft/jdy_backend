@@ -7,7 +7,7 @@ import { xftSSOLogin } from "../../controllers/xft/login.xft.controller";
 
 export const WechatOAuthRoutes = [
   {
-    path: "/wechat/sso",
+    path: "/xft/sso",
     method: "get",
     action: xftSSOLogin,
   },

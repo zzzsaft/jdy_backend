@@ -15,5 +15,5 @@ if (process.env.NODE_ENV === "production") {
   process.env.PORT = "2000";
 } else {
   dotenv.config({ path: `${pathsDotenv}.prod` });
-  process.env.PORT = "2005";
+  process.env.PORT = "2001";
 }

@@ -4,6 +4,7 @@ import { JdyCustomRoutes } from "./jdy/JdyCustomRoutes";
 import { JdyDataRoutes } from "./jdy/JdyDataRoutes";
 import { WechatOAuthRoutes } from "./wechat/WechatOAuthRoutes";
 import { WechatRoutes } from "./wechat/WechatRoutes";
+import { XftWechatRoute } from "./xft/XftWechatRoute";
 
 /**
  * All application routes.
@@ -13,6 +14,7 @@ export const AppRoutes = [
   ...JdyRoutes,
   ...WechatRoutes,
   ...WechatOAuthRoutes,
+  ...XftWechatRoute,
   // ...JdyDataRoutes,
   // ...JdyCustomRoutes,
 ];

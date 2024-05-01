@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { Request, Response } from "express";
 import nodeRSA from "node-rsa";
 import { wechatUserApiClient } from "../../utils/wechat/user";
-
+import qs from "querystring";
 const RSA_PRIVATE_KEY = process.env.RSA_PRIVATE_KEY;
 const key = new nodeRSA(`-----BEGIN RSA PRIVATE KEY-----
     ${RSA_PRIVATE_KEY}
@@ -12,10 +12,11 @@ const key = new nodeRSA(`-----BEGIN RSA PRIVATE KEY-----
 const publicKey = key.exportKey("public");
 
 export const xftSSOLogin = async (request: Request, response: Response) => {
-  const XFT_HOST = `https://xft.cmbchina.com/`;
   const 连接器ID = "223147993689554944";
   const 连接流ID = "224943279282388992";
+  const XFT_HOST = `https://xft.cmbchina.com/xft-gateway/xft-login-new/xwapi/login/${连接器ID}_${连接流ID}`;
   const code = request.query.code;
+  const toDoID = request.query.todoid;
   if (typeof code !== "string") {
     return "no code";
   }
@@ -24,9 +25,16 @@ export const xftSSOLogin = async (request: Request, response: Response) => {
     userid: userid,
     timestamp: Date.now(),
   };
-
   const secret = encrypt(Buffer.from(JSON.stringify(userInfo)));
-  const redirectUrl = `${XFT_HOST}/xft-gateway/xft-login-new/xwapi/login/${连接器ID}_${连接流ID}?pageId=workbench&secret=${secret}`;
+
+  let redirectUrl = `${XFT_HOST}?pageId=workbench&secret=${secret}`;
+
+  const extPam = { toDoType: "0", toDoId: toDoID };
+  if (toDoID) {
+    redirectUrl = `${XFT_HOST}?extTyp=todo&extPam=${qs.escape(
+      JSON.stringify(extPam)
+    )}&secret=${secret}`;
+  }
   response.redirect(redirectUrl);
 };
 
