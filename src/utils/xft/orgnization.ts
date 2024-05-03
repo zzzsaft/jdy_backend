@@ -1,6 +1,6 @@
 import { appApiClient, connectApiClient } from "./api_client";
 
-class OrgnizationApiClient {
+class XFTOrgnizationApiClient {
   async getOrgnizationList() {
     return await appApiClient.doRequest(
       {
@@ -100,4 +100,4 @@ class OrgnizationApiClient {
     );
   }
 }
-export const orgnizationApiClient = new OrgnizationApiClient();
+export const xftOrgnizationApiClient = new XFTOrgnizationApiClient();

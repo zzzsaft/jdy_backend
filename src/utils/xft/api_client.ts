@@ -7,15 +7,6 @@ import { logger } from "../../config/logger";
 import pkg from "sm-crypto";
 const { sm2, sm3 } = pkg;
 
-interface Headers {
-  "Content-Type": string;
-  appid: string;
-  "x-alb-digest": string;
-  "x-alb-timestamp": number;
-  apisign: string;
-  "x-alb-verify": "sm3withsm2";
-}
-
 class ApiClient {
   host: string;
   appid: string;
@@ -61,6 +52,7 @@ class ApiClient {
       `${options.path}${queryString}`,
       httpMethod
     );
+    // console.log(JSON.stringify(options.payload));
     const axiosRequestConfig = {
       method: httpMethod,
       url: `${this.host}${options.path}${queryString}`,
