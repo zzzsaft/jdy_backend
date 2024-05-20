@@ -1,7 +1,7 @@
 import { Approval } from "../../entity/wechat/Approval";
 import { approvalApiClient } from "../../utils/wechat/approval";
 import { ApplyData } from "../../type/wechat/IApproval";
-import { orgnizationApiClient } from "../../utils/xft/orgnization";
+import { xftOrgnizationApiClient } from "../../utils/xft/xft_orgnization";
 import { contactApiClient } from "../../utils/wechat/contact";
 import { logger } from "../../config/logger";
 
@@ -18,7 +18,7 @@ export const handleContactEvent = async (msg: any) => {
       break;
     case "create_party":
       data = await contactApiClient.getDepartmentInfo(msg["Id"]["value"]);
-      await orgnizationApiClient.addOrgnization({
+      await xftOrgnizationApiClient.addOrgnization({
         id: msg["Id"]["value"],
         name: data["department"]["name"] ?? "error",
         parent_id: msg["ParentId"]["value"],
@@ -26,10 +26,12 @@ export const handleContactEvent = async (msg: any) => {
       break;
     case "update_party":
       data = await contactApiClient.getDepartmentInfo(msg["Id"]["value"]);
-      let org = await orgnizationApiClient.getOrgnization(msg["Id"]["value"]);
+      let org = await xftOrgnizationApiClient.getOrgnization(
+        msg["Id"]["value"]
+      );
       let orgid = org["OPORGQRYZ"][0]["ORGSEQ"];
       if (!orgid) logger.error(`orgid not found${org}`);
-      await orgnizationApiClient.updateOrgnization({
+      await xftOrgnizationApiClient.updateOrgnization({
         id: msg["Id"]["value"],
         name: data["department"]["name"] ?? "error",
         parent_id: msg["ParentId"]["value"],

@@ -20,7 +20,8 @@ export const xftSSOLogin = async (request: Request, response: Response) => {
   if (typeof code !== "string") {
     return "no code";
   }
-  const userid = wechatUserApiClient.getUserInfo(code)["userid"];
+  const userid = (await wechatUserApiClient.getUserInfo(code))["userid"];
+  // const userid = "LiangZhi";
   const userInfo = {
     userid: userid,
     timestamp: Date.now(),
@@ -35,6 +36,7 @@ export const xftSSOLogin = async (request: Request, response: Response) => {
       JSON.stringify(extPam)
     )}&secret=${secret}`;
   }
+  console.log(redirectUrl);
   response.redirect(redirectUrl);
 };
 

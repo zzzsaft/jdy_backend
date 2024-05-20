@@ -4,7 +4,7 @@ import { JdyCustomRoutes } from "./jdy/JdyCustomRoutes";
 import { JdyDataRoutes } from "./jdy/JdyDataRoutes";
 import { WechatOAuthRoutes } from "./wechat/WechatOAuthRoutes";
 import { WechatRoutes } from "./wechat/WechatRoutes";
-import { XftWechatRoute } from "./xft/XftWechatRoute";
+import { XftWechatRoute } from "./xft/xftWechatRoute";
 
 /**
  * All application routes.

@@ -7,9 +7,13 @@ import { MessageHelper } from "../../utils/wechat/message";
 
 export const xftTodo = async (request: Request, response: Response) => {
   const { userinfo, userid, todoDetail } = request.body;
-  console.log(request.body);
+  await xftTodoCallback(userinfo, userid, todoDetail);
 
-  const redirectUrl = `http://tz.jc-times.com:2000/xft/sso?todoid=${todoDetail.id}`;
+  return response.send("success");
+};
+
+export const xftTodoCallback = async (userinfo, userid, todoDetail) => {
+  const redirectUrl = `http://hz.jc-times.com:2000/xft/sso?todoid=${todoDetail.id}`;
   const url = `https://open.weixin.qq.com/connect/oauth2/authorize?
   appid=wwd56c5091f4258911&redirect_uri=${qs.escape(redirectUrl)}&
   response_type=code&scope=snsapi_base&state=STATE&agentid=1000061#wechat_redirect`;
@@ -20,6 +24,4 @@ export const xftTodo = async (request: Request, response: Response) => {
     url
   );
   await new MessageHelper(["LiangZhi"]).send_plain_text(todoDetail);
-
-  return response.send("success");
 };

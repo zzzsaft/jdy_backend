@@ -1,7 +1,7 @@
 import { Department } from "../../entity/wechat/Department";
 import { IDataQueryOption } from "../../type/jdy/IOptions";
 import { formDataApiClient } from "../jdy/form_data";
-import { xftOrgnizationApiClient } from "./orgnization";
+import { xftOrgnizationApiClient } from "./xft_orgnization";
 import crypto from "crypto";
 import nodeRSA from "node-rsa";
 import { xftUserApiClient } from "./xft_user";
@@ -57,15 +57,15 @@ function encrypt(publicKey: any, plaintext: Buffer): string {
 const getUserList = async () => {
   const { appid, entryid } = formDataApiClient.getFormId("员工档案");
   const option: IDataQueryOption = {
-    limit: 99,
+    limit: 100,
   };
   return await formDataApiClient.batchDataQuery(appid, entryid, option);
 };
 export const importJdyToXft = async () => {
   // 获取xft数据
-  const exist_users = (await xftUserApiClient.getEmployeeList())["body"][
-    "records"
-  ].map((record) => record.staffBasicInfo.certificateNumber);
+  const exist_users = (await xftUserApiClient.getAllEmployeeList()).map(
+    (record) => record.staffBasicInfo.certificateNumber
+  );
   const orgs = (await xftOrgnizationApiClient.getOrgnizationList())["body"][
     "records"
   ].filter((record) => record.status === "active");
@@ -102,7 +102,10 @@ export const importJdyToXft = async () => {
           id: "0000",
         }
       ).id,
-      stfNumber: user["_widget_1691239227137"],
+      stfNumber:
+        user["_widget_1691239227137"].length > 20
+          ? ""
+          : user["_widget_1691239227137"],
       remark: "api",
       birthday: formatDate(user["date_of_birth"]),
       hasMarried:
@@ -118,17 +121,17 @@ export const importJdyToXft = async () => {
         FLD1100054[user["_widget_1691139170391"]] && {
           classKey: "S01BASIC",
           fieldKey: "FLD1100054",
-          fieldValue: FLD1100054[user["_widget_1691139170391"]] ?? "",
+          fieldValue: user["_widget_1691139170391"],
         },
         FLD1100052[user["_widget_1694939312263"]] && {
           classKey: "S01BASIC",
           fieldKey: "FLD1100052",
-          fieldValue: FLD1100052[user["_widget_1694939312263"]] ?? "",
+          fieldValue: user["_widget_1694939312263"] ?? "",
         },
-      ].filter((item) => item !== false),
+      ].filter((item) => item),
     };
     const staffWagesAndSocialSecurityInfo = {
-      bankCardAccount: user["_widget_1690873684080"],
+      bankCardAccount: user["_widget_1690873684080"].split("、")[0],
       bankName: bankName[user["_widget_1690873684081"]] ?? "",
       customerFieldInfoList: [
         user["_widget_1691254640860"] !== "" && {
@@ -140,7 +143,10 @@ export const importJdyToXft = async () => {
     };
     const staffHrmInfo = {
       entryDate: formatDate(user["_widget_1679067663828"]),
-      actualQuitDate: formatDate(user["_widget_1689753887996"]),
+      actualQuitDate:
+        staffBasicInfo["stfStatus"] == "2"
+          ? formatDate(user["_widget_1689753887996"])
+          : "",
     };
     return {
       staffBasicInfo: _.pickBy(staffBasicInfo, _.identity),
@@ -151,9 +157,10 @@ export const importJdyToXft = async () => {
       staffHrmInfo: _.pickBy(staffHrmInfo, _.identity),
     };
   });
-  const chunkedList = _.chunk(result, 1000);
-  // console.log(chunkedList[0]);
+  const chunkedList = _.chunk(result, 100);
   for (let i = 0; i < chunkedList.length; i++) {
+    console.log(JSON.stringify(chunkedList[i]));
+
     console.log(await xftUserApiClient.createEmployeeList(chunkedList[i]));
   }
   // console.log(result);
@@ -173,7 +180,7 @@ const entry_type = {
 const stfStatus = {
   试用: "0",
   正式: "1",
-  待离职: "3",
+  待离职: "",
   离职: "2",
 };
 const nation = {

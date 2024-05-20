@@ -82,7 +82,7 @@ export const updateUserByJdy = async () => {
 
 export const checkinDateScheduleAt1 = cron.schedule("0 1 * * *", async () => {
   await updateUserList();
-  await updateUserByJdy();
+  // await updateUserByJdy();
   await updateDepartmentList();
   logger.info("checkinDateScheduleAt1, update user list and department list");
 });

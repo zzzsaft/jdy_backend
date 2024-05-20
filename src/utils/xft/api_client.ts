@@ -75,7 +75,12 @@ class ApiClient {
           );
         }
       }
-      logger.info(`xft请求成功！`);
+      if (
+        response.data["returnCode"] &&
+        response.data["returnCode"] != "SUC0000"
+      )
+        logger.error(JSON.stringify(response.data));
+      else logger.info(JSON.stringify(response.data).slice(0, 50));
       return response.data;
     } catch (e) {
       console.log(e);

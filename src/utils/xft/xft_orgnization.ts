@@ -59,7 +59,8 @@ class XFTOrgnizationApiClient {
   async updateOrgnization(data: {
     id: string;
     name: string;
-    parent_id: string;
+    parent_id: string | number;
+    userids?: string[];
   }) {
     return await appApiClient.doRequest(
       {
@@ -68,11 +69,12 @@ class XFTOrgnizationApiClient {
         payload: {
           name: data.name,
           parentOrgCode: data.parent_id,
-          code: data.id,
+          id: data.id,
+          approverEnterpriseUserIds: data.userids,
         },
       },
       {
-        name: "addOrgnization",
+        name: "updateOrgnization",
         duration: 1000,
         limit: 1,
       }
