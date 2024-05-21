@@ -1,14 +1,20 @@
 import { Request, Response } from "express";
-import pkg from "sm-crypto";
-const { sm2, sm3 } = pkg;
+import sm from "sm-crypto";
+import { xftTodoCallback } from "./todo.xft.controller";
 
 const key = process.env.XFT_EVENT_SECRET ?? "";
 
 export const xftEvent = async (request: Request, response: Response) => {
-  const body = request.body;
-  console.log(body);
-  const signature = sm2.doDecrypt(body["eventRcdInf"], key);
-  console.log(signature);
+  const { eventId, eventRcdInf } = request.body;
+  const content = Buffer.from(
+    sm.sm4.decrypt(eventRcdInf, key, {
+      padding: "pkcs#5",
+      output: "array",
+    })
+  ).toString("utf-8");
+  if (eventId === "XFT00011") {
+    xftTodoCallback(content);
+  }
   const responseData = {
     rtnCod: 200,
     errMsg: "",

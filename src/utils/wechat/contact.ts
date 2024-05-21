@@ -50,7 +50,7 @@ class ContactApiClient extends ApiClient {
       },
       {
         name: "getUserList",
-        duration: 1000,
+        duration: 2000,
         limit: 1,
       }
     );

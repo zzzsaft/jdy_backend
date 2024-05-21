@@ -7,9 +7,6 @@ import cors from "cors";
 import { logger } from "./config/logger";
 import { schedule } from "./schedule";
 import { autoParse } from "./config/autoParse";
-import { MessageHelper } from "./utils/wechat/message";
-import { importJdyToXft } from "./utils/xft/temp";
-import { syncDepartment } from "./schedule/syncXftData";
 
 PgDataSource.initialize()
   .then(async () => {
@@ -30,7 +27,7 @@ PgDataSource.initialize()
         }
       );
     });
-    // console.log(await orgnizationApiClient.getOrgnization("187"));
+
     // run app
     app.listen(port, () => {
       logger.info(`[server]: Server is running at http://localhost:${port}`);
@@ -41,9 +38,9 @@ PgDataSource.initialize()
     logger.error("Error during Data Source initialization:", err);
   });
 
-// process.on("unhandledRejection", (reason, promise) => {
-//   logger.error("Unhandled Rejection:", reason);
-// });
+process.on("unhandledRejection", (reason, promise) => {
+  logger.error("Unhandled Rejection:", reason);
+});
 schedule.forEach((task) => {
   task.start();
 });

@@ -1,6 +1,20 @@
 import { appApiClient, connectApiClient } from "./api_client";
 
 class XftUserApiClient {
+  async getEmployeeDetail(id: string) {
+    return await appApiClient.doRequest(
+      {
+        method: "POST",
+        path: "/xft-member/openapi/xft-member/member/get/by-id",
+        payload: { id: id, extFields: ["external", "personal"] },
+      },
+      {
+        name: "getEmployeeDetail",
+        duration: 1000,
+        limit: 20,
+      }
+    );
+  }
   async getAllEmployeeList() {
     return [
       ...(await this.getEmployeeList(1))["body"]["records"],

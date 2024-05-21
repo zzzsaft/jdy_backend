@@ -1,5 +1,6 @@
-import { Entity, Column, BaseEntity, PrimaryColumn } from "typeorm";
+import { Entity, Column, BaseEntity, PrimaryColumn, Like } from "typeorm";
 import { logger } from "../../config/logger";
+import { xftUserApiClient } from "../../utils/xft/xft_user";
 
 @Entity()
 export class User extends BaseEntity {
@@ -11,6 +12,8 @@ export class User extends BaseEntity {
   name: string;
   @Column("simple-array", { nullable: true })
   department_id: number[];
+  @Column({ nullable: true, unique: true })
+  xft_user_id: string;
   @Column({ nullable: true })
   attendance: string;
 
@@ -42,6 +45,27 @@ export class User extends BaseEntity {
       // 处理错误
       logger.error("Error inserting or updating users:", error);
       throw error;
+    }
+  }
+  static async getUser_id(xftUserId: string): Promise<string> {
+    const user = await User.findOne({ where: { xft_user_id: xftUserId } });
+    if (user) {
+      return user.user_id;
+    } else {
+      const userid = (await xftUserApiClient.getEmployeeDetail(xftUserId))[
+        "body"
+      ]?.["number"];
+      if (!userid) {
+        throw new Error("User not found.");
+      }
+      const user = await User.findOne({
+        where: { user_id: Like(`%${userid}%`) },
+      });
+      if (user) {
+        user.xft_user_id = xftUserId;
+        await user.save();
+      }
+      return userid;
     }
   }
 }

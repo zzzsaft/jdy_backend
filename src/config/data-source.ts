@@ -19,7 +19,7 @@ export const PgDataSource = new DataSource({
   port: 5433,
   username: process.env.PgUser,
   password: process.env.PgPassword,
-  database: "db",
+  // database: "db",
   entities:
     process.env.NODE_ENV === "production"
       ? ["src/entity/*.js", "src/entity/*/*.js"]
