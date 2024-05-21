@@ -39,7 +39,6 @@ export const xftSSOLogin = async (request: Request, response: Response) => {
       JSON.stringify(extPam)
     )}&secret=${secret}`;
   }
-  console.log(redirectUrl);
   response.redirect(redirectUrl);
 };
 

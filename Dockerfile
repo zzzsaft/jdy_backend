@@ -1,5 +1,5 @@
 # 使用一个 Node.js 的基础镜像
-FROM node:20
+FROM node:20-alpine
 
 # 在容器中创建一个目录
 RUN mkdir -p /usr/src/nodejs/
