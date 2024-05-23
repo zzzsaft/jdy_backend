@@ -52,8 +52,8 @@ export class LimiterSet {
   }
 
   async tryBeforeRun(limitOption: ILimitOpion) {
-    this.globalLimiter.tryBeforeRun();
-    (
+    await this.globalLimiter.tryBeforeRun();
+    await (
       this.limiterSet[limitOption.name] ||
       (this.limiterSet[limitOption.name] = new Limiter(
         limitOption.duration,

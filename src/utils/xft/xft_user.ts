@@ -35,7 +35,7 @@ class XftUserApiClient {
       queryClassKeyList?: string[];
     } = {
       queryType: "FIELD",
-      queryFieldList: ["stfNumber", "certificateNumber"],
+      queryFieldList: ["stfNumber", "certificateNumber", "remark"],
     }
   ) {
     return await appApiClient.doRequest(
