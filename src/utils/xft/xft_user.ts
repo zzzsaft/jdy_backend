@@ -92,6 +92,7 @@ class XftUserApiClient {
         "certificateNumber",
         "orgSeq",
         "stfStatus",
+        "remark",
       ],
     }
   ) {
