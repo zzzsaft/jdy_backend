@@ -37,7 +37,12 @@ class XFTOrgnizationApiClient {
       }
     );
   }
-  async addOrgnization(data: { id: string; name: string; parent_id: string }) {
+  async addOrgnization(data: {
+    id: string;
+    name: string;
+    parent_id: string;
+    approverIds: string[];
+  }) {
     return await appApiClient.doRequest(
       {
         method: "POST",
@@ -46,6 +51,7 @@ class XFTOrgnizationApiClient {
           name: data.name,
           parentOrgCode: data.parent_id,
           code: data.id,
+          approverEnterpriseUserIds: data.approverIds,
           remark: "api",
         },
       },

@@ -1,12 +1,16 @@
 import { Entity, Column, BaseEntity, PrimaryColumn } from "typeorm";
 import { logger } from "../../config/logger";
+import { contactApiClient } from "../../utils/wechat/contact";
+import { xftOrgnizationApiClient } from "../../utils/xft/xft_orgnization";
 
 @Entity()
 export class Department extends BaseEntity {
   @PrimaryColumn()
-  department_id: number;
+  department_id: string;
   @Column({ nullable: true })
-  parent_id: number;
+  xft_id: string;
+  @Column({ nullable: true })
+  parent_id: string;
   @Column({ nullable: true })
   name: string;
   @Column("simple-array", { nullable: true })
@@ -38,36 +42,48 @@ export class Department extends BaseEntity {
       return undefined;
     }
   }
-  static async insertOrUpdateDepartment(
-    departments: Department[]
-  ): Promise<void> {
-    try {
-      // 1. 找出数据库中所有 is_employed 为 true 的用户
-      const existDepartment = await Department.find({
-        where: { is_exist: true },
+  static async updateDepartment(): Promise<void> {
+    const existDepartments = await Department.find({
+      where: { is_exist: true },
+    });
+    const departmentList = await contactApiClient.getDepartmentList();
+    const result = departmentList["department"].map((department: any) => {
+      return {
+        department_id: department.id.toString(),
+        parent_id: department.parentid.toString(),
+        name: department.name,
+        department_leader: department.department_leader,
+        is_exist: true,
+      };
+    });
+    await Department.upsert(result, {
+      conflictPaths: ["department_id"],
+      skipUpdateIfNoValuesChanged: true, // supported by postgres, skips update if it would not change row values
+    });
+    existDepartments
+      .filter(
+        (department) =>
+          !result.map((d) => d.department_id).includes(department.department_id)
+      )
+      .forEach(async (department) => {
+        department.is_exist = false;
+        await department.save();
       });
-
-      // 2. 更新数据库中 is_employed 为 true 的用户，但不在传入的 users 数组中的用户的状态为 false
-      existDepartment
-        .filter(
-          (dbDepartment) =>
-            !departments.some(
-              (department) =>
-                department.department_id === dbDepartment.department_id
-            )
-        )
-        .forEach((dbDepartment) => {
-          dbDepartment.is_exist = false;
-        });
-
-      // 4. 保存更新后的用户信息和新用户
-      await Department.save([...existDepartment, ...departments]);
-
-      logger.info("Department inserted or updated successfully.");
-    } catch (error) {
-      // 处理错误
-      logger.error("Error inserting or updating departments:", error);
-      throw error;
-    }
+  }
+  static async updateXftId(): Promise<void> {
+    const xftOrg = (await xftOrgnizationApiClient.getOrgnizationList())["body"][
+      "records"
+    ]
+      .filter((org: any) => org.status == "active")
+      .map((org: any) => {
+        return {
+          xft_id: org["id"],
+          department_id: org["code"],
+        };
+      });
+    await Department.upsert(xftOrg, {
+      conflictPaths: ["department_id"],
+      skipUpdateIfNoValuesChanged: true, // supported by postgres, skips update if it would not change row values
+    });
   }
 }

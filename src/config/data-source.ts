@@ -24,6 +24,6 @@ export const PgDataSource = new DataSource({
     process.env.NODE_ENV === "production"
       ? ["src/entity/*.js", "src/entity/*/*.js"]
       : ["src/entity/*.ts", "src/entity/*/*.ts"],
-  logging: true,
+  logging: process.env.NODE_ENV != "production",
   synchronize: false,
 });

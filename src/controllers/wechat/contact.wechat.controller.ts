@@ -22,6 +22,7 @@ export const handleContactEvent = async (msg: any) => {
         id: msg["Id"]["value"],
         name: data["department"]["name"] ?? "error",
         parent_id: msg["ParentId"]["value"],
+        approverIds: [],
       });
       break;
     case "update_party":

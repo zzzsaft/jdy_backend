@@ -62,7 +62,7 @@ class ApiClient {
     };
     let response;
     try {
-      await xftLimiter.tryBeforeRun(limitOption);
+      // await xftLimiter.tryBeforeRun(limitOption);
       response = await axios(axiosRequestConfig);
       if (response) {
         const { status, data } = response;

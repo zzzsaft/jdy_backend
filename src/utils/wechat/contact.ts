@@ -37,11 +37,11 @@ class ContactApiClient extends ApiClient {
       }
     );
   }
-  async getUserList(department_id: number) {
+  async getUserList(department_id: string) {
     return await this.doRequest(
       {
         method: "POST",
-        path: "/cgi-bin/user/simplelist",
+        path: "/cgi-bin/user/list",
         payload: {},
         query: {
           access_token: await token.get_token(),
