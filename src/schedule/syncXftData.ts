@@ -32,7 +32,7 @@ export const syncUser = async () => {
       };
     })
     .filter((user) => user.staffBasicInfo.stfSeq && user.staffBasicInfo.orgSeq);
-  _.chunk(users, 1000).forEach(async (chunk) => {
+  _.chunk(users, 500).forEach(async (chunk) => {
     await xftUserApiClient.updateEmployee(chunk);
   });
 };

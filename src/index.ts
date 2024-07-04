@@ -7,6 +7,9 @@ import cors from "cors";
 import { logger } from "./config/logger";
 import { schedule } from "./schedule";
 import { autoParse } from "./config/autoParse";
+import { syncUser } from "./schedule/syncXftData";
+import { User } from "./entity/wechat/User";
+import { importJdyToXft, reviseJdyToXft } from "./utils/xft/temp";
 
 PgDataSource.initialize()
   .then(async () => {
@@ -27,7 +30,7 @@ PgDataSource.initialize()
         }
       );
     });
-
+    await importJdyToXft();
     // run app
     app.listen(port, () => {
       logger.info(`[server]: Server is running at http://localhost:${port}`);
@@ -37,9 +40,9 @@ PgDataSource.initialize()
     console.log(err);
     logger.error("Error during Data Source initialization:", err);
   });
-process.on("unhandledRejection", (reason, promise) => {
-  logger.error("Unhandled Rejection:", reason);
-});
-schedule.forEach((task) => {
-  task.start();
-});
+// process.on("unhandledRejection", (reason, promise) => {
+//   logger.error("Unhandled Rejection:", reason);
+// });
+// schedule.forEach((task) => {
+//   task.start();
+// });

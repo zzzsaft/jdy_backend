@@ -57,7 +57,7 @@ class ApiClient {
       method: httpMethod,
       url: `${this.host}${options.path}${queryString}`,
       data: options.payload || {},
-      timeout: 5000,
+      timeout: 10000,
       headers: header,
     };
     let response;

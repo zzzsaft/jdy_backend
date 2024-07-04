@@ -1,6 +1,20 @@
 import { appApiClient, connectApiClient } from "./api_client";
 
 class XftUserApiClient {
+  async saveEmployee(staffInfoList, dataSources = "jdy") {
+    return await appApiClient.doRequest(
+      {
+        method: "POST",
+        path: "/hrm/hrm2/xft-employeemovement/entry/save/v1/batch",
+        payload: { dataSources: dataSources, entryStaffs: staffInfoList },
+      },
+      {
+        name: "saveEmployee",
+        duration: 1000,
+        limit: 20,
+      }
+    );
+  }
   async updateEmployee(staffInfoList) {
     return await appApiClient.doRequest(
       {
@@ -57,6 +71,7 @@ class XftUserApiClient {
         "certificateNumber",
         "orgSeq",
         "stfStatus",
+        "remark",
       ],
     }
   ) {
