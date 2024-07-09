@@ -45,13 +45,13 @@ export class ApiClient {
         options.path
       }${query}`,
       data: options.payload,
-      timeout: 5000,
+      timeout: 15000,
     };
     let response: AxiosResponse<any>;
     try {
       await jdyLimiter.tryBeforeRun(limitOption);
       response = await axios(axiosRequestConfig);
-      logger.info(`${axiosRequestConfig.url}请求成功！`);
+      logger.info(response.data);
       return response.data;
     } catch (e) {
       // console.log(e);

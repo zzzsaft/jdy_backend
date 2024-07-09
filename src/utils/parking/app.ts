@@ -28,7 +28,7 @@ interface IGetCarInfo {
 }
 
 class ParkingApiClient {
-  async addCar(carInfo: ICreateCarInfo) {
+  async addCar(carInfo) {
     return await apiClient.doRequest({
       method: "POST",
       path: "/jeecg-boot/openApi/addCarInfo",

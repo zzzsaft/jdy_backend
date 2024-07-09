@@ -17,14 +17,14 @@ function getSignature(
   return hash.digest("hex");
 }
 
-export const JdyWebhook = (request: Request, response: Response) => {
-  const webhook_token = process.env.JDY_WEBHOOK_TOKEN ?? "";
+export const JdyWebhook = async (request: Request, response: Response) => {
+  const webhook_token = process.env.JDY_WEBHOOK_TOKEN ?? "test";
   const payload = JSON.stringify(request.body);
   const nonce = request.query.nonce as string;
   const timestamp = request.query.timestamp as string;
   const signature = request.headers["x-jdy-signature"] as string;
   if (signature !== getSignature(nonce, payload, webhook_token, timestamp)) {
-    return response.status(401).send("fail");
+    response.status(401).send("fail");
   }
   // new 智能助手(request.body);
   const entryId = request.body.data.entryId;
@@ -32,9 +32,9 @@ export const JdyWebhook = (request: Request, response: Response) => {
   const op = request.body.op;
   const controller = JdyControllers?.[appId]?.[entryId]?.[op];
   if (controller) {
-    controller(request.body.data);
+    await controller(request.body.data);
   }
-  return response.send("success");
+  response.send("success");
 };
 
 const JdyControllers = {

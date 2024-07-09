@@ -12,9 +12,12 @@ export const addCar = async (data) => {
     beginTime: format(new Date(data["_widget_1720515048370"]), "yyyy-MM-dd"),
     endTime: format(new Date(data["_widget_1720515048371"]), "yyyy-MM-dd"),
   });
+  if (!result["success"]) {
+    return;
+  }
   const id = formDataApiClient.getFormId("车辆信息登记");
   await formDataApiClient.singleDataUpdate(id.appid, id.entryid, data._id, {
-    _widget_1720515048363: { value: result.id },
+    _widget_1720515048363: { value: result?.["result"]?.["id"] },
   });
 };
 
@@ -30,7 +33,8 @@ export const updateCar = async (data) => {
 };
 
 export const deleteCar = async (data) => {
-  await parkingApiClient.deleteCar(data["_widget_1720515048363"]);
+  if (data["_widget_1720515048363"])
+    await parkingApiClient.deleteCar(data["_widget_1720515048363"]);
 };
 
 export const punishCar = async (data) => {
