@@ -3,6 +3,7 @@ import { TriggerRoutes } from "./frontend/TriggerRoutes";
 import { JdyCustomRoutes } from "./jdy/JdyCustomRoutes";
 import { JdyDataRoutes } from "./jdy/JdyDataRoutes";
 import { parkingRoute } from "./parking";
+import { UtilsRoutes } from "./utils";
 import { WechatOAuthRoutes } from "./wechat/WechatOAuthRoutes";
 import { WechatRoutes } from "./wechat/WechatRoutes";
 import { XftWechatRoute } from "./xft/xftWechatRoute";
@@ -17,6 +18,7 @@ export const AppRoutes = [
   ...WechatOAuthRoutes,
   ...XftWechatRoute,
   parkingRoute,
+  ...UtilsRoutes,
   // ...JdyDataRoutes,
   // ...JdyCustomRoutes,
 ];

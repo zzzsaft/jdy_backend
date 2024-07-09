@@ -11,11 +11,13 @@ import { syncUser } from "./schedule/syncXftData";
 import { User } from "./entity/wechat/User";
 import { importJdyToXft, reviseJdyToXft } from "./utils/xft/temp";
 
+import { apiClient } from "./utils/parking/api_client";
+
 PgDataSource.initialize()
   .then(async () => {
     logger.info("Data Source has been initialized!");
     const app = express();
-    const port = parseInt(process.env.PORT ?? "2000");
+    const port = parseInt("2002");
     app.use(cors());
     app.use(autoParse);
     // register all application routes
@@ -30,7 +32,7 @@ PgDataSource.initialize()
         }
       );
     });
-    await importJdyToXft();
+    // await importJdyToXft();
     // run app
     app.listen(port, () => {
       logger.info(`[server]: Server is running at http://localhost:${port}`);
