@@ -6,6 +6,7 @@ interface ICreateCarInfo {
   phone: string;
   beginTime: string;
   endTime: string;
+  userId: string;
 }
 interface IUpdateCarInfo {
   id: string;
@@ -14,6 +15,7 @@ interface IUpdateCarInfo {
   phone?: string;
   beginTime: string;
   endTime: string;
+  userId: string;
 }
 
 interface IGetCarInfo {
@@ -25,10 +27,11 @@ interface IGetCarInfo {
   beginTimeRangeEnd?: string;
   endTimeRangeStart?: string;
   endTimeRangeEnd?: string;
+  userId?: string;
 }
 
 class ParkingApiClient {
-  async addCar(carInfo) {
+  async addCar(carInfo: ICreateCarInfo) {
     return await apiClient.doRequest({
       method: "POST",
       path: "/jeecg-boot/openApi/addCarInfo",
@@ -38,7 +41,7 @@ class ParkingApiClient {
   async updateCar(carInfo: IUpdateCarInfo) {
     return await apiClient.doRequest({
       method: "POST",
-      path: "/hrm/hrm2/xft-employeeprofile/employee/staff-general-api/modify-staff",
+      path: "/jeecg-boot/openApi/updateById",
       payload: carInfo,
     });
   }
@@ -52,9 +55,9 @@ class ParkingApiClient {
 
   async getCar(carInfo: IGetCarInfo) {
     return await apiClient.doRequest({
-      method: "GET",
-      path: "/jeecg-boot/openApi/queryById",
-      payload: carInfo,
+      method: "POST",
+      path: "/jeecg-boot/openApi/list",
+      payload: { ...carInfo, pageSize: "1000" },
     });
   }
 

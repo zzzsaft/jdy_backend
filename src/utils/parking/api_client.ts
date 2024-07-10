@@ -6,6 +6,7 @@ import { logger } from "../../config/logger";
 import { IRequestOptions } from "../../type/IType";
 import { createHash } from "crypto";
 import { format } from "date-fns-tz";
+import { toZonedTime, format as formatTz } from "date-fns-tz";
 
 class ApiClient {
   host: string;
@@ -26,7 +27,6 @@ class ApiClient {
    */
   async doRequest(options: IRequestOptions) {
     const query = options.query || {};
-    const timestamp = Math.floor(Date.now() / 1000);
     const httpMethod = _.toUpper(options.method);
     const queryString = query ? `?${qs.stringify(query)}` : "";
     const header = this.genHeaders(options.payload || {});
@@ -52,7 +52,8 @@ class ApiClient {
           );
         }
       }
-      if (response.data["success"]) logger.error(JSON.stringify(response.data));
+      if (!response.data["success"])
+        logger.error(JSON.stringify(response.data));
       else logger.info(JSON.stringify(response.data).slice(0, 50));
       return response.data;
     } catch (e) {
@@ -73,12 +74,12 @@ class ApiClient {
   genHeaders(requestBody: any) {
     requestBody = JSON.stringify(sortObjectKeys(requestBody)) + this.secret;
     const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const zonedDate = toZonedTime(now, systemTimeZone);
+    const zonedDate = toZonedTime(new Date(), systemTimeZone);
     const sign = createHash("md5")
       .update(requestBody, "utf8")
       .digest("hex")
       .toUpperCase();
-
+    // console.log(requestBody);
     return {
       "X-TIMESTAMP": format(zonedDate, "yyyyMMddHHmmss", {
         timeZone: systemTimeZone,
@@ -104,20 +105,3 @@ function sortObjectKeys(obj) {
   }
   return result;
 }
-import { toZonedTime, format as formatTz } from "date-fns-tz";
-
-// 获取当前时间的 UTC 时间戳
-const now = new Date();
-
-// 获取系统的时区
-const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-// 将当前时间转换为系统时区的时间
-const zonedDate = toZonedTime(now, systemTimeZone);
-
-// 格式化输出
-const output = formatTz(zonedDate, "yyyy-MM-dd HH:mm:ssXXX", {
-  timeZone: systemTimeZone,
-});
-
-console.log("Current time in local timezone:", output);
