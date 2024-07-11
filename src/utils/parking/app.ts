@@ -14,6 +14,7 @@ interface IUpdateCarInfo {
   carNum?: string;
   carOwner?: string;
   phone?: string;
+  licensePlateColor?: string;
   beginTime: string;
   endTime: string;
   userId: string;

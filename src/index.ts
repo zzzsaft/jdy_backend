@@ -17,6 +17,8 @@ import axios from "axios";
 import { dahua_token } from "./utils/dahua/token";
 import { fileApiClient } from "./utils/dahua/file";
 import { punishCar } from "./controllers/jdy/parking.jdy.contollers";
+import { ParkingRecord } from "./entity/DaHua/parking";
+import { personApiClient } from "./utils/dahua/person";
 
 // PgDataSource.initialize()
 //   .then(async () => {
@@ -37,6 +39,7 @@ import { punishCar } from "./controllers/jdy/parking.jdy.contollers";
 //         }
 //       );
 //     });
+//     // await ParkingRecord.testRecords();
 //     // await importJdyToXft();
 //     // run app
 //     app.listen(port, () => {
@@ -47,6 +50,7 @@ import { punishCar } from "./controllers/jdy/parking.jdy.contollers";
 //     console.log(err);
 //     logger.error("Error during Data Source initialization:", err);
 //   });
+
 // process.on("unhandledRejection", (reason, promise) => {
 //   logger.error("Unhandled Rejection:", reason);
 // });
@@ -71,7 +75,7 @@ import { punishCar } from "./controllers/jdy/parking.jdy.contollers";
 // );
 // console.log(b.size);
 // fileApiClient.uploadFile(a, "test.jpeg");
-console.log(await parkingApiClient.deleteCar("1811272542767386625"));
+// console.log(await parkingApiClient.deleteCar("1811291729034870785"));
 // console.log(
 //   await parkingApiClient.updateCar({
 //     id: "1810948145749790722",
@@ -83,7 +87,7 @@ console.log(await parkingApiClient.deleteCar("1811272542767386625"));
 //     userId: "ZhuEn",
 //   })
 // );
-console.log((await parkingApiClient.getCar({}))["result"]["records"]);
+// console.log((await parkingApiClient.getCar({}))["result"]["records"]);
 const a = {
   _id: "668e4c60823aa6b594b5b96c",
   _widget_1720526149435: { id: "668e408138fe6de9132a996a" },
@@ -126,3 +130,4 @@ const a = {
   },
 };
 // await punishCar(a);
+console.log((await personApiClient.getOrgCode())["data"]["pageData"]);

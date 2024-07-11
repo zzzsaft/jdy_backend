@@ -26,10 +26,12 @@ export class User extends BaseEntity {
   department_id: string[];
   @Column({ nullable: true })
   main_department_id: string;
-  @Column({ nullable: true, unique: true })
+  @Column({ nullable: true })
   xft_enterprise_id: string;
   @Column({ nullable: true })
   attendance: string;
+  @Column({ nullable: true })
+  dahua_id: string;
   // @ManyToOne(() => Department, (department) => department.)
   department: Department;
 
@@ -108,5 +110,15 @@ export class User extends BaseEntity {
       conflictPaths: ["user_id"],
       skipUpdateIfNoValuesChanged: true, // supported by postgres, skips update if it would not change row values
     });
+  }
+
+  static async addDahuaId(userId: string, dahuaId: string) {
+    const user = await User.findOne({ where: { user_id: userId } });
+    if (user) {
+      user.dahua_id = dahuaId;
+      await user.save();
+    } else {
+      logger.error(`User not found: ${userId}`);
+    }
   }
 }
