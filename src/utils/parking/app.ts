@@ -4,6 +4,7 @@ interface ICreateCarInfo {
   carNum: string;
   carOwner: string;
   phone: string;
+  licensePlateColor: string;
   beginTime: string;
   endTime: string;
 }
@@ -28,7 +29,7 @@ interface IGetCarInfo {
 }
 
 class ParkingApiClient {
-  async addCar(carInfo) {
+  async addCar(carInfo: ICreateCarInfo) {
     return await apiClient.doRequest({
       method: "POST",
       path: "/jeecg-boot/openApi/addCarInfo",
@@ -44,8 +45,8 @@ class ParkingApiClient {
   }
   async deleteCar(id: string) {
     return await apiClient.doRequest({
-      method: "GET",
-      path: "/jeecg-boot/openApi/deleteCar",
+      method: "DELETE",
+      path: "/jeecg-boot/openApi/deleteById",
       query: { id: id },
     });
   }

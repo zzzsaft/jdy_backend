@@ -29,12 +29,12 @@ class ApiClient {
     const timestamp = Math.floor(Date.now() / 1000);
     const httpMethod = _.toUpper(options.method);
     const queryString = query ? `?${qs.stringify(query)}` : "";
-    const header = this.genHeaders(options.payload || {});
+    const header = this.genHeaders(options.payload || options.query || {});
     // console.log(JSON.stringify(options.payload));
     const axiosRequestConfig = {
       method: httpMethod,
       url: `${this.host}${options.path}${queryString}`,
-      data: options.payload || {},
+      data: options.payload || null,
       timeout: 10000,
       headers: header,
     };

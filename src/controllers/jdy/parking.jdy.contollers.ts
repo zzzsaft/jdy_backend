@@ -11,6 +11,7 @@ export const addCar = async (data) => {
     phone: data["_widget_1720515048369"],
     beginTime: format(new Date(data["_widget_1720515048370"]), "yyyy-MM-dd"),
     endTime: format(new Date(data["_widget_1720515048371"]), "yyyy-MM-dd"),
+    licensePlateColor: data["_widget_1720677256474"] ?? "蓝色",
   });
   if (!result["success"]) {
     return;

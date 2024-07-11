@@ -1,5 +1,4 @@
 import axios from "axios";
-import dotenv from "dotenv";
 interface TokenConfig {
   corp_id: string;
   corp_secret: string;
@@ -15,7 +14,6 @@ interface AccessTokenResponse {
 class Token {
   private corp_id: string;
   private corp_secret: string;
-  private corp_secret_checkin?: string;
   private accessToken: string = "";
   private expire: number = 0;
 

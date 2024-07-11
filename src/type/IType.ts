@@ -5,7 +5,7 @@ export interface ILimitOpion {
 }
 export interface IRequestOptions {
   version?: string;
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "PUT" | "DELETE";
   path: string;
   query?: any;
   payload?: any;

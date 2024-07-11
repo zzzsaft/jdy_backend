@@ -13,6 +13,9 @@ import { importJdyToXft, reviseJdyToXft } from "./utils/xft/temp";
 
 import { apiClient } from "./utils/parking/api_client";
 import { parkingApiClient } from "./utils/parking/app";
+import axios from "axios";
+import { dahua_token } from "./utils/dahua/token";
+import { fileApiClient } from "./utils/dahua/file";
 
 // PgDataSource.initialize()
 //   .then(async () => {
@@ -58,3 +61,13 @@ import { parkingApiClient } from "./utils/parking/app";
 //   endTime: "2025-12-31",
 // });
 // console.log(result);
+// import * as fs from "fs";
+// const a = fileApiClient.readFile(
+//   "c:\\Users\\云创联动\\Desktop\\764612af-5c89-453e-9f4a-d3fb24e216be.jpeg"
+// );
+// const b = fs.statSync(
+//   "c:\\Users\\云创联动\\Desktop\\764612af-5c89-453e-9f4a-d3fb24e216be.jpeg"
+// );
+// console.log(b.size);
+// fileApiClient.uploadFile(a, "test.jpeg");
+console.log(await parkingApiClient.deleteCar("1811272542767386625"));
