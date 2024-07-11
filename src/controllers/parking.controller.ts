@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
+import { logger } from "../config/logger";
 
 export const parking = async (request: Request, response: Response) => {
-  console.log(request.body);
+  logger.info(request.body);
   return response.send(request.body);
 };

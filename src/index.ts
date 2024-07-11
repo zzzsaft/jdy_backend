@@ -16,6 +16,7 @@ import { parkingApiClient } from "./utils/parking/app";
 import axios from "axios";
 import { dahua_token } from "./utils/dahua/token";
 import { fileApiClient } from "./utils/dahua/file";
+import { punishCar } from "./controllers/jdy/parking.jdy.contollers";
 
 // PgDataSource.initialize()
 //   .then(async () => {
@@ -71,3 +72,57 @@ import { fileApiClient } from "./utils/dahua/file";
 // console.log(b.size);
 // fileApiClient.uploadFile(a, "test.jpeg");
 console.log(await parkingApiClient.deleteCar("1811272542767386625"));
+// console.log(
+//   await parkingApiClient.updateCar({
+//     id: "1810948145749790722",
+//     carNum: "AF50977",
+//     carOwner: "朱恩",
+//     phone: "13291610209",
+//     beginTime: "2024-06-10",
+//     endTime: "2030-01-01",
+//     userId: "ZhuEn",
+//   })
+// );
+console.log((await parkingApiClient.getCar({}))["result"]["records"]);
+const a = {
+  _id: "668e4c60823aa6b594b5b96c",
+  _widget_1720526149435: { id: "668e408138fe6de9132a996a" },
+  _widget_1720526149436: "1810948145749790722",
+  _widget_1720526149437: "浙AF50977",
+  _widget_1720526149438: "LiangZhi",
+  _widget_1720526149439: "梁之",
+  _widget_1720526149440: "18869965222",
+  _widget_1720526149442: "111",
+  _widget_1720526149443: "三天",
+  _widget_1720526330267: {
+    _id: "6189db48c482520007e2e435",
+    name: "梁之",
+    status: 1,
+    type: 0,
+    username: "LiangZhi",
+  },
+  _widget_1720526330271: [],
+  appId: "5cd65fc5272c106bbc2bbc38",
+  createTime: "2024-07-10T08:54:56.793Z",
+  creator: {
+    _id: "6189db48c482520007e2e435",
+    name: "梁之",
+    status: 1,
+    type: 0,
+    username: "LiangZhi",
+  },
+  deleteTime: null,
+  deleter: null,
+  entryId: "668d244cbae980236ab4e62c",
+  flowState: 1,
+  formName: "车辆违停处罚流程",
+  updateTime: "2024-07-10T08:54:32.182Z",
+  updater: {
+    _id: "6189db48c482520007e2e435",
+    name: "梁之",
+    status: 1,
+    type: 0,
+    username: "LiangZhi",
+  },
+};
+// await punishCar(a);

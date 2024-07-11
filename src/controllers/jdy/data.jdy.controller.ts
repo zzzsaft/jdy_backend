@@ -2,7 +2,12 @@ import { Request, Response } from "express";
 import * as crypto from "crypto";
 import dotenv from "dotenv";
 import { 智能助手 } from "./dataTrigger.controller";
-import { addCar, deleteCar, updateCar } from "./parking.jdy.contollers";
+import {
+  addCar,
+  deleteCar,
+  punishCar,
+  updateCar,
+} from "./parking.jdy.contollers";
 import exp from "constants";
 
 function getSignature(
@@ -27,14 +32,18 @@ export const JdyWebhook = async (request: Request, response: Response) => {
     response.status(401).send("fail");
   }
   // new 智能助手(request.body);
-  const entryId = request.body.data.entryId;
-  const appId = request.body.data.appId;
-  const op = request.body.op;
+  await controllerMethod(request.body);
+  response.send("success");
+};
+
+const controllerMethod = async (body) => {
+  const entryId = body.data.entryId;
+  const appId = body.data.appId;
+  const op = body.op;
   const controller = JdyControllers?.[appId]?.[entryId]?.[op];
   if (controller) {
-    await controller(request.body.data);
+    await controller(body.data);
   }
-  response.send("success");
 };
 
 const JdyControllers = {
@@ -45,7 +54,7 @@ const JdyControllers = {
       data_remove: deleteCar,
     },
     "668d244cbae980236ab4e62c": {
-      data_update: updateCar,
+      data_update: punishCar,
     },
   },
 };

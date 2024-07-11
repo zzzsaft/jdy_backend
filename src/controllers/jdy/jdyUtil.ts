@@ -8,4 +8,4 @@ export const isTaskFinished = async (taskid: string): Promise<boolean> => {
 };
 
 const isWithin60Seconds = (date: Date): boolean =>
-  Math.abs(date.getTime() - Date.now()) <= 60 * 1000;
+  Math.abs(date.getTime() - Date.now()) <= 100 * 60 * 1000;
