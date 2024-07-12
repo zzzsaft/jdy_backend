@@ -1,20 +1,31 @@
 import { format } from "date-fns";
 import { parkingApiClient } from "../../utils/parking/app";
 import { formDataApiClient } from "../../utils/jdy/form_data";
-import { workflowApiClient } from "../../utils/jdy/workflow";
 import { isTaskFinished } from "./jdyUtil";
 import { MessageHelper } from "../../utils/wechat/message";
 import { logger } from "../../config/logger";
+import { ParkingInfo } from "../../entity/DaHua/parkingInfo";
 
 export const addCar = async (data) => {
+  const carNum = data["_widget_1720515048364"];
+  const carOwner = data["_widget_1720515048366"];
+  const phone = data["_widget_1720515048369"];
+  const beginTime = format(
+    new Date(data["_widget_1720515048370"]),
+    "yyyy-MM-dd"
+  );
+  const endTime = format(new Date(data["_widget_1720515048371"]), "yyyy-MM-dd");
+  const licensePlateColor = data["_widget_1720677256474"] ?? "蓝色";
+  const userId = data["_widget_1720515048365"];
+
   const result = await parkingApiClient.addCar({
-    carNum: data["_widget_1720515048364"],
-    carOwner: data["_widget_1720515048366"],
-    phone: data["_widget_1720515048369"],
-    beginTime: format(new Date(data["_widget_1720515048370"]), "yyyy-MM-dd"),
-    endTime: format(new Date(data["_widget_1720515048371"]), "yyyy-MM-dd"),
-    licensePlateColor: data["_widget_1720677256474"] ?? "蓝色",
-    userId: data["_widget_1720515048365"],
+    carNum,
+    carOwner,
+    phone,
+    beginTime,
+    endTime,
+    licensePlateColor,
+    userId,
   });
   if (!result["success"]) {
     return;
@@ -23,19 +34,50 @@ export const addCar = async (data) => {
   await formDataApiClient.singleDataUpdate(id.appid, id.entryid, data._id, {
     _widget_1720515048363: { value: result?.["result"]?.["id"] },
   });
+  await ParkingInfo.addInfo({
+    id: result?.["result"]?.["id"],
+    ownerId: userId,
+    ownerName: carOwner,
+    ownerPhone: phone,
+    carNum,
+    licensePlateColor,
+    beginTime,
+    endTime,
+  });
 };
 
 export const updateCar = async (data) => {
-  if (!data["_widget_1720515048363"]) return;
+  const id = data["_widget_1720515048363"];
+  const carNum = data["_widget_1720515048364"];
+  const carOwner = data["_widget_1720515048366"];
+  const phone = data["_widget_1720515048369"];
+  const beginTime = format(
+    new Date(data["_widget_1720515048370"]),
+    "yyyy-MM-dd"
+  );
+  const endTime = format(new Date(data["_widget_1720515048371"]), "yyyy-MM-dd");
+  const licensePlateColor = data["_widget_1720677256474"] ?? "蓝色";
+  const userId = data["_widget_1720515048365"];
+  if (!id) return;
   await parkingApiClient.updateCar({
-    id: data["_widget_1720515048363"],
-    carNum: data["_widget_1720515048364"],
-    carOwner: data["_widget_1720515048366"],
-    phone: data["_widget_1720515048369"],
-    beginTime: format(new Date(data["_widget_1720515048370"]), "yyyy-MM-dd"),
-    endTime: format(new Date(data["_widget_1720515048371"]), "yyyy-MM-dd"),
-    licensePlateColor: data["_widget_1720677256474"] ?? "蓝色",
-    userId: data["_widget_1720515048365"],
+    id,
+    carNum,
+    carOwner,
+    phone,
+    beginTime,
+    endTime,
+    licensePlateColor,
+    userId,
+  });
+  await ParkingInfo.updateInfo({
+    id,
+    ownerId: userId,
+    ownerName: carOwner,
+    ownerPhone: phone,
+    carNum,
+    licensePlateColor,
+    beginTime,
+    endTime,
   });
 };
 

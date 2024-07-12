@@ -65,10 +65,32 @@ export class ParkingRecord extends AbstractContent {
   @Column("interval", { nullable: true })
   duration: number;
 
+  @Column({ nullable: true })
+  count: number;
+
   static async addRecord(record: ParkingRecordType) {
     try {
+      const today = new Date();
+      const startOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate()
+      );
+      const endOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1
+      );
+
       if (record.status === 0) {
         // 进厂，插入数据
+        const count = await ParkingRecord.createQueryBuilder("parkingRecord")
+          .where("parkingRecord.ownerId = :ownerId", {
+            ownerId: record.ownerId,
+          })
+          .andWhere("parkingRecord.inCarTime >= :startOfDay", { startOfDay })
+          .andWhere("parkingRecord.inCarTime < :endOfDay", { endOfDay })
+          .getCount();
         const newRecord = ParkingRecord.create({
           ownerId: record.ownerId,
           ownerName: record.ownerName,
@@ -79,6 +101,7 @@ export class ParkingRecord extends AbstractContent {
           inCarTime: new Date(record.carTime),
           inCarPic: record.carPic,
           laneCode: record.laneCode,
+          count: count + 1,
         });
         await ParkingRecord.save(newRecord);
       } else {
@@ -86,8 +109,8 @@ export class ParkingRecord extends AbstractContent {
         const existingRecord = await ParkingRecord.createQueryBuilder(
           "parkingRecord"
         )
-          .where("parkingRecord.ownerId = :ownerId", {
-            ownerId: record.ownerId,
+          .where("parkingRecord.carNum = :carNum", {
+            carNum: record.carNum,
           })
           .andWhere("parkingRecord.inCarTime IS NOT NULL")
           .andWhere("parkingRecord.outCarTime IS NULL")
@@ -114,6 +137,7 @@ export class ParkingRecord extends AbstractContent {
             outCarTime: new Date(record.carTime),
             outCarPic: record.carPic,
             laneCode: record.laneCode,
+            count: 1,
           });
           await ParkingRecord.save(newRecord);
         }
