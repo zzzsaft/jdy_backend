@@ -20,6 +20,11 @@ import { punishCar } from "./controllers/jdy/parking.jdy.contollers";
 import { ParkingRecord } from "./entity/DaHua/parkingRecords";
 import { personApiClient } from "./utils/dahua/person";
 import { ParkingInfo } from "./entity/DaHua/parkingInfo";
+import {
+  addtoDahua,
+  saveExistInfo,
+  updateExistInfo,
+} from "./controllers/jdy/addPerson.controller";
 
 PgDataSource.initialize()
   .then(async () => {
@@ -43,6 +48,8 @@ PgDataSource.initialize()
     // await ParkingRecord.testRecords();
     // await importJdyToXft();
     // await ParkingInfo.test();
+    // await saveExistInfo();
+    // await personApiClient.authAsync("1018709441070702592");
     // run app
     app.listen(port, () => {
       logger.info(`[server]: Server is running at http://localhost:${port}`);
@@ -52,6 +59,15 @@ PgDataSource.initialize()
     console.log(err);
     logger.error("Error during Data Source initialization:", err);
   });
+
+// await addtoDahua({
+//   userId: "ZhangMengKe",
+//   name: "张梦可",
+//   fileStream: fileApiClient.readFile(
+//     "c:\\Users\\云创联动\\Desktop\\dddddd.jpg"
+//   ),
+//   fileName: "zzzzz.jpg",
+// });
 
 // process.on("unhandledRejection", (reason, promise) => {
 //   logger.error("Unhandled Rejection:", reason);

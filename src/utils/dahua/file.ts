@@ -39,10 +39,10 @@ class FileApiClient extends ApiClient {
     formData.append("OSSAccessKeyId", this.policy.accessId);
     formData.append("policy", this.policy.policy);
     formData.append("Signature", this.policy.signature);
-    // formData.append(
-    //   "Content-Disposition",
-    //   `attachment;filename=${this.policy.dir}/${key}`
-    // );
+    formData.append(
+      "Content-Disposition",
+      `attachment;filename=${this.policy.dir}/${key}`
+    );
     formData.append("key", `${this.policy.dir}/${key}`);
     formData.append("file", file);
     const axiosRequestConfig: AxiosRequestConfig = {
@@ -57,9 +57,6 @@ class FileApiClient extends ApiClient {
     );
     // console.log(response.data);
     return `${this.policy.dir}/${key}`;
-  }
-  readFile(localFilePath) {
-    return fs.createReadStream(localFilePath);
   }
 }
 export const fileApiClient = new FileApiClient();

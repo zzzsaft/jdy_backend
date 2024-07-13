@@ -9,6 +9,7 @@ import {
   updateCar,
 } from "./parking.jdy.contollers";
 import exp from "constants";
+import { updateExistInfo, 入职申请表 } from "./addPerson.controller";
 
 function getSignature(
   nonce: string,
@@ -55,6 +56,14 @@ const JdyControllers = {
     },
     "668d244cbae980236ab4e62c": {
       data_update: punishCar,
+    },
+  },
+  "5cfef4b5de0b2278b05c8380": {
+    "5cfef54d0fc84505a1d270f4": {
+      data_create: 入职申请表,
+    },
+    "6414573264b9920007c82491": {
+      data_update: updateExistInfo,
     },
   },
 };

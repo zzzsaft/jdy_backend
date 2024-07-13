@@ -9,7 +9,7 @@ class PersonApiClient extends ApiClient {
       payload: {
         ...file,
         orgCode: "001100",
-        storeId: "4464a5e675914ec7bb5340d3e85a0630",
+        storeId: "332265869940375552",
       },
     });
   }
@@ -19,6 +19,18 @@ class PersonApiClient extends ApiClient {
       method: "POST",
       path: "/gateway/membership/api/org/list",
       payload: { pageNum: 1, pageSize: 100 },
+    });
+  }
+
+  async authAsync(personFileId) {
+    return await this.doRequest({
+      method: "POST",
+      path: "/gateway/dsc-owner/api/authAsync",
+      payload: [
+        { operateType: 1, deviceId: "AD091B6PAJ15DFE", personFileId },
+        { operateType: 1, deviceId: "AC0F22DPAJ9C7DB", personFileId },
+        { operateType: 1, deviceId: "AC0F22DPAJ722C6", personFileId },
+      ],
     });
   }
 }

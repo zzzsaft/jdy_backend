@@ -84,6 +84,12 @@ export class ParkingRecord extends AbstractContent {
 
       if (record.status === 0) {
         // 进厂，插入数据
+        const exists = await ParkingRecord.exists({
+          where: {
+            inRecordId: record.parkingRecordId,
+          },
+        });
+        if (exists) return;
         const count = await ParkingRecord.createQueryBuilder("parkingRecord")
           .where("parkingRecord.ownerId = :ownerId", {
             ownerId: record.ownerId,
@@ -106,6 +112,12 @@ export class ParkingRecord extends AbstractContent {
         await ParkingRecord.save(newRecord);
       } else {
         // 出厂，查找并更新数据
+        const exists = await ParkingRecord.exists({
+          where: {
+            outRecordId: record.parkingRecordId,
+          },
+        });
+        if (exists) return;
         const existingRecord = await ParkingRecord.createQueryBuilder(
           "parkingRecord"
         )
