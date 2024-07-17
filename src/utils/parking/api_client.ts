@@ -13,7 +13,7 @@ class ApiClient {
   secret: string;
 
   constructor() {
-    this.host = "http://121.43.124.108:9080";
+    this.host = "116.148.226.245:9080/jingcheng-visitor";
     this.secret = process.env.PARKING_SECRET ?? "";
   }
 
