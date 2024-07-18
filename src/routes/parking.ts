@@ -1,4 +1,6 @@
 import {
+  dahuaCallback,
+  entryExistRecord,
   inParking,
   outParking,
   parking,
@@ -20,4 +22,15 @@ export const parkingRoutes = [
     method: "post",
     action: outParking,
   },
+  {
+    path: "/parking/v2",
+    method: "post",
+    action: entryExistRecord,
+  },
+  {
+    path: "/dahua",
+    method: "post",
+    action: dahuaCallback,
+  },
 ];
+//http://116.148.160.12:9080/jeecg-boot/dahua/msg/save

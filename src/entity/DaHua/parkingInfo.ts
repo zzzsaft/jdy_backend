@@ -1,4 +1,10 @@
-import { BaseEntity, Column, Entity, PrimaryColumn } from "typeorm";
+import {
+  BaseEntity,
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryColumn,
+} from "typeorm";
 import { logger } from "../../config/logger";
 
 type ParkingInfoType = {
@@ -16,20 +22,22 @@ type ParkingInfoType = {
 export class ParkingInfo extends BaseEntity {
   @PrimaryColumn()
   id: string;
-  @Column()
+  @Column({ name: "user_id" })
   ownerId: string;
-  @Column()
+  @Column({ name: "name", nullable: true })
   ownerName: string;
-  @Column()
+  @Column({ name: "phone", nullable: true })
   ownerPhone: string;
-  @Column()
+  @Column({ name: "car_num", nullable: true })
   carNum: string;
-  @Column()
+  @Column({ name: "license_plate_color", nullable: true })
   licensePlateColor: string;
-  @Column()
+  @Column({ name: "begin_time", nullable: true })
   beginTime: Date;
-  @Column()
+  @Column({ name: "end_time", nullable: true })
   endTime: Date;
+  @CreateDateColumn({ name: "created_at", nullable: true })
+  createdAt: Date;
 
   static async addInfo(info: ParkingInfoType) {
     try {

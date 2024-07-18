@@ -2,6 +2,18 @@ import { Request, Response } from "express";
 import { logger } from "../config/logger";
 import { ParkingRecord } from "../entity/DaHua/parkingRecords";
 import { ParkingInfo } from "../entity/DaHua/parkingInfo";
+import { EntryExistRecords } from "../entity/DaHua/entryExitRecord";
+import dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
+import { downloadFile } from "../utils/general";
+
+const sendInfo = {
+  success: true,
+  code: "0000",
+  errMsg: "success",
+  data: {},
+};
 
 export const parking = async (request: Request, response: Response) => {
   logger.info(request.body);
@@ -32,12 +44,7 @@ export const inParking = async (request: Request, response: Response) => {
     carPic: data["carInPic"],
     laneCode: data["laneCode"],
   });
-  return response.send({
-    success: true,
-    code: "0000",
-    errMsg: "success",
-    data: {},
-  });
+  return response.send(sendInfo);
 };
 
 export const outParking = async (request: Request, response: Response) => {
@@ -58,10 +65,27 @@ export const outParking = async (request: Request, response: Response) => {
     carPic: data["carOutPic"],
     laneCode: data["laneCode"],
   });
-  return response.send({
-    success: true,
-    code: "0000",
-    errMsg: "success",
-    data: {},
-  });
+  return response.send(sendInfo);
+};
+
+export const entryExistRecord = async (
+  request: Request,
+  response: Response
+) => {
+  const data = request.body;
+  await EntryExistRecords.addCarRecord(data);
+  return response.send(sendInfo);
+};
+
+export const dahuaCallback = async (request: Request, response: Response) => {
+  const data = request.body;
+  const msgType = data["msgType"];
+  if (msgType === "card.record") {
+    await EntryExistRecords.addCardRecord(data);
+  }
+  return response.send(sendInfo);
+};
+
+export const downloadImage = async (url) => {
+  return await downloadFile(url, `./public/images/${Date.now()}.jpg`);
 };

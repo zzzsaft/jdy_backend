@@ -58,7 +58,6 @@ export const updateExistInfo = async (data) => {
     fileStream,
     fileName,
   });
-  logger.info(`update person to dahua success: ${data["full_name"]}`);
 };
 
 const saveNewInfotoDahua = async (data) => {

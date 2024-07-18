@@ -19,4 +19,4 @@ ENV NODE_ENV=production
 EXPOSE 2000
 
 # 运行应用
-CMD npm install --only=production && npm start
+CMD npm start
