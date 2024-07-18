@@ -9,7 +9,6 @@ import {
 import { logger } from "../../config/logger";
 import { ParkingInfo } from "./parkingInfo";
 import { User } from "../wechat/User";
-import { error, log } from "console";
 
 interface CarRecord {
   parkingLotCode: string;
@@ -56,8 +55,12 @@ export class EntryExistRecords extends BaseEntity {
   time: Date;
   @Column("interval", { nullable: true })
   gap: number;
+  @Column({ nullable: true })
+  image: string;
+  @Column({ nullable: true })
+  url: string;
 
-  static async addCarRecord(record: CarRecord) {
+  static async addCarRecord(record: CarRecord, fileName: string) {
     try {
       const exists = await this.exists({
         where: {
@@ -67,6 +70,10 @@ export class EntryExistRecords extends BaseEntity {
       });
       if (exists) return;
       let userId, name, phone, gap;
+      const url = fileName
+        ? "http://hz.jc-times.com:2000/image/car/" +
+          fileName.split("/").pop()?.split(".")[0]
+        : "";
       const carNum = record.carNum;
       const method = record.carInTime ? "车辆入场" : "车辆出场";
       const enterOrExit = record.carInTime ? 0 : 1;
@@ -88,7 +95,7 @@ export class EntryExistRecords extends BaseEntity {
           (await this.getLeastRecordByCarNum(carNum));
         gap =
           existRecord && existRecord.enterOrExit != enterOrExit
-            ? time.getTime() - existRecord.time.getTime()
+            ? (time.getTime() - existRecord.time.getTime()) / 1000
             : null;
       }
       this.create({
@@ -103,23 +110,29 @@ export class EntryExistRecords extends BaseEntity {
         time,
         gap,
         isVisitor: false,
+        image: fileName,
+        url,
       }).save();
     } catch (error) {
       logger.error("Error adding car record:", error);
       logger.error("Record:", record);
     }
   }
-  static async addCardRecord(record: CardRecord) {
+  static async addCardRecord(record: CardRecord, fileName: string) {
     try {
       const exists = await this.exists({
         where: {
           recordId: record.id,
         },
       });
-      if (exists) return;
+      // if (exists) return;
       if (record.eventTime == 0) return;
       if (!record.personId) return;
       let userId, name, phone, gap;
+      const url = fileName
+        ? "http://hz.jc-times.com:2000/image/card/" +
+          fileName.split("/").pop()?.split(".")[0]
+        : "";
       const method = record.enterOrExit == 1 ? "人脸入场" : "人脸出场";
       const enterOrExit = record.enterOrExit == 1 ? 0 : 1;
       const time = new Date(record.eventTime);
@@ -136,11 +149,11 @@ export class EntryExistRecords extends BaseEntity {
       if (userId) {
         const existRecord = await this.getLeastRecordByUserId(userId);
         if (existRecord) {
-          gap = time.getTime() - existRecord.time.getTime();
+          gap = (time.getTime() - existRecord.time.getTime()) / 1000;
 
           if (
             gap >= 0 &&
-            gap < 5 * 1000 &&
+            gap < 15 &&
             record.enterOrExit == existRecord.enterOrExit
           ) {
             return;
@@ -161,13 +174,15 @@ export class EntryExistRecords extends BaseEntity {
         time,
         gap,
         isVisitor: false,
+        image: fileName,
+        url,
       }).save();
     } catch (error) {
       logger.error("Record:", record);
       logger.error("Error adding card record:", error);
     }
   }
-  private static async getLeastRecordByUserId(userId: string) {
+  static async getLeastRecordByUserId(userId: string) {
     return await EntryExistRecords.createQueryBuilder("records")
       .where("records.user_id = :userId", {
         userId: userId,

@@ -73,7 +73,12 @@ export const entryExistRecord = async (
   response: Response
 ) => {
   const data = request.body;
-  await EntryExistRecords.addCarRecord(data);
+  const url = data["carInPic"];
+  const fileName = await downloadFile(
+    url,
+    `./public/image/car/${Date.now()}.jpg`
+  );
+  await EntryExistRecords.addCarRecord(data, fileName);
   return response.send(sendInfo);
 };
 
@@ -81,11 +86,12 @@ export const dahuaCallback = async (request: Request, response: Response) => {
   const data = request.body;
   const msgType = data["msgType"];
   if (msgType === "card.record") {
-    await EntryExistRecords.addCardRecord(data);
+    const url = data["dataVal"];
+    const fileName = await downloadFile(
+      url,
+      `./public/images/card/${Date.now()}.jpg`
+    );
+    await EntryExistRecords.addCardRecord(data, fileName);
   }
   return response.send(sendInfo);
-};
-
-export const downloadImage = async (url) => {
-  return await downloadFile(url, `./public/images/${Date.now()}.jpg`);
 };

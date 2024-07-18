@@ -13,7 +13,7 @@ class ApiClient {
   secret: string;
 
   constructor() {
-    this.host = "116.148.226.245:9080/jingcheng-visitor";
+    this.host = "http://116.148.226.245:9080/jingcheng-visitor";
     this.secret = process.env.PARKING_SECRET ?? "";
   }
 
@@ -26,7 +26,7 @@ class ApiClient {
    * @param { Object } options.payload - 请求参数,可选
    */
   async doRequest(options: IRequestOptions) {
-    const query = options.query || {};
+    const query = options.query;
     const httpMethod = _.toUpper(options.method);
     const queryString = query ? `?${qs.stringify(query)}` : "";
     const header = this.genHeaders(options.payload || options.query || {});
@@ -57,7 +57,7 @@ class ApiClient {
       else logger.info(JSON.stringify(response.data).slice(0, 50));
       return response.data;
     } catch (e) {
-      console.log(e);
+      logger.error(e);
       response = e.response;
       if (response) {
         const { status, data } = response;

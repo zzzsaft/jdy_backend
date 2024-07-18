@@ -1,4 +1,6 @@
 import { Request, Response } from "express";
+import fs from "fs";
+import { getLocalFilePath } from "../utils/general";
 export const isLicensePlate = async (request: Request, response: Response) => {
   const license = request.params.license_plate.toUpperCase();
   const regex =
@@ -9,4 +11,20 @@ export const isLicensePlate = async (request: Request, response: Response) => {
       color: license.length === 8 ? "绿色" : "蓝色",
     });
   } else response.send({ value: "false" });
+};
+
+export const sendImage = async (request: Request, response: Response) => {
+  const id = request.params.id;
+  const path = request.params.path;
+  const imagePath = getLocalFilePath(`./public/images/${path}/${id}.jpg`);
+  fs.readFile(imagePath, (err, data) => {
+    if (err) {
+      return response.status(500).send("Error reading the image file.");
+    }
+    response.writeHead(200, {
+      "Content-Type": "image/jpg", // 根据图片类型调整 Content-Type
+      "Content-Length": data.length,
+    });
+    response.end(data);
+  });
 };

@@ -26,7 +26,6 @@ import {
   updateExistInfo,
 } from "./controllers/jdy/addPerson.controller";
 import { EntryExistRecords } from "./entity/DaHua/entryExitRecord";
-import { downloadImage } from "./controllers/parking.controller";
 
 const ren = {
   // blockId: 2950,
@@ -48,15 +47,15 @@ const ren = {
   // deviceCode: "AC0F22DPAJ9C7DB",
   // deviceId: "AC0F22DPAJ9C7DB",
   // deviceName: "人脸pad2",
-  enterOrExit: 2,
-  eventTime: 1721272904000,
+  enterOrExit: 1,
+  eventTime: 1721296270000,
   // facePhotoPath:
   //   "https://yr-permanent-storage-oss-bucket.oss-cn-hangzhou.aliyuncs.com/personnel/personFace/700331383/20240715/14/8ac40b27-0f25-40b6-9c4a-f8856d39118f.jpg?Expires=1721877716&OSSAccessKeyId=LTAI5tJw3rLMG3qjhWqCz26J&Signature=YKfS1ceL4AJrUa5AODmUFRNgtJk%3D",
   id: "b62f1311-ce17-4e26-b7af-ac8f23a2b5ee",
   // msgType: "card.record",
   // openResult: 1,
   // personCode: "346884",
-  personId: 1019616347020668900,
+  personId: 1018672463503503360,
   // personName: "肖龙猛",
   // personStoreId: 332265869940375550,
   // personStoreName: "精诚时代集团有限公司",
@@ -105,9 +104,12 @@ PgDataSource.initialize()
     // await saveExistInfo();
     // await personApiClient.authAsync("1018709441070702592");
     // await EntryExistRecords.addCarRecord(t);
-    let a = await downloadImage(
-      "https://parkingcloud-oss-bucket.oss-cn-hangzhou.aliyuncs.com/202407/18/smartparking_%7B187fcade-dcf0-472e-8014-6a93110a8092%7D.jpg?Expires=1721283413&OSSAccessKeyId=LTAI5tBv7kteUPCVAUV3SJAH&Signature=nhy58CjPYUlx6HvGxblKB%2FkvFpY%3D"
-    );
+
+    // let a = await downloadImage(
+    //   "https://parkingcloud-oss-bucket.oss-cn-hangzhou.aliyuncs.com/202407/18/smartparking_%7B187fcade-dcf0-472e-8014-6a93110a8092%7D.jpg?Expires=1721283413&OSSAccessKeyId=LTAI5tBv7kteUPCVAUV3SJAH&Signature=nhy58CjPYUlx6HvGxblKB%2FkvFpY%3D"
+    // );
+    // console.log(a);
+    let a = await EntryExistRecords.addCardRecord(ren, "");
     console.log(a);
     // run app
     app.listen(port, () => {
@@ -118,15 +120,6 @@ PgDataSource.initialize()
     console.log(err);
     logger.error("Error during Data Source initialization:", err);
   });
-
-// await addtoDahua({
-//   userId: "ZhangMengKe",
-//   name: "张梦可",
-//   fileStream: fileApiClient.readFile(
-//     "c:\\Users\\云创联动\\Desktop\\dddddd.jpg"
-//   ),
-//   fileName: "zzzzz.jpg",
-// });
 
 // process.on("unhandledRejection", (reason, promise) => {
 //   logger.error("Unhandled Rejection:", reason);

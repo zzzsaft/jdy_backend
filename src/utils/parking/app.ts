@@ -36,21 +36,21 @@ class ParkingApiClient {
   async addCar(carInfo: ICreateCarInfo) {
     return await apiClient.doRequest({
       method: "POST",
-      path: "/jeecg-boot/openApi/addCarInfo",
+      path: "/openApi/addCarInfo",
       payload: carInfo,
     });
   }
   async updateCar(carInfo: IUpdateCarInfo) {
     return await apiClient.doRequest({
       method: "POST",
-      path: "/jeecg-boot/openApi/updateById",
+      path: "/openApi/updateById",
       payload: carInfo,
     });
   }
   async deleteCar(id: string) {
     return await apiClient.doRequest({
       method: "DELETE",
-      path: "/jeecg-boot/openApi/deleteById",
+      path: "/openApi/deleteById",
       query: { id: id },
     });
   }
@@ -58,7 +58,7 @@ class ParkingApiClient {
   async getCar(carInfo: IGetCarInfo) {
     return await apiClient.doRequest({
       method: "POST",
-      path: "/jeecg-boot/openApi/list",
+      path: "/openApi/list",
       payload: { ...carInfo, pageSize: "1000" },
     });
   }
@@ -66,7 +66,7 @@ class ParkingApiClient {
   async getCarById(id: string) {
     return await apiClient.doRequest({
       method: "GET",
-      path: "/jeecg-boot/openApi/queryById",
+      path: "/openApi/queryById",
       query: { id: id },
     });
   }
