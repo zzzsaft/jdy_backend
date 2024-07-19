@@ -18,30 +18,67 @@ export class Department extends BaseEntity {
   @Column({ nullable: true })
   company: string;
   @Column({ nullable: true })
-  first_name: string;
+  level1: string;
   @Column({ nullable: true })
-  second_name: string;
+  level2: string;
   @Column({ nullable: true })
-  third_name: string;
+  level3: string;
   @Column({ nullable: true })
-  fourth_name: string;
+  level4: string;
+  @Column({ nullable: true })
+  level5: string;
+  @Column({ nullable: true })
+  level6: string;
+  @Column({ nullable: true })
+  level7: string;
   @Column({ nullable: true, default: true })
   is_exist: boolean;
 
   parent_department: Department;
 
-  async getParentDepartmentByParentId(): Promise<Department | undefined> {
+  async getParentDepartmentByParentId(): Promise<Department | null> {
     try {
-      const department = await Department.findOne({
+      const parentDepartment = await Department.findOne({
         where: { department_id: this.parent_id },
       });
-      return department?.parent_department;
+      return parentDepartment;
     } catch (error) {
       // 处理错误
       logger.error("Error fetching parent department:", error);
-      return undefined;
+      return null;
     }
   }
+
+  static async handleLevelName(department: Department): Promise<void> {
+    let levelName: string[] = [];
+    let departmentTemp = department;
+    levelName.push(department.name);
+    while (departmentTemp.parent_id != "1" && departmentTemp.parent_id != "0") {
+      let parentDepartment =
+        await departmentTemp.getParentDepartmentByParentId();
+      if (parentDepartment) {
+        departmentTemp = parentDepartment;
+      } else break;
+      levelName.push(departmentTemp.name);
+    }
+    department.company = levelName.pop() ?? "";
+    department.level1 = levelName.pop() ?? "";
+    department.level2 = levelName.pop() ?? "";
+    department.level3 = levelName.pop() ?? "";
+    department.level4 = levelName.pop() ?? "";
+    department.level5 = levelName.pop() ?? "";
+    department.level6 = levelName.pop() ?? "";
+    department.level7 = levelName.pop() ?? "";
+    department.save();
+  }
+
+  static async updateAllDepartmentLevel(): Promise<void> {
+    const departments = await Department.find();
+    for (const department of departments) {
+      await Department.handleLevelName(department);
+    }
+  }
+
   static async updateDepartment(): Promise<void> {
     const existDepartments = await Department.find({
       where: { is_exist: true },
@@ -70,6 +107,7 @@ export class Department extends BaseEntity {
         await department.save();
       });
   }
+
   static async updateXftId(): Promise<void> {
     const xftOrg = (await xftOrgnizationApiClient.getOrgnizationList())["body"][
       "records"

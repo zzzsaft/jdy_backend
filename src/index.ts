@@ -26,48 +26,14 @@ import {
   updateExistInfo,
 } from "./controllers/jdy/addPerson.controller";
 import { EntryExistRecords } from "./entity/DaHua/entryExitRecord";
+import { Department } from "./entity/wechat/Department";
 
 const ren = {
-  // blockId: 2950,
-  // cardNumber: "",
-  // channelCode: "",
-  // channelId: "0",
-  // channelName: "DH-ASI7203C7DB-1",
-  // channelSeq: "0",
-  // checkResult: "2",
-  // communityCode: "1a14e717a20e4c3a97fb8f978f218fa4",
   communityName: "新前梦工厂",
-  // companyId: 700331383,
-  // completeOrgName: "精诚时代集团有限公司",
-  // cutImageDataVal:
-  //   "https://yr-temp-storage-oss-bucket.oss-cn-hangzhou.aliyuncs.com/7day/700331383/20240718/11/34c8f010-b54d-4d99-a787-f3dae1c5680c.jpg?Expires=1721877716&OSSAccessKeyId=LTAI5tJw3rLMG3qjhWqCz26J&Signature=cDHGSlJB84YEZMsRitscozxRG%2Bc%3D",
-  // dataVal:
-  //   "https://yr-temp-storage-oss-bucket.oss-cn-hangzhou.aliyuncs.com/7day/700331383/20240718/11/bd014599-5ac5-4a46-9c3a-67dcc5afd1a3.jpg?Expires=1721877716&OSSAccessKeyId=LTAI5tJw3rLMG3qjhWqCz26J&Signature=%2BQawXTv%2Ft7fF0cei6VtbJbvgBLk%3D",
-  // devType: 8,
-  // deviceCode: "AC0F22DPAJ9C7DB",
-  // deviceId: "AC0F22DPAJ9C7DB",
-  // deviceName: "人脸pad2",
-  enterOrExit: 1,
-  eventTime: 1721296270000,
-  // facePhotoPath:
-  //   "https://yr-permanent-storage-oss-bucket.oss-cn-hangzhou.aliyuncs.com/personnel/personFace/700331383/20240715/14/8ac40b27-0f25-40b6-9c4a-f8856d39118f.jpg?Expires=1721877716&OSSAccessKeyId=LTAI5tJw3rLMG3qjhWqCz26J&Signature=YKfS1ceL4AJrUa5AODmUFRNgtJk%3D",
+  enterOrExit: 2,
+  eventTime: "2024-07-18 20:51:35",
   id: "b62f1311-ce17-4e26-b7af-ac8f23a2b5ee",
-  // msgType: "card.record",
-  // openResult: 1,
-  // personCode: "346884",
-  personId: 1018672463503503360,
-  // personName: "肖龙猛",
-  // personStoreId: 332265869940375550,
-  // personStoreName: "精诚时代集团有限公司",
-  // recordType: 0,
-  // roomNumber: "",
-  // storeId: 342151936323772400,
-  // storeName: "新前梦工厂",
-  // subOrgCode: "",
-  // type: 10015,
-  // typeName: "人脸开门",
-  // vaccineStatus: "2",
-  // wearMask: "0",
+  personId: 1018671625380896768,
 };
 const t = {
   parkingLotCode: "0001",
@@ -105,12 +71,20 @@ PgDataSource.initialize()
     // await personApiClient.authAsync("1018709441070702592");
     // await EntryExistRecords.addCarRecord(t);
 
-    // let a = await downloadImage(
-    //   "https://parkingcloud-oss-bucket.oss-cn-hangzhou.aliyuncs.com/202407/18/smartparking_%7B187fcade-dcf0-472e-8014-6a93110a8092%7D.jpg?Expires=1721283413&OSSAccessKeyId=LTAI5tBv7kteUPCVAUV3SJAH&Signature=nhy58CjPYUlx6HvGxblKB%2FkvFpY%3D"
-    // );
-    // console.log(a);
-    let a = await EntryExistRecords.addCardRecord(ren, "");
-    console.log(a);
+    // const msg = await parkingApiClient.visitorAppoint({
+    //   guestCompany: "123",
+    //   guestType: "123",
+    //   inviteStatus: 1,
+    //   visitorCarNum: "浙AF50971",
+    //   visitorLeaveTime: "2024-07-18 22:51:35",
+    //   visitorName: "张三",
+    //   visitorPhone: "18869965222",
+    //   visitorPurpose: "",
+    //   visitorReason: "123",
+    //   visitorTime: "2024-07-18 20:51:35",
+    // });
+    // console.log(msg);
+
     // run app
     app.listen(port, () => {
       logger.info(`[server]: Server is running at http://localhost:${port}`);

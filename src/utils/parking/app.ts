@@ -1,3 +1,4 @@
+import { IAppoint } from "../../type/IType";
 import { apiClient } from "./api_client";
 
 interface ICreateCarInfo {
@@ -68,6 +69,13 @@ class ParkingApiClient {
       method: "GET",
       path: "/openApi/queryById",
       query: { id: id },
+    });
+  }
+  async visitorAppoint(appoint: IAppoint) {
+    return await apiClient.doRequest({
+      method: "POST",
+      path: "/openApi/visitorAppoint",
+      payload: { ...appoint, visitorReqList: [] },
     });
   }
 }

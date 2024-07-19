@@ -30,6 +30,10 @@ export class ParkingInfo extends BaseEntity {
   ownerPhone: string;
   @Column({ name: "car_num", nullable: true })
   carNum: string;
+  @Column({ nullable: true })
+  type: string;
+  @Column({ nullable: true })
+  brand: string;
   @Column({ name: "license_plate_color", nullable: true })
   licensePlateColor: string;
   @Column({ name: "begin_time", nullable: true })

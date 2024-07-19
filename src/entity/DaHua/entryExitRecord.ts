@@ -125,7 +125,7 @@ export class EntryExistRecords extends BaseEntity {
           recordId: record.id,
         },
       });
-      // if (exists) return;
+      if (exists) return;
       if (record.eventTime == 0) return;
       if (!record.personId) return;
       let userId, name, phone, gap;
@@ -151,11 +151,7 @@ export class EntryExistRecords extends BaseEntity {
         if (existRecord) {
           gap = (time.getTime() - existRecord.time.getTime()) / 1000;
 
-          if (
-            gap >= 0 &&
-            gap < 15 &&
-            record.enterOrExit == existRecord.enterOrExit
-          ) {
+          if (gap >= 0 && gap < 15 && enterOrExit == existRecord.enterOrExit) {
             return;
           }
           if (gap < 0 || record.enterOrExit == existRecord.enterOrExit) {
