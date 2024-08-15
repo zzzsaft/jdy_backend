@@ -6,6 +6,7 @@ import crypto from "crypto";
 import nodeRSA from "node-rsa";
 import { xftUserApiClient } from "./xft_user";
 import _ from "lodash";
+
 export const importDepartmentToXft = async () => {
   const departments = await Department.find({ where: { is_exist: true } });
   const datas = departments
@@ -61,6 +62,7 @@ const getUserList = async () => {
   };
   return await formDataApiClient.batchDataQuery(appid, entryid, option);
 };
+
 export const importJdyToXft = async () => {
   // 获取xft数据
   const xftUsers = await xftUserApiClient.getAllEmployeeList();

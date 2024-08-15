@@ -8,6 +8,7 @@ import { Between, In } from "typeorm";
 import cron from "node-cron";
 import { logger } from "../config/logger";
 import { Checkin } from "../entity/wechat/Checkin";
+import { User } from "../entity/wechat/User";
 
 class GetCheckinData {
   twoDaysInSeconds = 2 * 24 * 60 * 60;
@@ -251,6 +252,7 @@ class GetCheckinData {
 }
 
 export const getUserList = async () => {
+  return (await User.find()).map((user) => user.user_id);
   const { appid, entryid } = formDataApiClient.getFormId("员工档案");
   const option: IDataQueryOption = {
     limit: 100,

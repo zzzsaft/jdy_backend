@@ -22,7 +22,7 @@ export interface IAppoint {
   /**
    * 是否为邀请(0:不是,1:是)
    */
-  inviteStatus: number;
+  // inviteStatus: number;
   /**
    * 车牌号
    */
@@ -51,5 +51,5 @@ export interface IAppoint {
    * 来访时间，yyyy-MM-dd HH:mm:ss
    */
   visitorTime: string;
-  [property: string]: any;
+  // [property: string]: any;
 }

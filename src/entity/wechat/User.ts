@@ -5,6 +5,8 @@ import {
   PrimaryColumn,
   Like,
   ManyToOne,
+  Not,
+  IsNull,
 } from "typeorm";
 import { logger } from "../../config/logger";
 import { xftUserApiClient } from "../../utils/xft/xft_user";
@@ -42,7 +44,9 @@ export class User extends BaseEntity {
     const departmentIds = existDepartment.map(
       (department) => department.department_id
     );
-    const existUserIds = await User.find({ where: { is_employed: true } });
+    const existUserIds = await User.find({
+      where: [{ is_employed: true }, { is_employed: IsNull() }],
+    });
     let result: User[] = [];
     for (const departmentId of departmentIds) {
       const userList = await contactApiClient.getUserList(departmentId);
@@ -61,13 +65,16 @@ export class User extends BaseEntity {
         skipUpdateIfNoValuesChanged: true, // supported by postgres, skips update if it would not change row values
       });
     }
-    existUserIds
-      .filter((user) => !result.map((u) => u.user_id).includes(user.user_id))
-      .forEach(async (user) => {
-        user.is_employed = false;
-        await user.save();
-      });
+
+    const leavedEmployee = existUserIds.filter(
+      (user) => !result.map((u) => u.user_id).includes(user.user_id)
+    );
+    for (const user of leavedEmployee) {
+      user.is_employed = false;
+      await user.save();
+    }
   }
+
   static async getUser_id(xftUserId: string): Promise<string> {
     const user = await User.findOne({
       where: { xft_enterprise_id: xftUserId },
@@ -95,6 +102,11 @@ export class User extends BaseEntity {
     const user = await User.findOne({ where: { user_id: userid } });
     return user?.xft_enterprise_id ?? "";
   }
+  static async getXftId(userid: string): Promise<string> {
+    const user = await User.findOne({ where: { user_id: userid } });
+    return user?.xft_id ?? "";
+  }
+
   static async updateXftId(): Promise<void> {
     const xftUsers = (await xftUserApiClient.getMemberList())["OPUSRLSTY"]
       .map((user) => {

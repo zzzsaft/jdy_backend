@@ -14,8 +14,3 @@ export const logger = winston.createLogger({
   // exceptionHandlers: [new winston.transports.Console()],
   // rejectionHandlers: [new winston.transports.Console()],
 });
-// if (process.env.NODE_ENV == "production") {
-//   logger.add(new DatabaseTransport({ handleExceptions: true }));
-// }
-// const a = 0 / 1;
-// throw new Error("This is an error");

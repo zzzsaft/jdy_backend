@@ -75,7 +75,7 @@ class ParkingApiClient {
     return await apiClient.doRequest({
       method: "POST",
       path: "/openApi/visitorAppoint",
-      payload: { ...appoint, visitorReqList: [] },
+      payload: { ...appoint },
     });
   }
 }

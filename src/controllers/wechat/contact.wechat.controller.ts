@@ -4,6 +4,7 @@ import { ApplyData } from "../../type/wechat/IApproval";
 import { xftOrgnizationApiClient } from "../../utils/xft/xft_orgnization";
 import { contactApiClient } from "../../utils/wechat/contact";
 import { logger } from "../../config/logger";
+import { User } from "../../entity/wechat/User";
 
 export const handleContactEvent = async (msg: any) => {
   const UserID = msg["UserID"]["value"];
@@ -11,10 +12,16 @@ export const handleContactEvent = async (msg: any) => {
   let data;
   switch (msg["ChangeType"]["value"]) {
     case "create_user":
+      User.create({
+        user_id: UserID,
+        department_id: Department,
+        is_employed: true,
+      }).save();
       break;
     case "update_user":
       break;
     case "delete_user":
+      User.update({ user_id: UserID }, { is_employed: false });
       break;
     case "create_party":
       data = await contactApiClient.getDepartmentInfo(msg["Id"]["value"]);

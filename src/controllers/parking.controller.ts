@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import { downloadFile } from "../utils/general";
+import { formDataApiClient } from "../utils/jdy/form_data";
 
 const sendInfo = {
   success: true,
@@ -76,8 +77,21 @@ export const entryExistRecord = async (
   const url = data["carInPic"];
   const fileName = await downloadFile(
     url,
-    `./public/image/car/${Date.now()}.jpg`
+    `./public/images/car/${Date.now()}.jpg`
   );
+  const info = await ParkingInfo.getInfoByCarNum(data["carNum"]);
+  if (!info) {
+    const jdyData = {
+      _widget_1720546356355: { value: data["carNum"] },
+      _widget_1720515048364: { value: data["carNum"] },
+    };
+    await formDataApiClient.singleDataCreate(
+      "5cd65fc5272c106bbc2bbc38",
+      "669d0824ab60aa3f4acc9b8a",
+      jdyData,
+      { isStartWorkflow: true }
+    );
+  }
   await EntryExistRecords.addCarRecord(data, fileName);
   return response.send(sendInfo);
 };

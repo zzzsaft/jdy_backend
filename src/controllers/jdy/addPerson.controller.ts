@@ -9,6 +9,7 @@ import { xftUserApiClient } from "../../utils/xft/xft_user";
 
 export const 入职申请表 = async (data) => {
   await saveNewInfotoDahua(data);
+  await xftUserApiClient.saveEmployee([]);
 };
 
 const getJdyInfo = async () => {
@@ -95,16 +96,11 @@ export const addEmployeeToXft = async (data) => {
 
 const generateData = (user) => {
   const staffBasicInfo = {
-    stfType:
-      user["company"] == "劳务派遣"
-        ? "3"
-        : entry_type[user["entry_type"]] ?? "",
-    stfStatus:
-      user["_widget_1701399332764"] == "在职"
-        ? stfStatus[user["entry_type"]]
-        : stfStatus[user["_widget_1701399332764"]] ?? "",
+    stfType: entry_type[user["entry_type"]],
+    stfStatus: stfStatus[user["_widget_1723706930226"]],
+
     // stfName: user["full_name"],
-    mobileNumber: user["_widget_1679067663799"],
+    mobileNumber: user["contact_number"],
     certificateType: "A",
     certificateNumber: user["id_card_number"],
     sex: user["gender"] == "男" ? "0" : "1",
@@ -115,7 +111,7 @@ const generateData = (user) => {
     //   id: "0000",
     // })["id"],
     stfNumber: user["_widget_1691239227137"].slice(0, 20),
-    remark: "api_mod",
+    remark: "jdy",
     birthday: formatDate(user["date_of_birth"]),
     hasMarried:
       user["marital_status"] == "未婚" || user["marital_status"] == "离异"
@@ -225,21 +221,17 @@ const generateData = (user) => {
 };
 
 const entry_type = {
-  试用: "0",
-  正式: "0",
-  退休返聘: "5",
+  全职: "0",
   兼职: "1",
   实习: "2",
-  挂靠: "1",
-  顾问: "0",
-  精一: "0",
-  临时工: "7",
+  劳务派遣: "3",
+  外包: "4",
+  退休返聘: "5",
+  其他: "6",
 };
 const stfStatus = {
   试用: "0",
   正式: "1",
-  待离职: "",
-  离职: "2",
 };
 const nation = {
   布依: "05",

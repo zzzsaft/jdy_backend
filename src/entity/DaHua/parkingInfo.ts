@@ -43,7 +43,7 @@ export class ParkingInfo extends BaseEntity {
   @CreateDateColumn({ name: "created_at", nullable: true })
   createdAt: Date;
 
-  static async addInfo(info: ParkingInfoType) {
+  static async addInfo(info: ParkingInfoType, type?, brand?) {
     try {
       const newRecord = ParkingInfo.create({
         id: info.id,
@@ -54,6 +54,8 @@ export class ParkingInfo extends BaseEntity {
         licensePlateColor: info.licensePlateColor,
         beginTime: new Date(info.beginTime),
         endTime: new Date(info.endTime),
+        type,
+        brand,
       });
       await ParkingInfo.save(newRecord);
       return newRecord;

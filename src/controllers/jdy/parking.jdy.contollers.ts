@@ -16,6 +16,9 @@ export const addCar = async (data) => {
   );
   const endTime = format(new Date(data["_widget_1720515048371"]), "yyyy-MM-dd");
   const licensePlateColor = data["_widget_1720677256474"] ?? "蓝色";
+  const brand = data["_widget_1721320993137"];
+  const type = data["_widget_1721320851863"];
+
   const userId = data["_widget_1720515048365"];
 
   const result = await parkingApiClient.addCar({
@@ -28,22 +31,27 @@ export const addCar = async (data) => {
     userId,
   });
   if (!result["success"]) {
+    logger.error(result);
     return;
   }
   const id = formDataApiClient.getFormId("车辆信息登记");
   await formDataApiClient.singleDataUpdate(id.appid, id.entryid, data._id, {
     _widget_1720515048363: { value: result?.["result"]?.["id"] },
   });
-  await ParkingInfo.addInfo({
-    id: result?.["result"]?.["id"],
-    ownerId: userId,
-    ownerName: carOwner,
-    ownerPhone: phone,
-    carNum,
-    licensePlateColor,
-    beginTime,
-    endTime,
-  });
+  await ParkingInfo.addInfo(
+    {
+      id: result?.["result"]?.["id"],
+      ownerId: userId,
+      ownerName: carOwner,
+      ownerPhone: phone,
+      carNum,
+      licensePlateColor,
+      beginTime,
+      endTime,
+    },
+    type,
+    brand
+  );
 };
 
 export const updateCar = async (data) => {

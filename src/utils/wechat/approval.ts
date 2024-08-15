@@ -29,6 +29,12 @@ class ApprovalApiClient extends ApiClient {
         path: "/cgi-bin/oa/getapprovalinfo",
         payload: {
           ...req,
+          filters: [
+            {
+              key: "template_id",
+              value: "3Tka9Us1v5Zc8RGch3HFaRJx2ihvg8r3qaK137Gj",
+            },
+          ],
           // filters: [{ key: "record_type", value: "4" }],
         },
         query: {

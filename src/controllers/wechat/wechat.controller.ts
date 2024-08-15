@@ -4,6 +4,7 @@ import convert from "xml-js";
 import { logger } from "../../config/logger";
 import { handleApprovalEvent } from "./approval.wechat.controller";
 import { handleContactEvent } from "./contact.wechat.controller";
+import { handleMessageEvent } from "./message.wechat.controller";
 
 export async function wechatWebHookCheck(request: Request, response: Response) {
   const encodingAESKey = process.env.WECHAT_ENCODING_AES_KEY ?? "";
@@ -25,7 +26,6 @@ export async function wechatWebHook(request: Request, response: Response) {
     cdataKey: "value",
     commentKey: "value",
   });
-  // console.log(message);
   await handleWechatMessage(JSON.parse(message));
   // return loaded posts
   response.send("");
@@ -44,6 +44,10 @@ const handleWechatMessage = async (msg) => {
     if (message["Event"]["value"] === "change_contact") {
       await handleContactEvent(message);
     }
+    if (message["Event"]["value"] === "template_card_event") {
+      await handleMessageEvent(message);
+    }
+    3;
   } catch (e) {
     logger.error(e);
   }

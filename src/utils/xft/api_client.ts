@@ -83,7 +83,7 @@ class ApiClient {
       else logger.info(JSON.stringify(response.data).slice(0, 50));
       return response.data;
     } catch (e) {
-      console.log(e);
+      logger.error(e);
       response = e.response;
       if (response) {
         const { status, data } = response;

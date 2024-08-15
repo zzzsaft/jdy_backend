@@ -47,7 +47,7 @@ export class ApiClient {
           );
         }
       }
-      logger.info(`wechat请求成功！`);
+      if (response.data["errcode"] !== 0) logger.error(response.data);
       return response.data;
     } catch (e) {
       console.log(e);
