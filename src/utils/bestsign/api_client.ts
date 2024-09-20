@@ -6,6 +6,7 @@ import _ from "lodash";
 import qs from "querystring";
 import { ILimitOpion, IRequestOptions } from "../../type/IType";
 import { bestSignToken } from "./token";
+import { appAxios } from "../general";
 interface Params {
   [key: string]: any;
 }
@@ -71,7 +72,7 @@ export class ApiClient {
     };
     let response;
     try {
-      response = await axios(axiosRequestConfig);
+      response = await appAxios(axiosRequestConfig);
       if (response) {
         const { status, data } = response;
         if (status && status > 200 && data.code && data.msg) {
@@ -83,7 +84,6 @@ export class ApiClient {
           );
         }
       }
-      logger.info(response.data);
       return response.data;
     } catch (e) {
       console.log(e);

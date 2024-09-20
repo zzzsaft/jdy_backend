@@ -5,6 +5,7 @@ import { jdyLimiter } from "../../config/limiter";
 import { ILimitOpion, IRequestOptions } from "../../type/IType";
 import dotenv from "dotenv";
 import { logger } from "../../config/logger";
+import { appAxios } from "../general";
 export class ApiClient {
   host: string;
   apiKey: string;
@@ -50,8 +51,7 @@ export class ApiClient {
     let response: AxiosResponse<any>;
     try {
       await jdyLimiter.tryBeforeRun(limitOption);
-      response = await axios(axiosRequestConfig);
-      logger.info(response.data);
+      response = await appAxios(axiosRequestConfig);
       return response.data;
     } catch (e) {
       // console.log(e);

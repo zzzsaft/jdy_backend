@@ -12,11 +12,7 @@ export const handleContactEvent = async (msg: any) => {
   let data;
   switch (msg["ChangeType"]["value"]) {
     case "create_user":
-      User.create({
-        user_id: UserID,
-        department_id: Department,
-        is_employed: true,
-      }).save();
+      await createUser(UserID);
       break;
     case "update_user":
       break;
@@ -52,15 +48,18 @@ export const handleContactEvent = async (msg: any) => {
   }
 };
 
-export const getApprovalDetail = async (sp_no) => {
-  const detail = await approvalApiClient.getApprovalDetail(sp_no);
-  // console.log(detail["info"]);
-  const approval = await Approval.create({
-    ...detail["info"],
-    userid: detail["info"]["applyer"]["userid"],
-    apply_data: detail["info"]["apply_data"]["contents"],
-    unix_apply_time: detail["info"]["apply_time"],
-    notifyer: detail["info"]["notifyer"].map((item) => item["userid"]),
-  });
-  await approval.save();
+export const createUser = async (UserID) => {
+  const info = await contactApiClient.getUser(UserID);
+  const name = info["name"];
+  const mobile = info["mobile"];
+  const department = info["department"];
+  const main_department = info["main_department"];
+  await User.create({
+    user_id: UserID,
+    name,
+    mobile,
+    department_id: department,
+    is_employed: true,
+    main_department_id: main_department,
+  }).save();
 };

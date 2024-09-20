@@ -6,10 +6,14 @@ import { personApiClient } from "../../utils/dahua/person";
 import { downloadFileStream } from "../../utils/general";
 import { formDataApiClient } from "../../utils/jdy/form_data";
 import { xftUserApiClient } from "../../utils/xft/xft_user";
+import { xftOrgnizationApiClient } from "../../utils/xft/xft_orgnization";
+import { Department } from "../../entity/wechat/Department";
+import { EmployeeLifecycle } from "../../entity/common/employee_lifecycle";
 
 export const 入职申请表 = async (data) => {
   await saveNewInfotoDahua(data);
-  await xftUserApiClient.saveEmployee([]);
+  await addEmployeeToXft(data);
+  await addToDb(data);
 };
 
 const getJdyInfo = async () => {
@@ -91,28 +95,42 @@ export const addtoDahua = async ({ userId, name, fileStream, fileName }) => {
 };
 
 export const addEmployeeToXft = async (data) => {
-  await xftUserApiClient.saveEmployee({});
+  return await xftUserApiClient.saveEmployee([
+    {
+      sequence: data["_widget_1720801227437"],
+      staffBasicInfo: await staffBasicInfo(data),
+      staffHrmInfo: staffHrmInfo(data),
+      staffEmergencyContact: staffEmergencyContact(data),
+    },
+  ]);
 };
 
-const generateData = (user) => {
-  const staffBasicInfo = {
-    stfType: entry_type[user["entry_type"]],
-    stfStatus: stfStatus[user["_widget_1723706930226"]],
-
-    // stfName: user["full_name"],
+const staffBasicInfo = async (user) => {
+  const orgs = await Department.find();
+  const basicInfo = {
     mobileNumber: user["contact_number"],
-    certificateType: "A",
+    orgSeq: (
+      orgs.find(
+        (org) => org.department_id == user["_widget_1702572867837"]
+      ) ?? {
+        xft_id: "0000",
+      }
+    ).xft_id,
+    remark: "来源人事OA入职申请",
+    stfName: user["full_name"],
+    stfNumber: user["_widget_1720801227437"].slice(0, 20),
+    workplaceLocationSeq:
+      { 新前: "0000000001", 澄江: "0000000002", 江口: "0000000003" }[
+        user["company"]
+      ] ?? null,
+    stfStatus: stfStatus[user["_widget_1723706930226"]],
+    stfType: entry_type[user["entry_type"]],
+    birthday: formatDate(user["date_of_birth"]),
+    certificateType: "P01",
     certificateNumber: user["id_card_number"],
     sex: user["gender"] == "男" ? "0" : "1",
     nationality: "CN",
-    // orgSeq: (orgs.find(
-    //   (org) => org.code == user["_widget_1701228555030"]
-    // ) ?? {
-    //   id: "0000",
-    // })["id"],
-    stfNumber: user["_widget_1691239227137"].slice(0, 20),
-    remark: "jdy",
-    birthday: formatDate(user["date_of_birth"]),
+
     hasMarried:
       user["marital_status"] == "未婚" || user["marital_status"] == "离异"
         ? "1"
@@ -120,21 +138,18 @@ const generateData = (user) => {
     hasNurtured: user["marital_status"] == "已婚已育" ? "0" : "1",
     nation: nation[user["nation"]] ?? "",
     politicalAppearance: politicalAppearance[user["political_outlook"]] ?? "",
-    certificateValidEndDate: formatDate(user["_widget_1679055409775"]),
+    certificateValidEndDate: formatDate(user["_widget_1680479931897"]),
     individualEmail: user["_widget_1679067663792"],
-    workplaceLocationSeq:
-      { 新前: "0000000001", 澄江: "0000000002", 江口: "0000000003" }[
-        user["_widget_1691139170391"]
-      ] ?? null,
+
     businessGroupSeq:
       {
         管理: "0000000001",
         研发: "0000000002",
-        营销: "0000000003",
+        销售: "0000000003",
         生产管理: "0000000004",
         生产: "0000000005",
         后勤: "0000000006",
-      }[user["_widget_1694939312263"]] ?? null,
+      }[user["_widget_1695897616435"]] ?? null,
     householdAddressProvince: user["home_details"]?.["province"],
     householdAddressCity: user["home_details"]?.["city"],
     householdAddressDistrict: user["home_details"]?.["district"],
@@ -143,81 +158,42 @@ const generateData = (user) => {
     presentAddressCity: user["current_residential_address"]?.["city"],
     presentAddressDistrict: user["current_residential_address"]?.["district"],
     presentAddressDetail: user["current_residential_address"]?.["detail"],
-    customerFieldInfoList: [
-      FLD1100052[user["_widget_1694939312263"]] && {
+    contactAddressProvince: user["home_details"]?.["province"],
+    contactAddressCity: user["home_details"]?.["city"],
+    contactAddressDistrict: user["home_details"]?.["district"],
+    contactAddressDetail: user["home_details"]?.["detail"],
+    staffCustomerFieldInfoList: [
+      FLD1100052[user["_widget_1695897616435"]] && {
         classKey: "S01BASIC",
         fieldKey: "FLD1100052",
-        fieldValue: user["_widget_1694939312263"] ?? "",
+        fieldValue: user["_widget_1695897616435"] ?? "",
       },
     ].filter((item) => item),
   };
-  const staffWagesAndSocialSecurityInfo = {
-    bankCardAccount: user["_widget_1690873684080"].split("、")[0],
-    bankName: bankName[user["_widget_1690873684081"]] ?? "",
-    customerFieldInfoList: [
-      user["_widget_1691254640860"] !== "" && {
-        classKey: "S04SAISR",
-        fieldKey: "FLD1100059",
-        fieldValue: user["_widget_1691254640860"] ?? "",
-      },
-    ].filter((item) => item !== false),
+  return _.pickBy(basicInfo, _.identity);
+};
+
+const staffHrmInfo = (user) => {
+  const hrmInfo = {
+    planPositiveDate: formatDate(user["time_of_becoming_a_regular_worker"]),
+    entryDate: formatDate(user["entry_time"]),
   };
-  const staffHrmInfo = {
-    entryDate: formatDate(user["_widget_1679067663828"]),
-    actualPositiveDate: getLatestDate(
-      user["_widget_1702230783034"]?.map(
-        (data) => new Date(data["_widget_1702230783037"])
-      )
-    ),
-    actualQuitDate:
-      staffBasicInfo["stfStatus"] == "2"
-        ? formatDate(user["_widget_1689753887996"])
-        : "",
-  };
-  const staffEmergencyContact = {
-    contactName: user["_widget_1679067663794"],
-    contactTelephoneNumber: user["contact_number"],
-    customerFieldInfoList: [
-      user["_widget_1679067663795"] !== "" && {
+  return _.pickBy(hrmInfo, _.identity);
+};
+
+const staffEmergencyContact = (user) => {
+  const emergencyContact = {
+    contactName: user["_widget_1679070424640"],
+    contactTelephoneNumber: user["_widget_1679070424641"],
+    staffCustomerFieldInfoList: [
+      {
         classKey: "S06EMCNT",
         fieldKey: "FLD1100051",
-        fieldValue: user["_widget_1679067663795"] ?? "",
+        fieldValue: user["_widget_1679070424642"] ?? "",
       },
-      user["_widget_1679067663796"] !== "" && {
-        classKey: "S06EMCNT",
-        fieldKey: "FLD1100060",
-        fieldValue: getAddress(user["_widget_1679067663796"]),
-      },
-    ].filter((item) => item !== false),
+    ].filter((item) => item),
   };
-  const staffEducationInfoList = user["_widget_1691418598886"].map((edu) => {
-    return {
-      graduateSchool: edu["_widget_1691418598887"],
-      degree: edu["_widget_1691418598888"],
-      specialty: edu["_widget_1691418598899"],
-      graduateDate: formatDate(edu["_widget_1691418598901"]),
-    };
-  });
-  // const staffFamilyMemberInfoList = user["_widget_1691418598884"].map((edu) => {
-  //   return {
-  //     relation: edu["_widget_1691418598887"],
-  //     name: edu["_widget_1691418598890"],
-  //     birthDate: edu["_widget_1691418598899"],
-  //     currentWorkCompany: formatDate(edu["_widget_1691418598901"]),
-  //     position: edu["_widget_1691418598899"],
-  //     contactNumber: formatDate(edu["_widget_1691418598901"]),
-  //   };
-  // });
-  return {
-    staffBasicInfo: _.pickBy(staffBasicInfo, _.identity),
-    staffWagesAndSocialSecurityInfo: _.pickBy(
-      staffWagesAndSocialSecurityInfo,
-      _.identity
-    ),
-    staffHrmInfo: _.pickBy(staffHrmInfo, _.identity),
-    staffEmergencyContact: _.pickBy(staffEmergencyContact, _.identity),
-    staffEducationInfoList: staffEducationInfoList,
-  };
+  return _.pickBy(emergencyContact, _.identity);
 };
 
 const entry_type = {
@@ -301,13 +277,14 @@ function formatDate(dateString: string): string {
   return `${year}-${month}-${day}`;
 }
 
-const getAddress = (address: any) => {
-  if (!address) {
-    return "";
-  }
-  const city =
-    address?.["city"] == address?.["province"]
-      ? address?.["city"]
-      : address?.["province"] + address?.["city"];
-  return city + address?.["district"] + address?.["detail"];
+const addToDb = async (user) => {
+  const life = EmployeeLifecycle.create({
+    name: user["full_name"],
+    userid: user["_widget_1720801227437"],
+    certificateId: user["id_card_number"],
+    actualDate: formatDate(user["entry_time"]),
+    departmentId: user["_widget_1702572867837"],
+    type: "入职",
+  });
+  await EmployeeLifecycle.add(life);
 };

@@ -1,6 +1,6 @@
 import { TransportStreamOptions } from "winston-transport";
 import Transport from "winston-transport";
-import { Log } from "../entity/utils/Log";
+// import { Log } from "../entity/utils/log";
 import { PgDataSource } from "./data-source";
 import { Trigger } from "../entity/Trigger/Trigger";
 
@@ -14,13 +14,14 @@ export class DatabaseTransport extends Transport {
       this.emit("logged", info);
     });
     // const logRepository = PgDataSource.getRepository(Log);
-    const log = Log.create({
-      level: info.level,
-      message: info.message,
-    });
+    // const log = Log.create({
+    //   level: info.level,
+    //   message: info.message,
+    // });
 
-    log.save().then(() => {
-      callback();
-    });
+    // log.save().then(() => {
+    //   callback();
+    // });
+    callback();
   }
 }

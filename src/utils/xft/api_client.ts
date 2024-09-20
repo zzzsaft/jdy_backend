@@ -5,6 +5,7 @@ import { xftLimiter } from "../../config/limiter";
 import { ILimitOpion, IRequestOptions } from "../../type/IType";
 import { logger } from "../../config/logger";
 import pkg from "sm-crypto";
+import { appAxios } from "../general";
 const { sm2, sm3 } = pkg;
 
 class ApiClient {
@@ -33,7 +34,6 @@ class ApiClient {
    */
   async doRequest(
     options: IRequestOptions,
-    limitOption: ILimitOpion,
     userId: string = "A0001",
     platformUserId: string = "AUTO0001"
   ) {
@@ -63,24 +63,15 @@ class ApiClient {
     let response;
     try {
       // await xftLimiter.tryBeforeRun(limitOption);
-      response = await axios(axiosRequestConfig);
+      response = await appAxios(axiosRequestConfig);
       if (response) {
         const { status, data } = response;
-        if (status && status > 200 && data.code && data.msg) {
+        if ((status && status > 200) || data["returnCode"] != "SUC0000") {
           logger.error(
-            `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg},body: ${options.payload}`
-          );
-          throw new Error(
-            `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg},body: ${options.payload}`
+            `请求错误！Error Code: ${data.returnCode}, Error Msg: ${data.errorMsg},body: ${options.payload}`
           );
         }
       }
-      if (
-        response.data["returnCode"] &&
-        response.data["returnCode"] != "SUC0000"
-      )
-        logger.error(JSON.stringify(response.data));
-      else logger.info(JSON.stringify(response.data).slice(0, 50));
       return response.data;
     } catch (e) {
       logger.error(e);

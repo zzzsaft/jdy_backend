@@ -14,17 +14,9 @@ interface Message {
   duplicate_check_interval?: number;
 }
 
-export type buttonCardType = {
-  event: { eventId: string; eventType: "jdy" | "xft" | "bestSign" };
+type templateCardType = {
   main_title: { title: string; desc: string };
   sub_title_text: string;
-  button_list: {
-    text: string;
-    type?: 0 | 1; //按钮点击事件类型，0 或不填代表回调点击事件，1 代表跳转url
-    style?: 1 | 2 | 3 | 4;
-    key?: string; //type是0时必填
-    url?: string; //type是1时必填
-  }[];
   horizontal_content_list?: {
     type?: 0 | 1 | 2 | 3; //链接类型，0或不填代表不是链接，1 代表跳转url，2 代表下载附件，3 代表点击跳转成员详情,
     keyname: string;
@@ -36,6 +28,30 @@ export type buttonCardType = {
   card_action?: {
     type: 0 | 1;
     url: string;
+  };
+};
+
+export type buttonCardType = templateCardType & {
+  event: { eventId: string; eventType: "jdy" | "xft" | "bestSign" };
+  button_list: {
+    text: string;
+    type?: 0 | 1; //按钮点击事件类型，0 或不填代表回调点击事件，1 代表跳转url
+    style?: 1 | 2 | 3 | 4;
+    key?: string; //type是0时必填
+    url?: string; //type是1时必填
+  }[];
+};
+export type voteInteractionCardType = {
+  main_title: { title: string; desc: string };
+  event: { eventId: string; eventType: "jdy" | "xft" | "bestSign" | "general" };
+  checkbox: {
+    question_key: string;
+    mode: 0 | 1;
+    option_list: { id: string; text: string; is_checked: boolean }[];
+  };
+  submit_button: {
+    text: string;
+    key: string;
   };
 };
 
@@ -87,7 +103,6 @@ export class MessageHelper {
     } = config;
     const taskid = uuidv4();
     this.request_body["msgtype"] = "template_card";
-    this.request_body["card_type"] = "button_interaction";
     this.request_body["template_card"] = {
       card_type: "button_interaction",
       main_title,
@@ -96,6 +111,42 @@ export class MessageHelper {
       task_id: taskid,
       button_list,
       card_action,
+    };
+    const msg = await messageApiClient.sendMessage(this.request_body);
+    if (msg["errcode"] == 0)
+      await WechatMessage.addMsgId(
+        msg["msgid"],
+        msg["response_code"],
+        event.eventId,
+        event.eventType,
+        taskid
+      );
+  }
+  async sendTextNotice(config: templateCardType) {
+    const { main_title, sub_title_text, horizontal_content_list, card_action } =
+      config;
+    const taskid = uuidv4();
+    this.request_body["msgtype"] = "template_card";
+    this.request_body["template_card"] = {
+      card_type: "text_notice",
+      main_title,
+      sub_title_text,
+      horizontal_content_list,
+      task_id: taskid,
+      card_action,
+    };
+    const msg = await messageApiClient.sendMessage(this.request_body);
+  }
+  async sendVoteInteraction(config: voteInteractionCardType) {
+    const { main_title, checkbox, submit_button, event } = config;
+    const taskid = uuidv4();
+    this.request_body["msgtype"] = "template_card";
+    this.request_body["template_card"] = {
+      card_type: "vote_interaction",
+      main_title,
+      task_id: taskid,
+      checkbox,
+      submit_button,
     };
     const msg = await messageApiClient.sendMessage(this.request_body);
     if (msg["errcode"] == 0)
@@ -156,4 +207,4 @@ class MessageApiClient extends ApiClient {
     );
   }
 }
-export const messageApiClient = new MessageApiClient();
+const messageApiClient = new MessageApiClient();

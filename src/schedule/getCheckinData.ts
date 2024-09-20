@@ -1,7 +1,10 @@
 import _ from "lodash";
 import { IDataQueryOption } from "../type/jdy/IOptions";
 import { formDataApiClient } from "../utils/jdy/form_data";
-import { checkinApiClient } from "../utils/wechat/chekin";
+import {
+  checkinApiClient,
+  HardwareCheckinData as HardwareCheckin,
+} from "../utils/wechat/chekin";
 import { HardwareCheckinData } from "../entity/wechat/HardwareCheckinData";
 import { CheckinData } from "../entity/wechat/CheckinData";
 import { Between, In } from "typeorm";
@@ -9,22 +12,35 @@ import cron from "node-cron";
 import { logger } from "../config/logger";
 import { Checkin } from "../entity/wechat/Checkin";
 import { User } from "../entity/wechat/User";
+import { jctimesApiClient } from "../utils/jctimes/app";
+import { LogCheckin } from "../entity/common/log_checkin";
+import { xftatdApiClient, importAtd } from "../utils/xft/xft_atd";
+import { format } from "date-fns";
 
 class GetCheckinData {
   twoDaysInSeconds = 2 * 24 * 60 * 60;
   constructor() {}
 
   getNextRawCheckinData = async () => {
-    const userList = await getUserList();
-    const lastTime = await this.getLastRawCheckin();
-    const nowDay = new Date().getTime() / 1000;
-    const timestamps = _.range(lastTime, nowDay, this.twoDaysInSeconds);
-    const periods = _.zip(timestamps, _.drop(timestamps, 1).concat([nowDay]));
-
-    for (const period of periods) {
-      if (period[0] && period[1])
-        await this.getHardwareCheckinData(userList, period[0], period[1]);
-    }
+    let err: any[] = [];
+    const userList = (await jctimesApiClient.getUserLists()).map(
+      (user) => user.userid
+    );
+    const startTime = await LogCheckin.getLastDate();
+    const endTime = new Date();
+    const raw_checkin_data = await checkinApiClient.getHardwareCheckinData(
+      userList,
+      startTime,
+      endTime
+    );
+    err = await this.insertToXFT(raw_checkin_data);
+    const log = LogCheckin.create({
+      StartDate: startTime,
+      EndDate: endTime,
+      errmsg: JSON.stringify(err),
+    });
+    await LogCheckin.save(log);
+    await this.insertHardwareCheckinData(raw_checkin_data);
   };
 
   getNextCheckinData = async () => {
@@ -66,81 +82,25 @@ class GetCheckinData {
           endtime: endTime,
         });
 
-        if (checkin_data["errcode"] === 0) {
-          for (const data of checkin_data["checkindata"]) {
-            let sch_checkin_time = data.sch_checkin_time;
-            const newData = CheckinData.create({
-              unix_sch_checkin_time: data.sch_checkin_time,
-              unix_checkin_time: data.checkin_time,
-              ...data,
-              sch_checkin_time: sch_checkin_time
-                ? new Date(data.sch_checkin_time * 1000)
-                : undefined,
-              checkin_time: new Date(data.checkin_time * 1000),
-              checkin_date: new Date(data.checkin_time * 1000),
-            });
-            dataList.push(newData);
-          }
-        } else {
-          console.error(
-            `Error retrieving checkin data:${checkin_data["errmsg"]}`
-          );
+        for (const data of checkin_data["checkindata"]) {
+          let sch_checkin_time = data.sch_checkin_time;
+          const newData = CheckinData.create({
+            unix_sch_checkin_time: data.sch_checkin_time,
+            unix_checkin_time: data.checkin_time,
+            ...data,
+            sch_checkin_time: sch_checkin_time
+              ? new Date(data.sch_checkin_time * 1000)
+              : undefined,
+            checkin_time: new Date(data.checkin_time * 1000),
+            checkin_date: new Date(data.checkin_time * 1000),
+          });
+          dataList.push(newData);
         }
       } catch (error) {
         throw `Error fetching hardware checkin data: ${error}`;
       }
     }
     if (dataList.length > 0) await this.insertCheckinData(dataList);
-  }
-
-  private getLastRawCheckin = async () => {
-    const latestRecord = await HardwareCheckinData.createQueryBuilder()
-      .select("MAX(unix_checkin_time)")
-      .getRawOne();
-    return latestRecord["max"] || new Date("2024-01-01").getTime() / 1000;
-  };
-
-  private async getHardwareCheckinData(
-    userList: string[],
-    startTime: number,
-    endTime: number
-  ) {
-    const groupedUserList = _.chunk(userList, 100);
-    const dataList: HardwareCheckinData[] = [];
-
-    for (const userListChunk of groupedUserList) {
-      try {
-        const checkin_data = await checkinApiClient.getHardwareCheckinData({
-          useridlist: userListChunk,
-          starttime: startTime,
-          endtime: endTime,
-        });
-
-        if (checkin_data["errcode"] === 0) {
-          for (const data of checkin_data["checkindata"]) {
-            const date = new Date(data.checkin_time * 1000);
-
-            const newData = HardwareCheckinData.create({
-              userid: data.userid,
-              unix_checkin_time: data.checkin_time,
-              checkin_time: date,
-              checkin_date: date,
-              device_sn: data.device_sn,
-              device_name: data.device_name,
-            });
-            dataList.push(newData);
-          }
-        } else {
-          console.error(
-            "Error retrieving hardware checkin data:",
-            checkin_data
-          );
-        }
-      } catch (error) {
-        throw `Error fetching hardware checkin data: ${error}`;
-      }
-    }
-    if (dataList.length > 0) await this.insertHardwareCheckinData(dataList);
   }
 
   private async getCheckinDoc(dataList, relation) {
@@ -163,42 +123,54 @@ class GetCheckinData {
     return existingCheckins;
   }
 
-  private async insertHardwareCheckinData(dataList: HardwareCheckinData[]) {
-    const existingCheckins = await this.getCheckinDoc(dataList, [
-      "hardware_checkin_data",
-    ]);
-
-    const groupedData = _.groupBy(
-      dataList,
-      (item) => `${item.userid}%${item.checkin_date.toDateString()}`
-    );
-    // console.log(groupedData);
-    const checkinList: Checkin[] = [];
-
-    for (const key of Object.keys(groupedData)) {
-      const [userid, checkinDate] = key.split("%");
-
-      // 检查在 Checkin 数据库中是否存在具有相同 userid 和 checkin_date 的记录
-      const existingCheckin = existingCheckins.find(
-        (checkins) =>
-          checkins.userid === userid &&
-          isDateEqual(new Date(checkins.date), new Date(checkinDate))
-      );
-      if (existingCheckin) {
-        // 如果存在，将相应的 newData 添加到其 hardware_checkin_data 属性中
-        existingCheckin.hardware_checkin_data.push(...groupedData[key]);
-        checkinList.push(existingCheckin);
-      } else {
-        // 如果不存在，则创建一个新的 Checkin 对象，并将相应的 newData 添加到其 hardware_checkin_data 属性中
-        const newCheckin = Checkin.create({
-          userid: userid,
-          date: new Date(checkinDate),
-          hardware_checkin_data: groupedData[key],
-        });
-        checkinList.push(newCheckin);
+  private async insertToXFT(dataList: HardwareCheckin) {
+    let err: any[] = [];
+    const users = await User.find({
+      select: ["user_id", "name"], // 只选择 user_id 和 name 字段
+    });
+    const userMap = new Map(users.map((user) => [user.user_id, user.name]));
+    const data = dataList.map((data, index) => {
+      const userName = userMap.get(data.userid) || ""; // 从 Map 中获取用户姓名
+      const result = {
+        staffName: userName,
+        staffNumber: data.userid,
+        clickDate: format(data.checkin_time, "yyyy-MM-dd"),
+        clickTime: format(data.checkin_time, "HH:mm:ss"),
+        remark: "企业微信打卡",
+        workPlace: data.device_name,
+        importNum: index,
+      };
+      if (result["staffName"] == "") {
+        err.push(result);
       }
+      return result;
+    });
+    const errs = await xftatdApiClient.importAtd(data);
+    for (const temp of errs) {
+      const body = data.find((da) => da.importNum == temp["importNum"]);
+      err.push({
+        errmsg: temp["errorMessage"],
+        body: body,
+      });
     }
-    await Checkin.save(checkinList);
+    err = err.concat(errs);
+    return err;
+  }
+
+  private async insertHardwareCheckinData(rawlist: HardwareCheckin) {
+    const dataList: HardwareCheckinData[] = [];
+    for (const data of rawlist) {
+      const newData = HardwareCheckinData.create({
+        userid: data.userid,
+        unix_checkin_time: data.unix_checkin_time,
+        checkin_time: data.checkin_time,
+        checkin_date: data.checkin_time,
+        device_sn: data.device_sn,
+        device_name: data.device_name,
+      });
+      dataList.push(newData);
+    }
+    await HardwareCheckinData.insertRawCheckinData(dataList);
   }
 
   private async insertCheckinData(dataList: CheckinData[]) {
@@ -278,46 +250,46 @@ export const getUserList = async () => {
     .filter((username) => !!username);
 };
 
-export const initCheckinTable = async () => {
-  const checkinList = await Checkin.find({
-    relations: ["hardware_checkin_data"],
-  });
-  const totalCount = await HardwareCheckinData.count();
-  const pageSize = 1000;
-  // 计算总页数
-  const totalPages = Math.ceil(totalCount / pageSize);
-  for (let offset = 0; offset < totalPages; offset++) {
-    let data = await HardwareCheckinData.createQueryBuilder()
-      .offset(offset)
-      .limit(pageSize)
-      .getMany();
-    const newCheckinList = data.reduce((accumulator: Checkin[], currentA) => {
-      // 检查当前日期是否在表B中已存在
-      const existingBData = checkinList.find(
-        (b) => b.date === currentA.checkin_date && b.userid === currentA.userid
-      );
-      const existingBData1 = accumulator.find(
-        (b) => b.date === currentA.checkin_date && b.userid === currentA.userid
-      );
-      if (existingBData1) {
-        existingBData1.hardware_checkin_data.push(currentA);
-      } else if (existingBData) {
-        existingBData.hardware_checkin_data.push(currentA);
-        accumulator.push(existingBData);
-      } else {
-        // 如果不存在，则创建新的B数据，并将当前A数据添加到A列表中
-        const newBData = Checkin.create({
-          date: currentA.checkin_date,
-          userid: currentA.userid,
-          hardware_checkin_data: [currentA],
-        });
-        accumulator.push(newBData);
-      }
-      return accumulator;
-    }, []);
-    Checkin.save(newCheckinList);
-  }
-};
+// export const initCheckinTable = async () => {
+//   const checkinList = await Checkin.find({
+//     relations: ["hardware_checkin_data"],
+//   });
+//   const totalCount = await HardwareCheckinData.count();
+//   const pageSize = 1000;
+//   // 计算总页数
+//   const totalPages = Math.ceil(totalCount / pageSize);
+//   for (let offset = 0; offset < totalPages; offset++) {
+//     let data = await HardwareCheckinData.createQueryBuilder()
+//       .offset(offset)
+//       .limit(pageSize)
+//       .getMany();
+//     const newCheckinList = data.reduce((accumulator: Checkin[], currentA) => {
+//       // 检查当前日期是否在表B中已存在
+//       const existingBData = checkinList.find(
+//         (b) => b.date === currentA.checkin_date && b.userid === currentA.userid
+//       );
+//       const existingBData1 = accumulator.find(
+//         (b) => b.date === currentA.checkin_date && b.userid === currentA.userid
+//       );
+//       if (existingBData1) {
+//         existingBData1.hardware_checkin_data.push(currentA);
+//       } else if (existingBData) {
+//         existingBData.hardware_checkin_data.push(currentA);
+//         accumulator.push(existingBData);
+//       } else {
+//         // 如果不存在，则创建新的B数据，并将当前A数据添加到A列表中
+//         const newBData = Checkin.create({
+//           date: currentA.checkin_date,
+//           userid: currentA.userid,
+//           hardware_checkin_data: [currentA],
+//         });
+//         accumulator.push(newBData);
+//       }
+//       return accumulator;
+//     }, []);
+//     Checkin.save(newCheckinList);
+//   }
+// };
 
 export const getCheckinData = new GetCheckinData();
 
@@ -333,35 +305,42 @@ const setCheckin = async () => {
   const userList = await getUserList();
 };
 
-//每天的第 1 小时触发任务
-const checkinDateScheduleAt1 = cron.schedule("27 1 * * *", () => {
-  logger.info("checkinDateScheduleAt1");
-});
-
-//每天的第 8 小时（即 8 点）触发任务
-const checkinDateScheduleAt8 = cron.schedule("0 8 * * *", async () => {
-  await getCheckinData.getNextRawCheckinData();
-  await getCheckinData.getNextCheckinData();
-  logger.info("checkinDateScheduleAt8");
-});
-
-//每天的第 14 小时（即 14 点）触发任务
-const checkinDateScheduleAt14 = cron.schedule("0 14 * * *", async () => {
-  await getCheckinData.getNextRawCheckinData();
-  await getCheckinData.getNextCheckinData();
-  logger.info("checkinDateScheduleAt14");
-});
-
-//每天的第 23 小时（即 23 点）触发任务
-const checkinDateScheduleAt23 = cron.schedule("0 23 * * *", async () => {
-  await getCheckinData.getNextRawCheckinData();
-  await getCheckinData.getNextCheckinData();
-  logger.info("checkinDateScheduleAt23");
-});
-
-export const checkinDateSchedule = [
-  checkinDateScheduleAt1,
-  checkinDateScheduleAt8,
-  checkinDateScheduleAt14,
-  checkinDateScheduleAt23,
-];
+export const importErrorAtd = async () => {
+  let err: any[] = [];
+  const checkins = await LogCheckin.find();
+  let result: any[] = [];
+  for (const checkin of checkins) {
+    const msgs = JSON.parse(checkin.errmsg);
+    const a = msgs.map((msg) => {
+      if ("body" in msg) {
+        return msg["body"];
+      }
+    });
+    result = result.concat(a);
+  }
+  result = result.filter((res) => res !== undefined);
+  result.forEach((res, index) => {
+    res.importNum = index + 1;
+    if (res.staffNumber == "WangShunXin") res.staffName = "王顺心";
+    if (res.staffNumber == "KangXiangFeng") res.staffName = "亢翔锋";
+    if (res.staffNumber == "KangYingXiang") res.staffName = "亢应祥";
+    if (res.staffNumber == "XuLai") res.staffName = "孔令街";
+    if (res.staffNumber == "MouYongChu") res.staffName = "牟永初";
+    if (res.staffNumber == "WangJian") res.staffName = "五轴王剑";
+  });
+  const errs = await xftatdApiClient.importAtd(result);
+  for (const temp of errs) {
+    const body = result.find((da) => da.importNum == temp["importNum"]);
+    err.push({
+      errmsg: temp["errorMessage"],
+      body: body,
+    });
+  }
+  if (errs.length < 1) {
+    for (const checkin of checkins) {
+      checkin.errmsg = "[]";
+    }
+    await LogCheckin.save(checkins);
+  }
+  return err;
+};

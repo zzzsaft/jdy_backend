@@ -6,10 +6,12 @@ import {
   CreateDateColumn,
   ManyToOne,
   Relation,
+  Unique,
 } from "typeorm";
 import { Checkin } from "./Checkin";
 
 @Entity()
+@Unique(["userid", "unix_checkin_time"])
 export class HardwareCheckinData extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
@@ -28,6 +30,15 @@ export class HardwareCheckinData extends BaseEntity {
   device_name: string;
   @CreateDateColumn()
   created_at: Date;
-  @ManyToOne(() => Checkin, (checkin) => checkin.checkin_data)
-  checkin: Relation<Checkin>;
+  // @ManyToOne(() => Checkin, (checkin) => checkin.checkin_data)
+  // checkin: Relation<Checkin>;
+
+  static async insertRawCheckinData(data: HardwareCheckinData[]) {
+    await HardwareCheckinData.createQueryBuilder()
+      .insert()
+      .into(HardwareCheckinData)
+      .values(data)
+      .orIgnore()
+      .execute();
+  }
 }

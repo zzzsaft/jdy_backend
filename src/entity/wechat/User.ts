@@ -7,12 +7,15 @@ import {
   ManyToOne,
   Not,
   IsNull,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from "typeorm";
 import { logger } from "../../config/logger";
 import { xftUserApiClient } from "../../utils/xft/xft_user";
 import { Department } from "./Department";
 import { contactApiClient } from "../../utils/wechat/contact";
 import _ from "lodash";
+import { jctimesApiClient } from "../../utils/jctimes/app";
 
 @Entity()
 export class User extends BaseEntity {
@@ -34,6 +37,12 @@ export class User extends BaseEntity {
   attendance: string;
   @Column({ nullable: true })
   dahua_id: string;
+  @Column({ nullable: true })
+  mobile: string;
+  @CreateDateColumn()
+  created_at: Date;
+  @UpdateDateColumn()
+  updated_at: Date;
   // @ManyToOne(() => Department, (department) => department.)
   department: Department;
 
@@ -48,12 +57,13 @@ export class User extends BaseEntity {
       where: [{ is_employed: true }, { is_employed: IsNull() }],
     });
     let result: User[] = [];
+    // const userList = await jctimesApiClient.getUserLists();
     for (const departmentId of departmentIds) {
       const userList = await contactApiClient.getUserList(departmentId);
       const users = userList.userlist.map((user) => {
         return {
           user_id: user.userid,
-          name: user.name,
+          // name: user.name,
           is_employed: true,
           department_id: user.department,
           main_department_id: user.main_department,
@@ -75,16 +85,16 @@ export class User extends BaseEntity {
     }
   }
 
-  static async getUser_id(xftUserId: string): Promise<string> {
+  static async getUser_id(xft_enterprise_id: string): Promise<string> {
     const user = await User.findOne({
-      where: { xft_enterprise_id: xftUserId },
+      where: { xft_enterprise_id },
     });
     if (user) {
       return user.user_id;
     } else {
-      const userid = (await xftUserApiClient.getEmployeeDetail(xftUserId))[
-        "body"
-      ]?.["number"];
+      const userid = (
+        await xftUserApiClient.getEmployeeDetail(xft_enterprise_id)
+      )["body"]?.["number"];
       if (!userid) {
         throw new Error("User not found.");
       }
@@ -92,7 +102,7 @@ export class User extends BaseEntity {
         where: { user_id: Like(`%${userid}%`) },
       });
       if (user) {
-        user.xft_enterprise_id = xftUserId;
+        user.xft_enterprise_id = xft_enterprise_id;
         await user.save();
       }
       return userid;

@@ -15,12 +15,12 @@ export class Checkin extends AbstractContent {
     cascade: true,
   })
   checkin_data: Relation<CheckinData[]>;
-  @OneToMany(
-    () => HardwareCheckinData,
-    (hardwareCheckinData) => hardwareCheckinData.checkin,
-    {
-      cascade: true,
-    }
-  )
-  hardware_checkin_data: Relation<HardwareCheckinData[]>;
+  // @OneToMany(
+  //   () => HardwareCheckinData,
+  //   (hardwareCheckinData) => hardwareCheckinData.checkin,
+  //   {
+  //     cascade: true,
+  //   }
+  // )
+  // hardware_checkin_data: Relation<HardwareCheckinData[]>;
 }

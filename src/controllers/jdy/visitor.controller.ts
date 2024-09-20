@@ -11,7 +11,7 @@ export const 来宾预约单 = async (data) => {
     visitorCarNum: data["_widget_1572828292176"],
     visitorName: data["_widget_1557275291478"],
     visitorPhone: data["_widget_1721036182145"],
-    visitorPurpose: data["_widget_1557275291717"],
+    visitorPurpose: (data["_widget_1557275291717"] ?? []).join(","),
     visitorReason: data[""],
     visitorTime: format(time, "yyyy-MM-dd HH:mm:ss"),
     visitorLeaveTime: format(addHours(time, 4), "yyyy-MM-dd HH:mm:ss"),

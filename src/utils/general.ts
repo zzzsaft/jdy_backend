@@ -1,8 +1,10 @@
-import axios from "axios";
+import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
 import fs from "fs";
 import stream from "stream";
 import path from "path";
 import { logger } from "../config/logger";
+import { LogAxios } from "../entity/common/log_axios";
+const bool = process.env.NODE_ENV === "production";
 export async function downloadFileStream(url) {
   try {
     const response = await axios({
@@ -63,4 +65,49 @@ export const getLocalFilePath = (relativeFilePath) => {
 
 export const readLocalFile = (localFilePath) => {
   return fs.createReadStream(localFilePath);
+};
+
+export const appAxios = async (config: AxiosRequestConfig) => {
+  let response: AxiosResponse<any>;
+  try {
+    response = await axios(config);
+    const { status, data } = response;
+    const host = new URL(config.url ?? "").host;
+    if (bool) {
+      await LogAxios.create({
+        host,
+        url: config.url,
+        method: config.method,
+        payload: JSON.stringify(config.data) ?? "".slice(0, 2000),
+        res_status: status,
+        res_data: JSON.stringify(data) ?? "".slice(0, 200),
+      }).save();
+    } else {
+      console.log({
+        host,
+        url: config.url,
+        method: config.method,
+        payload: JSON.stringify(config.data) ?? "".slice(0, 2000),
+        res_status: status,
+        res_data: JSON.stringify(data) ?? "".slice(0, 200),
+      });
+    }
+  } catch (e) {
+    response = e.response;
+    if (response) {
+      const { status, data } = response;
+      const host = new URL(config.url ?? "").host;
+      await LogAxios.create({
+        host,
+        url: config.url,
+        method: config.method,
+        payload: JSON.stringify(config.data) ?? "".slice(0, 2000),
+        res_status: status,
+        res_data: JSON.stringify(data) ?? "".slice(0, 200),
+        err: JSON.stringify(e),
+      }).save();
+    }
+    throw e;
+  }
+  return response;
 };

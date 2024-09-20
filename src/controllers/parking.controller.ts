@@ -17,7 +17,7 @@ const sendInfo = {
 };
 
 export const parking = async (request: Request, response: Response) => {
-  logger.info(request.body);
+  // logger.info(request.body);
   if (!request.body) {
     return response.status(400).send({ state: "fail" });
   }

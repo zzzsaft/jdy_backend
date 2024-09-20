@@ -11,6 +11,7 @@ import {
 import exp from "constants";
 import { updateExistInfo, 入职申请表 } from "./addPerson.controller";
 import { 来宾预约单 } from "./visitor.controller";
+import { 离职, 转正 } from "./updateUser.jdy.controller";
 
 function getSignature(
   nonce: string,
@@ -33,9 +34,9 @@ export const JdyWebhook = async (request: Request, response: Response) => {
   if (signature !== getSignature(nonce, payload, webhook_token, timestamp)) {
     response.status(401).send("fail");
   }
+  response.send("success");
   // new 智能助手(request.body);
   await controllerMethod(request.body);
-  response.send("success");
 };
 
 const controllerMethod = async (body) => {
@@ -62,6 +63,12 @@ const JdyControllers = {
   "5cfef4b5de0b2278b05c8380": {
     "5cfef54d0fc84505a1d270f4": {
       data_create: 入职申请表,
+    },
+    "5c862c6e2444081a3681f651": {
+      data_update: 转正,
+    },
+    "6580fbeabeab377a1508c1a1": {
+      data_update: 离职,
     },
     "6414573264b9920007c82491": {
       data_update: updateExistInfo,

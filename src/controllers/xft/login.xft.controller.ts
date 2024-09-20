@@ -54,7 +54,7 @@ function encrypt(plaintext: Buffer): string {
     .toString("base64");
 }
 
-export const testLoginUrl = (userid) => {
+export const testLoginUrl = (userid, todoId: any = null) => {
   const 连接器ID = "223147993689554944";
   const 连接流ID = "224943279282388992";
   const XFT_HOST = `https://xft.cmbchina.com/xft-gateway/xft-login-new/xwapi/login/${连接器ID}_${连接流ID}`;
@@ -63,6 +63,11 @@ export const testLoginUrl = (userid) => {
     timestamp: Date.now(),
   };
   const secret = encrypt(Buffer.from(JSON.stringify(userInfo)));
-
+  const extPam = { toDoType: "0", toDoId: todoId };
+  if (todoId) {
+    return `${XFT_HOST}?extTyp=todo&extPam=${qs.escape(
+      JSON.stringify(extPam)
+    )}&secret=${secret}`;
+  }
   return `${XFT_HOST}?pageId=workbench&secret=${secret}`;
 };

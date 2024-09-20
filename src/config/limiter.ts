@@ -34,7 +34,7 @@ class Limiter {
   }
 }
 
-async function sleep(time) {
+export async function sleep(time) {
   return new Promise((resolve) => {
     setTimeout(resolve, time);
   });

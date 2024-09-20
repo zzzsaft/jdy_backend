@@ -7,6 +7,7 @@ import { IRequestOptions } from "../../type/IType";
 import { createHash } from "crypto";
 import { format } from "date-fns-tz";
 import { toZonedTime, format as formatTz } from "date-fns-tz";
+import { appAxios } from "../general";
 
 class ApiClient {
   host: string;
@@ -40,10 +41,10 @@ class ApiClient {
     };
     let response;
     try {
-      response = await axios(axiosRequestConfig);
+      response = await appAxios(axiosRequestConfig);
       if (response) {
         const { status, data } = response;
-        if (status && status > 200 && data.code && data.msg) {
+        if ((status && status > 200) || !response.data["success"]) {
           logger.error(
             `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg},body: ${options.payload}`
           );
@@ -52,9 +53,6 @@ class ApiClient {
           );
         }
       }
-      if (!response.data["success"])
-        logger.error(JSON.stringify(response.data));
-      else logger.info(JSON.stringify(response.data).slice(0, 50));
       return response.data;
     } catch (e) {
       logger.error(e);
