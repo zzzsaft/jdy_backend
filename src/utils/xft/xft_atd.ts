@@ -49,6 +49,15 @@ class XFTAttendanceApiClient {
       },
     });
   }
+  async getBusinessTripRecord(businessSeq) {
+    return await appApiClient.doRequest({
+      method: "POST",
+      path: "/atd/prd/xft-atn/business-trip/query",
+      payload: {
+        businessSeq,
+      },
+    });
+  }
   async getAtdType() {
     return await appApiClient.doRequest({
       method: "POST",
@@ -63,12 +72,24 @@ class XFTAttendanceApiClient {
       payload,
     });
   }
-  async addOvertime(payload) {
-    return await appApiClient.doRequest({
-      method: "POST",
-      path: "/atd/prd/xft-atn/leave/record-add",
-      payload,
-    });
+  async addOvertime(payload: {
+    staffName: string;
+    staffNumber: string;
+    overtimeDate: string;
+    beginTime: string;
+    beginTimeType: string;
+    endTime: string;
+    endTimeType: string;
+    overtimeReason: string;
+  }) {
+    return await appApiClient.doRequest(
+      {
+        method: "POST",
+        path: "/atd/prd/xft-atn/overtime/import-single",
+        payload,
+      },
+      "U0000"
+    );
   }
 }
 export const xftatdApiClient = new XFTAttendanceApiClient();

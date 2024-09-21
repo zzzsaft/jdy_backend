@@ -27,7 +27,17 @@ import { syncUser } from "./schedule/syncXftData";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-await PgDataSource.initialize();
+// await PgDataSource.initialize();
+// await xftatdApiClient.addOvertime({
+//   staffName: "杨萍丽",
+//   staffNumber: "YangPingLi",
+//   overtimeDate: "2024-09-02",
+//   beginTime: "17:20",
+//   beginTimeType: "当日",
+//   endTime: "18:50",
+//   endTimeType: "当日",
+//   overtimeReason: "圆模加班",
+// });
 // for (let i = 0; i < 28; i++) {
 //   await LogExpress.updateWechatEventLog();
 // }
@@ -43,7 +53,7 @@ await PgDataSource.initialize();
 //     "2024-09-24/PM",
 //   ])
 // );
-
+await xftOAApiClient.getForm();
 const lunxiujia = {
   appCode: "xft-bpm",
   appName: "OA审批",
