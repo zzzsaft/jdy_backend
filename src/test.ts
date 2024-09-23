@@ -24,6 +24,7 @@ import { getDateRanges, sendLeave } from "./schedule/sendLeave";
 import { decryptMsg } from "./utils/wechat/decrypt";
 import { OvertimeEvent } from "./controllers/xft/overtime.atd.xft.controller";
 import { syncUser } from "./schedule/syncXftData";
+import { fengbeitong_token } from "./utils/fenbeitong/token";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
@@ -49,31 +50,34 @@ const lunxiujia = {
   appName: "OA审批",
   businessCode: "OA000001",
   businessName: "待审批通知",
-  businessParam: "OT_xft-hrm_COM_AAA00512_0000000324",
-  createTime: "2024-09-15 16:56:13",
+  businessParam: "FORM_252268610697363456",
+  createTime: "2024-09-21 23:02:07",
   dealStatus: "0",
   details:
-    "【邓帅】发起了【加班】申请，流程类型：加班，申请人：邓帅，加班类型：工作日，起止时间：2024-09-10 17:30-2024-09-10 20:00，加班申请时长：2.50小时，加班原因：白班加班，请您尽快审批，发起时间：2024-09-15 16:56:12。",
-  id: "TD1835241195759087617",
-  processId: "1059868365",
+    "【梁之】发起了【出差】申请，申请人：梁之，出差行程：1-2，出差日期：2024-09-21 上午 到 2024-09-21上午，出差天数：0.5，出差事由：1，请您尽快审批，发起时间：2024-09-21 23:02:07。",
+  id: "TD1837507607636066305",
+  processId: "1073779544",
   processStatus: "0",
   receiver: {
     enterpriseNum: "AAA00512",
     thirdpartyUserId: "",
-    userName: "辛钊",
-    xftUserId: "V005H",
+    userName: "梁之",
+    xftUserId: "U0000",
   },
-  sendTime: "2024-09-15T16:56:12",
+  sendTime: "2024-09-21T23:02:07",
   sendUser: {
     enterpriseNum: "AAA00512",
     thirdpartyUserId: "",
-    userName: "邓帅",
-    xftUserId: "V005P",
+    userName: "梁之",
+    xftUserId: "U0000",
   },
   terminal: "0",
-  title: "邓帅发起的加班",
+  title: "梁之发起的出差",
   url: {},
 };
+const a = await fengbeitong_token.get_token();
+console.log();
+// await xftOAApiClient.getFormData(["FORM_252268610697363456"]);
 // await new OvertimeEvent(
 //   new XftTaskEvent(JSON.stringify(lunxiujia))
 // ).getRecord();
