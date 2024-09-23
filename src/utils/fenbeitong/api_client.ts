@@ -6,22 +6,17 @@ import { ILimitOpion, IRequestOptions } from "../../type/IType";
 import dotenv from "dotenv";
 import { logger } from "../../config/logger";
 import { appAxios } from "../general";
+import { fengbeitong_token } from "./token";
 export class ApiClient {
   host: string;
   apiKey: string;
   version: string;
   /**
    * 构造方法
-   * @param { String } apiKey - apiKey
    * @param { String } host - host
-   * @param { String } version - version
    */
-  constructor(version) {
-    // dotenv.config();
-
+  constructor() {
     this.host = process.env.FBT_HOST ?? "";
-    this.apiKey = process.env.JDY_API_KEY ?? "";
-    this.version = version;
   }
 
   /**
@@ -39,18 +34,15 @@ export class ApiClient {
     const axiosRequestConfig = {
       method: httpMethod,
       headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-type": "application/json;charset=utf-8",
+        "access-token": await fengbeitong_token.get_token(),
+        "Content-type": "application/json",
       },
-      url: `${this.host}/${options.version ?? this.version}/${
-        options.path
-      }${query}`,
+      url: `${this.host}/${options.path}${query}`,
       data: options.payload,
       timeout: 15000,
     };
     let response: AxiosResponse<any>;
     try {
-      await jdyLimiter.tryBeforeRun(limitOption);
       response = await appAxios(axiosRequestConfig);
       return response.data;
     } catch (e) {
@@ -60,9 +52,6 @@ export class ApiClient {
         const { status, data } = response;
         if (status && status > 200 && data.code && data.msg) {
           logger.error(
-            `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`
-          );
-          throw new Error(
             `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`
           );
         }

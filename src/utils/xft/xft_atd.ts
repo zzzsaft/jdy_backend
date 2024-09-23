@@ -70,5 +70,12 @@ class XFTAttendanceApiClient {
       payload,
     });
   }
+  async getQuota(payload) {
+    return await appApiClient.doRequest({
+      method: "POST",
+      path: "/atd/prd/xft-atn/leave/find-balance",
+      payload,
+    });
+  }
 }
 export const xftatdApiClient = new XFTAttendanceApiClient();

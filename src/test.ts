@@ -75,8 +75,8 @@ const lunxiujia = {
   title: "梁之发起的出差",
   url: {},
 };
-const a = await fengbeitong_token.get_token();
-console.log();
+// const a = await fengbeitong_token.get_token();
+// console.log();
 // await xftOAApiClient.getFormData(["FORM_252268610697363456"]);
 // await new OvertimeEvent(
 //   new XftTaskEvent(JSON.stringify(lunxiujia))
