@@ -19,5 +19,12 @@ class XFTOAApiClient {
       },
     });
   }
+  async getForm() {
+    return await appApiClient.doRequest({
+      method: "POST",
+      path: "/xft-oa/openapi/xft-oaquery/form/query-list",
+      payload: {},
+    });
+  }
 }
 export const xftOAApiClient = new XFTOAApiClient();
