@@ -2,6 +2,17 @@ import "./config/env";
 import "./config/logger";
 import { PgDataSource } from "./config/data-source";
 import { testWechatWebhook } from "./controllers/wechat/wechat.controller";
+import {
+  endOfWeek,
+  format,
+  getISOWeek,
+  compareAsc,
+  eachDayOfInterval,
+  endOfMonth,
+  subMonths,
+  startOfMonth,
+  isSaturday,
+} from "date-fns";
 import { xftOAApiClient } from "./utils/xft/xft_oa";
 // // import { contactApiClient } from "./utils/wechat/contact";
 // // import { createUser } from "./controllers/wechat/contact.wechat.controller";
@@ -29,6 +40,12 @@ import { fengbeitong_token } from "./utils/fenbeitong/token";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 // await PgDataSource.initialize();
+// const a = await xftatdApiClient.getAllSingleDayOffQuotaLeft();
+// console.log(await testLoginUrl("PuXiuPing"));
+
+// console.log(await xftatdApiClient.getSingleDayOffQuotaLeftByUserId("XuMin"));
+
+// await xftatdApiClient.getAtdType();
 // await xftatdApiClient.addOvertime({
 //   staffName: "杨萍丽",
 //   staffNumber: "YangPingLi",
@@ -54,7 +71,7 @@ import { fengbeitong_token } from "./utils/fenbeitong/token";
 //     "2024-09-24/PM",
 //   ])
 // );
-await xftOAApiClient.getForm();
+// await xftOAApiClient.getForm();
 const lunxiujia = {
   appCode: "xft-bpm",
   appName: "OA审批",

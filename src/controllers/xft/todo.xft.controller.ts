@@ -35,7 +35,7 @@ export class XftTaskEvent {
     media_id?: string;
     userid?: string;
   }[];
-  msgId: { msgId: string; responseCode: string };
+  msgId: WechatMessage;
   constructor(content = "{}") {
     Object.assign(this, JSON.parse(content));
     const redirectUrl = `http://hz.jc-times.com:2000/xft/sso?todoid=${this.id}`;
@@ -156,6 +156,7 @@ export class XftTaskEvent {
         this.msgId.responseCode,
         this.status
       );
+      await WechatMessage.disable(this.msgId.taskId);
     }
   };
 }

@@ -13,6 +13,8 @@ export class WechatMessage extends AbstractContent {
   eventId: string;
   @Column({ name: "event_type", nullable: true })
   eventType: string;
+  @Column()
+  disabled: boolean;
   static async addMsgId(
     msgId: string,
     responseCode: string,
@@ -26,6 +28,7 @@ export class WechatMessage extends AbstractContent {
       eventId,
       eventType,
       taskId,
+      disabled: false,
     });
     await msg.save();
   }
@@ -40,7 +43,7 @@ export class WechatMessage extends AbstractContent {
       .orderBy("msg.created_at", "DESC")
       .getOne();
     if (msg) {
-      return { msgId: msg.msgId, responseCode: msg.responseCode };
+      return msg;
     }
     return null;
   }
@@ -48,6 +51,13 @@ export class WechatMessage extends AbstractContent {
     const msg = await WechatMessage.findOne({ where: { taskId: taskId } });
     if (msg) {
       msg.responseCode = responseCode;
+      await msg.save();
+    }
+  }
+  static async disable(taskId: string) {
+    const msg = await WechatMessage.findOne({ where: { taskId: taskId } });
+    if (msg) {
+      msg.disabled = true;
       await msg.save();
     }
   }

@@ -11,4 +11,9 @@ export const UtilsRoutes = [
     method: "get",
     action: sendImage,
   },
+  {
+    path: "/address",
+    method: "get",
+    action: sendImage,
+  },
 ];

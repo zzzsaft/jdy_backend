@@ -11,16 +11,20 @@ export const handleMessageEvent = async (msg: any) => {
   const responseCode = msg["ResponseCode"]["value"];
   await WechatMessage.updateResponseCode(taskId, responseCode);
   const msgId = await WechatMessage.findOne({ where: { taskId: taskId } });
+  if (msgId?.disabled) return;
   if (msgId?.eventType == "xft") {
-    await xftMsg(eventKey);
+    await xftMsg(taskId, eventKey);
   }
   if (msgId?.eventType == "general") {
     await xftLeave(msg, eventKey);
   }
 };
 
-const xftMsg = async (key) => {
+const xftMsg = async (taskId, key) => {
   const result = await xftOAApiClient.operate(JSON.parse(key));
+  if (result["returnCode"] !== "SUC0000") {
+    await WechatMessage.disable(taskId);
+  }
 };
 
 const xftLeave = async (msg, key) => {

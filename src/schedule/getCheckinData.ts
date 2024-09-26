@@ -327,6 +327,7 @@ export const importErrorAtd = async () => {
     if (res.staffNumber == "XuLai") res.staffName = "孔令街";
     if (res.staffNumber == "MouYongChu") res.staffName = "牟永初";
     if (res.staffNumber == "WangJian") res.staffName = "五轴王剑";
+    if (res.staffNumber == "WangJian01") res.staffName = "三轴王剑";
   });
   const errs = await xftatdApiClient.importAtd(result);
   for (const temp of errs) {

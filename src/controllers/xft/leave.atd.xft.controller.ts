@@ -1,8 +1,9 @@
 import { xftatdApiClient } from "../../utils/xft/xft_atd";
 import { xftOAApiClient } from "../../utils/xft/xft_oa";
 import { XftTaskEvent } from "./todo.xft.controller";
-import { format } from "date-fns";
+import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 import { XftAtdLeave } from "../../entity/xft/leave";
+import _ from "lodash";
 
 export class LeaveEvent {
   task: XftTaskEvent;
@@ -34,6 +35,9 @@ export class LeaveEvent {
       await this.sendNotice(this.stfNumber);
     } else if (this.task.dealStatus == "0") {
       if (this.task.details.includes("请假类型：轮休假")) {
+        if (await this.rejectOA()) {
+          return;
+        }
         if (await this.passOA()) {
           await this.sendNotice(this.task.receiverId);
         } else {
@@ -95,7 +99,24 @@ export class LeaveEvent {
     return false;
   };
 
-  rejectOA = async () => {};
+  rejectOA = async () => {
+    const quota = await xftatdApiClient.getSingleDayOffQuotaLeftByUserId(
+      this.stfNumber
+    );
+    if (quota.total != 5) return false;
+    if (this.leaveDuration > quota.left) {
+      const operate = await xftOAApiClient.operate(
+        this.task.operateConfig("reject")
+      );
+      this.task.status = "已驳回";
+      this.task.horizontal_content_list.push({
+        keyname: "驳回原因",
+        value: `本月还剩${quota.left}日轮休假，请查看近两月请假记录。如有疑问请联系人力资源部。`,
+      });
+      await this.sendNotice(this.task.receiverId);
+      return true;
+    }
+  };
 
   sendNotice = async (userid: string, status = this.task.status) => {
     let userids = Array.from(new Set([userid, this.task.sendUserId]));

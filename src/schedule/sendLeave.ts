@@ -40,12 +40,15 @@ const generateCheckBox = () => {
     },
   ];
 };
-const generateLeaveConfig = (user: {
-  userid: string;
-  stfSeq: string;
-  stfName: string;
-  orgSeq: string;
-}) => {
+const generateLeaveConfig = (
+  user: {
+    userid: string;
+    stfSeq: string;
+    stfName: string;
+    orgSeq: string;
+  },
+  quota
+) => {
   const { userid, stfName, stfSeq, orgSeq } = user;
   return JSON.stringify({
     stfSeq,
@@ -54,6 +57,7 @@ const generateLeaveConfig = (user: {
     stfNumber: userid.substring(0, 20),
     lveUnit: "DAY",
     lveType: "CUST16",
+    quota,
   });
 };
 export const sendLeave = async (
@@ -79,7 +83,7 @@ export const sendLeave = async (
     },
     submit_button: {
       text: "提交",
-      key: generateLeaveConfig(user),
+      key: generateLeaveConfig(user, quota),
     },
   });
 };
@@ -162,3 +166,8 @@ export const proceedLeave = async (optionIds, config) => {
     }
   }
 };
+
+// const quota = await xftatdApiClient.getQuota(
+//   format(startOfMonth(subMonths(new Date(), 1)), "yyyy-MM-dd"),
+//   format(endOfMonth(new Date()), "yyyy-MM-dd")
+// );

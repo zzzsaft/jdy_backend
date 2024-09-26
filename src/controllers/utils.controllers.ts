@@ -28,3 +28,5 @@ export const sendImage = async (request: Request, response: Response) => {
     response.end(data);
   });
 };
+
+export const sendAddress = async (request: Request, response: Response) => {};
