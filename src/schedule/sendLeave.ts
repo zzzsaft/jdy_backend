@@ -156,7 +156,9 @@ export function getDateRanges(dates: string[]): DateRange[] {
 }
 
 export const proceedLeave = async (optionIds, config) => {
-  if (optionIds.length * 2 > config["quota"]) return;
+  if (optionIds.length * 2 > config["quota"]) {
+    return;
+  }
   for (const range of getDateRanges(optionIds)) {
     const record = await xftatdApiClient.addLeave({ ...config, ...range });
     if (record["returnCode"] !== "SUC0000") {

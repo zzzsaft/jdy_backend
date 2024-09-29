@@ -25,6 +25,10 @@ export class LeaveEvent {
   leaveEndDate: string;
   leaveReason: string;
   leaveDtlDtos: string[];
+  quota: {
+    total: any;
+    left: any;
+  };
   constructor(task: XftTaskEvent) {
     this.task = task;
   }
@@ -82,6 +86,7 @@ export class LeaveEvent {
   };
 
   passOA = async () => {
+    if (this.quota.total == 2) return false;
     if (this.leaveDtlDtos) {
       const isWeekend = this.leaveDtlDtos.every(
         (dtos) => dtos["weekDay"] == 1 || dtos["weekDay"] == 7
@@ -103,6 +108,7 @@ export class LeaveEvent {
     const quota = await xftatdApiClient.getSingleDayOffQuotaLeftByUserId(
       this.stfNumber
     );
+    this.quota = quota;
     if (quota.total != 5) return false;
     if (this.leaveDuration > quota.left) {
       const operate = await xftOAApiClient.operate(
