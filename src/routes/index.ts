@@ -6,6 +6,7 @@ import { UtilsRoutes } from "./utils";
 import { WechatOAuthRoutes } from "./wechat/wechatOAuth";
 import { WechatRoutes } from "./wechat/wechat";
 import { xftRoute } from "./xft";
+import { fenbeitongRoutes } from "./fengbeitong";
 
 /**
  * All application routes.
@@ -19,4 +20,5 @@ export const AppRoutes = [
   ...UtilsRoutes,
   ...JdyDataRoutes,
   ...parkingRoutes,
+  ...fenbeitongRoutes,
 ];

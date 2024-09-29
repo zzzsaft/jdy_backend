@@ -65,12 +65,13 @@ export class XftTaskEvent {
       this.msgId = msgId;
     }
   };
-  operateConfig(operateType: "pass" | "reject") {
+  operateConfig(operateType: "pass" | "reject", approveComment = "") {
     return {
       approverId: this.receiver["xftUserId"],
       operateType: operateType,
       busKey: this.businessParam,
       taskId: this.processId,
+      approveComment: "",
     };
   }
   sendCard = async () => {

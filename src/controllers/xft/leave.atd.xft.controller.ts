@@ -106,7 +106,10 @@ export class LeaveEvent {
     if (quota.total != 5) return false;
     if (this.leaveDuration > quota.left) {
       const operate = await xftOAApiClient.operate(
-        this.task.operateConfig("reject")
+        this.task.operateConfig(
+          "reject",
+          `本月还剩${quota.left}日轮休假，请查看近两月请假记录。如有疑问请联系人力资源部。`
+        )
       );
       this.task.status = "已驳回";
       this.task.horizontal_content_list.push({

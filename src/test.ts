@@ -40,8 +40,9 @@ import { fengbeitong_token } from "./utils/fenbeitong/token";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 // await PgDataSource.initialize();
+// await importErrorAtd();
 // const a = await xftatdApiClient.getAllSingleDayOffQuotaLeft();
-// console.log(await testLoginUrl("PuXiuPing"));
+console.log(await testLoginUrl("LiuYong"));
 
 // console.log(await xftatdApiClient.getSingleDayOffQuotaLeftByUserId("XuMin"));
 
