@@ -10,12 +10,12 @@ import { CheckinData } from "../entity/wechat/CheckinData";
 import { Between, In } from "typeorm";
 import cron from "node-cron";
 import { logger } from "../config/logger";
-import { Checkin } from "../entity/wechat/Checkin";
 import { User } from "../entity/wechat/User";
 import { jctimesApiClient } from "../utils/jctimes/app";
 import { LogCheckin } from "../entity/common/log_checkin";
 import { xftatdApiClient, importAtd } from "../utils/xft/xft_atd";
 import { format } from "date-fns";
+import { Checkin } from "../entity/wechat/checkin";
 
 class GetCheckinData {
   twoDaysInSeconds = 2 * 24 * 60 * 60;
@@ -100,7 +100,7 @@ class GetCheckinData {
         throw `Error fetching hardware checkin data: ${error}`;
       }
     }
-    if (dataList.length > 0) await this.insertCheckinData(dataList);
+    // if (dataList.length > 0) await this.insertCheckinData(dataList);
   }
 
   private async getCheckinDoc(dataList, relation) {
@@ -173,54 +173,54 @@ class GetCheckinData {
     await HardwareCheckinData.insertRawCheckinData(dataList);
   }
 
-  private async insertCheckinData(dataList: CheckinData[]) {
-    const existingCheckins = await this.getCheckinDoc(dataList, [
-      "checkin_data",
-    ]);
+  // private async insertCheckinData(dataList: CheckinData[]) {
+  //   const existingCheckins = await this.getCheckinDoc(dataList, [
+  //     "checkin_data",
+  //   ]);
 
-    const groupedData = _.groupBy(
-      dataList,
-      (item) => `${item.userid}%${item.checkin_date.toDateString()}`
-    );
-    // console.log(groupedData);
-    const checkinList: Checkin[] = [];
+  //   const groupedData = _.groupBy(
+  //     dataList,
+  //     (item) => `${item.userid}%${item.checkin_date.toDateString()}`
+  //   );
+  //   // console.log(groupedData);
+  //   const checkinList: Checkin[] = [];
 
-    for (const key of Object.keys(groupedData)) {
-      const [userid, checkinDate] = key.split("%");
+  //   for (const key of Object.keys(groupedData)) {
+  //     const [userid, checkinDate] = key.split("%");
 
-      // 检查在 Checkin 数据库中是否存在具有相同 userid 和 checkin_date 的记录
-      const existingCheckin = existingCheckins.find(
-        (checkins) =>
-          checkins.userid === userid &&
-          isDateEqual(new Date(checkins.date), new Date(checkinDate))
-      );
+  //     // 检查在 Checkin 数据库中是否存在具有相同 userid 和 checkin_date 的记录
+  //     const existingCheckin = existingCheckins.find(
+  //       (checkins) =>
+  //         checkins.userid === userid &&
+  //         isDateEqual(new Date(checkins.date), new Date(checkinDate))
+  //     );
 
-      if (existingCheckin) {
-        const existingUnixCheckinTimes = existingCheckin.checkin_data.map(
-          (item) => parseInt(item.unix_checkin_time.toString())
-        );
-        const newDataToAdd = groupedData[key].filter(
-          (item) => !existingUnixCheckinTimes.includes(item.unix_checkin_time)
-        );
-        if (newDataToAdd.length > 0) {
-          existingCheckin.checkin_data.push(...newDataToAdd);
-          checkinList.push(existingCheckin);
-        }
-      } else {
-        // 如果不存在，则创建一个新的 Checkin 对象，并将相应的 newData 添加到其 hardware_checkin_data 属性中
-        const newCheckin = Checkin.create({
-          userid: userid,
-          date: new Date(checkinDate),
-          checkin_data: groupedData[key],
-        });
-        checkinList.push(newCheckin);
-      }
-    }
-    const chunks = _.chunk(checkinList, 100);
-    for (const chunk of chunks) {
-      await Checkin.save(chunk);
-    }
-  }
+  //     if (existingCheckin) {
+  //       const existingUnixCheckinTimes = existingCheckin.checkin_data.map(
+  //         (item) => parseInt(item.unix_checkin_time.toString())
+  //       );
+  //       const newDataToAdd = groupedData[key].filter(
+  //         (item) => !existingUnixCheckinTimes.includes(item.unix_checkin_time)
+  //       );
+  //       if (newDataToAdd.length > 0) {
+  //         existingCheckin.checkin_data.push(...newDataToAdd);
+  //         checkinList.push(existingCheckin);
+  //       }
+  //     } else {
+  //       // 如果不存在，则创建一个新的 Checkin 对象，并将相应的 newData 添加到其 hardware_checkin_data 属性中
+  //       const newCheckin = Checkin.create({
+  //         userid: userid,
+  //         date: new Date(checkinDate),
+  //         checkin_data: groupedData[key],
+  //       });
+  //       checkinList.push(newCheckin);
+  //     }
+  //   }
+  //   const chunks = _.chunk(checkinList, 100);
+  //   for (const chunk of chunks) {
+  //     await Checkin.save(chunk);
+  //   }
+  // }
 }
 
 export const getUserList = async () => {

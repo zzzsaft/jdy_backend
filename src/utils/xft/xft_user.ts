@@ -145,5 +145,35 @@ class XftUserApiClient {
       },
     });
   }
+  async updateMapping(STFSEQ, STFTRD) {
+    return await appApiClient.doRequest({
+      method: "POST",
+      path: "/hrm/hrm2/xft-hmp/HRSTRLMD",
+      payload: {
+        HRTDSTMPZ: [
+          {
+            STFSEQ,
+            STFTRD,
+            CHANEL: "O",
+          },
+        ],
+      },
+    });
+  }
+  async deleteMapping(STFSEQ, STFTRD) {
+    return await appApiClient.doRequest({
+      method: "POST",
+      path: "/hrm/hrm2/xft-hmp/HRSTRLDL",
+      payload: {
+        HRTDSTMPZ: [
+          {
+            STFSEQ,
+            STFTRD,
+            CHANEL: "O",
+          },
+        ],
+      },
+    });
+  }
 }
 export const xftUserApiClient = new XftUserApiClient();

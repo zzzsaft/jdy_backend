@@ -3,7 +3,7 @@ import AbstractContent from "../AbstractContent";
 import { CheckinData } from "./CheckinData";
 import { HardwareCheckinData } from "./HardwareCheckinData";
 
-@Entity()
+@Entity({ name: "checkin" })
 @Index(["userid", "date"], { unique: true })
 export class Checkin extends AbstractContent {
   @Column("date")
@@ -15,12 +15,12 @@ export class Checkin extends AbstractContent {
     cascade: true,
   })
   checkin_data: Relation<CheckinData[]>;
-  // @OneToMany(
-  //   () => HardwareCheckinData,
-  //   (hardwareCheckinData) => hardwareCheckinData.checkin,
-  //   {
-  //     cascade: true,
-  //   }
-  // )
-  // hardware_checkin_data: Relation<HardwareCheckinData[]>;
+  @OneToMany(
+    () => HardwareCheckinData,
+    (hardwareCheckinData) => hardwareCheckinData.checkin,
+    {
+      cascade: true,
+    }
+  )
+  hardware_checkin_data: Relation<HardwareCheckinData[]>;
 }

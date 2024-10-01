@@ -8,9 +8,8 @@ import { logger } from "../../config/logger";
 import { appAxios } from "../general";
 import { fengbeitong_token } from "./token";
 export class ApiClient {
-  host: string;
-  apiKey: string;
-  version: string;
+  private host: string;
+  private apiKey: string;
   /**
    * 构造方法
    * @param { String } host - host
@@ -28,7 +27,7 @@ export class ApiClient {
    * @param { Object } options.query - url参数,可选
    * @param { Object } options.payload - 请求参数,可选
    */
-  async doRequest(options: IRequestOptions, limitOption: ILimitOpion) {
+  protected async doRequest(options: IRequestOptions) {
     const httpMethod = _.toUpper(options.method);
     const query = options.query ? `?${qs.stringify(options.query)}` : "";
     const axiosRequestConfig = {
@@ -44,13 +43,19 @@ export class ApiClient {
     let response: AxiosResponse<any>;
     try {
       response = await appAxios(axiosRequestConfig);
+      if (response) {
+        const { status, data } = response;
+        if ((status && status > 200) || data["code"] !== 0) {
+          throw `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`;
+        }
+      }
       return response.data;
     } catch (e) {
       // console.log(e);
       response = e.response;
       if (response) {
         const { status, data } = response;
-        if (status && status > 200 && data.code && data.msg) {
+        if ((status && status > 200) || data["code"] !== 0) {
           logger.error(
             `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`
           );

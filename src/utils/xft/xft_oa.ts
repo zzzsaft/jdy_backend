@@ -3,7 +3,13 @@ import { User } from "../../entity/wechat/User";
 import { appApiClient, connectApiClient } from "./api_client";
 
 class XFTOAApiClient {
-  async operate(payload) {
+  async operate(payload: {
+    approverId: string;
+    operateType: string;
+    busKey: string;
+    taskId: string;
+    approveComment?: string;
+  }) {
     return await appApiClient.doRequest({
       method: "POST",
       path: "/xft-oa/openapi/xft-oa/open/operate/proc/inst/deal",

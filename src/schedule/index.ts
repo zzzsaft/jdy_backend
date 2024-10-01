@@ -4,6 +4,7 @@ import { Department } from "../entity/wechat/Department";
 import { User } from "../entity/wechat/User";
 import { logger } from "../config/logger";
 import { getCheckinData } from "./getCheckinData";
+import { sendtoUserwithLeaveChoice } from "./sendLeave";
 
 const syncWechat = async () => {
   await Department.updateDepartment();
@@ -15,7 +16,6 @@ const syncWechat = async () => {
 //每过15分钟触发任务
 const checkinDateSchedule = cron.schedule("0,15,30,45 * * * *", async () => {
   await getCheckinData.getNextRawCheckinData();
-  logger.info("获取打卡数据");
 });
 
 //每日1点触发任务
@@ -25,4 +25,10 @@ const updateUserSchedule = cron.schedule("0 1 * * *", async () => {
   logger.info("1点更新部门人员数据");
 });
 
-export const schedule = [checkinDateSchedule, updateUserSchedule];
+//每周五下午4点触发任务
+const sendLeave = cron.schedule("0 16 * * 5", async () => {
+  await sendtoUserwithLeaveChoice();
+  logger.info("周五下午任务");
+});
+
+export const schedule = [checkinDateSchedule, updateUserSchedule, sendLeave];

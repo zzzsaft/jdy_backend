@@ -5,9 +5,11 @@ import { User } from "../../entity/wechat/User";
 import { WechatMessage } from "../../entity/wechat/message";
 import { logger } from "../../config/logger";
 import { v4 as uuidv4 } from "uuid";
-import { LeaveEvent } from "./leave.atd.xft.controller";
+
 import { format } from "date-fns";
-import { OvertimeEvent } from "./overtime.atd.xft.controller";
+import { LeaveEvent } from "./atd/leave.atd.xft.controller";
+import { OvertimeEvent } from "./atd/overtime.atd.xft.controller";
+import { BusinessTripEvent } from "./atd/businessTrip.atd.xft.controller";
 
 export class XftTaskEvent {
   url: string;
@@ -182,9 +184,12 @@ export const xftTaskCallback = async (content) => {
     await new OvertimeEvent(task).process();
     return;
   }
+  if (task.details.includes("【出差】")) {
+    await new BusinessTripEvent(task).process();
+    return;
+  }
   if (task.dealStatus == "0") {
-    if (task.details.includes("【外出】") || task.details.includes("【出差】"))
-      await task.sendButtonCard();
+    if (task.details.includes("【外出】")) await task.sendButtonCard();
     else await task.sendCard();
   }
   if (task.processStatus != "0") {

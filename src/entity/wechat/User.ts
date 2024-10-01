@@ -143,4 +143,23 @@ export class User extends BaseEntity {
       logger.error(`User not found: ${userId}`);
     }
   }
+
+  static async getLeaderId(userId: string): Promise<string[]> {
+    let orgid =
+      (await User.findOne({ where: { user_id: userId } }))
+        ?.main_department_id ?? "";
+    let org = await Department.findOne({ where: { department_id: orgid } });
+    let leader = org?.department_leader;
+    if (leader?.includes(userId)) {
+      let parentOrg = org?.parent_id;
+      if (parentOrg)
+        leader = (
+          await Department.findOne({ where: { department_id: parentOrg } })
+        )?.department_leader;
+    }
+    if (leader) {
+      return leader;
+    }
+    return [];
+  }
 }

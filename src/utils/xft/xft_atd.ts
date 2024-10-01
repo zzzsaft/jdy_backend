@@ -5,6 +5,7 @@ import {
   endOfMonth,
   format,
   isSaturday,
+  isSunday,
   startOfMonth,
   subMonths,
 } from "date-fns";
@@ -57,13 +58,14 @@ class XFTAttendanceApiClient {
       },
     });
   }
-  async getBusinessTripRecord(businessSeq) {
+  async getBusinessTripRecord(payload: {
+    businessSeq?: string;
+    staffNameOrStaffNumber?: string;
+  }) {
     return await appApiClient.doRequest({
       method: "POST",
       path: "/atd/prd/xft-atn/business-trip/query",
-      payload: {
-        businessSeq,
-      },
+      payload,
     });
   }
   async getAtdType() {
@@ -74,11 +76,14 @@ class XFTAttendanceApiClient {
     });
   }
   async addLeave(payload) {
-    return await appApiClient.doRequest({
-      method: "POST",
-      path: "/atd/prd/xft-atn/leave/record-add",
-      payload,
-    });
+    return await appApiClient.doRequest(
+      {
+        method: "POST",
+        path: "/atd/prd/xft-atn/leave/record-add",
+        payload,
+      },
+      "U0000"
+    );
   }
   async addOvertime(payload: {
     staffName: string;
@@ -121,7 +126,7 @@ class XFTAttendanceApiClient {
       (quota) => quota["balPeriod"] == currentMonth
     );
 
-    if (quotaThisMonth?.["deservedBal"] != 5)
+    if (quotaThisMonth?.["deservedBal"] != 5 || this.getLastMouthSaturday())
       return {
         total: quotaThisMonth?.["initialBal"],
         left: quotaThisMonth?.["leftBal"],
@@ -179,6 +184,20 @@ class XFTAttendanceApiClient {
       "U0000"
     );
   }
+
+  private getLastMouthSaturday = () => {
+    const days = eachDayOfInterval({
+      start: startOfMonth(new Date()),
+      end: endOfMonth(new Date()),
+    });
+
+    const saturdays = days.filter(isSaturday).length;
+    const sundays = days.filter(isSunday).length;
+
+    if (saturdays == sundays) return true;
+    else return false;
+  };
+
   // 返回最近两个月的周六总数量
   private getLast2MouthSaturday = () => {
     const currentDate = new Date();

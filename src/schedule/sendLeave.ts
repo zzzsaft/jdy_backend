@@ -1,8 +1,19 @@
 import { MessageHelper } from "../utils/wechat/message";
-import { endOfWeek, format, getISOWeek, compareAsc } from "date-fns";
+import {
+  endOfWeek,
+  format,
+  getISOWeek,
+  compareAsc,
+  parseISO,
+  differenceInDays,
+} from "date-fns";
 import { xftatdApiClient } from "../utils/xft/xft_atd";
-import { LeaveEvent } from "../controllers/xft/leave.atd.xft.controller";
 import { XftTaskEvent } from "../controllers/xft/todo.xft.controller";
+import { LeaveEvent } from "../controllers/xft/atd/leave.atd.xft.controller";
+import { User } from "../entity/wechat/User";
+import { Department } from "../entity/wechat/Department";
+import { createWechatUrl, getDay } from "../utils/general";
+import { sleep } from "../config/limiter";
 
 const getWeekendDates = () => {
   const today = new Date();
@@ -88,12 +99,104 @@ export const sendLeave = async (
   });
 };
 
+export const sendtoUserwithLeaveChoiceTest = async () => {
+  const user = await getUser("LiangZhi");
+  if (user) sendLeave(user, 5);
+};
+
+export const sendtoUserwithLeaveChoice = async () => {
+  const allQuota = await xftatdApiClient.getAllSingleDayOffQuotaLeft();
+  for (const key in allQuota) {
+    const quota = allQuota[key];
+    if (quota.total == 5) {
+      const user = await getUser(key);
+      if (user) {
+        // console.log(user, quota.left);
+        await sendLeave(user, quota.left);
+        await sleep(10);
+      }
+    }
+  }
+};
+
 interface DateRange {
   begDate: string;
   begTime: string;
   endDate: string;
   endTime: string;
 }
+
+export const proceedLeave = async (optionIds, config, user) => {
+  let flag = false;
+  if (optionIds.length * 2 > config["quota"]) {
+    new MessageHelper([user]).send_plain_text(
+      "您选择的日期范围超过了剩余的轮休假天数，请重新选择。"
+    );
+    return flag;
+  }
+  const leaders = await User.getLeaderId(user);
+  // const leaders = [];
+  const name = (await User.findOne({ where: { user_id: user } }))?.name;
+  for (const range of getDateRanges(optionIds)) {
+    const record = await xftatdApiClient.addLeave({ ...config, ...range });
+    if (record["returnCode"] == "SUC0000") {
+      flag = true;
+      await new MessageHelper([user, ...leaders]).sendTextNotice({
+        main_title: {
+          title: `(已自动通过)${name}的轮休假申请`,
+          desc: "",
+        },
+        sub_title_text: "",
+        card_action: {
+          type: 1,
+          url: createWechatUrl(
+            "https://xft.cmbchina.com/mobile-atd/#/vacation-record"
+          ),
+        },
+        horizontal_content_list: [
+          { keyname: "请假类型", value: "轮休假" },
+          {
+            keyname: "开始时间",
+            value: `${range.begDate} ${range.begTime} (${getDay(
+              range.begDate
+            )})`,
+          },
+          {
+            keyname: "结束时间",
+            value: `${range.endDate} ${range.endTime} (${getDay(
+              range.endDate
+            )})`,
+          },
+          {
+            keyname: "请假时长",
+            value: `${calculateDays(range)}天`,
+          },
+        ],
+      });
+    } else flag = false;
+  }
+  return flag;
+};
+
+const getUser = async (userid) => {
+  let orgid;
+  const user = await User.findOne({ where: { user_id: userid } });
+  if (user) {
+    orgid = (
+      await Department.findOne({
+        where: { department_id: user.main_department_id },
+      })
+    )?.xft_id;
+  }
+  if (orgid) {
+    return {
+      userid: userid,
+      stfSeq: user?.xft_id ?? "",
+      stfName: user?.name ?? "",
+      orgSeq: orgid,
+    };
+  }
+};
 
 function sortDates(dates: string[]): string[] {
   return dates.sort((a, b) => {
@@ -109,7 +212,7 @@ function sortDates(dates: string[]): string[] {
   });
 }
 
-export function getDateRanges(dates: string[]): DateRange[] {
+function getDateRanges(dates: string[]): DateRange[] {
   if (dates.length === 0) return [];
 
   // 先排序
@@ -155,21 +258,20 @@ export function getDateRanges(dates: string[]): DateRange[] {
   return dateRanges;
 }
 
-export const proceedLeave = async (optionIds, config) => {
-  if (optionIds.length * 2 > config["quota"]) {
-    return;
-  }
-  for (const range of getDateRanges(optionIds)) {
-    const record = await xftatdApiClient.addLeave({ ...config, ...range });
-    if (record["returnCode"] !== "SUC0000") {
-      const leave = new LeaveEvent(new XftTaskEvent());
-      await leave.proceedRecord(record);
-      await leave.sendNotice(leave.stfNumber, "已自动通过");
-    }
-  }
-};
+function calculateDays({ begDate, begTime, endDate, endTime }: DateRange) {
+  const beg = parseISO(begDate);
+  const end = parseISO(endDate);
 
-// const quota = await xftatdApiClient.getQuota(
-//   format(startOfMonth(subMonths(new Date(), 1)), "yyyy-MM-dd"),
-//   format(endOfMonth(new Date()), "yyyy-MM-dd")
-// );
+  // 计算两个日期之间的天数
+  const daysBetween = differenceInDays(end, beg);
+
+  // 同一天的情况
+
+  if (begTime === endTime) {
+    return daysBetween + 0.5;
+  } else if (begTime === "PM" && endTime === "AM") {
+    return daysBetween - 0.5; // AM 到 PM 的情况
+  } else if (begTime === "AM" && endTime === "PM") {
+    return daysBetween + 1; // AM 到 PM 的情况
+  }
+}

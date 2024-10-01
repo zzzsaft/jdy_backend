@@ -27,25 +27,62 @@ import {
   xftTaskCallback,
   XftTaskEvent,
 } from "./controllers/xft/todo.xft.controller";
-import { LeaveEvent } from "./controllers/xft/leave.atd.xft.controller";
+
 import { testLoginUrl } from "./controllers/xft/login.xft.controller";
 import { xftUserApiClient } from "./utils/xft/xft_user";
 import { testCron } from "./schedule/testCron";
-import { getDateRanges, sendLeave } from "./schedule/sendLeave";
+import {
+  sendLeave,
+  sendtoUserwithLeaveChoice,
+  sendtoUserwithLeaveChoiceTest,
+} from "./schedule/sendLeave";
 import { decryptMsg } from "./utils/wechat/decrypt";
-import { OvertimeEvent } from "./controllers/xft/overtime.atd.xft.controller";
 import { syncUser } from "./schedule/syncXftData";
 import { fengbeitong_token } from "./utils/fenbeitong/token";
+import { fbtOrderApiClient } from "./utils/fenbeitong/order";
+import { BusinessTripEvent } from "./controllers/xft/atd/businessTrip.atd.xft.controller";
+import { User } from "./entity/wechat/User";
+import { testaaaaa } from "./controllers/wechat/message.wechat.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-// await PgDataSource.initialize();
+// PgDataSource.initialize()
+//   .then(async () => {
+//     // const a = await xftatdApiClient.getAllSingleDayOffQuotaLeft();
+//     // console.log();
+//     // await sendtoUserwithLeaveChoice();
+//     // await testaaaaa();
+//     // await sendtoUserwithLeaveChoiceTest();
+//     // console.log(await User.getLeaderId("LuBin"));
+//   })
+//   .catch((e) => {
+//     console.log(e);
+//   });
 // await importErrorAtd();
+// const a = JSON.parse(
+//   (await xftOAApiClient.getFormData(["FORM_253749010760794112"]))["body"][0][
+//     "formData"
+//   ]
+// );
+
+// const a = await xftOAApiClient.getFormData(["FORM_253749010760794112"]);
+// await new BusinessTripEvent().proceedRecord(a);
+// const a = await xftatdApiClient.getBusinessTripRecord({
+//   staffNameOrStaffNumber: "雷登曦",
+// });
 // const a = await xftatdApiClient.getAllSingleDayOffQuotaLeft();
-console.log(await testLoginUrl("LiuYong"));
-
+// console.log(await testLoginUrl("LiangZhi"));
+// await xftUserApiClient.getEmployeeDetail("0000000263");
+// await xftUserApiClient.getMapping("0000000001");
+// await xftUserApiClient.getMapping("0000000263");
+// await xftUserApiClient.updateMapping("0000000263", "LiuYong");
 // console.log(await xftatdApiClient.getSingleDayOffQuotaLeftByUserId("XuMin"));
-
+// console.log(process.env.FBT_NAME);
+// await fbtOrderApiClient.getFormList({
+//   create_start_time: "2024-08-01",
+//   create_end_time: "2024-08-30",
+// });
+// await fbtOrderApiClient.test();
 // await xftatdApiClient.getAtdType();
 // await xftatdApiClient.addOvertime({
 //   staffName: "杨萍丽",
@@ -70,7 +107,7 @@ console.log(await testLoginUrl("LiuYong"));
 //     "2024-09-23/AM",
 //     "2024-09-24/AM",
 //     "2024-09-24/PM",
-//   ])
+//   ])[0]
 // );
 // await xftOAApiClient.getForm();
 const lunxiujia = {
@@ -141,3 +178,42 @@ const lunxiujia = {
 // // // // const a = await testWechatWebhook();
 
 // // // console.log(a);
+const ddd = {
+  agentid: 1000061,
+  enable_duplicate_check: 1,
+  duplicate_check_interval: 1800,
+  touser: "YangTongLi",
+  userids: ["YangTongLi"],
+  msgtype: "template_card",
+  template_card: {
+    card_type: "button_interaction",
+    main_title: { title: "贾明成发起的加班", desc: "2024-09-29" },
+    sub_title_text: "",
+    horizontal_content_list: [
+      { keyname: "加班类型", value: "工作日" },
+      { keyname: "开始时间", value: "2024-09-29 07:30" },
+      { keyname: "结束时间", value: "2024-09-29 17:20" },
+      { keyname: "加班时长", value: "1.5 小时" },
+      { keyname: "加班原因", value: "轮休加班" },
+    ],
+    task_id: "a626cbce-bf0e-443c-9cd8-b58b01ad5dce",
+    button_list: [
+      {
+        text: "驳回",
+        type: 0,
+        style: 3,
+        key: '{"approverId":"V00KN","operateType":"reject","busKey":"OT_xft-hrm_COM_AAA00512_0000000870","taskId":"1098064973"}',
+      },
+      {
+        text: "同意",
+        type: 0,
+        style: 1,
+        key: '{"approverId":"V00KN","operateType":"pass","busKey":"OT_xft-hrm_COM_AAA00512_0000000870","taskId":"1098064973"}',
+      },
+    ],
+    card_action: {
+      type: 1,
+      url: "https://open.weixin.qq.com/connect/oauth2/authorize?appid=wwd56c5091f4258911&redirect_uri=http%3A%2F%2Fhz.jc-times.com%3A2000%2Fxft%2Fsso%3Ftodoid%3DTD1840340212223262722&response_type=code&scope=snsapi_base&state=STATE&agentid=1000061#wechat_redirect",
+    },
+  },
+};

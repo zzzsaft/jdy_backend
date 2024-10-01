@@ -34,8 +34,6 @@ export class Department extends BaseEntity {
   @Column({ nullable: true, default: true })
   is_exist: boolean;
 
-  parent_department: Department;
-
   async getParentDepartmentByParentId(): Promise<Department | null> {
     try {
       const parentDepartment = await Department.findOne({

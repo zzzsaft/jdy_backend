@@ -66,7 +66,11 @@ class ApiClient {
       response = await appAxios(axiosRequestConfig);
       if (response) {
         const { status, data } = response;
-        if ((status && status > 200) || data["returnCode"] != "SUC0000") {
+        if (
+          (status && status > 200) ||
+          (data.hasOwnProperty("returnCode") &&
+            data["returnCode"] !== "SUC0000")
+        ) {
           logger.error(
             `请求错误！Error Code: ${data.returnCode}, Error Msg: ${data.errorMsg},body: ${options.payload}`
           );

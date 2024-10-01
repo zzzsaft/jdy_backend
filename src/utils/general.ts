@@ -1,4 +1,5 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
+import qs from "querystring";
 import fs from "fs";
 import stream from "stream";
 import path from "path";
@@ -110,4 +111,16 @@ export const appAxios = async (config: AxiosRequestConfig) => {
     throw e;
   }
   return response;
+};
+
+export const createWechatUrl = (redirectUrl: string) => {
+  return `https://open.weixin.qq.com/connect/oauth2/authorize?appid=wwd56c5091f4258911&redirect_uri=${qs.escape(
+    redirectUrl
+  )}&response_type=code&scope=snsapi_base&state=STATE&agentid=1000061#wechat_redirect`;
+};
+
+export const getDay = (date: string) => {
+  // 映射英文星期到中文
+  const daysMap = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  return daysMap[new Date(date).getDay()];
 };
