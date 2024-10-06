@@ -1,6 +1,6 @@
 import { ApiClient } from "./api_client";
 
-class FBTOrderApiClient extends ApiClient {
+class FBTApplyApiClient extends ApiClient {
   async test() {
     return await this.doRequest({
       method: "POST",
@@ -57,5 +57,14 @@ class FBTOrderApiClient extends ApiClient {
     }
     return result;
   }
+  async getTripDetail(apply_id: string) {
+    return await this.doRequest({
+      method: "POST",
+      path: "/openapi/apply/custom_trip/v1/detail",
+      payload: {
+        apply_id,
+      },
+    });
+  }
 }
-export const fbtOrderApiClient = new FBTOrderApiClient();
+export const fbtApplyApiClient = new FBTApplyApiClient();

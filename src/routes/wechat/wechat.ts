@@ -2,7 +2,6 @@ import {
   wechatWebHook,
   wechatWebHookCheck,
 } from "../../controllers/wechat/wechat.controller";
-import { xftSSOLogin } from "../../controllers/xft/login.xft.controller";
 
 export const WechatRoutes = [
   {

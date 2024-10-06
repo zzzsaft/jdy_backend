@@ -40,7 +40,6 @@ import {
 import { decryptMsg } from "./utils/wechat/decrypt";
 import { syncUser } from "./schedule/syncXftData";
 import { fengbeitong_token } from "./utils/fenbeitong/token";
-import { fbtOrderApiClient } from "./utils/fenbeitong/order";
 import { BusinessTripEvent } from "./controllers/xft/atd/businessTrip.atd.xft.controller";
 import { User } from "./entity/wechat/User";
 import {
@@ -51,47 +50,36 @@ import { XftAtdLeave } from "./entity/xft/leave";
 import { MessageHelper } from "./utils/wechat/message";
 import { LogAxios } from "./entity/common/log_axios";
 import { Like } from "typeorm";
-import { getDay } from "./utils/general";
+import { createWechatUrl, getDay } from "./utils/general";
 import {
   导入分贝通人员id,
   检查分贝通未导入id,
   测试补卡记录,
   获取空缺请假记录,
 } from "./temp";
+import { fbtUserApiClient } from "./utils/fenbeitong/user";
+import { fbtApplyApiClient } from "./utils/fenbeitong/apply";
+import { FbtApply } from "./entity/fbt/apply";
+import { getTodayApply } from "./schedule/getFbtApply";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-const a = {
-  ToUserName: { value: "wwd56c5091f4258911" },
-  FromUserName: { value: "LiangZhi" },
-  MsgType: { value: "event" },
-  Event: { value: "template_card_event" },
-  CreateTime: { value: "1728093515" },
-  AgentID: { value: "1000061" },
-  EventKey: {
-    value:
-      '{"stfSeq":"0000000001","stfName":"梁之","orgSeq":"0085","stfNumber":"LiangZhi","lveUnit":"DAY","lveType":"CUST16","quota":5}',
-  },
-  TaskId: { value: "03ae3cb8-786b-498e-babf-9223ae17d45d" },
-  CardType: { value: "vote_interaction" },
-  SelectedItems: {
-    SelectedItem: {
-      QuestionKey: { value: "leave" },
-      OptionIds: {
-        OptionId: [{ value: "2024-10-05/AM" }, { value: "2024-10-05/PM" }],
-      },
-    },
-  },
-  ResponseCode: { value: "ZdualrT8W8nfYNnGz6HSds4a10Hcl24eG8VaTZlU3Mg" },
-};
-// const a1 = new MessageHelper(["LiangZhi", ""]);
+
 await PgDataSource.initialize();
-// await 检查分贝通未导入id();
-// const a2 = await fbtOrderApiClient.getCustomFormList({
-//   approve_start_time: "2024-09-01",
-//   approve_end_time: "2024-09-05",
-// });
-console.log();
+// await getTodayApply();
+// const a1 = new MessageHelper(["LiangZhi", ""]);
+// // await 检查分贝通未导入id();
+// // const a2 = await fbtOrderApiClient.getCustomFormList({
+// //   approve_start_time: "2024-09-01",
+// //   approve_end_time: "2024-09-05",
+// // });
+// const a2 = await fbtApplyApiClient.getTripDetail("XAVYCSQAT24100600001");
+// await FbtApply.addApply(a2["data"]["apply"]);
+// // const a3 = await fbtApplyApiClient.getTripDetail("66d580ced7e0722234ec8d9f");
+// // const a4 = await fbtApplyApiClient.getTripDetail("66da3dea9870730ff375d6b5");
+// console.log();
+// await 导入分贝通人员id();
+// console.log(await fbtUserApiClient.getSSOLink("18869965222", "home"));
 // await 测试补卡记录();
 // await 获取空缺请假记录();
 // // XftAtdLeave.maxLeaveRecSeq().then((a) => {
@@ -206,36 +194,7 @@ console.log();
 //   ])[0]
 // );
 // await xftOAApiClient.getForm();
-const lunxiujia = {
-  appCode: "xft-bpm",
-  appName: "OA审批",
-  businessCode: "OA000001",
-  businessName: "待审批通知",
-  businessParam: "FORM_252268610697363456",
-  createTime: "2024-09-21 23:02:07",
-  dealStatus: "0",
-  details:
-    "【梁之】发起了【出差】申请，申请人：梁之，出差行程：1-2，出差日期：2024-09-21 上午 到 2024-09-21上午，出差天数：0.5，出差事由：1，请您尽快审批，发起时间：2024-09-21 23:02:07。",
-  id: "TD1837507607636066305",
-  processId: "1073779544",
-  processStatus: "0",
-  receiver: {
-    enterpriseNum: "AAA00512",
-    thirdpartyUserId: "",
-    userName: "梁之",
-    xftUserId: "U0000",
-  },
-  sendTime: "2024-09-21T23:02:07",
-  sendUser: {
-    enterpriseNum: "AAA00512",
-    thirdpartyUserId: "",
-    userName: "梁之",
-    xftUserId: "U0000",
-  },
-  terminal: "0",
-  title: "梁之发起的出差",
-  url: {},
-};
+
 // const a = await fengbeitong_token.get_token();
 // console.log();
 // await xftOAApiClient.getFormData(["FORM_252268610697363456"]);
@@ -274,42 +233,3 @@ const lunxiujia = {
 // // // // const a = await testWechatWebhook();
 
 // // // console.log(a);
-const ddd = {
-  agentid: 1000061,
-  enable_duplicate_check: 1,
-  duplicate_check_interval: 1800,
-  touser: "YangTongLi",
-  userids: ["YangTongLi"],
-  msgtype: "template_card",
-  template_card: {
-    card_type: "button_interaction",
-    main_title: { title: "贾明成发起的加班", desc: "2024-09-29" },
-    sub_title_text: "",
-    horizontal_content_list: [
-      { keyname: "加班类型", value: "工作日" },
-      { keyname: "开始时间", value: "2024-09-29 07:30" },
-      { keyname: "结束时间", value: "2024-09-29 17:20" },
-      { keyname: "加班时长", value: "1.5 小时" },
-      { keyname: "加班原因", value: "轮休加班" },
-    ],
-    task_id: "a626cbce-bf0e-443c-9cd8-b58b01ad5dce",
-    button_list: [
-      {
-        text: "驳回",
-        type: 0,
-        style: 3,
-        key: '{"approverId":"V00KN","operateType":"reject","busKey":"OT_xft-hrm_COM_AAA00512_0000000870","taskId":"1098064973"}',
-      },
-      {
-        text: "同意",
-        type: 0,
-        style: 1,
-        key: '{"approverId":"V00KN","operateType":"pass","busKey":"OT_xft-hrm_COM_AAA00512_0000000870","taskId":"1098064973"}',
-      },
-    ],
-    card_action: {
-      type: 1,
-      url: "https://open.weixin.qq.com/connect/oauth2/authorize?appid=wwd56c5091f4258911&redirect_uri=http%3A%2F%2Fhz.jc-times.com%3A2000%2Fxft%2Fsso%3Ftodoid%3DTD1840340212223262722&response_type=code&scope=snsapi_base&state=STATE&agentid=1000061#wechat_redirect",
-    },
-  },
-};

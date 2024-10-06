@@ -36,7 +36,7 @@ export class ApiClient {
         "access-token": await fengbeitong_token.get_token(),
         "Content-type": "application/json",
       },
-      url: `${this.host}/${options.path}${query}`,
+      url: `${this.host}${options.path}${query}`,
       data: options.payload,
       timeout: 15000,
     };

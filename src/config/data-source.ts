@@ -21,7 +21,7 @@ export const PgDataSource = new DataSource({
   password: process.env.PgPassword,
   // database: "db",
   entities:
-    // ["src/entity/xft/reissue.ts"],
+    // ["src/entity/fbt/apply.ts"],
     process.env.NODE_ENV === "production"
       ? ["src/entity/*.js", "src/entity/*/*.js"]
       : ["src/entity/*.ts", "src/entity/*/*.ts"],

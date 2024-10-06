@@ -1,6 +1,23 @@
 import { ApiClient } from "./api_client";
 
 class FBTUserApiClient extends ApiClient {
+  async getSSOLink(phone: string, path: string) {
+    const result = await this.sso(phone);
+    if (result.code === 0) {
+      return `https://webapp.fenbeitong.com/ceLogin?token=${result.data}&path=${path}`;
+    }
+
+    return null;
+  }
+  private async sso(phone: string) {
+    return await this.doRequest({
+      method: "POST",
+      path: "/openapi/auth/web/v1/dispense",
+      payload: {
+        phone,
+      },
+    });
+  }
   private async _getUserList(page_index = 1) {
     return await this.doRequest({
       method: "POST",
