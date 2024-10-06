@@ -2,19 +2,22 @@ import {
   BaseEntity,
   BeforeInsert,
   BeforeUpdate,
+  Between,
   Column,
   CreateDateColumn,
   Entity,
+  LessThanOrEqual,
+  MoreThanOrEqual,
   PrimaryColumn,
   UpdateDateColumn,
 } from "typeorm";
 import { User } from "../wechat/User";
 import { Department } from "../wechat/Department";
-
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
 @Entity("xft_atd_leave")
 export class XftAtdLeave extends BaseEntity {
   @PrimaryColumn()
-  leaveRecSeq: string;
+  leaveRecSeq: number;
 
   @Column({ nullable: true })
   stfSeq: string;
@@ -22,6 +25,10 @@ export class XftAtdLeave extends BaseEntity {
   stfName: string;
   @Column({ nullable: true })
   userId: string;
+  @Column({ nullable: true })
+  userName: string;
+  @Column({ nullable: true })
+  userNumber: string;
   @Column({ nullable: true })
   departmentId: string;
   @Column()
@@ -62,6 +69,7 @@ export class XftAtdLeave extends BaseEntity {
     } catch (error) {}
     const leave = {
       ...record,
+      leaveRecSeq: parseInt(record.leaveRecSeq),
       begDate: getDate(record.begDate, record.begTime, true),
       endDate: getDate(record.endDate, record.endTime, false),
       duration: getDuration(record.leaveDuration, record.lveUnit),
@@ -73,6 +81,27 @@ export class XftAtdLeave extends BaseEntity {
       weekdays,
     };
     await XftAtdLeave.create(leave).save();
+  }
+
+  static getUsersInRange = async (startDate: Date, endDate: Date) => {
+    // 将 GMT+8 转换为 UTC
+    const startUtc = fromZonedTime(startDate, "UTC");
+    const endUtc = fromZonedTime(endDate, "UTC");
+    return (
+      await XftAtdLeave.find({
+        where: {
+          begDate: Between(startDate, endDate),
+        },
+        select: ["userId"],
+      })
+    ).map((user) => user.userId);
+  };
+  static async maxLeaveRecSeq() {
+    return (
+      await XftAtdLeave.createQueryBuilder("leave")
+        .select("MAX(leave.leaveRecSeq)", "maxLeaveRecSeq") // 选择 leaveRecSeq 的最大值
+        .getRawOne()
+    )?.["maxLeaveRecSeq"];
   }
 }
 

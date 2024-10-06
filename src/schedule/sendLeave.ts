@@ -6,6 +6,8 @@ import {
   compareAsc,
   parseISO,
   differenceInDays,
+  startOfDay,
+  endOfDay,
 } from "date-fns";
 import { xftatdApiClient } from "../utils/xft/xft_atd";
 import { XftTaskEvent } from "../controllers/xft/todo.xft.controller";
@@ -14,13 +16,15 @@ import { User } from "../entity/wechat/User";
 import { Department } from "../entity/wechat/Department";
 import { createWechatUrl, getDay } from "../utils/general";
 import { sleep } from "../config/limiter";
+import { XftAtdLeave } from "../entity/xft/leave";
+import _ from "lodash";
 
-const getWeekendDates = () => {
+export const getWeekendDates = () => {
   const today = new Date();
 
   // 获取周六的日期（将周日作为一周的起始，因此周六是默认的一周的最后一天）
-  const saturday = endOfWeek(today, { weekStartsOn: 1 }); // weekStartsOn: 1 表示周一为一周的开始
-  const sunday = new Date(saturday);
+  const saturday = startOfDay(endOfWeek(today, { weekStartsOn: 0 })); // weekStartsOn: 1 表示周一为一周的开始
+  const sunday = endOfDay(new Date(saturday));
   sunday.setDate(saturday.getDate() + 1); // 周日是周六的第二天
 
   return { saturday, sunday };
@@ -41,7 +45,7 @@ const generateCheckBox = () => {
     },
     {
       id: `${format(sunday, "yyyy-MM-dd")}/AM`,
-      text: `${format(saturday, "MM/dd")} 周日上午`,
+      text: `${format(sunday, "MM/dd")} 周日上午`,
       is_checked: false,
     },
     {
@@ -105,7 +109,10 @@ export const sendtoUserwithLeaveChoiceTest = async () => {
 };
 
 export const sendtoUserwithLeaveChoice = async () => {
-  const allQuota = await xftatdApiClient.getAllSingleDayOffQuotaLeft();
+  const { saturday, sunday } = getWeekendDates();
+  let allQuota = await xftatdApiClient.getAllSingleDayOffQuotaLeft();
+  const userids = await XftAtdLeave.getUsersInRange(saturday, sunday);
+  allQuota = _.omit(allQuota, userids);
   for (const key in allQuota) {
     const quota = allQuota[key];
     if (quota.total == 5) {
@@ -134,24 +141,27 @@ export const proceedLeave = async (optionIds, config, user) => {
     );
     return flag;
   }
-  const leaders = await User.getLeaderId(user);
+  let leaders = await User.getLeaderId(user);
+  if (user == "LiangZhi") leaders = ["LiangZhi"];
   // const leaders = [];
   const name = (await User.findOne({ where: { user_id: user } }))?.name;
   for (const range of getDateRanges(optionIds)) {
     const record = await xftatdApiClient.addLeave({ ...config, ...range });
     if (record["returnCode"] == "SUC0000") {
       flag = true;
-      await new MessageHelper([user, ...leaders]).sendTextNotice({
+      const leaveRec = (await XftAtdLeave.maxLeaveRecSeq()) + 1;
+      const rRecord = await xftatdApiClient.getLeaveRecord(leaveRec);
+      if (rRecord["returnCode"] == "SUC0000")
+        await XftAtdLeave.addRecord(rRecord["body"]);
+      new MessageHelper([user, ...leaders]).sendTextNotice({
         main_title: {
           title: `(已自动通过)${name}的轮休假申请`,
-          desc: "",
+          desc: record["body"]?.["createTime"] ?? "",
         },
         sub_title_text: "",
         card_action: {
           type: 1,
-          url: createWechatUrl(
-            "https://xft.cmbchina.com/mobile-atd/#/vacation-record"
-          ),
+          url: "https://xft.cmbchina.com/mobile-atd/#/vacation-record",
         },
         horizontal_content_list: [
           { keyname: "请假类型", value: "轮休假" },
@@ -173,7 +183,10 @@ export const proceedLeave = async (optionIds, config, user) => {
           },
         ],
       });
-    } else flag = false;
+    } else {
+      new MessageHelper([user]).send_plain_text(record["errorMsg"]);
+      flag = false;
+    }
   }
   return flag;
 };
@@ -182,6 +195,7 @@ const getUser = async (userid) => {
   let orgid;
   const user = await User.findOne({ where: { user_id: userid } });
   if (user) {
+    if (!user.is_employed) return null;
     orgid = (
       await Department.findOne({
         where: { department_id: user.main_department_id },

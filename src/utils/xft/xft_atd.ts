@@ -68,6 +68,13 @@ class XFTAttendanceApiClient {
       payload,
     });
   }
+  async getReissueRecord(serialNumber: string) {
+    return await appApiClient.doRequest({
+      method: "POST",
+      path: "/atd/prd/xft-atn/reissue-card/record-query",
+      payload: { serialNumber },
+    });
+  }
   async getAtdType() {
     return await appApiClient.doRequest({
       method: "POST",

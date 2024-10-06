@@ -19,7 +19,7 @@ import { jctimesApiClient } from "../../utils/jctimes/app";
 
 @Entity()
 export class User extends BaseEntity {
-  @PrimaryColumn()
+  @PrimaryColumn({ name: "user_id" })
   user_id: string;
   @Column({ nullable: true })
   xft_id: string;
@@ -39,6 +39,8 @@ export class User extends BaseEntity {
   dahua_id: string;
   @Column({ nullable: true })
   mobile: string;
+  @Column({ name: "fbt_id", nullable: true })
+  fbtId: string;
   @CreateDateColumn()
   created_at: Date;
   @UpdateDateColumn()
@@ -161,5 +163,9 @@ export class User extends BaseEntity {
       return leader;
     }
     return [];
+  }
+
+  static async getOrg(userId: string): Promise<Department | null> {
+    return await Department.findOne({ where: { department_id: userId } });
   }
 }

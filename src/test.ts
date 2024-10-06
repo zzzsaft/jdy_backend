@@ -32,6 +32,7 @@ import { testLoginUrl } from "./controllers/xft/login.xft.controller";
 import { xftUserApiClient } from "./utils/xft/xft_user";
 import { testCron } from "./schedule/testCron";
 import {
+  getWeekendDates,
   sendLeave,
   sendtoUserwithLeaveChoice,
   sendtoUserwithLeaveChoiceTest,
@@ -42,11 +43,106 @@ import { fengbeitong_token } from "./utils/fenbeitong/token";
 import { fbtOrderApiClient } from "./utils/fenbeitong/order";
 import { BusinessTripEvent } from "./controllers/xft/atd/businessTrip.atd.xft.controller";
 import { User } from "./entity/wechat/User";
-import { testaaaaa } from "./controllers/wechat/message.wechat.controller";
+import {
+  handleMessageEvent,
+  testaaaaa,
+} from "./controllers/wechat/message.wechat.controller";
+import { XftAtdLeave } from "./entity/xft/leave";
+import { MessageHelper } from "./utils/wechat/message";
+import { LogAxios } from "./entity/common/log_axios";
+import { Like } from "typeorm";
+import { getDay } from "./utils/general";
+import {
+  导入分贝通人员id,
+  检查分贝通未导入id,
+  测试补卡记录,
+  获取空缺请假记录,
+} from "./temp";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-// PgDataSource.initialize()
+const a = {
+  ToUserName: { value: "wwd56c5091f4258911" },
+  FromUserName: { value: "LiangZhi" },
+  MsgType: { value: "event" },
+  Event: { value: "template_card_event" },
+  CreateTime: { value: "1728093515" },
+  AgentID: { value: "1000061" },
+  EventKey: {
+    value:
+      '{"stfSeq":"0000000001","stfName":"梁之","orgSeq":"0085","stfNumber":"LiangZhi","lveUnit":"DAY","lveType":"CUST16","quota":5}',
+  },
+  TaskId: { value: "03ae3cb8-786b-498e-babf-9223ae17d45d" },
+  CardType: { value: "vote_interaction" },
+  SelectedItems: {
+    SelectedItem: {
+      QuestionKey: { value: "leave" },
+      OptionIds: {
+        OptionId: [{ value: "2024-10-05/AM" }, { value: "2024-10-05/PM" }],
+      },
+    },
+  },
+  ResponseCode: { value: "ZdualrT8W8nfYNnGz6HSds4a10Hcl24eG8VaTZlU3Mg" },
+};
+// const a1 = new MessageHelper(["LiangZhi", ""]);
+await PgDataSource.initialize();
+// await 检查分贝通未导入id();
+// const a2 = await fbtOrderApiClient.getCustomFormList({
+//   approve_start_time: "2024-09-01",
+//   approve_end_time: "2024-09-05",
+// });
+console.log();
+// await 测试补卡记录();
+// await 获取空缺请假记录();
+// // XftAtdLeave.maxLeaveRecSeq().then((a) => {
+// //   console.log(a);
+// // });
+// const rRecord = await xftatdApiClient.getLeaveRecord((1000005664).toString());
+// if (rRecord["returnCode"] == "SUC0000")
+//   await XftAtdLeave.addRecord(rRecord["body"]);
+// const a2 = (
+//   await LogAxios.find({
+//     where: {
+//       host: "api.cmbchina.com",
+//       url: Like("%record-add%"),
+//       res_data: Like("%SUC0000%"),
+//     },
+//   })
+// ).map((a) => JSON.parse(a.payload));
+// for (const a of a2) {
+//   const user = a["stfNumber"];
+//   const name = a["stfName"];
+//   let leaders = await User.getLeaderId(user);
+//   if (user == "LiangZhi") leaders = ["LiangZhi"];
+//   // await new MessageHelper([user, ...leaders]).sendTextNotice({
+//   //   main_title: {
+//   //     title: `(已自动通过)${name}的轮休假申请`,
+//   //     desc: "",
+//   //   },
+//   //   sub_title_text: "",
+//   //   card_action: {
+//   //     type: 1,
+//   //     url: "https://xft.cmbchina.com/mobile-atd/#/vacation-record",
+//   //   },
+//   //   horizontal_content_list: [
+//   //     { keyname: "请假类型", value: "轮休假" },
+//   //     {
+//   //       keyname: "开始时间",
+//   //       value: `${a.begDate} ${a.begTime} (${getDay(a.begDate)})`,
+//   //     },
+//   //     {
+//   //       keyname: "结束时间",
+//   //       value: `${a.endDate} ${a.endTime} (${getDay(a.endDate)})`,
+//   //     },
+//   //   ],
+//   // });
+// }
+
+// await handleMessageEvent(a);
+// new MessageHelper(["LiangZhi"]).send_plain_text(
+//   '<a href="https://xft.cmbchina.com/mobile-atd/#/vacation-record">请假记录</a>'
+// );
+
 //   .then(async () => {
 //     // const a = await xftatdApiClient.getAllSingleDayOffQuotaLeft();
 //     // console.log();

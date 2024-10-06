@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { LeaveEvent } from "./atd/leave.atd.xft.controller";
 import { OvertimeEvent } from "./atd/overtime.atd.xft.controller";
 import { BusinessTripEvent } from "./atd/businessTrip.atd.xft.controller";
+import { ReissueEvent } from "./atd/reissue.atd.xft.controller";
 
 export class XftTaskEvent {
   url: string;
@@ -188,6 +189,10 @@ export const xftTaskCallback = async (content) => {
     await new BusinessTripEvent(task).process();
     return;
   }
+  if (task.details.includes("【补卡】")) {
+    await new ReissueEvent(task).process();
+    return;
+  }
   if (task.dealStatus == "0") {
     if (task.details.includes("【外出】")) await task.sendButtonCard();
     else await task.sendCard();
@@ -195,7 +200,9 @@ export const xftTaskCallback = async (content) => {
   if (task.processStatus != "0") {
     const noticeUsers: string[] = [task.sendUserId];
     if (task.details.includes("【定调薪审批】"))
-      noticeUsers.push(...["ZhangJiaLi", "GuanBingQian"]);
+      noticeUsers.push(...["ZhangJiaLi", "GuanBingQian", "jcyxblxm"]);
+    if (task.details.includes("【数据采集审批】"))
+      noticeUsers.push(...["ZhangJiaLi", "GuanBingQian", "jcyxblxm"]);
     await task.sendNotice(
       noticeUsers,
       `(${task.status})${task.title}`,

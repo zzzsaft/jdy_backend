@@ -29,7 +29,7 @@ class Token {
       const response = await axios.get<AccessTokenResponse>(url);
       const response_json = response.data;
       if (response_json.errcode === 0 && response_json.access_token) {
-        console.log("企业微信 access_token 获取成功！");
+        // console.log("企业微信 access_token 获取成功！");
       } else {
         console.error("企业微信 access_token 获取失败！错误信息：");
         const { errcode, errmsg } = response_json;

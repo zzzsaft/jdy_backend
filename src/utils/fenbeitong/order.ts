@@ -20,7 +20,7 @@ class FBTOrderApiClient extends ApiClient {
       },
     });
   }
-  async _getCustomFormList(
+  private async _getCustomFormList(
     time: {
       approve_start_time?: string;
       approve_end_time?: string;
@@ -49,11 +49,11 @@ class FBTOrderApiClient extends ApiClient {
   }) {
     let page = 1;
     let res = await this._getCustomFormList(time, page);
-    let result = res.data;
+    let result = res.data.applies;
     while (page < res.data.total_pages) {
       page++;
       res = await this._getCustomFormList(time, page);
-      result = result.concat(res.data);
+      result = result.concat(res.data.applies);
     }
     return result;
   }

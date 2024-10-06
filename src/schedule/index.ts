@@ -26,7 +26,7 @@ const updateUserSchedule = cron.schedule("0 1 * * *", async () => {
 });
 
 //每周五下午4点触发任务
-const sendLeave = cron.schedule("0 16 * * 5", async () => {
+const sendLeave = cron.schedule("0 8 * * 6", async () => {
   await sendtoUserwithLeaveChoice();
   logger.info("周五下午任务");
 });

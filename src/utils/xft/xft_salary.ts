@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { appApiClient, connectApiClient } from "./api_client";
 
 class XFTSalaryApiClient {
@@ -54,7 +55,7 @@ class XFTSalaryApiClient {
       "U0000"
     );
   }
-  async setSalary(name, userid, base, date) {
+  async setSalary(name, userid, base, date = format(new Date(), "yyyy-MM-dd")) {
     await this._updateSalary(
       name,
       userid,

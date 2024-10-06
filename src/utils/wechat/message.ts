@@ -63,7 +63,7 @@ export class MessageHelper {
   };
 
   constructor(userid: string[]) {
-    this.request_body["touser"] = userid.join("|");
+    this.request_body["touser"] = userid.filter((id) => id).join("|");
     this.request_body["userids"] = userid;
   }
 

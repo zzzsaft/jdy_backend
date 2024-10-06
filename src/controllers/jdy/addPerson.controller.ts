@@ -9,10 +9,16 @@ import { xftUserApiClient } from "../../utils/xft/xft_user";
 import { xftOrgnizationApiClient } from "../../utils/xft/xft_orgnization";
 import { Department } from "../../entity/wechat/Department";
 import { EmployeeLifecycle } from "../../entity/common/employee_lifecycle";
+import { SalaryRecord } from "../../entity/common/salary-record";
 
 export const 入职申请表 = async (data) => {
   await saveNewInfotoDahua(data);
   await addEmployeeToXft(data);
+  await SalaryRecord.addRecord({
+    userid: data["_widget_1720801227437"],
+    probation: data.salary_during_probation_period,
+    positive: data._widget_1705741401338,
+  });
   await addToDb(data);
 };
 
