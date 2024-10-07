@@ -43,6 +43,8 @@ export class User extends BaseEntity {
   fbtId: string;
   @Column({ name: "fbt_phone", nullable: true })
   fbtPhone: string;
+  @Column({ name: "fbt_third_id", nullable: true })
+  fbtThirdId: string;
   @CreateDateColumn()
   created_at: Date;
   @UpdateDateColumn()

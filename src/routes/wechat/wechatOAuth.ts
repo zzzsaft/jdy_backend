@@ -17,10 +17,10 @@ const fbtSSOLogin = async (request: Request, response: Response) => {
   const userid = (await wechatUserApiClient.getUserInfo(code))["userid"];
   const user = await User.findOne({
     where: { user_id: userid },
-    select: ["fbtPhone"],
+    select: ["fbtThirdId"],
   });
   const redirectUrl =
-    (await fbtUserApiClient.getSSOLink(user?.fbtPhone ?? "", "home")) ?? "/";
+    (await fbtUserApiClient.getSSOLink(user?.fbtThirdId ?? "", "home")) ?? "/";
   response.redirect(redirectUrl);
 };
 

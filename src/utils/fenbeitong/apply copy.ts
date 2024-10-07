@@ -66,14 +66,5 @@ class FBTApplyApiClient extends ApiClient {
       },
     });
   }
-  async getApplyOrder(apply_id: string) {
-    return await this.doRequest({
-      method: "POST",
-      path: "/openapi/apply/common/v3/detail_apply_order",
-      payload: {
-        apply_id,
-      },
-    });
-  }
 }
 export const fbtApplyApiClient = new FBTApplyApiClient();

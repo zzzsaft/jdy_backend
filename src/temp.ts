@@ -76,10 +76,10 @@ export const 导入分贝通人员id = async () => {
   const users = await fbtUserApiClient.getUserList();
   for (const user of users) {
     await User.update(
-      { fbtId: user["id"] },
       {
         fbtPhone: user["phone"],
-      }
+      },
+      { fbtThirdId: user["third_id"] }
     );
   }
 };

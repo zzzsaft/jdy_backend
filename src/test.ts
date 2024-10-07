@@ -64,8 +64,13 @@ import { getTodayApply } from "./schedule/getFbtApply";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-
-await PgDataSource.initialize();
+// await PgDataSource.initialize();
+// // await 导入分贝通人员id();
+// console.log(
+//   await fbtUserApiClient.getSSOLink("wolP6zEQAAwE6_FJPB3yTnFsWWbIcsxA", "home")
+// );
+// const a = await fbtApplyApiClient.getApplyOrder("66d828482a985c6c1231f5be");
+// console.log(a);
 // await getTodayApply();
 // const a1 = new MessageHelper(["LiangZhi", ""]);
 // // await 检查分贝通未导入id();

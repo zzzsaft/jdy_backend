@@ -9,12 +9,12 @@ class FBTUserApiClient extends ApiClient {
 
     return null;
   }
-  private async sso(phone: string) {
+  private async sso(third_user_id: string) {
     return await this.doRequest({
       method: "POST",
       path: "/openapi/auth/web/v1/dispense",
       payload: {
-        phone,
+        third_user_id,
       },
     });
   }
