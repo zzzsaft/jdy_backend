@@ -18,6 +18,7 @@ import {
 import { User } from "../wechat/User";
 import { Department } from "../wechat/Department";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
+import { endOfDay } from "date-fns";
 @Entity("fbt_apply")
 export class FbtApply extends BaseEntity {
   @PrimaryColumn()
@@ -104,6 +105,18 @@ export class FbtApply extends BaseEntity {
     const apply = await createRecord(record);
     await FbtApply.upsert(apply, ["id"]);
   }
+  static async getDbApplyWithCityUser(id: string) {
+    const fbtApply = await FbtApply.findOne({
+      where: { id: id },
+      relations: ["city", "user"],
+    });
+    if (!fbtApply) {
+      throw new Error(
+        `XftTripLog，getDbApply，Error fetching details for id ${id}`
+      );
+    }
+    return fbtApply;
+  }
 }
 
 const createRecord = async (record) => {
@@ -142,10 +155,10 @@ const createRecord = async (record) => {
     apply["duration"] = record.trip_time["duration"];
   } else if (trips) {
     apply["start_time"] = trips?.start_time;
-    apply["end_time"] = trips?.end_time;
+    apply["end_time"] = endOfDay(trips?.end_time);
   } else {
     apply["start_time"] = cars?.start_time;
-    apply["end_time"] = cars?.end_time;
+    apply["end_time"] = endOfDay(cars?.end_time);
   }
   if (record.hasOwnProperty("travel_city_list")) {
     apply["city"] = record.travel_city_list.map((city) => {

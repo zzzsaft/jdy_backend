@@ -60,13 +60,15 @@ import {
 import { fbtUserApiClient } from "./utils/fenbeitong/user";
 import { fbtApplyApiClient } from "./utils/fenbeitong/apply";
 import { FbtApply } from "./entity/fbt/apply";
-import { getTodayApply, 添加xft差旅记录 } from "./schedule/getFbtApply";
+import { GetFbtApply, 添加xft差旅记录 } from "./schedule/getFbtApply";
 import { xftItripApiClient } from "./utils/xft/xft_itrip";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-await PgDataSource.initialize();
-await getTodayApply();
+// await PgDataSource.initialize();
+// const a = await GetFbtApply.getApplyDetail("6704e67667bb5a7c9cb9d56a");
+// new GetFbtApply();
+// await getTodayApply();
 // await xftItripApiClient.getApplyTravelDetail(2024100829442232);
 
 // const fbtApply = await FbtApply.findOne({

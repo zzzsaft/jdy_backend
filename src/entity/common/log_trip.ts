@@ -4,6 +4,8 @@ import {
   PrimaryGeneratedColumn,
   BaseEntity,
   PrimaryColumn,
+  LessThanOrEqual,
+  MoreThanOrEqual,
 } from "typeorm";
 
 @Entity({ name: "log_trip_sync" })
@@ -17,11 +19,20 @@ export class LogTripSync extends BaseEntity {
   @Column({ name: "fbt_current_id", nullable: true })
   fbtCurrentId: string;
 
+  @Column({ name: "user_id", nullable: true })
+  userId: string;
+
   @Column({ name: "is_sync" })
   isSync: boolean = false;
 
   @Column({ nullable: true })
   create_time: Date;
+
+  @Column({ nullable: true })
+  start_time: Date;
+
+  @Column({ nullable: true })
+  end_time: Date;
 
   @Column({ nullable: true })
   err: string;
@@ -53,5 +64,19 @@ export class LogTripSync extends BaseEntity {
       record.isSync = true;
     }
     await record.save();
+  }
+
+  static async getConflict(userId: string, start_time: Date, end_time: Date) {
+    const conflicts = await LogTripSync.find({
+      where: [
+        {
+          userId,
+          start_time: LessThanOrEqual(end_time),
+          end_time: MoreThanOrEqual(start_time),
+        },
+      ],
+      select: ["start_time", "end_time"],
+    });
+    return conflicts;
   }
 }
