@@ -41,6 +41,10 @@ export class FbtApply extends BaseEntity {
   proposerUserId: string;
   @Column({ name: "proposer_user_name", nullable: true })
   proposerUserName: string;
+  @Column({ name: "apply_user_id", nullable: true })
+  applyUserId: string;
+  @Column({ name: "apply_travel", nullable: true, type: "jsonb" })
+  appliedTravel: string[];
   @Column({ name: "service_number", nullable: true })
   serviceNumber: string;
   @Column({ nullable: true })
@@ -49,9 +53,9 @@ export class FbtApply extends BaseEntity {
   stateName: string;
   @Column({ name: "department_id", nullable: true })
   departmentId: string;
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: "decimal" })
   total_amount: number;
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: "decimal" })
   available_amount: number;
   @Column({ nullable: true })
   create_time: Date;
@@ -146,6 +150,11 @@ const createRecord = async (record) => {
     create_time: new Date(record.create_time),
     form_name: record.name,
   };
+
+  apply["appliedTravel"] = [];
+  if (cars) apply["appliedTravel"].push("cars");
+  if (trips) apply["appliedTravel"].push("trips");
+
   if (!record.hasOwnProperty("total_amount")) {
     apply["total_amount"] = trips?.amount;
   }
@@ -195,6 +204,19 @@ const createRecord = async (record) => {
     record.base_controls
       .filter((control) => control.title == "售后单号")?.[0]
       ?.detail?.replaceAll(" ", "") ?? null;
+
+  const applyUser = (apply["applyUserId"] = record.base_controls.filter(
+    (control) => control.title == "申请人"
+  )?.[0]?.detail);
+  if (applyUser) {
+    let personnelUserId = JSON.parse(applyUser)["personnelUserId"];
+    await User.findOne({
+      where: { fbtId: personnelUserId },
+      select: ["user_id"],
+    }).then((user) => {
+      apply["applyUserId"] = user?.user_id;
+    });
+  }
   return FbtApply.create(apply);
 };
 

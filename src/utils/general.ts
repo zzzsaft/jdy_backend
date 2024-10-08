@@ -108,6 +108,9 @@ export const appAxios = async (config: AxiosRequestConfig) => {
         err: JSON.stringify(e),
       }).save();
     }
+    if (response) {
+      return response.data;
+    }
     throw e;
   }
   return response;

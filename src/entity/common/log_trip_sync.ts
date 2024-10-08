@@ -6,6 +6,8 @@ import {
   PrimaryColumn,
   LessThanOrEqual,
   MoreThanOrEqual,
+  UpdateDateColumn,
+  CreateDateColumn,
 } from "typeorm";
 
 @Entity({ name: "log_trip_sync" })
@@ -22,8 +24,8 @@ export class LogTripSync extends BaseEntity {
   @Column({ name: "user_id", nullable: true })
   userId: string;
 
-  @Column({ name: "is_sync" })
-  isSync: boolean = false;
+  @Column({ name: "is_sync", nullable: true })
+  isSync: boolean;
 
   @Column({ nullable: true })
   create_time: Date;
@@ -34,8 +36,16 @@ export class LogTripSync extends BaseEntity {
   @Column({ nullable: true })
   end_time: Date;
 
+  @Column({ type: "jsonb", nullable: true })
+  city: string[];
+
   @Column({ nullable: true })
   err: string;
+
+  @CreateDateColumn()
+  created_at: Date;
+  @UpdateDateColumn()
+  updated_at: Date;
 
   static async addRecord(
     fbtRootId: string,
@@ -66,16 +76,22 @@ export class LogTripSync extends BaseEntity {
     await record.save();
   }
 
-  static async getConflict(userId: string, start_time: Date, end_time: Date) {
+  static async getConflict(
+    userId: string,
+    start_time: Date,
+    end_time: Date,
+    create_time: Date
+  ) {
     const conflicts = await LogTripSync.find({
       where: [
         {
           userId,
           start_time: LessThanOrEqual(end_time),
           end_time: MoreThanOrEqual(start_time),
+          create_time: LessThanOrEqual(create_time),
         },
       ],
-      select: ["start_time", "end_time"],
+      select: ["start_time", "end_time", "fbtRootId"],
     });
     return conflicts;
   }

@@ -21,7 +21,45 @@ export type importAtd = {
 };
 
 class XFTItripApiClient {
-  async createApplyTravel(payload: {
+  async createApplyTravel({
+    outRelId,
+    empNumber,
+    reason,
+    peerEmpNumbers,
+    departCityCode,
+    destinationCityCode,
+    start_time,
+    end_time,
+  }) {
+    return this._createApplyTravel({
+      eventNumber: "01240921022004000001",
+      outRelId,
+      empNumber,
+      billStatus: "APPRV",
+      peerEmpNumbers,
+      customFieldValues: [
+        {
+          fieldNumber: "reason",
+          fieldValue: reason,
+        },
+      ],
+      businessTrip: {
+        businessTripDetails: [
+          {
+            departCityCode,
+            destinationCityCode,
+            beginTime: format(start_time, "yyyy-MM-dd HH:mm"),
+            endTime: format(end_time, "yyyy-MM-dd HH:mm"),
+            beginTimePrecision: start_time.getHours() <= 12 ? "AM" : "PM",
+            endTimePrecision: end_time.getHours() <= 12 ? "AM" : "PM",
+            tripReason: reason,
+          },
+        ],
+      },
+    });
+  }
+
+  async _createApplyTravel(payload: {
     eventNumber: string;
     outRelId?: string;
     empNumber: string;
@@ -35,7 +73,7 @@ class XFTItripApiClient {
         endTime: string;
         beginTimePrecision: string;
         endTimePrecision: string;
-        tripReason: string;
+        tripReason?: string;
       }[];
     };
     peerEmpNumbers?: string[];
@@ -66,10 +104,10 @@ class XFTItripApiClient {
   async updateApplyTravel(payload: {
     billId: number;
     changerNumber: string;
-    peerEmpNumbers: string[];
+    peerEmpNumbers?: string[];
     changeReason: string;
     changeInfo: {
-      customFieldValues: { fieldNumber: string; fieldValue: string }[];
+      customFieldValues?: { fieldNumber: string; fieldValue: string }[];
       businessTrip: {
         businessTripDetails: {
           departCityCode: string;
@@ -78,7 +116,7 @@ class XFTItripApiClient {
           endTime: string;
           beginTimePrecision: string;
           endTimePrecision: string;
-          tripReason: string;
+          tripReason?: string;
         }[];
       };
     };

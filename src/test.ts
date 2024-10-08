@@ -52,6 +52,7 @@ import { LogAxios } from "./entity/common/log_axios";
 import { Like } from "typeorm";
 import { createWechatUrl, getDay } from "./utils/general";
 import {
+  processXftTripLog,
   导入分贝通人员id,
   检查分贝通未导入id,
   测试补卡记录,
@@ -60,16 +61,22 @@ import {
 import { fbtUserApiClient } from "./utils/fenbeitong/user";
 import { fbtApplyApiClient } from "./utils/fenbeitong/apply";
 import { FbtApply } from "./entity/fbt/apply";
-import { GetFbtApply, 添加xft差旅记录 } from "./schedule/getFbtApply";
+import { GetFbtApply, XftTripLog } from "./schedule/getFbtApply";
 import { xftItripApiClient } from "./utils/xft/xft_itrip";
+import { XftCity } from "./entity/xft/city";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-// await PgDataSource.initialize();
+await PgDataSource.initialize();
 // const a = await GetFbtApply.getApplyDetail("6704e67667bb5a7c9cb9d56a");
-// new GetFbtApply();
-// await getTodayApply();
 // await xftItripApiClient.getApplyTravelDetail(2024100829442232);
+// const tripLog = await XftTripLog.importLogbyId("6702360ccc4c6f5ef98e7d02");
+// await tripLog.process();
+
+// await new GetFbtApply().getApply();
+
+// await processXftTripLog();
+// await getTodayApply();
 
 // const fbtApply = await FbtApply.findOne({
 //   where: { id: "66d2d651d7e0722234d2fc60" },

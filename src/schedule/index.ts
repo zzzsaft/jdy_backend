@@ -5,6 +5,7 @@ import { User } from "../entity/wechat/User";
 import { logger } from "../config/logger";
 import { getCheckinData } from "./getCheckinData";
 import { sendtoUserwithLeaveChoice } from "./sendLeave";
+import { GetFbtApply } from "./getFbtApply";
 
 const syncWechat = async () => {
   await Department.updateDepartment();
@@ -16,6 +17,15 @@ const syncWechat = async () => {
 //每过15分钟触发任务
 const checkinDateSchedule = cron.schedule("0,15,30,45 * * * *", async () => {
   await getCheckinData.getNextRawCheckinData();
+});
+
+//每过15分钟触发任务
+const fbtApplySchedule = cron.schedule("5,20,35,50 * * * *", async () => {
+  const hour = new Date().getHours();
+  if (hour < 8 || hour > 20) {
+    return;
+  }
+  await new GetFbtApply().getApply();
 });
 
 //每日1点触发任务
@@ -31,4 +41,9 @@ const sendLeave = cron.schedule("0 8 * * 6", async () => {
   logger.info("周五下午任务");
 });
 
-export const schedule = [checkinDateSchedule, updateUserSchedule, sendLeave];
+export const schedule = [
+  checkinDateSchedule,
+  updateUserSchedule,
+  sendLeave,
+  fbtApplySchedule,
+];

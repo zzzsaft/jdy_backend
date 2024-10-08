@@ -6,8 +6,10 @@ import _ from "lodash";
 import { xftItripApiClient } from "../utils/xft/xft_itrip";
 import { XftCity } from "../entity/xft/city";
 import { User } from "../entity/wechat/User";
-import { LogTripSync } from "../entity/common/log_trip";
+import { LogTripSync } from "../entity/common/log_trip_sync";
 import { logger } from "../config/logger";
+import { log } from "console";
+import { MessageHelper } from "../utils/wechat/message";
 
 export class GetFbtApply {
   startTime: Date;
@@ -16,17 +18,16 @@ export class GetFbtApply {
   constructor(startTime = addDays(new Date(), -1), endTime = new Date()) {
     this.startTime = startTime;
     this.endTime = endTime;
-    this.getApply().then(() => {});
   }
 
-  private async getApply() {
+  async getApply() {
     try {
       const apply = await this._getApply();
       const unexistApply = await this._calculateUnexistApply(apply);
       for (const code of unexistApply) {
         const record = await GetFbtApply.getApplyDetail(code);
-        await this._addToDB(record);
-        await 添加xft差旅记录(apply);
+        const apply = await this._addToDB(record);
+        if (apply) await XftTripLog.importLogbyApply(apply).process();
       }
     } catch (error) {
       logger.error("Error fetching apply data:", error);
@@ -80,26 +81,61 @@ export class GetFbtApply {
       const parentApply = await GetFbtApply.getApplyDetail(apply.parent_id);
       await FbtApply.updateApply(parentApply);
     }
+    return apply;
   }
 }
 
-class XftTripLog {
+export class XftTripLog {
   fbtApply: FbtApply;
   logTrip: LogTripSync;
+  err: string;
+  private constructor(apply: FbtApply) {
+    this.fbtApply = apply;
+  }
 
-  private constructor(id?: string, apply?: FbtApply) {
-    if (apply) {
-      this.fbtApply = apply;
-    } else if (id) {
-      FbtApply.getDbApplyWithCityUser(id).then((apply) => {
-        this.fbtApply = apply;
-      });
+  async processPastData() {
+    const logTrip = await LogTripSync.findOne({
+      where: { fbtRootId: this.fbtApply.root_id },
+    });
+    this.logTrip = await this._generateLog();
+    if (!logTrip || !this.logTrip.start_time) return;
+    if (
+      this.fbtApply.start_time.getTime() != this.logTrip.start_time.getTime() ||
+      this.fbtApply.end_time.getTime() != this.logTrip.end_time.getTime()
+    ) {
+      await this.修改xft差旅记录(logTrip.xftBillId);
     }
   }
 
-  async getLog() {
+  async process() {
     const logTrip = await LogTripSync.findOne({
       where: { fbtRootId: this.fbtApply.root_id },
+    });
+    if (logTrip?.fbtCurrentId == this.fbtApply.id) return;
+    this.logTrip = await this._generateLog();
+    if (!this.logTrip.start_time || !this.logTrip.end_time) {
+      this.logTrip.err = `时间段为空${format(
+        this.fbtApply.start_time,
+        "yyyy-MM-dd HH:mm"
+      )} ${format(this.fbtApply.end_time, "yyyy-MM-dd HH:mm")}`;
+      this.logTrip.isSync = false;
+      await LogTripSync.upsert(this.logTrip, {
+        conflictPaths: ["fbtRootId"],
+        skipUpdateIfNoValuesChanged: true,
+      });
+      return;
+    }
+    if (logTrip == null) {
+      await this._添加xft差旅记录();
+    } else if (
+      logTrip.start_time != this.logTrip.start_time ||
+      logTrip.end_time != this.logTrip.end_time
+    ) {
+      await this.修改xft差旅记录(logTrip.xftBillId);
+    }
+    await LogTripSync.upsert(this.logTrip, {
+      conflictPaths: ["fbtRootId"],
+      skipUpdateIfNoValuesChanged: true,
     });
   }
 
@@ -107,31 +143,48 @@ class XftTripLog {
     const timeSlot = await this.createNonConflictingTimeSlot(
       this.fbtApply.start_time,
       this.fbtApply.end_time,
-      this.fbtApply.proposerUserId
+      this.fbtApply.proposerUserId,
+      this.fbtApply.create_time
     );
     const logTrip = new LogTripSync();
+    logTrip.city = this.fbtApply.city.map((city) => city.name);
+    logTrip.userId = this.fbtApply.proposerUserId;
     logTrip.fbtRootId = this.fbtApply.root_id;
     logTrip.fbtCurrentId = this.fbtApply.id;
     logTrip.create_time = this.fbtApply.create_time;
-    logTrip.start_time = timeSlot.start_time;
-    logTrip.end_time = timeSlot.end_time;
+    // logTrip.err = "";
+    logTrip.start_time = timeSlot?.start_time ?? (null as any);
+    logTrip.end_time = timeSlot?.end_time ?? (null as any);
+
     return logTrip;
   }
-
-  private async createNonConflictingTimeSlot(_start_time, _end_time, _userId) {
+  private async createNonConflictingTimeSlot(
+    _start_time,
+    _end_time,
+    _userId,
+    _create_time
+  ) {
     const start_time = new Date(_start_time);
     const end_time = new Date(_end_time);
-    const conflicts = await LogTripSync.getConflict(
-      _userId,
-      start_time,
-      end_time
-    );
+    const create_time = new Date(_create_time);
+    const conflicts = (
+      await LogTripSync.getConflict(_userId, start_time, end_time, create_time)
+    ).filter((conflict) => conflict.fbtRootId != this.fbtApply.root_id);
     if (conflicts.length > 0) {
       // 处理冲突并生成新的时间段
       let newStartTime = start_time;
       let newEndTime = end_time;
 
       for (const conflict of conflicts) {
+        if (!conflict.start_time || !conflict.end_time) continue;
+        if (
+          conflict.start_time <= newStartTime &&
+          conflict.end_time >= newEndTime
+        ) {
+          // 如果有冲突记录完全覆盖输入的时间段，则返回null
+          return null;
+        }
+
         if (
           conflict.start_time <= newEndTime &&
           conflict.end_time >= newStartTime
@@ -139,11 +192,16 @@ class XftTripLog {
           // 如果输入的时间段和数据库记录有重叠
           if (conflict.end_time < newEndTime) {
             // 调整开始时间，避免与冲突记录重叠
-            newStartTime = new Date(conflict.end_time.getTime() + 1 * 1000); // 冲突的结束时间 + 1秒
+            newStartTime = this.adjustToTimeNode(
+              new Date(conflict.end_time.getTime() + 1 * 1000)
+            ); // 冲突的结束时间 + 1秒
           }
           if (conflict.start_time > newStartTime) {
             // 调整结束时间，避免与冲突记录重叠
-            newEndTime = new Date(conflict.start_time.getTime() - 1 * 1000); // 冲突的开始时间 - 1秒
+            newEndTime = this.adjustToTimeNode(
+              new Date(conflict.start_time.getTime() - 1 * 1000),
+              true
+            ); // 冲突的开始时间 - 1秒
           }
         }
       }
@@ -152,89 +210,187 @@ class XftTripLog {
     // 如果没有冲突，则直接返回原始的时间段
     return { start_time, end_time };
   }
+  private adjustToTimeNode(date: Date, isEndTime: boolean = false): Date {
+    const adjustedDate = new Date(date);
 
-  static importLogbyId(id: string) {
-    return new XftTripLog(id);
+    const hours = adjustedDate.getHours();
+
+    if (isEndTime) {
+      // 对结束时间进行调整
+      if (hours < 12) {
+        // 如果结束时间小于12点，调整到12:00
+        adjustedDate.setHours(11, 59, 59, 999);
+      } else {
+        // 如果结束时间大于12点，调整到23:59
+        adjustedDate.setHours(23, 59, 59, 999);
+      }
+    } else {
+      // 对开始时间进行调整
+      if (hours < 12) {
+        // 如果开始时间小于12点，调整到00:00
+        adjustedDate.setHours(0, 0, 0, 0);
+      } else {
+        // 如果开始时间大于12点，调整到12:00
+        adjustedDate.setHours(12, 0, 0, 0);
+      }
+    }
+
+    return adjustedDate;
+  }
+
+  async _添加xft差旅记录() {
+    if (!this.logTrip.start_time || !this.logTrip.end_time) {
+      this.logTrip.err = `时间段为空${this.fbtApply.start_time} ${this.fbtApply.end_time}`;
+      this.logTrip.isSync = false;
+      return;
+    }
+    if (
+      this.fbtApply.city.length == 1 &&
+      this.fbtApply.city[0].name.includes("台州")
+    ) {
+      this.logTrip.err = "台州";
+      this.logTrip.isSync = false;
+      return;
+    }
+    let applier = this.logTrip.userId.slice(0, 20);
+
+    const departCityCode = await this.getCityCode(this.fbtApply.city[0].name);
+    let destinationCityCode = departCityCode;
+    if (this.fbtApply.city.length > 1) {
+      destinationCityCode = await this.getCityCode(this.fbtApply.city[1].name);
+    }
+
+    const cities = this.fbtApply.city.map((city) => {
+      return city.name;
+    });
+    const result = await xftItripApiClient.createApplyTravel({
+      outRelId: this.fbtApply.root_id,
+      empNumber: applier,
+      reason: `${this.fbtApply.reason} ${this.fbtApply.remark} ${cities.join(
+        ","
+      )}`,
+      departCityCode,
+      destinationCityCode,
+      start_time: this.logTrip.start_time,
+      end_time: this.logTrip.end_time,
+      peerEmpNumbers: this.fbtApply.user
+        .map((user) => user.userId)
+        .filter((user) => user != applier),
+    });
+    if (result["returnCode"] == "SUC0000") {
+      this.logTrip.isSync = true;
+      this.logTrip.err = "";
+      this.logTrip.xftBillId = result["body"];
+      this.sendMessages();
+    } else {
+      this.logTrip.isSync = false;
+      this.logTrip.err = result;
+    }
+  }
+
+  async 修改xft差旅记录(billId) {
+    let applier = this.logTrip.userId.slice(0, 20);
+    const departCityCode = await this.getCityCode(this.fbtApply.city[0].name);
+    let destinationCityCode = departCityCode;
+    if (this.fbtApply.city.length > 1) {
+      destinationCityCode = await this.getCityCode(this.fbtApply.city[1].name);
+    }
+    await this._修改xft差旅记录({
+      billId,
+      changerNumber: applier,
+      departCityCode,
+      destinationCityCode,
+      start_time: this.logTrip.start_time,
+      end_time: this.logTrip.end_time,
+    });
+  }
+
+  async _修改xft差旅记录({
+    billId,
+    changerNumber,
+    departCityCode,
+    destinationCityCode,
+    start_time,
+    end_time,
+  }) {
+    const result = await xftItripApiClient.updateApplyTravel({
+      billId,
+      changerNumber,
+      // peerEmpNumbers: [],
+      changeReason: "1",
+      changeInfo: {
+        businessTrip: {
+          businessTripDetails: [
+            {
+              departCityCode,
+              destinationCityCode,
+              beginTime: format(start_time, "yyyy-MM-dd HH:mm"),
+              endTime: format(end_time, "yyyy-MM-dd HH:mm"),
+              beginTimePrecision: start_time.getHours() <= 12 ? "AM" : "PM",
+              endTimePrecision: end_time.getHours() <= 12 ? "AM" : "PM",
+            },
+          ],
+        },
+      },
+    });
+    if (result["returnCode"] == "SUC0000") {
+      this.logTrip.isSync = true;
+      this.logTrip.err = "";
+      this.sendMessages();
+      return true;
+    }
+    return false;
+  }
+
+  private async getCityCode(cityName: string) {
+    return (
+      await XftCity.findOne({
+        where: { cityName: cityName.split("/")[0].split(",")[0] },
+      })
+    )?.cityCode;
+  }
+
+  static async importLogbyId(id: string) {
+    return new XftTripLog(await FbtApply.getDbApplyWithCityUser(id));
   }
   static importLogbyApply(apply: FbtApply) {
-    return new XftTripLog(undefined, apply);
+    return new XftTripLog(apply);
   }
-}
 
-const 修改xft差旅记录 = async (apply: FbtApply) => {};
-
-export const 添加xft差旅记录 = async (apply: FbtApply) => {
-  if (apply.state != 4) return;
-  const exist = await LogTripSync.exists({
-    where: { fbtRootId: apply.root_id },
-  });
-  if (!exist) {
-    const billid = await _添加xft差旅记录(apply);
-    await LogTripSync.addRecord(
-      apply.root_id,
-      apply.id,
-      billid,
-      apply.create_time
-    );
-  }
-};
-
-const _添加xft差旅记录 = async (fbtApply: FbtApply) => {
-  if (fbtApply.city.length < 2) {
-    return { error: fbtApply.city.map((city) => city.name).join(",") };
-  }
-  let applier;
-  if (fbtApply.user.map((user) => user.fbtId).includes(fbtApply.proposer_id)) {
-    applier = fbtApply.proposerUserId.slice(0, 20);
-  } else {
-    applier = fbtApply.user[0].userId.slice(0, 20);
-  }
-  if (!applier) return { error: "no applier" };
-  const departCityCode =
-    (await XftCity.findOne({ where: { cityName: fbtApply.city[0].name } }))
-      ?.cityCode ?? "96";
-  const destinationCityCode =
-    (await XftCity.findOne({ where: { cityName: fbtApply.city[1].name } }))
-      ?.cityCode ?? "1";
-  const cities = fbtApply.city.map((city) => {
-    return city.name;
-  });
-  const result = await xftItripApiClient.createApplyTravel({
-    eventNumber: "01240921022004000001",
-    outRelId: fbtApply.id,
-    empNumber: applier,
-    customFieldValues: [
-      {
-        fieldNumber: "reason",
-        fieldValue: `${fbtApply.reason} ${fbtApply.remark} ${cities.join(",")}`,
+  async sendMessages() {
+    const startTime = this.logTrip.start_time;
+    const endTime1 = this.logTrip.end_time;
+    const beginTime = `${format(startTime, "yyyy-MM-dd")}${
+      startTime.getHours() <= 12 ? "AM" : "PM"
+    }`;
+    const endTime = `${format(endTime1, "yyyy-MM-dd")}${
+      endTime1.getHours() <= 12 ? "AM" : "PM"
+    }`;
+    // 发送消息
+    new MessageHelper([this.fbtApply.proposerUserId]).sendTextNotice({
+      main_title: {
+        title: "分贝通差旅同步考勤成功",
+        desc: format(new Date(this.fbtApply.create_time), "yyyy-MM-dd HH:mm"),
       },
-    ],
-    billStatus: "APPRV",
-    businessTrip: {
-      businessTripDetails: [
+      sub_title_text: "",
+      horizontal_content_list: [
         {
-          departCityCode,
-          destinationCityCode,
-          beginTime: format(new Date(fbtApply.start_time), "yyyy-MM-dd HH:mm"),
-          endTime: format(new Date(fbtApply.end_time), "yyyy-MM-dd HH:mm"),
-          beginTimePrecision:
-            new Date(fbtApply.start_time).getHours() < 12 ? "AM" : "PM",
-          endTimePrecision:
-            new Date(fbtApply.end_time).getHours() < 12 ? "AM" : "PM",
-          tripReason: `${fbtApply.reason} ${fbtApply.remark} ${cities.join(
-            ","
-          )}`,
+          keyname: "原因",
+          value: this.fbtApply.reason,
+        },
+        {
+          keyname: "出差城市",
+          value: this.fbtApply.city.map((city) => city.name).join(", "),
+        },
+        {
+          keyname: "开始时间",
+          value: beginTime,
+        },
+        {
+          keyname: "结束时间",
+          value: endTime,
         },
       ],
-    },
-    peerEmpNumbers: fbtApply.user
-      .map((user) => user.userId)
-      .filter((user) => user != applier),
-  });
-  if (result["returnCode"] == "SUC0000") return { billId: result["body"] };
-  else return { error: result };
-};
-
-const _修改xft差旅记录 = async () => {};
-
-const 每日获取订单 = async () => {};
+    });
+  }
+}
