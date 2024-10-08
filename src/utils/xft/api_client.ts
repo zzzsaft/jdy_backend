@@ -56,10 +56,13 @@ class ApiClient {
     const axiosRequestConfig = {
       method: httpMethod,
       url: `${this.host}${options.path}${queryString}`,
-      data: options.payload || {},
+      // data: options.payload || {},
       timeout: 10000,
       headers: header,
     };
+    if (httpMethod === "POST") {
+      axiosRequestConfig["data"] = options.payload || {};
+    }
     let response;
     try {
       // await xftLimiter.tryBeforeRun(limitOption);
@@ -110,15 +113,18 @@ class ApiClient {
     const signature = sm2.doSignature(signContent, this.appSecret, {
       hash: true,
     });
-
-    return {
+    const header = {
       "Content-Type": "application/json; charset=utf-8",
       appid: this.appid,
-      "x-alb-digest": bodyDigest,
+      // "x-alb-digest": bodyDigest,
       "x-alb-timestamp": timestamp,
       apisign: signature,
       "x-alb-verify": "sm3withsm2",
     };
+    if (method == "POST") {
+      header["x-alb-digest"] = bodyDigest;
+    }
+    return header;
   }
 }
 

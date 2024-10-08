@@ -95,7 +95,7 @@ export const appAxios = async (config: AxiosRequestConfig) => {
     }
   } catch (e) {
     response = e.response;
-    if (response) {
+    if (response && bool) {
       const { status, data } = response;
       const host = new URL(config.url ?? "").host;
       await LogAxios.create({

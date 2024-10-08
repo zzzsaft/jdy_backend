@@ -60,17 +60,27 @@ import {
 import { fbtUserApiClient } from "./utils/fenbeitong/user";
 import { fbtApplyApiClient } from "./utils/fenbeitong/apply";
 import { FbtApply } from "./entity/fbt/apply";
-import { getTodayApply } from "./schedule/getFbtApply";
+import { getTodayApply, 添加xft差旅记录 } from "./schedule/getFbtApply";
+import { xftItripApiClient } from "./utils/xft/xft_itrip";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-// await PgDataSource.initialize();
+await PgDataSource.initialize();
+await getTodayApply();
+// await xftItripApiClient.getApplyTravelDetail(2024100829442232);
+
+// const fbtApply = await FbtApply.findOne({
+//   where: { id: "66d2d651d7e0722234d2fc60" },
+//   relations: ["city", "user"],
+// });
+// if (fbtApply) await 添加xft差旅记录(fbtApply);
 // // await 导入分贝通人员id();
 // console.log(
 //   await fbtUserApiClient.getSSOLink("wolP6zEQAAwE6_FJPB3yTnFsWWbIcsxA", "home")
 // );
-// const a = await fbtApplyApiClient.getApplyOrder("66d828482a985c6c1231f5be");
-// console.log(a);
+// const a = await xftItripApiClient.getAllCity();
+
+// const a = await fbtApplyApiClient.getApplyOrder("66d828482a985c6c1231f5be");console.log();
 // await getTodayApply();
 // const a1 = new MessageHelper(["LiangZhi", ""]);
 // // await 检查分贝通未导入id();

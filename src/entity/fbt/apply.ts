@@ -96,8 +96,9 @@ export class FbtApply extends BaseEntity {
   city: Relation<FbtApplyCity[]>;
 
   static async addApply(record) {
-    const apply = await createRecord(record);
+    const apply: FbtApply = await createRecord(record);
     await apply.save();
+    return apply;
   }
   static async updateApply(record) {
     const apply = await createRecord(record);
@@ -120,7 +121,8 @@ const createRecord = async (record) => {
   };
   record["proposer_id"] = record["proposer"]["id"];
   record["proposer_name"] = record["proposer"]["name"];
-  const trips = record["multi_trips"][0];
+  const trips = record["multi_trips"]?.[0];
+  const cars = record["cars"]?.[0];
   const user = await User.findOne({ where: { fbtId: record.proposer_id } });
   const apply = {
     ...record,
@@ -138,9 +140,12 @@ const createRecord = async (record) => {
     apply["start_time"] = new Date(record.trip_time["start_time"]);
     apply["end_time"] = new Date(record.trip_time["end_time"]);
     apply["duration"] = record.trip_time["duration"];
-  } else {
+  } else if (trips) {
     apply["start_time"] = trips?.start_time;
     apply["end_time"] = trips?.end_time;
+  } else {
+    apply["start_time"] = cars?.start_time;
+    apply["end_time"] = cars?.end_time;
   }
   if (record.hasOwnProperty("travel_city_list")) {
     apply["city"] = record.travel_city_list.map((city) => {
@@ -149,8 +154,15 @@ const createRecord = async (record) => {
         cityId: city.key,
       };
     });
-  } else {
+  } else if (trips) {
     apply["city"] = trips.citys.map((city) => {
+      return {
+        name: city.city_name,
+        cityId: city.city_id,
+      };
+    });
+  } else {
+    apply["city"] = cars.citys.map((city) => {
       return {
         name: city.city_name,
         cityId: city.city_id,
