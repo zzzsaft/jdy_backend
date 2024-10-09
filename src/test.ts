@@ -66,12 +66,12 @@ import { xftItripApiClient } from "./utils/xft/xft_itrip";
 import { XftCity } from "./entity/xft/city";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
-// import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-await PgDataSource.initialize();
-// const a = await GetFbtApply.getApplyDetail("6704e67667bb5a7c9cb9d56a");
-// await xftItripApiClient.getApplyTravelDetail(2024100829442232);
-// const tripLog = await XftTripLog.importLogbyId("6702360ccc4c6f5ef98e7d02");
-// await tripLog.process();
+// import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";await PgDataSource.initialize();
+console.log(await testLoginUrl("ShiFangFang"));
+// // const a = await GetFbtApply.getApplyDetail("6704e67667bb5a7c9cb9d56a");
+// // await xftItripApiClient.getApplyTravelDetail(2024100829442232);
+// // const tripLog = await XftTripLog.importLogbyId("6702360ccc4c6f5ef98e7d02");
+// // await tripLog.process();
 
 // await new GetFbtApply().getApply();
 

@@ -26,8 +26,8 @@ export class GetFbtApply {
       const unexistApply = await this._calculateUnexistApply(apply);
       for (const code of unexistApply) {
         const record = await GetFbtApply.getApplyDetail(code);
-        const apply = await this._addToDB(record);
-        if (apply) await XftTripLog.importLogbyApply(apply).process();
+        const applyDb = await this._addToDB(record);
+        if (applyDb) await XftTripLog.importLogbyApply(applyDb).process();
       }
     } catch (error) {
       logger.error("Error fetching apply data:", error);
@@ -70,7 +70,7 @@ export class GetFbtApply {
     const apply = await FbtApply.addApply(record);
     //更新parentid的数据
     let parentApplyState;
-    if (!apply.parent_id) return;
+    if (!apply.parent_id) return apply;
     parentApplyState = (
       await FbtApply.findOne({
         where: { id: apply.parent_id },
@@ -98,7 +98,7 @@ export class XftTripLog {
       where: { fbtRootId: this.fbtApply.root_id },
     });
     this.logTrip = await this._generateLog();
-    if (!logTrip || !this.logTrip.start_time) return;
+    if (!logTrip || !this.logTrip.start_time || !logTrip.xftBillId) return;
     if (
       this.fbtApply.start_time.getTime() != this.logTrip.start_time.getTime() ||
       this.fbtApply.end_time.getTime() != this.logTrip.end_time.getTime()
@@ -108,6 +108,7 @@ export class XftTripLog {
   }
 
   async process() {
+    if (this.fbtApply.state != 4) return;
     const logTrip = await LogTripSync.findOne({
       where: { fbtRootId: this.fbtApply.root_id },
     });
@@ -281,7 +282,7 @@ export class XftTripLog {
       this.logTrip.isSync = true;
       this.logTrip.err = "";
       this.logTrip.xftBillId = result["body"];
-      this.sendMessages();
+      await this.sendMessages();
     } else {
       this.logTrip.isSync = false;
       this.logTrip.err = result;
@@ -358,6 +359,7 @@ export class XftTripLog {
   }
 
   async sendMessages() {
+    // return;
     const startTime = this.logTrip.start_time;
     const endTime1 = this.logTrip.end_time;
     const beginTime = `${format(startTime, "yyyy-MM-dd")}${
@@ -373,6 +375,10 @@ export class XftTripLog {
         desc: format(new Date(this.fbtApply.create_time), "yyyy-MM-dd HH:mm"),
       },
       sub_title_text: "",
+      card_action: {
+        type: 1,
+        url: "https://xft.cmbchina.com/mobile-atd/#/trip-record",
+      },
       horizontal_content_list: [
         {
           keyname: "原因",
