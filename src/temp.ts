@@ -113,3 +113,8 @@ export const processXftTripLog = async () => {
     await tripLog.processPastData();
   }
 };
+
+export const logTripSyncByid = async (id: string) => {
+  const tripLog = await XftTripLog.importLogbyId(id);
+  await tripLog.process();
+};

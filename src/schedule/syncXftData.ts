@@ -16,6 +16,7 @@ function areArraysEqual(arr1: string[], arr2: string[]): boolean {
 export const syncUser = async () => {
   const users = (
     await User.createQueryBuilder("user")
+      .where("user.is_employed = true")
       .innerJoinAndSelect(
         Department,
         "department",
@@ -25,16 +26,31 @@ export const syncUser = async () => {
   )
     .map((user) => {
       return {
-        staffBasicInfo: {
-          stfSeq: user.user_xft_id,
-          orgSeq: user.department_xft_id,
-        },
+        stfSeq: user.user_xft_id,
+        orgSeq: user.department_xft_id,
       };
     })
-    .filter((user) => user.staffBasicInfo.stfSeq && user.staffBasicInfo.orgSeq);
-  _.chunk(users, 500).forEach(async (chunk) => {
-    await xftUserApiClient.updateEmployee(chunk);
+    .filter((user) => user.stfSeq && user.orgSeq);
+  const employeeList = (await xftUserApiClient.getAllEmployeeList()).map(
+    (item) => {
+      return { stfSeq: item.staffSeq, orgSeq: item.staffBasicInfo.orgSeq };
+    }
+  );
+  const update = _.filter(users, (item1) => {
+    const match = _.find(
+      employeeList,
+      (item2) => item2.stfSeq === item1.stfSeq
+    );
+    return match && match.orgSeq !== item1.orgSeq;
+  }).map((item: any) => {
+    return { staffBasicInfo: { stfSeq: item.stfSeq, orgSeq: item.orgSeq } };
   });
+  await xftUserApiClient.updateEmployee(update);
+  // const chunks = _.chunk(users, 500);
+
+  // for (let chunk of chunks) {
+  //   await xftUserApiClient.updateEmployee(chunk);
+  // }
 };
 
 export const syncDepartment = async () => {
@@ -46,9 +62,9 @@ export const syncDepartment = async () => {
     await Promise.all(
       departments.map(async (department) => {
         let parent_id = department.parent_id.toString();
-        if (parent_id === "1") {
-          parent_id = "root";
-        }
+        // if (parent_id === "1") {
+        //   parent_id = "root";
+        // }
         let leaders = (
           await Promise.all(
             department.department_leader.map(
@@ -79,7 +95,8 @@ export const syncDepartment = async () => {
           !areArraysEqual(
             org["approvers"].map((app) => app["enterpriseUserId"]),
             data.approverIds
-          ))
+          ) ||
+          org["parentCode"] !== data.parent_id)
       ) {
         const { name, parent_id, approverIds } = data;
         return { id: org.id, name, parent_id, userids: approverIds };
