@@ -38,7 +38,7 @@ import {
   sendtoUserwithLeaveChoiceTest,
 } from "./schedule/sendLeave";
 import { decryptMsg } from "./utils/wechat/decrypt";
-import { syncUser } from "./schedule/syncXftData";
+import { syncDepartment, syncUser } from "./schedule/syncXftData";
 import { fengbeitong_token } from "./utils/fenbeitong/token";
 import { BusinessTripEvent } from "./controllers/xft/atd/businessTrip.atd.xft.controller";
 import { User } from "./entity/wechat/User";
@@ -87,6 +87,18 @@ await PgDataSource.initialize();
 // const a = await xftOAApiClient.getFormBussinesData();
 // console.log(new Date().getTime().toString());
 // console.log(await testLoginUrl("WuFeng"));
+import { Department } from "./entity/wechat/Department";
+// import { LogCheckin } from "./entity/common/log_checkin";
+// import { xftSalaryApiClient } from "./utils/xft/xft_salary";
+// import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
+await PgDataSource.initialize();
+// await User.updateUser();
+// await syncUser();
+// console.log(testLoginUrl("f46bfca930da3f09a765"));
+
+// await (await XftTripLog.importLogbyId("6707565a66a5897ad562b22a")).process();
+
+// console.log(await testLoginUrl("ShiFangFang"));
 // // const a = await GetFbtApply.getApplyDetail("6704e67667bb5a7c9cb9d56a");
 // // await xftItripApiClient.getApplyTravelDetail(2024100829442232);
 // // const tripLog = await XftTripLog.importLogbyId("6702360ccc4c6f5ef98e7d02");

@@ -9,6 +9,7 @@ import {
   startOfMonth,
   subMonths,
 } from "date-fns";
+import { getHalfDay } from "../general";
 
 export type importAtd = {
   staffName: string;
@@ -50,8 +51,8 @@ class XFTItripApiClient {
             destinationCityCode,
             beginTime: format(start_time, "yyyy-MM-dd HH:mm"),
             endTime: format(end_time, "yyyy-MM-dd HH:mm"),
-            beginTimePrecision: start_time.getHours() <= 12 ? "AM" : "PM",
-            endTimePrecision: end_time.getHours() <= 12 ? "AM" : "PM",
+            beginTimePrecision: getHalfDay(start_time),
+            endTimePrecision: getHalfDay(end_time),
             tripReason: reason,
           },
         ],

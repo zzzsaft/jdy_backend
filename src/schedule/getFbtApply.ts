@@ -10,6 +10,7 @@ import { LogTripSync } from "../entity/common/log_trip_sync";
 import { logger } from "../config/logger";
 import { log } from "console";
 import { MessageHelper } from "../utils/wechat/message";
+import { getHalfDay } from "../utils/general";
 
 export class GetFbtApply {
   startTime: Date;
@@ -209,7 +210,7 @@ export class XftTripLog {
       return { start_time: newStartTime, end_time: newEndTime };
     }
     // 如果没有冲突，则直接返回原始的时间段
-    return { start_time, end_time };
+    return { start_time: this.adjustToTimeNode(start_time), end_time };
   }
   private adjustToTimeNode(date: Date, isEndTime: boolean = false): Date {
     const adjustedDate = new Date(date);
@@ -232,7 +233,7 @@ export class XftTripLog {
         adjustedDate.setHours(0, 0, 0, 0);
       } else {
         // 如果开始时间大于12点，调整到12:00
-        adjustedDate.setHours(12, 0, 0, 0);
+        adjustedDate.setHours(12, 1, 0, 0);
       }
     }
 
@@ -265,7 +266,7 @@ export class XftTripLog {
       return city.name;
     });
     const result = await xftItripApiClient.createApplyTravel({
-      outRelId: this.fbtApply.root_id,
+      outRelId: this.fbtApply.root_id + "-3",
       empNumber: applier,
       reason: `${this.fbtApply.reason} ${this.fbtApply.remark} ${cities.join(
         ","
@@ -275,7 +276,7 @@ export class XftTripLog {
       start_time: this.logTrip.start_time,
       end_time: this.logTrip.end_time,
       peerEmpNumbers: this.fbtApply.user
-        .map((user) => user.userId)
+        .map((user) => user.userId.slice(0, 20))
         .filter((user) => user != applier),
     });
     if (result["returnCode"] == "SUC0000") {
@@ -327,8 +328,8 @@ export class XftTripLog {
               destinationCityCode,
               beginTime: format(start_time, "yyyy-MM-dd HH:mm"),
               endTime: format(end_time, "yyyy-MM-dd HH:mm"),
-              beginTimePrecision: start_time.getHours() <= 12 ? "AM" : "PM",
-              endTimePrecision: end_time.getHours() <= 12 ? "AM" : "PM",
+              beginTimePrecision: getHalfDay(start_time),
+              endTimePrecision: getHalfDay(end_time),
             },
           ],
         },
@@ -359,15 +360,13 @@ export class XftTripLog {
   }
 
   async sendMessages() {
-    // return;
+    return;
     const startTime = this.logTrip.start_time;
     const endTime1 = this.logTrip.end_time;
-    const beginTime = `${format(startTime, "yyyy-MM-dd")}${
-      startTime.getHours() <= 12 ? "AM" : "PM"
-    }`;
-    const endTime = `${format(endTime1, "yyyy-MM-dd")}${
-      endTime1.getHours() <= 12 ? "AM" : "PM"
-    }`;
+    const beginTime = `${format(startTime, "yyyy-MM-dd")} ${getHalfDay(
+      startTime
+    )}`;
+    const endTime = `${format(endTime1, "yyyy-MM-dd")} ${getHalfDay(endTime1)}`;
     // 发送消息
     new MessageHelper([this.fbtApply.proposerUserId]).sendTextNotice({
       main_title: {
