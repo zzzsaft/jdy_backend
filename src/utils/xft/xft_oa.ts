@@ -32,5 +32,15 @@ class XFTOAApiClient {
       payload: {},
     });
   }
+  async getFormBussinesData() {
+    return await appApiClient.doRequest({
+      method: "POST",
+      path: "/xft-oa/openapi/xft-oaquery/form-data/business/query-page-list",
+      payload: {
+        current: 1,
+        size: 100,
+      },
+    });
+  }
 }
 export const xftOAApiClient = new XFTOAApiClient();

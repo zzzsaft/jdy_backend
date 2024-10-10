@@ -32,38 +32,32 @@ class XFTSalaryApiClient {
     adjustType: "定薪" | "调薪",
     reason,
     salary,
-    date
+    date?
   ) {
+    const salaryRecordDataList = [
+      {
+        lineId: "1",
+        staffName,
+        staffNumber,
+        adjustType: adjustType,
+        afterSalaryDataJson: JSON.stringify(salary),
+        adjustSalaryReason: reason,
+      },
+    ];
+    if (date) salaryRecordDataList[0]["effectDate"] = date;
     return await appApiClient.doRequest(
       {
         method: "POST",
         path: "/sal/sal/xft-sly/salary/api/import-adjust-record",
         payload: {
-          salaryRecordDataList: [
-            {
-              lineId: "1",
-              staffName,
-              staffNumber,
-              adjustType: adjustType,
-              afterSalaryDataJson: JSON.stringify(salary),
-              adjustSalaryReason: reason,
-              effectDate: date,
-            },
-          ],
+          salaryRecordDataList,
         },
       },
       "U0000"
     );
   }
-  async setSalary(name, userid, base, date = format(new Date(), "yyyy-MM-dd")) {
-    await this._updateSalary(
-      name,
-      userid,
-      "定薪",
-      "定薪",
-      { IT0002: base },
-      date
-    );
+  async setSalary(name, userid, base) {
+    await this._updateSalary(name, userid, "定薪", "定薪", { IT0002: base });
   }
   async positiveSalary(name, userid, base, month, season, annual, date) {
     await this._updateSalary(

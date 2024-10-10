@@ -64,14 +64,35 @@ import { FbtApply } from "./entity/fbt/apply";
 import { GetFbtApply, XftTripLog } from "./schedule/getFbtApply";
 import { xftItripApiClient } from "./utils/xft/xft_itrip";
 import { XftCity } from "./entity/xft/city";
-// import { LogCheckin } from "./entity/common/log_checkin";
-// import { xftSalaryApiClient } from "./utils/xft/xft_salary";
-// import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";await PgDataSource.initialize();
-console.log(await testLoginUrl("ShiFangFang"));
+import { LogCheckin } from "./entity/common/log_checkin";
+import { xftSalaryApiClient } from "./utils/xft/xft_salary";
+import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
+import { parkingApiClient } from "./utils/parking/app";
+await PgDataSource.initialize();
+
+// const a = await fbtApplyApiClient.getApplyOrder("6703ab09ec07c26f03933818");
+// console.log(a);
+// const msg = await parkingApiClient.visitorAppoint({
+//   guestCompany: "合肥长阳",
+//   guestType: "国内客户",
+//   visitorCarNum: "",
+//   visitorName: "韩先生，吴",
+//   visitorPhone: "15825686848",
+//   visitorPurpose: "售中验货",
+//   visitorTime: "2024-09-12 09:08:00",
+//   visitorLeaveTime: "2024-09-12 13:08:00",
+//   visitorReason: "",
+// });
+// console.log(await importErrorAtd());
+// const a = await xftOAApiClient.getFormBussinesData();
+// console.log(new Date().getTime().toString());
+// console.log(await testLoginUrl("WuFeng"));
 // // const a = await GetFbtApply.getApplyDetail("6704e67667bb5a7c9cb9d56a");
 // // await xftItripApiClient.getApplyTravelDetail(2024100829442232);
 // // const tripLog = await XftTripLog.importLogbyId("6702360ccc4c6f5ef98e7d02");
 // // await tripLog.process();
+
+// await testXFTSTFADD();
 
 // await new GetFbtApply().getApply();
 
