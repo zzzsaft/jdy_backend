@@ -5,6 +5,7 @@ import stream from "stream";
 import path from "path";
 import { logger } from "../config/logger";
 import { LogAxios } from "../entity/common/log_axios";
+import { ValueTransformer } from "typeorm";
 const bool = process.env.NODE_ENV === "production";
 export async function downloadFileStream(url) {
   try {
@@ -108,6 +109,16 @@ export const appAxios = async (config: AxiosRequestConfig) => {
         err: JSON.stringify(e),
       }).save();
     }
+    if (!bool) {
+      console.log({
+        host: new URL(config.url ?? "").host,
+        url: config.url,
+        method: config.method,
+        payload: JSON.stringify(config.data) ?? "".slice(0, 2000),
+        res_status: response?.status,
+        res_data: JSON.stringify(response?.data) ?? "".slice(0, 200),
+      });
+    }
     if (response) {
       return response.data;
     }
@@ -131,4 +142,26 @@ export const getDay = (date: string) => {
 export const getHalfDay = (date: string | Date) => {
   const hour = new Date(date).getHours();
   return hour < 12 ? "AM" : "PM";
+};
+
+// 创建 ValueTransformer 来处理 POINT 数据
+export const pointTransformer: ValueTransformer = {
+  to: (coordinates: { longitude: number; latitude: number } | undefined) => {
+    if (coordinates) {
+      return `POINT(${coordinates.longitude} ${coordinates.latitude})`;
+    }
+    // 如果 coordinates 为 undefined，返回 null 或者默认值
+    return null; // 或者 `POINT(0 0)`
+  },
+  from: (point: string) => {
+    if (!point) return null;
+    const match = point.match(/POINT\(([\d.-]+) ([\d.-]+)\)/);
+    if (match) {
+      return {
+        longitude: parseFloat(match[1]),
+        latitude: parseFloat(match[2]),
+      };
+    }
+    return { longitude: 0, latitude: 0 };
+  },
 };

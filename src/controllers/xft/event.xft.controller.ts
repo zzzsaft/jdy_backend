@@ -21,10 +21,11 @@ export const xftEvent = async (request: Request, response: Response) => {
   }
 };
 const XFTSTFADD = async (content) => {
-  const salary = await SalaryRecord.getRecord(content["stfNumber"]);
+  const parsed = JSON.parse(content);
+  const salary = await SalaryRecord.getRecord(parsed["STFNBR"]);
   await xftSalaryApiClient.setSalary(
-    content.STFNAM,
-    content.STFNBR,
+    parsed["STFNAM"],
+    parsed["STFNBR"],
     salary?.probation
   );
 };

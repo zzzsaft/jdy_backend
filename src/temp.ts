@@ -101,7 +101,7 @@ export const 检查分贝通未导入id = async () => {
 export const processXftTripLog = async () => {
   const fbtApplies = await FbtApply.find({
     where: {
-      start_time: Between(new Date("2024-07-01"), new Date("2024-7-31")),
+      start_time: Between(new Date("2024-04-01"), new Date("2024-4-31")),
       state: 4,
     },
     order: { proposerUserId: "ASC", start_time: "ASC" },
@@ -110,7 +110,7 @@ export const processXftTripLog = async () => {
   for (const fbtApply of fbtApplies) {
     const tripLog = XftTripLog.importLogbyApply(fbtApply);
     // await tripLog.process();
-    await tripLog.processPastData();
+    await tripLog.process();
   }
 };
 

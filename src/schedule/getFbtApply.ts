@@ -246,6 +246,11 @@ export class XftTripLog {
       this.logTrip.isSync = false;
       return;
     }
+    if (!this.logTrip.userId) {
+      this.logTrip.err = `userId为空`;
+      this.logTrip.isSync = false;
+      return;
+    }
     if (
       this.fbtApply.city.length == 1 &&
       this.fbtApply.city[0].name.includes("台州")
@@ -360,7 +365,7 @@ export class XftTripLog {
   }
 
   async sendMessages() {
-    return;
+    if (process.env.NODE_ENV != "production") return;
     const startTime = this.logTrip.start_time;
     const endTime1 = this.logTrip.end_time;
     const beginTime = `${format(startTime, "yyyy-MM-dd")} ${getHalfDay(

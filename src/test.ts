@@ -69,29 +69,40 @@ import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./utils/parking/app";
 await PgDataSource.initialize();
+// await processXftTripLog();
+// const a = await xftOAApiClient.getFormData([
+//   "CF_:604ec40b-3ab8-4b8b-a93e-9fac566ce49a:180e5b2247a64797",
+// ]);
 
+// await xftOAApiClient.trialCodeFriend({ trailVarJsonStr: { reason: "222" } });
+await SendTripCheckin.createByRootId("661e0b0c608b8f537df3b5a6");
+// await processXftTripLog();
 // const a = await fbtApplyApiClient.getApplyOrder("6703ab09ec07c26f03933818");
 // console.log(a);
-// const msg = await parkingApiClient.visitorAppoint({
-//   guestCompany: "合肥长阳",
-//   guestType: "国内客户",
-//   visitorCarNum: "",
-//   visitorName: "韩先生，吴",
-//   visitorPhone: "15825686848",
-//   visitorPurpose: "售中验货",
-//   visitorTime: "2024-09-12 09:08:00",
-//   visitorLeaveTime: "2024-09-12 13:08:00",
-//   visitorReason: "",
-// });
+const a1 =
+  '[{"nodeId":"d2c459cca2bd4861bfab1f879764fe19","nodeName":"开始","type":"START","subType":"bpm.start","assignType":null,"actionType":null,"approverUserList":[{"userId":"U0000","userName":"梁之","userPhone":"18869965222"}],"reason":null,"starterSelfSelectRequired":null},{"nodeId":"31863550864111efbb2be9be85076fbe","nodeName":"审批人","type":"APPROVE","subType":"trip.approve","assignType":"trip.user","actionType":"oneByOne","approverUserList":[{"userId":"U0000","userName":"梁之","userPhone":"18869965222"}],"reason":null,"starterSelfSelectRequired":null}]';
+const a3 = JSON.parse(a1);
+const msg = await parkingApiClient.visitorAppoint({
+  guestCompany: "合肥长阳",
+  guestType: "国内客户",
+  visitorCarNum: "",
+  visitorName: "韩先生，吴",
+  visitorPhone: "15825686848",
+  visitorPurpose: "售中验货",
+  visitorTime: "2024-09-12 09:08:00",
+  visitorLeaveTime: "2024-09-12 13:08:00",
+  visitorReason: "",
+});
 // console.log(await importErrorAtd());
 // const a = await xftOAApiClient.getFormBussinesData();
 // console.log(new Date().getTime().toString());
 // console.log(await testLoginUrl("WuFeng"));
 import { Department } from "./entity/wechat/Department";
+import { SendTripCheckin } from "./schedule/sendTripCheckin";
+// import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-await PgDataSource.initialize();
 // await User.updateUser();
 // await syncUser();
 // console.log(testLoginUrl("f46bfca930da3f09a765"));

@@ -57,7 +57,7 @@ class ApiClient {
       method: httpMethod,
       url: `${this.host}${options.path}${queryString}`,
       // data: options.payload || {},
-      timeout: 10000,
+      timeout: 100000,
       headers: header,
     };
     if (httpMethod === "POST") {
@@ -71,7 +71,8 @@ class ApiClient {
         const { status, data } = response;
         if (
           (status && status > 200) ||
-          (data.hasOwnProperty("returnCode") &&
+          (data &&
+            data.hasOwnProperty("returnCode") &&
             data["returnCode"] !== "SUC0000")
         ) {
           logger.error(
@@ -148,5 +149,13 @@ const XftAppConfig: IXftConfig = {
   appSecret: process.env.XFT_APP_AUTHORITY_SECRET ?? "",
   enterpriseId: process.env.XFT_ENTERPRISE_ID ?? "",
 };
+
+const XftTripConfig: IXftConfig = {
+  host: process.env.XFT_HOST ?? "https://api.cmbchina.com",
+  appid: process.env.XFT_TRIP_APPID ?? "",
+  appSecret: process.env.XFT_TRIP_AUTHORITY_SECRET ?? "",
+  enterpriseId: process.env.XFT_ENTERPRISE_ID ?? "",
+};
 export const appApiClient = new ApiClient(XftAppConfig);
 export const connectApiClient = new ApiClient(XftConnectConfig);
+export const tripApiClient = new ApiClient(XftTripConfig);
