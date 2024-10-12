@@ -1,8 +1,8 @@
-import { Execute_Action } from "../../entity/Trigger/Execute_Action";
-import { Execute_Action_Content } from "../../entity/Trigger/Execute_Action_Content";
-import { Trigger } from "../../entity/Trigger/Trigger";
+import { Execute_Action } from "../../entity/trigger/Execute_Action";
+import { Execute_Action_Content } from "../../entity/trigger/Execute_Action_Content";
+import { Trigger } from "../../entity/trigger/Trigger";
 import { FilterCondition } from "../../type/jdy/IOptions";
-import { formDataApiClient } from "../../utils/jdy/form_data";
+import { jdyFormDataApiClient } from "../../utils/jdy/form_data";
 import _ from "lodash";
 interface Payload {
   data: any;
@@ -140,7 +140,7 @@ export class 智能助手 {
       }
     });
 
-    const data = await formDataApiClient.batchDataQuery(app_id, entry_id, {
+    const data = await jdyFormDataApiClient.batchDataQuery(app_id, entry_id, {
       filter: {
         rel: "and",
         cond: condlist,
@@ -160,7 +160,7 @@ export class 智能助手 {
         case "create":
           if (checked_data.length === 0) {
             const dataList = this.add(action);
-            await formDataApiClient.batchDataCreate(
+            await jdyFormDataApiClient.batchDataCreate(
               action.app_id,
               action.entry_id,
               dataList,
@@ -169,7 +169,7 @@ export class 智能助手 {
           }
           break;
         case "delete":
-          await formDataApiClient.batchDataRemove(
+          await jdyFormDataApiClient.batchDataRemove(
             action.app_id,
             action.entry_id,
             checked_data.map((i: any) => i["_id"])
@@ -193,7 +193,7 @@ export class 智能助手 {
     const data = this.create_data(action);
     if (action.extension_subform_name == "") {
       const ids = checked_data.map((i: any) => i["_id"]);
-      await formDataApiClient.batchDataUpdate(
+      await jdyFormDataApiClient.batchDataUpdate(
         action.app_id,
         action.entry_id,
         ids,
@@ -205,7 +205,7 @@ export class 智能助手 {
         for (const sumform of subform_names) {
           data[sumform] = data[sumform]["value"].push(i[sumform]);
         }
-        await formDataApiClient.singleDataUpdate(
+        await jdyFormDataApiClient.singleDataUpdate(
           action.app_id,
           action.entry_id,
           i["_id"],

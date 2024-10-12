@@ -3,7 +3,7 @@ import parser from "cron-parser";
 
 export const testCron = async () => {
   // Cron 表达式
-  const cronExpression = "0 0,15,30,45 * * * ? "; // 每分钟的第0秒触发
+  const cronExpression = "0 0 9,16 1/1 * ?"; // 每分钟的第0秒触发
 
   // 使用 cron-parser 解析表达式
   const interval = parser.parseExpression(cronExpression);

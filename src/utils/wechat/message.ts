@@ -1,4 +1,4 @@
-import { WechatMessage } from "../../entity/wechat/message";
+import { WechatMessage } from "../../entity/log/log_wx_message";
 import { ICheckinOption } from "../../type/wechat/IOption";
 import { ApiClient } from "./api_client";
 import { token } from "./token";

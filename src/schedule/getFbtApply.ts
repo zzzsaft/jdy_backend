@@ -1,12 +1,12 @@
 import { addDays, format } from "date-fns";
 import { fbtApplyApiClient } from "../utils/fenbeitong/apply";
-import { FbtApply } from "../entity/fbt/apply";
+import { FbtApply } from "../entity/atd/fbt_trip_apply";
 import { Between } from "typeorm";
 import _ from "lodash";
 import { xftItripApiClient } from "../utils/xft/xft_itrip";
-import { XftCity } from "../entity/xft/city";
-import { User } from "../entity/wechat/User";
-import { LogTripSync } from "../entity/common/log_trip_sync";
+import { XftCity } from "../entity/util/xft_city";
+import { User } from "../entity/basic/employee";
+import { LogTripSync } from "../entity/atd/trip";
 import { logger } from "../config/logger";
 import { log } from "console";
 import { MessageHelper } from "../utils/wechat/message";
@@ -90,11 +90,26 @@ export class XftTripLog {
   fbtApply: FbtApply;
   logTrip: LogTripSync;
   err: string;
-  private constructor(apply: FbtApply) {
-    this.fbtApply = apply;
+  private constructor(apply?: FbtApply, logTrip?: LogTripSync) {
+    if (apply) this.fbtApply = apply;
+    if (logTrip) this.logTrip = logTrip;
   }
 
   async processPastData() {
+    const logTrip = await LogTripSync.findOne({
+      where: { fbtRootId: this.fbtApply.root_id },
+    });
+    this.logTrip = await this._generateLog();
+    if (!logTrip || !this.logTrip.start_time || !logTrip.xftBillId) return;
+    if (
+      this.fbtApply.start_time.getTime() != this.logTrip.start_time.getTime() ||
+      this.fbtApply.end_time.getTime() != this.logTrip.end_time.getTime()
+    ) {
+      await this.修改xft差旅记录(logTrip.xftBillId);
+    }
+  }
+
+  async processPrecisionIssueData() {
     const logTrip = await LogTripSync.findOne({
       where: { fbtRootId: this.fbtApply.root_id },
     });
@@ -154,7 +169,7 @@ export class XftTripLog {
     logTrip.fbtRootId = this.fbtApply.root_id;
     logTrip.fbtCurrentId = this.fbtApply.id;
     logTrip.create_time = this.fbtApply.create_time;
-    // logTrip.err = "";
+    logTrip.source = "分贝通";
     logTrip.start_time = timeSlot?.start_time ?? (null as any);
     logTrip.end_time = timeSlot?.end_time ?? (null as any);
 
@@ -271,15 +286,15 @@ export class XftTripLog {
       return city.name;
     });
     const result = await xftItripApiClient.createApplyTravel({
-      outRelId: this.fbtApply.root_id + "-3",
+      outRelId: this.fbtApply.root_id,
       empNumber: applier,
       reason: `${this.fbtApply.reason} ${this.fbtApply.remark} ${cities.join(
         ","
       )}`,
       departCityCode,
       destinationCityCode,
-      start_time: this.logTrip.start_time,
-      end_time: this.logTrip.end_time,
+      start_time: this.adjustToTimeNode(this.logTrip.start_time, true),
+      end_time: this.adjustToTimeNode(this.logTrip.end_time, true),
       peerEmpNumbers: this.fbtApply.user
         .map((user) => user.userId.slice(0, 20))
         .filter((user) => user != applier),
@@ -307,8 +322,8 @@ export class XftTripLog {
       changerNumber: applier,
       departCityCode,
       destinationCityCode,
-      start_time: this.logTrip.start_time,
-      end_time: this.logTrip.end_time,
+      start_time: this.adjustToTimeNode(this.logTrip.start_time, true),
+      end_time: this.adjustToTimeNode(this.logTrip.end_time, true),
     });
   }
 
@@ -335,6 +350,7 @@ export class XftTripLog {
               endTime: format(end_time, "yyyy-MM-dd HH:mm"),
               beginTimePrecision: getHalfDay(start_time),
               endTimePrecision: getHalfDay(end_time),
+              // timePrecisionType: "1",
             },
           ],
         },
@@ -362,6 +378,10 @@ export class XftTripLog {
   }
   static importLogbyApply(apply: FbtApply) {
     return new XftTripLog(apply);
+  }
+
+  static async 修改xft差旅记录(apply: FbtApply, logTrip: LogTripSync) {
+    return new XftTripLog(apply, logTrip).修改xft差旅记录(logTrip.xftBillId);
   }
 
   async sendMessages() {

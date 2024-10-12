@@ -1,11 +1,13 @@
 import cron from "node-cron";
 import { syncXft } from "./syncXftData";
-import { Department } from "../entity/wechat/Department";
-import { User } from "../entity/wechat/User";
+import { Department } from "../entity/basic/department";
+import { User } from "../entity/basic/employee";
 import { logger } from "../config/logger";
 import { getCheckinData } from "./getCheckinData";
 import { sendtoUserwithLeaveChoice } from "./sendLeave";
 import { GetFbtApply } from "./getFbtApply";
+import { SendTripCheckin } from "./sendTripCheckin";
+import { sendXftTodoList } from "./sendXftTask";
 
 const syncWechat = async () => {
   await Department.updateDepartment();
@@ -41,9 +43,21 @@ const sendLeave = cron.schedule("0 8 * * 6", async () => {
   logger.info("周五下午任务");
 });
 
+const sendTripCheckin = cron.schedule("0 0-59/20 8-20 * * *", async () => {
+  await SendTripCheckin.createBatchTripCheckin();
+  logger.info("更新外出打卡");
+});
+
+const sendXftTodoListEveryDay = cron.schedule("0 0 9,16 * * *", async () => {
+  await sendXftTodoList();
+  logger.info("发送待办");
+});
+
 export const schedule = [
   checkinDateSchedule,
   updateUserSchedule,
   sendLeave,
   fbtApplySchedule,
+  sendTripCheckin,
+  sendXftTodoListEveryDay,
 ];

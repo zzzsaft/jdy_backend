@@ -158,4 +158,4 @@ const XftTripConfig: IXftConfig = {
 };
 export const appApiClient = new ApiClient(XftAppConfig);
 export const connectApiClient = new ApiClient(XftConnectConfig);
-export const tripApiClient = new ApiClient(XftTripConfig);
+// export const tripApiClient = new ApiClient(XftTripConfig);

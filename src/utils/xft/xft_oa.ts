@@ -1,6 +1,6 @@
 import { sleep } from "../../config/limiter";
-import { User } from "../../entity/wechat/User";
-import { appApiClient, connectApiClient, tripApiClient } from "./api_client";
+import { User } from "../../entity/basic/employee";
+import { appApiClient, connectApiClient } from "./api_client";
 
 class XFTOAApiClient {
   async start(payload: { starterId: string; trialId: string }) {
@@ -73,7 +73,7 @@ class XFTOAApiClient {
     payload: any,
     xftOpenAppId: string = "604ec40b-3ab8-4b8b-a93e-9fac566ce49a"
   ) {
-    return await tripApiClient.doRequest({
+    return await appApiClient.doRequest({
       method: "POST",
       path: "/codefriend-e/prd/executeApi/codefriend-e/gw/open/executeApi",
       query: { xftOpenAppId, codeFriendApiKey },
@@ -81,7 +81,7 @@ class XFTOAApiClient {
     });
   }
   async trialCodeFriend(payload: any) {
-    return await tripApiClient.doRequest({
+    return await appApiClient.doRequest({
       method: "POST",
       path: "/codefriend/v2/gw/object/rt/bd5737d7f75f4dd8be/process/d66e5e3b38254f0286/trial",
       payload,

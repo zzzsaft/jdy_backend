@@ -102,26 +102,29 @@ class XFTItripApiClient {
       query: { billId },
     });
   }
-  async updateApplyTravel(payload: {
-    billId: number;
-    changerNumber: string;
-    peerEmpNumbers?: string[];
-    changeReason: string;
-    changeInfo: {
-      customFieldValues?: { fieldNumber: string; fieldValue: string }[];
-      businessTrip: {
-        businessTripDetails: {
-          departCityCode: string;
-          destinationCityCode: string;
-          beginTime: string;
-          endTime: string;
-          beginTimePrecision: string;
-          endTimePrecision: string;
-          tripReason?: string;
-        }[];
-      };
-    };
-  }) {
+  async updateApplyTravel(
+    payload
+    //   : {
+    //   billId: number;
+    //   changerNumber: string;
+    //   peerEmpNumbers?: string[];
+    //   changeReason: string;
+    //   changeInfo: {
+    //     customFieldValues?: { fieldNumber: string; fieldValue: string }[];
+    //     businessTrip: {
+    //       businessTripDetails: {
+    //         departCityCode: string;
+    //         destinationCityCode: string;
+    //         beginTime: string;
+    //         endTime: string;
+    //         beginTimePrecision: string;
+    //         endTimePrecision: string;
+    //         tripReason?: string;
+    //       }[];
+    //     };
+    //   };
+    // }
+  ) {
     return await appApiClient.doRequest({
       method: "POST",
       path: "/itrip/xft-api/v1/bills/apply/travel/change",

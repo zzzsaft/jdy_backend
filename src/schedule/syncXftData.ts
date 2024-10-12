@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { logger } from "../config/logger";
-import { Department } from "../entity/wechat/Department";
-import { User } from "../entity/wechat/User";
+import { Department } from "../entity/basic/department";
+import { User } from "../entity/basic/employee";
 import { xftOrgnizationApiClient } from "../utils/xft/xft_orgnization";
 import { xftUserApiClient } from "../utils/xft/xft_user";
 import cron from "node-cron";

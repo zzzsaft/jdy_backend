@@ -1,6 +1,7 @@
 import { DataSource } from "typeorm";
 import dotenv from "dotenv";
 dotenv.config();
+
 export const AppDataSource = new DataSource({
   type: "mysql",
   host: "api.jc-times.com",
@@ -21,10 +22,10 @@ export const PgDataSource = new DataSource({
   password: process.env.PgPassword,
   // database: "db",
   entities:
-    // ["src/entity/fbt/apply.ts"],
+    // ["src/entity/atd/trip.ts"],
     process.env.NODE_ENV === "production"
       ? ["src/entity/*.js", "src/entity/*/*.js"]
       : ["src/entity/*.ts", "src/entity/*/*.ts"],
-  logging: process.env.NODE_ENV != "production",
+  logging: process.env.NODE_ENV === "production" ? ["error", "warn"] : true,
   synchronize: false,
 });

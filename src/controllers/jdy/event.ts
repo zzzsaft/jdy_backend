@@ -1,16 +1,8 @@
-import { Request, Response } from "express";
-import qs from "querystring";
-import { buttonCardType, MessageHelper } from "../../utils/wechat/message";
-import { User } from "../../entity/basic/employee";
-import { WechatMessage } from "../../entity/log/log_wx_message";
-import { logger } from "../../config/logger";
-import { v4 as uuidv4 } from "uuid";
-
 import { format } from "date-fns";
-import { LeaveEvent } from "./atd/leave.atd.xft.controller";
-import { OvertimeEvent } from "./atd/overtime.atd.xft.controller";
-import { BusinessTripEvent } from "./atd/businessTrip.atd.xft.controller";
-import { ReissueEvent } from "./atd/reissue.atd.xft.controller";
+import { WechatMessage } from "../../entity/log/log_wx_message";
+import { User } from "../../entity/basic/employee";
+import { buttonCardType, MessageHelper } from "../../utils/wechat/message";
+import qs from "querystring";
 
 export class XftTaskEvent {
   url: string;
@@ -164,53 +156,3 @@ export class XftTaskEvent {
     }
   };
 }
-
-export const xftTodo = async (request: Request, response: Response) => {
-  const { userinfo, userid, todoDetail } = request.body;
-  await xftTaskCallback(userinfo);
-
-  return response.send("success");
-};
-
-export const xftTaskCallback = async (content) => {
-  const task = new XftTaskEvent(content);
-  await task.getWxUserId();
-  await task.getMsgId();
-  await task.disableButton();
-  if (task.details.includes("【请假】")) {
-    await new LeaveEvent(task).process();
-    return;
-  }
-  if (task.details.includes("【加班】")) {
-    await new OvertimeEvent(task).process();
-    return;
-  }
-  if (task.details.includes("【出差】")) {
-    await new BusinessTripEvent(task).process();
-    return;
-  }
-  if (task.details.includes("【补卡】")) {
-    await new ReissueEvent(task).process();
-    return;
-  }
-  if (task.dealStatus == "0") {
-    if (task.details.includes("【外出】")) await task.sendButtonCard();
-    else await task.sendCard();
-  }
-  if (task.processStatus != "0") {
-    const noticeUsers: string[] = [task.sendUserId];
-    if (task.details.includes("【定调薪审批】"))
-      noticeUsers.push(...["ZhangJiaLi", "GuanBingQian", "jcyxblxm"]);
-    if (task.details.includes("【数据采集审批】"))
-      noticeUsers.push(...["ZhangJiaLi", "GuanBingQian", "jcyxblxm"]);
-    await task.sendNotice(
-      noticeUsers,
-      `(${task.status})${task.title}`,
-      "",
-      `${task.details}`
-    );
-  }
-};
-const noticeSend = {
-  "【定调薪审批】": ["ZhangJiaLi", "GuanBingQian"],
-};

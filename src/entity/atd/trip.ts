@@ -8,14 +8,21 @@ import {
   MoreThanOrEqual,
   UpdateDateColumn,
   CreateDateColumn,
+  Unique,
 } from "typeorm";
 
-@Entity({ name: "log_trip_sync" })
+@Entity({ name: "atd_business_trip" })
 export class LogTripSync extends BaseEntity {
-  @PrimaryColumn({ name: "fbt_root_id" })
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ name: "xft_form_id", unique: true, nullable: true })
+  xftFormId: string;
+
+  @Column({ name: "fbt_root_id", unique: true, nullable: true })
   fbtRootId: string;
 
-  @Column({ name: "xft_bill_id", nullable: true })
+  @Column({ name: "xft_bill_id", nullable: true, unique: true })
   xftBillId: string;
 
   @Column({ name: "fbt_current_id", nullable: true })
@@ -38,6 +45,18 @@ export class LogTripSync extends BaseEntity {
 
   @Column({ type: "jsonb", nullable: true })
   city: string[];
+
+  @Column({ nullable: true })
+  source: string;
+
+  @Column({ nullable: true })
+  reason: string;
+
+  @Column({ nullable: true })
+  remark: string;
+
+  @Column({ nullable: true })
+  customer: string;
 
   @Column({ nullable: true })
   err: string;
@@ -94,5 +113,41 @@ export class LogTripSync extends BaseEntity {
       select: ["start_time", "end_time", "fbtRootId"],
     });
     return conflicts;
+  }
+
+  static async addRecordFromXFT({
+    userId,
+    startTime,
+    xftFormId,
+    endTime,
+    city,
+    reason,
+    remark,
+    customer,
+  }: {
+    userId: string;
+    startTime: Date | null;
+    xftFormId: string;
+    endTime: Date | null;
+    city: string[];
+    reason: string;
+    remark: string;
+    customer: string;
+  }) {
+    const exist = await LogTripSync.exists({ where: { xftFormId } });
+    if (exist) return null;
+
+    const record = new LogTripSync();
+    if (startTime) record.start_time = startTime;
+    if (endTime) record.end_time = endTime;
+    record.userId = userId;
+    record.xftFormId = xftFormId;
+    record.city = city;
+    record.reason = reason;
+    record.source = "薪福通";
+    record.remark = remark;
+    record.customer = customer;
+    record.err = "";
+    await record.save();
   }
 }

@@ -4,7 +4,7 @@ import fs from "fs";
 import stream from "stream";
 import path from "path";
 import { logger } from "../config/logger";
-import { LogAxios } from "../entity/common/log_axios";
+import { LogAxios } from "../entity/log/log_axios";
 import { ValueTransformer } from "typeorm";
 const bool = process.env.NODE_ENV === "production";
 export async function downloadFileStream(url) {
@@ -148,7 +148,7 @@ export const getHalfDay = (date: string | Date) => {
 export const pointTransformer: ValueTransformer = {
   to: (coordinates: { longitude: number; latitude: number } | undefined) => {
     if (coordinates) {
-      return `POINT(${coordinates.longitude} ${coordinates.latitude})`;
+      return [coordinates.longitude, coordinates.latitude];
     }
     // 如果 coordinates 为 undefined，返回 null 或者默认值
     return null; // 或者 `POINT(0 0)`

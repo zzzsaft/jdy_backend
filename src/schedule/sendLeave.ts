@@ -12,11 +12,11 @@ import {
 import { xftatdApiClient } from "../utils/xft/xft_atd";
 import { XftTaskEvent } from "../controllers/xft/todo.xft.controller";
 import { LeaveEvent } from "../controllers/xft/atd/leave.atd.xft.controller";
-import { User } from "../entity/wechat/User";
-import { Department } from "../entity/wechat/Department";
+import { User } from "../entity/basic/employee";
+import { Department } from "../entity/basic/department";
 import { createWechatUrl, getDay } from "../utils/general";
 import { sleep } from "../config/limiter";
-import { XftAtdLeave } from "../entity/xft/leave";
+import { XftAtdLeave } from "../entity/atd/xft_leave";
 import _ from "lodash";
 
 export const getWeekendDates = () => {

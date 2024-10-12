@@ -6,9 +6,9 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from "typeorm";
-import { User } from "../wechat/User";
+import { User } from "../basic/employee";
 
-@Entity("xft_atd_reissue")
+@Entity("atd_xft_reissue")
 export class XftAtdReissue extends BaseEntity {
   @PrimaryColumn()
   serialNumber: string;

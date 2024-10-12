@@ -9,7 +9,7 @@ export interface IEntryList {
 }
 
 export interface IDataCreateOption {
-  isStartWorkflow?: boolean;
+  is_start_workflow?: boolean;
   isStartTrigger?: boolean;
   transactionId?: string;
   data_creator?: string;

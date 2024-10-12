@@ -18,7 +18,7 @@ type ParkingInfoType = {
   endTime: string;
 };
 
-@Entity()
+@Entity({ name: "parking_info" })
 export class ParkingInfo extends BaseEntity {
   @PrimaryColumn()
   id: string;

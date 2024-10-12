@@ -1,6 +1,6 @@
-import { Department } from "../../entity/wechat/Department";
+import { Department } from "../../entity/basic/department";
 import { IDataQueryOption } from "../../type/jdy/IOptions";
-import { formDataApiClient } from "../jdy/form_data";
+import { jdyFormDataApiClient } from "../jdy/form_data";
 import { xftOrgnizationApiClient } from "./xft_orgnization";
 import crypto from "crypto";
 import nodeRSA from "node-rsa";
@@ -56,11 +56,11 @@ function encrypt(publicKey: any, plaintext: Buffer): string {
 }
 
 const getUserList = async () => {
-  const { appid, entryid } = formDataApiClient.getFormId("员工档案");
+  const { appid, entryid } = jdyFormDataApiClient.getFormId("员工档案");
   const option: IDataQueryOption = {
     limit: 100,
   };
-  return await formDataApiClient.batchDataQuery(appid, entryid, option);
+  return await jdyFormDataApiClient.batchDataQuery(appid, entryid, option);
 };
 
 export const importJdyToXft = async () => {

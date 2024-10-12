@@ -1,21 +1,20 @@
 import { xftatdApiClient } from "../../../utils/xft/xft_atd";
 import { XftTaskEvent } from "../todo.xft.controller";
 import { format } from "date-fns";
-import { XftAtdOvertime } from "../../../entity/xft/overtime";
+import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
 import { xftOAApiClient } from "../../../utils/xft/xft_oa";
+import { LogTripSync } from "../../../entity/atd/trip";
 
 export class BusinessTripEvent {
   task: XftTaskEvent;
 
+  travelType: string;
   reason: string;
   client: string;
   travelDays: number;
   travelDetailDataDto: any[];
 
-  stfNumber: string;
-
-  beginDate: string;
-  endDate: string;
+  staffNumber: string;
 
   businessTripReason: string;
   overtimeLen: number;
@@ -31,11 +30,11 @@ export class BusinessTripEvent {
 
   async process() {
     await this.getRecord();
-    if (this.task.dealStatus == "1") {
-      await this.sendNotice(this.stfNumber);
-    } else if (this.task.dealStatus == "0") {
-      await this.sendCard();
-    }
+    // if (this.task.dealStatus == "1") {
+    //   await this.sendNotice(this.stfNumber);
+    // } else if (this.task.dealStatus == "0") {
+    //   await this.sendCard();
+    // }
   }
 
   getRecord = async () => {
@@ -45,13 +44,13 @@ export class BusinessTripEvent {
 
   proceedRecord = async (record) => {
     record = JSON.parse(record["body"][0]["formData"])["value"];
-    this.reason = record["67e9dc70778511efb83cf1ec159477b2"];
+    this.travelType = record["67e9dc70778511efb83cf1ec159477b2"][0];
     this.client = record["84c0ac70778511efb83cf1ec159477b2"];
     Object.assign(this, record["f1d80fd00f6011eebba9b5713deb8dfa"]);
     this.task.horizontal_content_list = [
       {
         keyname: "出差类型",
-        value: this.reason,
+        value: this.travelType,
       },
       {
         keyname: "客户名称",
@@ -72,19 +71,21 @@ export class BusinessTripEvent {
         value: `${item["departCity"]}-${item["arriveCity"]}`,
       });
     });
-    // await XftAtdOvertime.addRecord(
-    //   record["body"]["recordResponseDto"],
-    //   record["body"]["detailResponseDto"]
-    // );
+    const { earliestDate, latestDate } = getEarliestAndLatestDates(
+      this.travelDetailDataDto
+    );
+    const city = getAllCities(this.travelDetailDataDto);
+    await LogTripSync.addRecordFromXFT({
+      xftFormId: this.task.businessParam,
+      userId: this.staffNumber,
+      startTime: earliestDate,
+      endTime: latestDate,
+      remark: this.reason,
+      reason: this.travelType,
+      customer: this.client,
+      city: city,
+    });
   };
-
-  // passOA = async () => {
-  //   const operate = await xftOAApiClient.operate(
-  //     this.task.operateConfig("pass")
-  //   );
-  // };
-
-  rejectOA = async () => {};
 
   sendNotice = async (userid: string, status = this.task.status) => {
     let userids = Array.from(new Set([userid, this.task.sendUserId]));
@@ -99,3 +100,51 @@ export class BusinessTripEvent {
     await this.task.sendButtonCard("");
   };
 }
+const getDate = (date: string, time: string, begin: boolean) => {
+  if (time == "AM" && begin) {
+    return new Date(date + "T00:00:00");
+  } else if (time == "AM" && !begin) {
+    return new Date(date + "T12:00:00");
+  } else if (time == "PM" && begin) {
+    return new Date(date + "T12:00:00");
+  } else if (time == "PM" && !begin) {
+    return new Date(date + "T23:59:00");
+  }
+  return new Date(date + "T" + time);
+};
+const getEarliestAndLatestDates = (travelDetails) => {
+  let earliestDate: Date | null = null; // 设置为 Date 或 null
+  let latestDate: Date | null = null; // 设置为 Date 或 null
+
+  for (const detail of travelDetails) {
+    const startDate = getDate(detail.startDate, detail.startTime, true);
+    const endDate = getDate(detail.endDate, detail.endTime, false);
+
+    if (!earliestDate || startDate < earliestDate) {
+      earliestDate = startDate;
+    }
+
+    if (!latestDate || endDate > latestDate) {
+      latestDate = endDate;
+    }
+  }
+  return {
+    earliestDate,
+    latestDate,
+  };
+};
+const getAllCities = (travelDetails) => {
+  const cities: string[] = [];
+
+  for (const detail of travelDetails) {
+    // 添加 arriveCity 和 departCity 到 cities 数组
+    if (detail.arriveCity) {
+      cities.push(detail?.arriveCity);
+    }
+    if (detail.departCity) {
+      cities.push(detail?.departCity);
+    }
+  }
+
+  return cities;
+};

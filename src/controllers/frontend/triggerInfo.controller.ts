@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Trigger } from "../../entity/Trigger/Trigger";
+import { Trigger } from "../../entity/trigger/Trigger";
 import { error } from "console";
 
 /**

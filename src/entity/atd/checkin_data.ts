@@ -10,7 +10,7 @@ import {
 } from "typeorm";
 import { Checkin } from "./checkin";
 
-@Entity({ name: "checkin_data" })
+@Entity({ name: "atd_checkin_data" })
 export class CheckinData extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number; // 主键，自动生成的唯一标识符

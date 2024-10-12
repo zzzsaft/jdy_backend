@@ -7,7 +7,7 @@ import {
 import { xftSSOLogin } from "../../controllers/xft/login.xft.controller";
 import { wechatUserApiClient } from "../../utils/wechat/user";
 import { fbtUserApiClient } from "../../utils/fenbeitong/user";
-import { User } from "../../entity/wechat/User";
+import { User } from "../../entity/basic/employee";
 
 const fbtSSOLogin = async (request: Request, response: Response) => {
   const code = request.query.code;

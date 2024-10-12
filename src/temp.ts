@@ -1,15 +1,18 @@
 import _ from "lodash";
-import { XftAtdLeave } from "./entity/xft/leave";
+import { XftAtdLeave } from "./entity/atd/xft_leave";
 import { xftatdApiClient } from "./utils/xft/xft_atd";
 import { sleep } from "./config/limiter";
 import { XftTaskEvent } from "./controllers/xft/todo.xft.controller";
 import { ReissueEvent } from "./controllers/xft/atd/reissue.atd.xft.controller";
 import { fbtUserApiClient } from "./utils/fenbeitong/user";
-import { User } from "./entity/wechat/User";
+import { User } from "./entity/basic/employee";
 import { Between, IsNull, Not } from "typeorm";
-import { XftCity } from "./entity/xft/city";
-import { FbtApply } from "./entity/fbt/apply";
+import { XftCity } from "./entity/util/xft_city";
+import { FbtApply } from "./entity/atd/fbt_trip_apply";
 import { XftTripLog } from "./schedule/getFbtApply";
+import { LogTripSync } from "./entity/atd/trip";
+import { xftOAApiClient } from "./utils/xft/xft_oa";
+import { BusinessTripEvent } from "./controllers/xft/atd/businessTrip.atd.xft.controller";
 export const 获取空缺请假记录 = async () => {
   const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
     .select("leave.leaveRecSeq")
@@ -109,12 +112,36 @@ export const processXftTripLog = async () => {
   });
   for (const fbtApply of fbtApplies) {
     const tripLog = XftTripLog.importLogbyApply(fbtApply);
-    // await tripLog.process();
     await tripLog.process();
+  }
+};
+
+export const processPrecisionIssueData = async () => {
+  const logTrip = await LogTripSync.createQueryBuilder("log_trip_sync")
+    .where("EXTRACT(HOUR FROM log_trip_sync.start_time) BETWEEN 11 AND 13")
+    .andWhere({ xftBillId: Not(IsNull()) })
+    .getMany();
+  for (const log of logTrip) {
+    const apply = await FbtApply.findOne({
+      where: { id: log.fbtCurrentId },
+      relations: ["city"],
+    });
+    if (!apply) continue;
+    await XftTripLog.修改xft差旅记录(apply, log);
   }
 };
 
 export const logTripSyncByid = async (id: string) => {
   const tripLog = await XftTripLog.importLogbyId(id);
   await tripLog.process();
+};
+
+export const testXftTrip = async () => {
+  const content =
+    '{"appCode":"xft-bpm","appName":"OA审批","businessCode":"OA000001","businessName":"待审批通知","businessParam":"FORM_255494674440257537","createTime":"2024-10-09 08:19:40","dealStatus":"1","details":"【王同钊】发起了【出差】申请，申请人：王同钊，出差行程：台州-杭州，出差日期：2024-10-09 上午 到 2024-10-11下午，出差天数：3，出差事由：浙大安装玻璃换控制器，请您尽快审批，发起时间：2024-10-09 08:19:39。","id":"TD1843808509500493826","processId":"1115028796","processStatus":"1","receiver":{"enterpriseNum":"AAA00512","thirdpartyUserId":"","userName":"斯浩","xftUserId":"V0030"},"sendTime":"2024-10-09T08:19:39","sendUser":{"enterpriseNum":"AAA00512","thirdpartyUserId":"","userName":"王同钊","xftUserId":"V003K"},"terminal":"0","title":"王同钊发起的出差","url":{}}';
+  const task = new XftTaskEvent(content);
+  await task.getWxUserId();
+  await task.getMsgId();
+  // const record = await xftOAApiClient.getFormData(["FORM_255494674440257537"]);
+  await new BusinessTripEvent(task).process();
 };

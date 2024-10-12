@@ -1,10 +1,10 @@
 import { format } from "date-fns";
 import { parkingApiClient } from "../../utils/parking/app";
-import { formDataApiClient } from "../../utils/jdy/form_data";
+import { jdyFormDataApiClient } from "../../utils/jdy/form_data";
 import { isTaskFinished } from "./jdyUtil";
 import { MessageHelper } from "../../utils/wechat/message";
 import { logger } from "../../config/logger";
-import { ParkingInfo } from "../../entity/DaHua/parkingInfo";
+import { ParkingInfo } from "../../entity/parking/dh_car_info";
 
 export const addCar = async (data) => {
   const carNum = data["_widget_1720515048364"];
@@ -34,8 +34,8 @@ export const addCar = async (data) => {
     logger.error(result);
     return;
   }
-  const id = formDataApiClient.getFormId("车辆信息登记");
-  await formDataApiClient.singleDataUpdate(id.appid, id.entryid, data._id, {
+  const id = jdyFormDataApiClient.getFormId("车辆信息登记");
+  await jdyFormDataApiClient.singleDataUpdate(id.appid, id.entryid, data._id, {
     _widget_1720515048363: { value: result?.["result"]?.["id"] },
   });
   await ParkingInfo.addInfo(

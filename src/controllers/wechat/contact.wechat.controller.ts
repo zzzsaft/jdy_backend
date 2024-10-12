@@ -1,10 +1,10 @@
-import { Approval } from "../../entity/wechat/Approval";
+import { Approval } from "../../entity/atd/wx_approval";
 import { approvalApiClient } from "../../utils/wechat/approval";
 import { ApplyData } from "../../type/wechat/IApproval";
 import { xftOrgnizationApiClient } from "../../utils/xft/xft_orgnization";
 import { contactApiClient } from "../../utils/wechat/contact";
 import { logger } from "../../config/logger";
-import { User } from "../../entity/wechat/User";
+import { User } from "../../entity/basic/employee";
 
 export const handleContactEvent = async (msg: any) => {
   const UserID = msg["UserID"]["value"];

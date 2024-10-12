@@ -17,6 +17,7 @@ export const xftSSOLogin = async (request: Request, response: Response) => {
   const XFT_HOST = `https://xft.cmbchina.com/xft-gateway/xft-login-new/xwapi/login/${连接器ID}_${连接流ID}`;
   const code = request.query.code;
   const toDoID = request.query.todoid;
+  const pageId = request.query.pageId;
   if (typeof code !== "string") {
     return "no code";
   }
@@ -38,6 +39,9 @@ export const xftSSOLogin = async (request: Request, response: Response) => {
     redirectUrl = `${XFT_HOST}?extTyp=todo&extPam=${qs.escape(
       JSON.stringify(extPam)
     )}&secret=${secret}`;
+  }
+  if (pageId) {
+    redirectUrl = `${XFT_HOST}?pageId=${pageId}&ecret=${secret}`;
   }
   response.redirect(redirectUrl);
 };

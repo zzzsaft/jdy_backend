@@ -10,7 +10,7 @@ import {
 } from "typeorm";
 import { Checkin } from "./checkin";
 
-@Entity()
+@Entity({ name: "atd_hardware_checkin_data" })
 @Unique(["userid", "unix_checkin_time"])
 export class HardwareCheckinData extends BaseEntity {
   @PrimaryGeneratedColumn()

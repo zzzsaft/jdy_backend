@@ -1,4 +1,4 @@
-import { Approval } from "../../entity/wechat/Approval";
+import { Approval } from "../../entity/atd/wx_approval";
 import { approvalApiClient } from "../../utils/wechat/approval";
 import { ApplyData } from "../../type/wechat/IApproval";
 

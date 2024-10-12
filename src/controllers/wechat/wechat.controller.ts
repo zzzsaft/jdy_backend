@@ -4,7 +4,7 @@ import { logger } from "../../config/logger";
 import { handleApprovalEvent } from "./approval.wechat.controller";
 import { handleContactEvent } from "./contact.wechat.controller";
 import { handleMessageEvent } from "./message.wechat.controller";
-import { LogExpress } from "../../entity/common/log_express";
+import { LogExpress } from "../../entity/log/log_express";
 import { decryptMsg } from "../../utils/wechat/decrypt";
 
 export async function wechatWebHookCheck(request: Request, response: Response) {

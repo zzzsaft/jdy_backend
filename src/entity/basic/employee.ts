@@ -12,12 +12,12 @@ import {
 } from "typeorm";
 import { logger } from "../../config/logger";
 import { xftUserApiClient } from "../../utils/xft/xft_user";
-import { Department } from "./Department";
+import { Department } from "./department";
 import { contactApiClient } from "../../utils/wechat/contact";
 import _ from "lodash";
 import { jctimesApiClient } from "../../utils/jctimes/app";
 
-@Entity()
+@Entity({ name: "md_employee" })
 export class User extends BaseEntity {
   @PrimaryColumn({ name: "user_id" })
   user_id: string;

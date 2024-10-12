@@ -7,8 +7,8 @@ import {
   PrimaryGeneratedColumn,
 } from "typeorm";
 import { logger } from "../../config/logger";
-import { ParkingInfo } from "./parkingInfo";
-import { User } from "../wechat/User";
+import { ParkingInfo } from "./dh_car_info";
+import { User } from "../basic/employee";
 
 interface CarRecord {
   parkingLotCode: string;

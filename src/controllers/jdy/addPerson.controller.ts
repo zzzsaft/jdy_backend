@@ -1,15 +1,15 @@
 import _ from "lodash";
 import { logger } from "../../config/logger";
-import { User } from "../../entity/wechat/User";
+import { User } from "../../entity/basic/employee";
 import { fileApiClient } from "../../utils/dahua/file";
 import { personApiClient } from "../../utils/dahua/person";
 import { downloadFileStream } from "../../utils/general";
-import { formDataApiClient } from "../../utils/jdy/form_data";
+import { jdyFormDataApiClient } from "../../utils/jdy/form_data";
 import { xftUserApiClient } from "../../utils/xft/xft_user";
 import { xftOrgnizationApiClient } from "../../utils/xft/xft_orgnization";
-import { Department } from "../../entity/wechat/Department";
-import { EmployeeLifecycle } from "../../entity/common/employee_lifecycle";
-import { SalaryRecord } from "../../entity/common/salary-record";
+import { Department } from "../../entity/basic/department";
+import { EmployeeLifecycle } from "../../entity/log/employee_lifecycle";
+import { SalaryRecord } from "../../entity/log/salary-record";
 
 export const 入职申请表 = async (data) => {
   await saveNewInfotoDahua(data);
@@ -23,8 +23,8 @@ export const 入职申请表 = async (data) => {
 };
 
 const getJdyInfo = async () => {
-  const id = formDataApiClient.getFormId("员工档案");
-  return await formDataApiClient.batchDataQuery(id.appid, id.entryid, {
+  const id = jdyFormDataApiClient.getFormId("员工档案");
+  return await jdyFormDataApiClient.batchDataQuery(id.appid, id.entryid, {
     fields: ["_widget_1704997861762", "full_name", "_widget_1691239227137"],
     filter: {
       rel: "and",

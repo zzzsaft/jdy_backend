@@ -1,7 +1,7 @@
 import { Entity, Column, BaseEntity, PrimaryColumn } from "typeorm";
 import { logger } from "../../config/logger";
 import AbstractContent from "../AbstractContent";
-@Entity()
+@Entity({ name: "log_message" })
 export class WechatMessage extends AbstractContent {
   @Column({ name: "msg_id" })
   msgId: string;

@@ -1,13 +1,13 @@
 import { Request, Response } from "express";
 import { logger } from "../config/logger";
-import { ParkingRecord } from "../entity/DaHua/parkingRecords";
-import { ParkingInfo } from "../entity/DaHua/parkingInfo";
-import { EntryExistRecords } from "../entity/DaHua/entryExitRecord";
+import { ParkingRecord } from "../entity/parking/dh_parking_records";
+import { ParkingInfo } from "../entity/parking/dh_car_info";
+import { EntryExistRecords } from "../entity/parking/dh_entry_exit_record";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import { downloadFile } from "../utils/general";
-import { formDataApiClient } from "../utils/jdy/form_data";
+import { jdyFormDataApiClient } from "../utils/jdy/form_data";
 
 const sendInfo = {
   success: true,
@@ -85,12 +85,12 @@ export const entryExistRecord = async (
       _widget_1720546356355: { value: data["carNum"] },
       _widget_1720515048364: { value: data["carNum"] },
     };
-    await formDataApiClient.singleDataCreate(
-      "5cd65fc5272c106bbc2bbc38",
-      "669d0824ab60aa3f4acc9b8a",
-      jdyData,
-      { isStartWorkflow: true }
-    );
+    await jdyFormDataApiClient.singleDataCreate({
+      app_id: "5cd65fc5272c106bbc2bbc38",
+      entry_id: "669d0824ab60aa3f4acc9b8a",
+      data: jdyData,
+      options: { is_start_workflow: true },
+    });
   }
   await EntryExistRecords.addCarRecord(data, fileName);
   return response.send(sendInfo);

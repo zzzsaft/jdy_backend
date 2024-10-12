@@ -91,6 +91,10 @@ const jdyDict = {
     appid: "5cd65fc5272c106bbc2bbc38",
     entryid: "668cf9e8bb998350eae3bae6",
   },
+  出差信息填报: {
+    appid: "5cfef4b5de0b2278b05c8380",
+    entryid: "65dc463c9b200f9b5e3b5851",
+  },
 };
 
 class FormDataApiClient extends ApiClient {
@@ -114,12 +118,17 @@ class FormDataApiClient extends ApiClient {
   /**
    * 新建单条数据接口
    */
-  async singleDataCreate(
+  async singleDataCreate({
     app_id,
     entry_id,
-    data: IFormData,
-    options: IDataCreateOption = {}
-  ) {
+    data,
+    options = {},
+  }: {
+    app_id: string;
+    entry_id: string;
+    data: IFormData;
+    options: IDataCreateOption;
+  }) {
     return await this.doRequest(
       {
         method: "POST",
@@ -336,4 +345,4 @@ class FormDataApiClient extends ApiClient {
   }
 }
 
-export const formDataApiClient = new FormDataApiClient("v5");
+export const jdyFormDataApiClient = new FormDataApiClient("v5");

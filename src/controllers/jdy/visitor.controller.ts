@@ -1,6 +1,6 @@
 import { format, addHours } from "date-fns";
 import { parkingApiClient } from "../../utils/parking/app";
-import { ParkingInfo } from "../../entity/DaHua/parkingInfo";
+import { ParkingInfo } from "../../entity/parking/dh_car_info";
 
 export const 来宾预约单 = async (data) => {
   const inviteStatus = data["_widget_1623894460333"] == "派发" ? true : false;

@@ -1,8 +1,8 @@
 import { format } from "date-fns";
 import { XftTaskEvent } from "../todo.xft.controller";
-import { XftAtdOvertime } from "../../../entity/xft/overtime";
+import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
 import { xftatdApiClient } from "../../../utils/xft/xft_atd";
-import { XftAtdReissue } from "../../../entity/xft/reissue";
+import { XftAtdReissue } from "../../../entity/atd/xft_reissue";
 
 export class ReissueEvent {
   task: XftTaskEvent;

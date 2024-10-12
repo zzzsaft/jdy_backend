@@ -1,9 +1,9 @@
 import { Entity, Column, OneToMany, Relation, Index } from "typeorm";
 import AbstractContent from "../AbstractContent";
-import { CheckinData } from "./CheckinData";
-import { HardwareCheckinData } from "./HardwareCheckinData";
+import { CheckinData } from "./checkin_data";
+import { HardwareCheckinData } from "./wx_hardware_checkin_data";
 
-@Entity({ name: "checkin" })
+@Entity({ name: "atd_checkin" })
 @Index(["userid", "date"], { unique: true })
 export class Checkin extends AbstractContent {
   @Column("date")

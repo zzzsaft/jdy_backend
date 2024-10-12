@@ -1,21 +1,21 @@
 import _ from "lodash";
 import { IDataQueryOption } from "../type/jdy/IOptions";
-import { formDataApiClient } from "../utils/jdy/form_data";
+import { jdyFormDataApiClient } from "../utils/jdy/form_data";
 import {
   checkinApiClient,
   HardwareCheckinData as HardwareCheckin,
 } from "../utils/wechat/chekin";
-import { HardwareCheckinData } from "../entity/wechat/HardwareCheckinData";
-import { CheckinData } from "../entity/wechat/CheckinData";
+import { HardwareCheckinData } from "../entity/atd/wx_hardware_checkin_data";
+import { CheckinData } from "../entity/atd/checkin_data";
 import { Between, In } from "typeorm";
 import cron from "node-cron";
 import { logger } from "../config/logger";
-import { User } from "../entity/wechat/User";
+import { User } from "../entity/basic/employee";
 import { jctimesApiClient } from "../utils/jctimes/app";
-import { LogCheckin } from "../entity/common/log_checkin";
+import { LogCheckin } from "../entity/log/log_checkin";
 import { xftatdApiClient, importAtd } from "../utils/xft/xft_atd";
 import { format } from "date-fns";
-import { Checkin } from "../entity/wechat/checkin";
+import { Checkin } from "../entity/atd/checkin";
 
 class GetCheckinData {
   twoDaysInSeconds = 2 * 24 * 60 * 60;
@@ -225,7 +225,7 @@ class GetCheckinData {
 
 export const getUserList = async () => {
   return (await User.find()).map((user) => user.user_id);
-  const { appid, entryid } = formDataApiClient.getFormId("员工档案");
+  const { appid, entryid } = jdyFormDataApiClient.getFormId("员工档案");
   const option: IDataQueryOption = {
     limit: 100,
     filter: {
@@ -245,7 +245,7 @@ export const getUserList = async () => {
     },
     fields: ["_widget_1690274843463"],
   };
-  return (await formDataApiClient.batchDataQuery(appid, entryid, option))
+  return (await jdyFormDataApiClient.batchDataQuery(appid, entryid, option))
     .map((content) => content?.["_widget_1690274843463"]?.username)
     .filter((username) => !!username);
 };

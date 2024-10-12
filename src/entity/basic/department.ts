@@ -3,7 +3,7 @@ import { logger } from "../../config/logger";
 import { contactApiClient } from "../../utils/wechat/contact";
 import { xftOrgnizationApiClient } from "../../utils/xft/xft_orgnization";
 
-@Entity()
+@Entity({ name: "md_department" })
 export class Department extends BaseEntity {
   @PrimaryColumn()
   department_id: string;

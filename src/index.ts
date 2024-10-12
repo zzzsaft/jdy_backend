@@ -7,7 +7,7 @@ import { AppRoutes } from "./routes";
 import cors from "cors";
 import { logger } from "./config/logger";
 import { schedule } from "./schedule";
-import { autoParse, expressLog } from "./config/autoParse";
+import { autoParse, expressLog, requestLimiter } from "./config/autoParse";
 import { DatabaseTransport } from "./config/database-transport";
 
 PgDataSource.initialize()
@@ -21,6 +21,7 @@ PgDataSource.initialize()
     app.use(cors());
     app.use(autoParse);
     app.use(expressLog);
+    app.use(requestLimiter);
     // register all application routes
     AppRoutes.forEach((route) => {
       app[route.method](

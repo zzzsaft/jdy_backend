@@ -1,4 +1,4 @@
-import { WechatMessage } from "../../entity/wechat/message";
+import { WechatMessage } from "../../entity/log/log_wx_message";
 import { proceedLeave } from "../../schedule/sendLeave";
 import { MessageHelper } from "../../utils/wechat/message";
 import { xftatdApiClient } from "../../utils/xft/xft_atd";
