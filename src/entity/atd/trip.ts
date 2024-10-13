@@ -61,6 +61,9 @@ export class LogTripSync extends BaseEntity {
   @Column({ nullable: true })
   err: string;
 
+  @Column({ name: "revise_log", nullable: true })
+  reviseLog: string;
+
   @CreateDateColumn()
   created_at: Date;
   @UpdateDateColumn()

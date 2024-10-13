@@ -4,11 +4,18 @@ import { log } from "console";
 import { LessThan, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
 import { XftTripCheckin } from "../entity/atd/trip_checkin";
 import { FbtApply } from "../entity/atd/fbt_trip_apply";
-import { format } from "date-fns";
+import {
+  addDays,
+  differenceInBusinessDays,
+  differenceInCalendarDays,
+  endOfDay,
+  format,
+} from "date-fns";
 import { IFormData } from "../type/jdy/IData";
 import { JdyUtil } from "../utils/jdy/jdy_util";
 import { User } from "../entity/basic/employee";
 import { jdyFormDataApiClient } from "../utils/jdy/form_data";
+import { GetFbtApply, XftTripLog } from "./getFbtApply";
 
 type busData = {
   // value: {
@@ -77,6 +84,7 @@ export class SendTripCheckin {
       _widget_1728656241817: JdyUtil.setText(apply.reason),
       _widget_1709085088670: JdyUtil.setText(apply.remark),
       _widget_1709112718167: JdyUtil.setText(apply.remark),
+      _widget_1709084666150: JdyUtil.setCombos(leader),
       _widget_1719704502367: JdyUtil.setCombos(leader),
       _widget_1709084666146: JdyUtil.setText(checkin.userId),
       _widget_1709084666149: JdyUtil.setNumber(parseInt(apply.departmentId)),
@@ -108,20 +116,22 @@ export class SendTripCheckin {
       userId = (await User.findOne({ where: { name } }))?.user_id ?? "";
     }
     let location = JdyUtil.getLocation(item["_widget_1708934717359"]);
+    const state = item["_widget_1728663996210"];
     return {
       jdyId: item["_id"],
       userId,
       checkinTime: JdyUtil.getDate(item["_widget_1708994681757"]),
-      location: {
-        longitude: location.lnglatXY[0],
-        latitude: location.lnglatXY[1],
-      },
-      address: `${location.province} ${location.city} ${location.district} ${location.detail}`,
+      longitude: location?.lnglatXY?.[0],
+      latitude: location?.lnglatXY?.[1],
+      address: `${location?.province ?? ""} ${location?.city ?? ""} ${
+        location?.district ?? ""
+      } ${location?.detail ?? ""}`,
       reason: item["_widget_1709085088671"],
       custom: item["_widget_1709085088670"] ?? item["_widget_1709112718167"],
       contact: item["_widget_1709085088674"],
       contactNum: item["_widget_1709085088675"],
       remark: item["_widget_1709085088673"],
+      state: state,
     };
   }
 
@@ -145,9 +155,8 @@ export class SendTripCheckin {
   }
 
   static async addTripCheckinFromJdy(item) {
-    const checkin = await XftTripCheckin.addExist(
-      await this.generateDataByJdy(item)
-    );
+    const data = await SendTripCheckin.generateDataByJdy(item);
+    const checkin = await XftTripCheckin.addExist(data);
     if (checkin) await XftTripCheckin.save(checkin);
   }
 
@@ -156,14 +165,44 @@ export class SendTripCheckin {
       where: { jdyId: item["_id"] },
     });
     if (data) {
-      XftTripCheckin.merge(data, await this.generateDataByJdy(item));
+      XftTripCheckin.merge(
+        data,
+        (await SendTripCheckin.generateDataByJdy(item)) as any
+      );
       await data.save();
     }
     if (data?.fbtRootId && data.state == "已回公司") {
-      await LogTripSync.update(
-        { fbtRootId: data.fbtRootId },
-        { end_time: new Date() }
-      );
+      const newEndDate = endOfDay(addDays(data.checkinDate, -1));
+      const tripSync = await LogTripSync.findOne({
+        where: { fbtRootId: data.fbtRootId },
+      });
+      if (!tripSync)
+        throw new Error(
+          `LogTripSync not found ${data.fbtRootId} at updateTripCheckinFromJdy`
+        );
+      const fbtApply = await FbtApply.findOne({
+        where: { id: tripSync.fbtCurrentId },
+        relations: ["city"],
+      });
+      if (!fbtApply)
+        throw new Error(
+          `FbtApply not found ${tripSync.fbtCurrentId} at updateTripCheckinFromJdy`
+        );
+      tripSync.reviseLog = `${format(
+        data.checkinDate,
+        "MM-dd HH:mm"
+      )}已回公司原时间为${format(tripSync.end_time, "MM-dd HH:mm")}`;
+      if (
+        Math.abs(differenceInCalendarDays(newEndDate, tripSync.end_time)) ==
+          1 &&
+        differenceInCalendarDays(data.checkinDate, data.checkinTime) == 0
+      ) {
+        tripSync.end_time = newEndDate;
+        await XftTripLog.修改xft差旅记录(fbtApply, tripSync);
+      } else {
+        tripSync.reviseLog = `${tripSync.reviseLog}  未修改`;
+      }
+      await tripSync.save();
     }
   }
 }

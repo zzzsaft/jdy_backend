@@ -54,6 +54,7 @@ import { createWechatUrl, getDay } from "./utils/general";
 import {
   processPrecisionIssueData,
   processXftTripLog,
+  testJdyCreateTripCheckin,
   testXftTrip,
   导入分贝通人员id,
   检查分贝通未导入id,
@@ -71,6 +72,7 @@ import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./utils/parking/app";
 // await PgDataSource.initialize();
+// await testJdyCreateTripCheckin();
 // await testXftTrip();
 
 // await SendTripCheckin.createBatchTripCheckin();

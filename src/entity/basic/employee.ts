@@ -45,6 +45,8 @@ export class User extends BaseEntity {
   fbtPhone: string;
   @Column({ name: "fbt_third_id", nullable: true })
   fbtThirdId: string;
+  @Column({ nullable: true })
+  leader: string;
   @CreateDateColumn()
   created_at: Date;
   @UpdateDateColumn()
@@ -151,9 +153,11 @@ export class User extends BaseEntity {
   }
 
   static async getLeaderId(userId: string): Promise<string[]> {
-    let orgid =
-      (await User.findOne({ where: { user_id: userId } }))
-        ?.main_department_id ?? "";
+    let user = await User.findOne({ where: { user_id: userId } });
+    if (user?.leader) {
+      return [user.leader];
+    }
+    let orgid = user?.main_department_id ?? "";
     let org = await Department.findOne({ where: { department_id: orgid } });
     let leader = org?.department_leader;
     if (leader?.includes(userId)) {

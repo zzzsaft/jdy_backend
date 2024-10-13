@@ -40,7 +40,7 @@ export const JdyWebhook = async (request: Request, response: Response) => {
   await controllerMethod(request.body);
 };
 
-const controllerMethod = async (body) => {
+export const controllerMethod = async (body) => {
   const entryId = body.data.entryId;
   const appId = body.data.appId;
   const op = body.op;

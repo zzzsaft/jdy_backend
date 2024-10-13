@@ -59,7 +59,16 @@ export class XftTripCheckin extends BaseEntity {
   @UpdateDateColumn()
   updated_at: Date;
 
-  static async addRecord({ userId, fbtRootId, checkinDate }) {
+  static async addRecord({
+    userId,
+    fbtRootId,
+    checkinDate,
+  }: {
+    userId: string;
+    fbtRootId: string;
+    checkinDate: Date;
+  }) {
+    checkinDate.setHours(0, 0, 0, 0);
     const exist = await XftTripCheckin.exists({
       where: {
         userId,
@@ -71,11 +80,13 @@ export class XftTripCheckin extends BaseEntity {
     if (!user)
       throw new Error(`XftTripCheckin, addRecord, User not found ${userId}`);
     const checkin = new XftTripCheckin();
+    const checkinDate1 = new Date(checkinDate);
+    checkinDate1.setHours(0, 0, 0, 0);
     checkin.fbtRootId = fbtRootId;
     checkin.userId = userId;
     checkin.departmentId = user.main_department_id;
     checkin.name = user.name;
-    checkin.checkinDate = new Date(checkinDate);
+    checkin.checkinDate = new Date(checkinDate1);
     checkin.state = "未发起";
     return await checkin.save();
   }
@@ -83,7 +94,8 @@ export class XftTripCheckin extends BaseEntity {
   static async addExist({
     userId,
     checkinTime,
-    location,
+    longitude,
+    latitude,
     address,
     reason,
     custom,
@@ -91,10 +103,12 @@ export class XftTripCheckin extends BaseEntity {
     contactNum,
     remark,
     jdyId,
+    state,
   }: {
     userId: string;
     checkinTime: Date;
-    location: { longitude: number; latitude: number };
+    longitude: number;
+    latitude: number;
     address: string;
     reason: string;
     custom: string;
@@ -102,13 +116,13 @@ export class XftTripCheckin extends BaseEntity {
     contactNum: string;
     remark: string;
     jdyId: string;
+    state: string;
   }) {
     const checkinDate = new Date(checkinTime);
     checkinDate.setHours(0, 0, 0, 0);
     const exist = await XftTripCheckin.exists({
       where: {
-        userId,
-        checkinDate,
+        jdyId,
       },
     });
     if (exist) return null;
@@ -122,8 +136,8 @@ export class XftTripCheckin extends BaseEntity {
     checkin.checkinDate = new Date(checkinDate);
     checkin.checkinTime = new Date(checkinTime);
     checkin.address = address;
-    checkin.latitude = location.latitude;
-    checkin.longitude = location.longitude;
+    checkin.latitude = latitude;
+    checkin.longitude = longitude;
     checkin.reason = reason;
     checkin.custom = custom;
     checkin.contact = contact;
@@ -131,7 +145,7 @@ export class XftTripCheckin extends BaseEntity {
     checkin.remark = remark;
     checkin.jdyId = jdyId;
 
-    checkin.state = "已打卡";
+    checkin.state = state;
     return checkin;
   }
 }

@@ -6,13 +6,15 @@ import { XftTaskEvent } from "./controllers/xft/todo.xft.controller";
 import { ReissueEvent } from "./controllers/xft/atd/reissue.atd.xft.controller";
 import { fbtUserApiClient } from "./utils/fenbeitong/user";
 import { User } from "./entity/basic/employee";
-import { Between, IsNull, Not } from "typeorm";
+import { Between, IsNull, Like, Not } from "typeorm";
 import { XftCity } from "./entity/util/xft_city";
 import { FbtApply } from "./entity/atd/fbt_trip_apply";
 import { XftTripLog } from "./schedule/getFbtApply";
 import { LogTripSync } from "./entity/atd/trip";
 import { xftOAApiClient } from "./utils/xft/xft_oa";
 import { BusinessTripEvent } from "./controllers/xft/atd/businessTrip.atd.xft.controller";
+import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
+import { LogExpress } from "./entity/log/log_express";
 export const 获取空缺请假记录 = async () => {
   const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
     .select("leave.leaveRecSeq")
@@ -144,4 +146,16 @@ export const testXftTrip = async () => {
   await task.getMsgId();
   // const record = await xftOAApiClient.getFormData(["FORM_255494674440257537"]);
   await new BusinessTripEvent(task).process();
+};
+
+export const testJdyCreateTripCheckin = async () => {
+  const a = await LogExpress.find({
+    where: { path: "/jdy/data", msg: Like("%65dc463c9b200f9b5e3b5851%") },
+  });
+  for (const item of a) {
+    const msg = JSON.parse(item.msg);
+    if (msg?.op === "data_update") {
+      await controllerMethod(msg);
+    }
+  }
 };
