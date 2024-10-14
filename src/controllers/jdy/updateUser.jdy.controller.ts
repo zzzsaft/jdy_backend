@@ -2,7 +2,7 @@ import { User } from "../../entity/basic/employee";
 import { xftUserApiClient } from "../../utils/xft/xft_user";
 import { format } from "date-fns";
 import { isTaskFinished } from "./jdyUtil";
-import { EmployeeLifecycle } from "../../entity/log/employee_lifecycle";
+import { EmployeeLifecycle } from "../../entity/basic/employee_lifecycle";
 import { xftSalaryApiClient } from "../../utils/xft/xft_salary";
 
 export const 转正 = async (data) => {

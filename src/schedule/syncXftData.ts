@@ -45,7 +45,9 @@ export const syncUser = async () => {
   }).map((item: any) => {
     return { staffBasicInfo: { stfSeq: item.stfSeq, orgSeq: item.orgSeq } };
   });
-  await xftUserApiClient.updateEmployee(update);
+  if (update.length > 0) {
+    await xftUserApiClient.updateEmployee(update);
+  }
   // const chunks = _.chunk(users, 500);
 
   // for (let chunk of chunks) {

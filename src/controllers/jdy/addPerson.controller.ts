@@ -8,8 +8,8 @@ import { jdyFormDataApiClient } from "../../utils/jdy/form_data";
 import { xftUserApiClient } from "../../utils/xft/xft_user";
 import { xftOrgnizationApiClient } from "../../utils/xft/xft_orgnization";
 import { Department } from "../../entity/basic/department";
-import { EmployeeLifecycle } from "../../entity/log/employee_lifecycle";
-import { SalaryRecord } from "../../entity/log/salary-record";
+import { EmployeeLifecycle } from "../../entity/basic/employee_lifecycle";
+import { SalaryRecord } from "../../entity/basic/salary-record";
 
 export const 入职申请表 = async (data) => {
   await saveNewInfotoDahua(data);

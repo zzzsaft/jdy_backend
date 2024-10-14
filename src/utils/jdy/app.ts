@@ -61,4 +61,4 @@ class AppApiClient extends ApiClient {
   }
 }
 
-export default new AppApiClient("v5");
+export const appApiClient = new AppApiClient("v5");

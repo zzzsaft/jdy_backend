@@ -30,8 +30,8 @@ export class HardwareCheckinData extends BaseEntity {
   device_name: string;
   @CreateDateColumn()
   created_at: Date;
-  @ManyToOne(() => Checkin, (checkin) => checkin.checkin_data)
-  checkin: Relation<Checkin>;
+  // @ManyToOne(() => Checkin, (checkin) => checkin.checkin_data)
+  // checkin: Relation<Checkin>;
 
   static async insertRawCheckinData(data: HardwareCheckinData[]) {
     await HardwareCheckinData.createQueryBuilder()

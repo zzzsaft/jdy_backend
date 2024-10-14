@@ -21,11 +21,10 @@ export const PgDataSource = new DataSource({
   username: process.env.PgUser,
   password: process.env.PgPassword,
   // database: "db",
-  entities:
-    // ["src/entity/atd/trip.ts"],
-    process.env.NODE_ENV === "production"
-      ? ["src/entity/*.js", "src/entity/*/*.js"]
-      : ["src/entity/*.ts", "src/entity/*/*.ts"],
+  entities: ["src/entity/util/jdy_form.ts"],
+  // process.env.NODE_ENV === "production"
+  //   ? ["src/entity/*.js", "src/entity/*/*.js"]
+  //   : ["src/entity/*.ts", "src/entity/*/*.ts"],
   logging: process.env.NODE_ENV === "production" ? ["error", "warn"] : true,
-  synchronize: false,
+  synchronize: true,
 });

@@ -9,7 +9,7 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 import { ApplyData } from "../../type/wechat/IApproval";
-import app from "../../utils/jdy/app";
+// import app from "../../utils/jdy/app";
 
 const sp_status = {
   1: "审批中",
