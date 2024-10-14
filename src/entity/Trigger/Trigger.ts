@@ -8,9 +8,9 @@ import {
   BeforeInsert,
 } from "typeorm";
 import AbstractContent from "../AbstractContent";
-import { Execute_Action } from "./Execute_Action";
-import { Trigger_Condition } from "./Trigger_Condition";
-import { Flow_State_Change } from "./Flow_State_Change";
+import { Execute_Action } from "./execute_action";
+import { Trigger_Condition } from "./trigger_condition";
+import { Flow_State_Change } from "./flow_state_change";
 import { before } from "lodash";
 
 @Entity()

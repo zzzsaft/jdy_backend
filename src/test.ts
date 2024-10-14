@@ -55,6 +55,7 @@ import {
   processPrecisionIssueData,
   processXftTripLog,
   testJdyCreateTripCheckin,
+  testJdyCreateTripCheckinSingle,
   testXftTrip,
   导入分贝通人员id,
   检查分贝通未导入id,
@@ -75,7 +76,8 @@ import { parkingApiClient } from "./utils/parking/app";
 //   "670c27ca3f18ccc122114ddb"
 // );
 // console.log(a);
-// await PgDataSource.initialize();
+await PgDataSource.initialize();
+await testJdyCreateTripCheckinSingle();
 // await JdyForm.updateForm();
 // await testXftTrip();
 

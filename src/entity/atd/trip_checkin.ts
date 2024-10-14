@@ -10,7 +10,6 @@ import {
 } from "typeorm";
 import { User } from "../basic/employee";
 import { pointTransformer } from "../../utils/general";
-import { Point } from "geojson";
 
 @Entity("atd_trip_checkin")
 export class XftTripCheckin extends BaseEntity {

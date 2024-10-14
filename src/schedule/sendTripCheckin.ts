@@ -62,6 +62,7 @@ export class SendTripCheckin {
       });
       if (!checkin) return;
       const data = await sendTripCheckin.generateData(checkin);
+      if (!data) return;
       const result = await sendTripCheckin.startWorkFlow(data);
       if (!result?.data?._id) return;
       checkin.state = "未打卡";
@@ -193,8 +194,7 @@ export class SendTripCheckin {
         "MM-dd HH:mm"
       )}已回公司原时间为${format(tripSync.end_time, "MM-dd HH:mm")}`;
       if (
-        Math.abs(differenceInCalendarDays(newEndDate, tripSync.end_time)) ==
-          1 &&
+        Math.abs(differenceInCalendarDays(newEndDate, tripSync.end_time)) < 3 &&
         differenceInCalendarDays(data.checkinDate, data.checkinTime) == 0
       ) {
         tripSync.end_time = newEndDate;

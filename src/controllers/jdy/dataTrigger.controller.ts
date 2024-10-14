@@ -1,5 +1,5 @@
-import { Execute_Action } from "../../entity/trigger/Execute_Action";
-import { Execute_Action_Content } from "../../entity/trigger/Execute_Action_Content";
+import { Execute_Action } from "../../entity/trigger/execute_action";
+import { Execute_Action_Content } from "../../entity/trigger/execute_action_content";
 import { Trigger } from "../../entity/trigger/Trigger";
 import { FilterCondition } from "../../type/jdy/IOptions";
 import { jdyFormDataApiClient } from "../../utils/jdy/form_data";
