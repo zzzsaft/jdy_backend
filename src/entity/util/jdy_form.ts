@@ -6,7 +6,7 @@ import {
   PrimaryGeneratedColumn,
   Unique,
 } from "typeorm";
-import { appApiClient } from "../../utils/jdy/app";
+import { appApiClient } from "../../api/jdy/app";
 
 @Entity("util_jdy_form")
 @Unique(["app_id", "entry_id"])

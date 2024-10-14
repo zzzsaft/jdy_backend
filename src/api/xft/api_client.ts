@@ -5,7 +5,7 @@ import { xftLimiter } from "../../config/limiter";
 import { ILimitOpion, IRequestOptions } from "../../type/IType";
 import { logger } from "../../config/logger";
 import pkg from "sm-crypto";
-import { appAxios } from "../general";
+import { appAxios } from "../../utils/fileUtils";
 const { sm2, sm3 } = pkg;
 
 class ApiClient {

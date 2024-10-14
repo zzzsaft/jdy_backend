@@ -1,8 +1,8 @@
 import { WechatMessage } from "../../entity/log/log_wx_message";
 import { proceedLeave } from "../../schedule/sendLeave";
-import { MessageHelper } from "../../utils/wechat/message";
-import { xftatdApiClient } from "../../utils/xft/xft_atd";
-import { xftOAApiClient } from "../../utils/xft/xft_oa";
+import { MessageHelper } from "../../api/wechat/message";
+import { xftatdApiClient } from "../../api/xft/xft_atd";
+import { xftOAApiClient } from "../../api/xft/xft_oa";
 import { LeaveEvent } from "../xft/atd/leave.atd.xft.controller";
 import { XftTaskEvent } from "../xft/todo.xft.controller";
 

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import qs from "querystring";
-import { buttonCardType, MessageHelper } from "../../utils/wechat/message";
+import { buttonCardType, MessageHelper } from "../../api/wechat/message";
 import { User } from "../../entity/basic/employee";
 import { WechatMessage } from "../../entity/log/log_wx_message";
 import { logger } from "../../config/logger";

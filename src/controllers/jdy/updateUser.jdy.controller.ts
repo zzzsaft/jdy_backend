@@ -1,9 +1,9 @@
 import { User } from "../../entity/basic/employee";
-import { xftUserApiClient } from "../../utils/xft/xft_user";
+import { xftUserApiClient } from "../../api/xft/xft_user";
 import { format } from "date-fns";
 import { isTaskFinished } from "./jdyUtil";
 import { EmployeeLifecycle } from "../../entity/basic/employee_lifecycle";
-import { xftSalaryApiClient } from "../../utils/xft/xft_salary";
+import { xftSalaryApiClient } from "../../api/xft/xft_salary";
 
 export const 转正 = async (data) => {
   const bool = await isTaskFinished(data["_id"]);

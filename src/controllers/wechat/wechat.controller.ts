@@ -5,7 +5,7 @@ import { handleApprovalEvent } from "./approval.wechat.controller";
 import { handleContactEvent } from "./contact.wechat.controller";
 import { handleMessageEvent } from "./message.wechat.controller";
 import { LogExpress } from "../../entity/log/log_express";
-import { decryptMsg } from "../../utils/wechat/decrypt";
+import { decryptMsg } from "../../api/wechat/decrypt";
 
 export async function wechatWebHookCheck(request: Request, response: Response) {
   const encodingAESKey = process.env.WECHAT_ENCODING_AES_KEY ?? "";

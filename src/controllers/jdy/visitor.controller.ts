@@ -1,5 +1,5 @@
 import { format, addHours } from "date-fns";
-import { parkingApiClient } from "../../utils/parking/app";
+import { parkingApiClient } from "../../api/parking/app";
 import { ParkingInfo } from "../../entity/parking/dh_car_info";
 
 export const 来宾预约单 = async (data) => {

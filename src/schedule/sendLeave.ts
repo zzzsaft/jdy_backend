@@ -1,4 +1,4 @@
-import { MessageHelper } from "../utils/wechat/message";
+import { MessageHelper } from "../api/wechat/message";
 import {
   endOfWeek,
   format,
@@ -9,15 +9,15 @@ import {
   startOfDay,
   endOfDay,
 } from "date-fns";
-import { xftatdApiClient } from "../utils/xft/xft_atd";
+import { xftatdApiClient } from "../api/xft/xft_atd";
 import { XftTaskEvent } from "../controllers/xft/todo.xft.controller";
 import { LeaveEvent } from "../controllers/xft/atd/leave.atd.xft.controller";
 import { User } from "../entity/basic/employee";
 import { Department } from "../entity/basic/department";
-import { createWechatUrl, getDay } from "../utils/general";
 import { sleep } from "../config/limiter";
 import { XftAtdLeave } from "../entity/atd/xft_leave";
 import _ from "lodash";
+import { getWeekDayName } from "../utils/dateUtils";
 
 export const getWeekendDates = () => {
   const today = new Date();
@@ -167,13 +167,13 @@ export const proceedLeave = async (optionIds, config, user) => {
           { keyname: "请假类型", value: "轮休假" },
           {
             keyname: "开始时间",
-            value: `${range.begDate} ${range.begTime} (${getDay(
+            value: `${range.begDate} ${range.begTime} (${getWeekDayName(
               range.begDate
             )})`,
           },
           {
             keyname: "结束时间",
-            value: `${range.endDate} ${range.endTime} (${getDay(
+            value: `${range.endDate} ${range.endTime} (${getWeekDayName(
               range.endDate
             )})`,
           },

@@ -127,23 +127,6 @@ export const appAxios = async (config: AxiosRequestConfig) => {
   return response;
 };
 
-export const createWechatUrl = (redirectUrl: string) => {
-  return `https://open.weixin.qq.com/connect/oauth2/authorize?appid=wwd56c5091f4258911&redirect_uri=${qs.escape(
-    redirectUrl
-  )}&response_type=code&scope=snsapi_base&state=STATE&agentid=1000061#wechat_redirect`;
-};
-
-export const getDay = (date: string) => {
-  // 映射英文星期到中文
-  const daysMap = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-  return daysMap[new Date(date).getDay()];
-};
-
-export const getHalfDay = (date: string | Date) => {
-  const hour = new Date(date).getHours();
-  return hour < 12 ? "AM" : "PM";
-};
-
 // 创建 ValueTransformer 来处理 POINT 数据
 export const pointTransformer: ValueTransformer = {
   to: (coordinates: { longitude: number; latitude: number } | undefined) => {

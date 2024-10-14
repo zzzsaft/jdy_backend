@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { XftTaskEvent } from "../todo.xft.controller";
 import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
-import { xftatdApiClient } from "../../../utils/xft/xft_atd";
+import { xftatdApiClient } from "../../../api/xft/xft_atd";
 
 export class OvertimeEvent {
   task: XftTaskEvent;

@@ -1,7 +1,7 @@
 import { Entity, Column, BaseEntity, PrimaryColumn } from "typeorm";
 import { logger } from "../../config/logger";
-import { contactApiClient } from "../../utils/wechat/contact";
-import { xftOrgnizationApiClient } from "../../utils/xft/xft_orgnization";
+import { contactApiClient } from "../../api/wechat/contact";
+import { xftOrgnizationApiClient } from "../../api/xft/xft_orgnization";
 
 @Entity({ name: "md_department" })
 export class Department extends BaseEntity {

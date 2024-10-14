@@ -4,7 +4,7 @@ import qs from "querystring";
 import { ILimitOpion, IRequestOptions } from "../../type/IType";
 import { dahua_token as token } from "./token";
 import { logger } from "../../config/logger";
-import { appAxios } from "../general";
+import { appAxios } from "../../utils/fileUtils";
 export class ApiClient {
   private host: string = "https://www.cloud-dahua.com";
 

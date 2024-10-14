@@ -11,11 +11,11 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 import { logger } from "../../config/logger";
-import { xftUserApiClient } from "../../utils/xft/xft_user";
+import { xftUserApiClient } from "../../api/xft/xft_user";
 import { Department } from "./department";
-import { contactApiClient } from "../../utils/wechat/contact";
+import { contactApiClient } from "../../api/wechat/contact";
 import _ from "lodash";
-import { jctimesApiClient } from "../../utils/jctimes/app";
+import { jctimesApiClient } from "../../api/jctimes/app";
 
 @Entity({ name: "md_employee" })
 export class User extends BaseEntity {

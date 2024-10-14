@@ -1,12 +1,12 @@
 import _ from "lodash";
 import { logger } from "../../config/logger";
 import { User } from "../../entity/basic/employee";
-import { fileApiClient } from "../../utils/dahua/file";
-import { personApiClient } from "../../utils/dahua/person";
-import { downloadFileStream } from "../../utils/general";
-import { jdyFormDataApiClient } from "../../utils/jdy/form_data";
-import { xftUserApiClient } from "../../utils/xft/xft_user";
-import { xftOrgnizationApiClient } from "../../utils/xft/xft_orgnization";
+import { fileApiClient } from "../../api/dahua/file";
+import { personApiClient } from "../../api/dahua/person";
+import { downloadFileStream } from "../../utils/fileUtils";
+import { jdyFormDataApiClient } from "../../api/jdy/form_data";
+import { xftUserApiClient } from "../../api/xft/xft_user";
+import { xftOrgnizationApiClient } from "../../api/xft/xft_orgnization";
 import { Department } from "../../entity/basic/department";
 import { EmployeeLifecycle } from "../../entity/basic/employee_lifecycle";
 import { SalaryRecord } from "../../entity/basic/salary-record";

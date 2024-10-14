@@ -1,8 +1,8 @@
 import { format } from "date-fns";
-import { parkingApiClient } from "../../utils/parking/app";
-import { jdyFormDataApiClient } from "../../utils/jdy/form_data";
+import { parkingApiClient } from "../../api/parking/app";
+import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { isTaskFinished } from "./jdyUtil";
-import { MessageHelper } from "../../utils/wechat/message";
+import { MessageHelper } from "../../api/wechat/message";
 import { logger } from "../../config/logger";
 import { ParkingInfo } from "../../entity/parking/dh_car_info";
 

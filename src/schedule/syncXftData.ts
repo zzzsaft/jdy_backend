@@ -2,8 +2,8 @@ import _ from "lodash";
 import { logger } from "../config/logger";
 import { Department } from "../entity/basic/department";
 import { User } from "../entity/basic/employee";
-import { xftOrgnizationApiClient } from "../utils/xft/xft_orgnization";
-import { xftUserApiClient } from "../utils/xft/xft_user";
+import { xftOrgnizationApiClient } from "../api/xft/xft_orgnization";
+import { xftUserApiClient } from "../api/xft/xft_user";
 import cron from "node-cron";
 
 function areArraysEqual(arr1: string[], arr2: string[]): boolean {

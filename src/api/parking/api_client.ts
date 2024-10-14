@@ -7,7 +7,7 @@ import { IRequestOptions } from "../../type/IType";
 import { createHash } from "crypto";
 import { format } from "date-fns-tz";
 import { toZonedTime, format as formatTz } from "date-fns-tz";
-import { appAxios } from "../general";
+import { appAxios } from "../../utils/fileUtils";
 
 class ApiClient {
   host: string;

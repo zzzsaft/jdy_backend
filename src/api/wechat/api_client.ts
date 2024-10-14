@@ -5,7 +5,7 @@ import { wechatLimiter } from "../../config/limiter";
 import { ILimitOpion, IRequestOptions } from "../../type/IType";
 import { token } from "./token";
 import { logger } from "../../config/logger";
-import { appAxios } from "../general";
+import { appAxios } from "../../utils/fileUtils";
 export class ApiClient {
   host: string = "https://qyapi.weixin.qq.com";
 

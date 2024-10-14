@@ -6,8 +6,8 @@ import { EntryExistRecords } from "../entity/parking/dh_entry_exit_record";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
-import { downloadFile } from "../utils/general";
-import { jdyFormDataApiClient } from "../utils/jdy/form_data";
+import { downloadFile } from "../utils/fileUtils";
+import { jdyFormDataApiClient } from "../api/jdy/form_data";
 
 const sendInfo = {
   success: true,

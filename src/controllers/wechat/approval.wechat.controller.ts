@@ -1,5 +1,5 @@
 import { Approval } from "../../entity/atd/wx_approval";
-import { approvalApiClient } from "../../utils/wechat/approval";
+import { approvalApiClient } from "../../api/wechat/approval";
 import { ApplyData } from "../../type/wechat/IApproval";
 
 export const handleApprovalEvent = async (id, sp_status) => {

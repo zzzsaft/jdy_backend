@@ -5,8 +5,8 @@ import {
   wechatWebHookCheck,
 } from "../../controllers/wechat/wechat.controller";
 import { xftSSOLogin } from "../../controllers/xft/login.xft.controller";
-import { wechatUserApiClient } from "../../utils/wechat/user";
-import { fbtUserApiClient } from "../../utils/fenbeitong/user";
+import { wechatUserApiClient } from "../../api/wechat/user";
+import { fbtUserApiClient } from "../../api/fenbeitong/user";
 import { User } from "../../entity/basic/employee";
 
 const fbtSSOLogin = async (request: Request, response: Response) => {

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import fs from "fs";
-import { getLocalFilePath } from "../utils/general";
+import { getLocalFilePath } from "../utils/fileUtils";
 export const isLicensePlate = async (request: Request, response: Response) => {
   const license = request.params.license_plate.toUpperCase();
   const regex =

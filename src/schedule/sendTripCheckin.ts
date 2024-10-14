@@ -1,4 +1,4 @@
-import { xftOAApiClient } from "../utils/xft/xft_oa";
+import { xftOAApiClient } from "../api/xft/xft_oa";
 import { LogTripSync } from "../entity/atd/trip";
 import { log } from "console";
 import { LessThan, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
@@ -12,9 +12,9 @@ import {
   format,
 } from "date-fns";
 import { IFormData } from "../type/jdy/IData";
-import { JdyUtil } from "../utils/jdy/jdy_util";
+import { JdyUtil } from "../utils/jdyUtils";
 import { User } from "../entity/basic/employee";
-import { jdyFormDataApiClient } from "../utils/jdy/form_data";
+import { jdyFormDataApiClient } from "../api/jdy/form_data";
 import { GetFbtApply, XftTripLog } from "./getFbtApply";
 
 type busData = {

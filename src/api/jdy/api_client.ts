@@ -5,17 +5,23 @@ import { jdyLimiter } from "../../config/limiter";
 import { ILimitOpion, IRequestOptions } from "../../type/IType";
 import dotenv from "dotenv";
 import { logger } from "../../config/logger";
-import { appAxios } from "../general";
-import { fengbeitong_token } from "./token";
+import { appAxios } from "../../utils/fileUtils";
 export class ApiClient {
-  private host: string;
-  private apiKey: string;
+  host: string;
+  apiKey: string;
+  version: string;
   /**
    * 构造方法
+   * @param { String } apiKey - apiKey
    * @param { String } host - host
+   * @param { String } version - version
    */
-  constructor() {
-    this.host = process.env.FBT_HOST ?? "";
+  constructor(version) {
+    // dotenv.config();
+
+    this.host = process.env.JDY_HOST ?? "";
+    this.apiKey = process.env.JDY_API_KEY ?? "";
+    this.version = version;
   }
 
   /**
@@ -27,36 +33,36 @@ export class ApiClient {
    * @param { Object } options.query - url参数,可选
    * @param { Object } options.payload - 请求参数,可选
    */
-  protected async doRequest(options: IRequestOptions) {
+  async doRequest(options: IRequestOptions, limitOption: ILimitOpion) {
     const httpMethod = _.toUpper(options.method);
     const query = options.query ? `?${qs.stringify(options.query)}` : "";
     const axiosRequestConfig = {
       method: httpMethod,
       headers: {
-        "access-token": await fengbeitong_token.get_token(),
-        "Content-type": "application/json",
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-type": "application/json;charset=utf-8",
       },
-      url: `${this.host}${options.path}${query}`,
+      url: `${this.host}/${options.version ?? this.version}/${
+        options.path
+      }${query}`,
       data: options.payload,
       timeout: 15000,
     };
     let response: AxiosResponse<any>;
     try {
+      await jdyLimiter.tryBeforeRun(limitOption);
       response = await appAxios(axiosRequestConfig);
-      if (response) {
-        const { status, data } = response;
-        if ((status && status > 200) || data["code"] !== 0) {
-          throw `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`;
-        }
-      }
       return response.data;
     } catch (e) {
       // console.log(e);
       response = e.response;
       if (response) {
         const { status, data } = response;
-        if ((status && status > 200) || data["code"] !== 0) {
+        if (status && status > 200 && data.code && data.msg) {
           logger.error(
+            `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`
+          );
+          throw new Error(
             `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`
           );
         }

@@ -1,8 +1,8 @@
 import { Approval } from "../../entity/atd/wx_approval";
-import { approvalApiClient } from "../../utils/wechat/approval";
+import { approvalApiClient } from "../../api/wechat/approval";
 import { ApplyData } from "../../type/wechat/IApproval";
-import { xftOrgnizationApiClient } from "../../utils/xft/xft_orgnization";
-import { contactApiClient } from "../../utils/wechat/contact";
+import { xftOrgnizationApiClient } from "../../api/xft/xft_orgnization";
+import { contactApiClient } from "../../api/wechat/contact";
 import { logger } from "../../config/logger";
 import { User } from "../../entity/basic/employee";
 

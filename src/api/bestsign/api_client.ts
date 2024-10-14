@@ -6,7 +6,7 @@ import _ from "lodash";
 import qs from "querystring";
 import { ILimitOpion, IRequestOptions } from "../../type/IType";
 import { bestSignToken } from "./token";
-import { appAxios } from "../general";
+import { appAxios } from "../../utils/fileUtils";
 interface Params {
   [key: string]: any;
 }

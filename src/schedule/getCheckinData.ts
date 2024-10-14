@@ -1,19 +1,19 @@
 import _ from "lodash";
 import { IDataQueryOption } from "../type/jdy/IOptions";
-import { jdyFormDataApiClient } from "../utils/jdy/form_data";
+import { jdyFormDataApiClient } from "../api/jdy/form_data";
 import {
   checkinApiClient,
   HardwareCheckinData as HardwareCheckin,
-} from "../utils/wechat/chekin";
+} from "../api/wechat/chekin";
 import { HardwareCheckinData } from "../entity/atd/wx_hardware_checkin_data";
 import { CheckinData } from "../entity/atd/checkin_data";
 import { Between, In } from "typeorm";
 import cron from "node-cron";
 import { logger } from "../config/logger";
 import { User } from "../entity/basic/employee";
-import { jctimesApiClient } from "../utils/jctimes/app";
+import { jctimesApiClient } from "../api/jctimes/app";
 import { LogCheckin } from "../entity/log/log_checkin";
-import { xftatdApiClient, importAtd } from "../utils/xft/xft_atd";
+import { xftatdApiClient, importAtd } from "../api/xft/xft_atd";
 import { format } from "date-fns";
 import { Checkin } from "../entity/atd/checkin";
 

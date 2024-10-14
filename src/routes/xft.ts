@@ -1,7 +1,7 @@
 import { JdyWebhook } from "../controllers/jdy/data.jdy.controller";
 import { xftEvent } from "../controllers/xft/event.xft.controller";
 import { xftTodo } from "../controllers/xft/todo.xft.controller";
-import { token } from "../utils/wechat/token";
+import { token } from "../api/wechat/token";
 
 export const xftRoute = [
   {

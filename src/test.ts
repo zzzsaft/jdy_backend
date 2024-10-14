@@ -13,14 +13,14 @@ import {
   startOfMonth,
   isSaturday,
 } from "date-fns";
-import { xftOAApiClient } from "./utils/xft/xft_oa";
+import { xftOAApiClient } from "./api/xft/xft_oa";
 // // import { contactApiClient } from "./utils/wechat/contact";
 // // import { createUser } from "./controllers/wechat/contact.wechat.controller";
 // // import { addEmployeeToXft } from "./controllers/jdy/addPerson.controller";
 // // import { xftUserApiClient } from "./utils/xft/xft_user";
 
 // import { importJdyToXft } from "./utils/xft/temp";
-import { xftatdApiClient } from "./utils/xft/xft_atd";
+import { xftatdApiClient } from "./api/xft/xft_atd";
 import { importErrorAtd } from "./schedule/getCheckinData";
 import { LogExpress } from "./entity/log/log_express";
 import {
@@ -29,7 +29,7 @@ import {
 } from "./controllers/xft/todo.xft.controller";
 
 import { testLoginUrl } from "./controllers/xft/login.xft.controller";
-import { xftUserApiClient } from "./utils/xft/xft_user";
+import { xftUserApiClient } from "./api/xft/xft_user";
 import { testCron } from "./schedule/testCron";
 import {
   getWeekendDates,
@@ -37,9 +37,9 @@ import {
   sendtoUserwithLeaveChoice,
   sendtoUserwithLeaveChoiceTest,
 } from "./schedule/sendLeave";
-import { decryptMsg } from "./utils/wechat/decrypt";
+import { decryptMsg } from "./api/wechat/decrypt";
 import { syncDepartment, syncUser } from "./schedule/syncXftData";
-import { fengbeitong_token } from "./utils/fenbeitong/token";
+import { fengbeitong_token } from "./api/fenbeitong/token";
 import { BusinessTripEvent } from "./controllers/xft/atd/businessTrip.atd.xft.controller";
 import { User } from "./entity/basic/employee";
 import {
@@ -47,10 +47,9 @@ import {
   testaaaaa,
 } from "./controllers/wechat/message.wechat.controller";
 import { XftAtdLeave } from "./entity/atd/xft_leave";
-import { MessageHelper } from "./utils/wechat/message";
+import { MessageHelper } from "./api/wechat/message";
 import { LogAxios } from "./entity/log/log_axios";
 import { Like } from "typeorm";
-import { createWechatUrl, getDay } from "./utils/general";
 import {
   processPrecisionIssueData,
   processXftTripLog,
@@ -62,22 +61,22 @@ import {
   测试补卡记录,
   获取空缺请假记录,
 } from "./temp";
-import { fbtUserApiClient } from "./utils/fenbeitong/user";
-import { fbtApplyApiClient } from "./utils/fenbeitong/apply";
+import { fbtUserApiClient } from "./api/fenbeitong/user";
+import { fbtApplyApiClient } from "./api/fenbeitong/apply";
 import { FbtApply } from "./entity/atd/fbt_trip_apply";
 import { GetFbtApply, XftTripLog } from "./schedule/getFbtApply";
-import { xftItripApiClient } from "./utils/xft/xft_itrip";
+import { xftItripApiClient } from "./api/xft/xft_itrip";
 import { XftCity } from "./entity/util/xft_city";
 import { LogCheckin } from "./entity/log/log_checkin";
-import { xftSalaryApiClient } from "./utils/xft/xft_salary";
+import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-import { parkingApiClient } from "./utils/parking/app";
+import { parkingApiClient } from "./api/parking/app";
 // const a = await workflowApiClient.workflowInstanceGet(
 //   "670c27ca3f18ccc122114ddb"
 // );
 // console.log(a);
-await PgDataSource.initialize();
-await testJdyCreateTripCheckinSingle();
+// await PgDataSource.initialize();
+// await testJdyCreateTripCheckinSingle();
 // await JdyForm.updateForm();
 // await testXftTrip();
 
@@ -117,7 +116,7 @@ await testJdyCreateTripCheckinSingle();
 import { Department } from "./entity/basic/department";
 import { SendTripCheckin } from "./schedule/sendTripCheckin";
 import { JdyForm } from "./entity/util/jdy_form";
-import { workflowApiClient } from "./utils/jdy/workflow";
+import { workflowApiClient } from "./api/jdy/workflow";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";

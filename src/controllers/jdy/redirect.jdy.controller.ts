@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { Jdy_Users } from "../../entity/log/jdy_users";
-import { wechatUserApiClient } from "../../utils/wechat/user";
+import { wechatUserApiClient } from "../../api/wechat/user";
 
 export const jdyRedirect = async (request: Request, response: Response) => {
   const code = request.query.code;

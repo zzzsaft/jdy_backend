@@ -1,4 +1,4 @@
-import { workflowApiClient } from "../../utils/jdy/workflow";
+import { workflowApiClient } from "../../api/jdy/workflow";
 
 export const isTaskFinished = async (taskid: string): Promise<boolean> => {
   const workflow = await workflowApiClient.workflowInstanceGet(taskid);

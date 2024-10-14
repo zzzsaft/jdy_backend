@@ -1,10 +1,10 @@
 import { format } from "date-fns";
 import { WechatMessage } from "../../entity/log/log_wx_message";
 import { User } from "../../entity/basic/employee";
-import { buttonCardType, MessageHelper } from "../../utils/wechat/message";
+import { buttonCardType, MessageHelper } from "../../api/wechat/message";
 import qs from "querystring";
-import { workflowApiClient } from "../../utils/jdy/workflow";
-import { JdyUtil } from "../../utils/jdy/jdy_util";
+import { workflowApiClient } from "../../api/jdy/workflow";
+import { JdyUtil } from "../../utils/jdyUtils";
 
 export class JdyTaskEvent {
   url: string;

@@ -2,8 +2,8 @@ import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 
 import _ from "lodash";
 import { XftAtdLeave } from "../../../entity/atd/xft_leave";
-import { xftatdApiClient } from "../../../utils/xft/xft_atd";
-import { xftOAApiClient } from "../../../utils/xft/xft_oa";
+import { xftatdApiClient } from "../../../api/xft/xft_atd";
+import { xftOAApiClient } from "../../../api/xft/xft_oa";
 import { XftTaskEvent } from "../todo.xft.controller";
 import { User } from "../../../entity/basic/employee";
 

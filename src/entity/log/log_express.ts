@@ -7,8 +7,8 @@ import {
   Not,
   IsNull,
 } from "typeorm";
-import { decryptXftEvent } from "../../utils/xft/decrypt";
-import { decryptMsg } from "../../utils/wechat/decrypt";
+import { decryptXftEvent } from "../../api/xft/decrypt";
+import { decryptMsg } from "../../api/wechat/decrypt";
 
 @Entity({ name: "log_express" })
 export class LogExpress extends BaseEntity {

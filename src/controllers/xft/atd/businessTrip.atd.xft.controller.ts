@@ -1,8 +1,8 @@
-import { xftatdApiClient } from "../../../utils/xft/xft_atd";
+import { xftatdApiClient } from "../../../api/xft/xft_atd";
 import { XftTaskEvent } from "../todo.xft.controller";
 import { format } from "date-fns";
 import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
-import { xftOAApiClient } from "../../../utils/xft/xft_oa";
+import { xftOAApiClient } from "../../../api/xft/xft_oa";
 import { LogTripSync } from "../../../entity/atd/trip";
 
 export class BusinessTripEvent {
