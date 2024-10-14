@@ -1,6 +1,6 @@
-import { Execute_Action } from "../../entity/trigger/execute_action";
-import { Execute_Action_Content } from "../../entity/trigger/execute_action_content";
-import { Trigger } from "../../entity/trigger/Trigger";
+import { Execute_Action } from "../../entity/trigger/execute_action1";
+import { Execute_Action_Content } from "../../entity/trigger/execute_action_content1";
+import { Trigger } from "../../entity/trigger/trigger";
 import { FilterCondition } from "../../type/jdy/IOptions";
 import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import _ from "lodash";

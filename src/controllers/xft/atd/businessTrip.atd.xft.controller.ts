@@ -3,7 +3,7 @@ import { XftTaskEvent } from "../todo.xft.controller";
 import { format } from "date-fns";
 import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
 import { xftOAApiClient } from "../../../api/xft/xft_oa";
-import { LogTripSync } from "../../../entity/atd/trip";
+import { BusinessTrip } from "../../../entity/atd/businessTrip";
 
 export class BusinessTripEvent {
   task: XftTaskEvent;
@@ -75,7 +75,7 @@ export class BusinessTripEvent {
       this.travelDetailDataDto
     );
     const city = getAllCities(this.travelDetailDataDto);
-    await LogTripSync.addRecordFromXFT({
+    await BusinessTrip.addRecordFromXFT({
       xftFormId: this.task.businessParam,
       userId: this.staffNumber,
       startTime: earliestDate,

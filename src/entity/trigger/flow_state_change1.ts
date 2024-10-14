@@ -8,7 +8,7 @@ import {
   BeforeInsert,
 } from "typeorm";
 import AbstractContent from "../AbstractContent";
-import { Trigger } from "./Trigger";
+import { Trigger } from "./trigger";
 @Entity({
   name: "trigger_flow_state_change",
 })

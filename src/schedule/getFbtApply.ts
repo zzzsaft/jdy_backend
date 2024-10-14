@@ -6,7 +6,7 @@ import _ from "lodash";
 import { xftItripApiClient } from "../api/xft/xft_itrip";
 import { XftCity } from "../entity/util/xft_city";
 import { User } from "../entity/basic/employee";
-import { LogTripSync } from "../entity/atd/trip";
+import { BusinessTrip } from "../entity/atd/businessTrip";
 import { logger } from "../config/logger";
 import { log } from "console";
 import { MessageHelper } from "../api/wechat/message";
@@ -88,15 +88,15 @@ export class GetFbtApply {
 
 export class XftTripLog {
   fbtApply: FbtApply;
-  logTrip: LogTripSync;
+  logTrip: BusinessTrip;
   err: string;
-  private constructor(apply?: FbtApply, logTrip?: LogTripSync) {
+  private constructor(apply?: FbtApply, logTrip?: BusinessTrip) {
     if (apply) this.fbtApply = apply;
     if (logTrip) this.logTrip = logTrip;
   }
 
   async processPastData() {
-    const logTrip = await LogTripSync.findOne({
+    const logTrip = await BusinessTrip.findOne({
       where: { fbtRootId: this.fbtApply.root_id },
     });
     this.logTrip = await this._generateLog();
@@ -110,7 +110,7 @@ export class XftTripLog {
   }
 
   async processPrecisionIssueData() {
-    const logTrip = await LogTripSync.findOne({
+    const logTrip = await BusinessTrip.findOne({
       where: { fbtRootId: this.fbtApply.root_id },
     });
     this.logTrip = await this._generateLog();
@@ -125,7 +125,7 @@ export class XftTripLog {
 
   async process() {
     if (this.fbtApply.state != 4) return;
-    const logTrip = await LogTripSync.findOne({
+    const logTrip = await BusinessTrip.findOne({
       where: { fbtRootId: this.fbtApply.root_id },
     });
     if (logTrip?.fbtCurrentId == this.fbtApply.id) return;
@@ -136,7 +136,7 @@ export class XftTripLog {
         "yyyy-MM-dd HH:mm"
       )} ${format(this.fbtApply.end_time, "yyyy-MM-dd HH:mm")}`;
       this.logTrip.isSync = false;
-      await LogTripSync.upsert(this.logTrip, {
+      await BusinessTrip.upsert(this.logTrip, {
         conflictPaths: ["fbtRootId"],
         skipUpdateIfNoValuesChanged: true,
       });
@@ -150,20 +150,20 @@ export class XftTripLog {
     ) {
       await this.修改xft差旅记录(logTrip.xftBillId);
     }
-    await LogTripSync.upsert(this.logTrip, {
+    await BusinessTrip.upsert(this.logTrip, {
       conflictPaths: ["fbtRootId"],
       skipUpdateIfNoValuesChanged: true,
     });
   }
 
-  async _generateLog(): Promise<LogTripSync> {
+  async _generateLog(): Promise<BusinessTrip> {
     const timeSlot = await this.createNonConflictingTimeSlot(
       this.fbtApply.start_time,
       this.fbtApply.end_time,
       this.fbtApply.proposerUserId,
       this.fbtApply.create_time
     );
-    const logTrip = new LogTripSync();
+    const logTrip = new BusinessTrip();
     logTrip.city = this.fbtApply.city.map((city) => city.name);
     logTrip.userId = this.fbtApply.proposerUserId;
     logTrip.fbtRootId = this.fbtApply.root_id;
@@ -185,7 +185,7 @@ export class XftTripLog {
     const end_time = new Date(_end_time);
     const create_time = new Date(_create_time);
     const conflicts = (
-      await LogTripSync.getConflict(_userId, start_time, end_time, create_time)
+      await BusinessTrip.getConflict(_userId, start_time, end_time, create_time)
     ).filter((conflict) => conflict.fbtRootId != this.fbtApply.root_id);
     if (conflicts.length > 0) {
       // 处理冲突并生成新的时间段
@@ -380,7 +380,7 @@ export class XftTripLog {
     return new XftTripLog(apply);
   }
 
-  static async 修改xft差旅记录(apply: FbtApply, logTrip: LogTripSync) {
+  static async 修改xft差旅记录(apply: FbtApply, logTrip: BusinessTrip) {
     return new XftTripLog(apply, logTrip).修改xft差旅记录(logTrip.xftBillId);
   }
 

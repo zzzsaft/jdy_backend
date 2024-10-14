@@ -1,8 +1,7 @@
 import { xftOAApiClient } from "../api/xft/xft_oa";
-import { LogTripSync } from "../entity/atd/trip";
+import { BusinessTrip } from "../entity/atd/businessTrip";
 import { log } from "console";
 import { LessThan, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
-import { XftTripCheckin } from "../entity/atd/trip_checkin";
 import { FbtApply } from "../entity/atd/fbt_trip_apply";
 import {
   addDays,
@@ -16,6 +15,8 @@ import { JdyUtil } from "../utils/jdyUtils";
 import { User } from "../entity/basic/employee";
 import { jdyFormDataApiClient } from "../api/jdy/form_data";
 import { GetFbtApply, XftTripLog } from "./getFbtApply";
+import { Department } from "../entity/basic/department";
+import { XftTripCheckin } from "../entity/atd/business_trip_checkin";
 
 type busData = {
   // value: {
@@ -33,24 +34,31 @@ export class SendTripCheckin {
   constructor() {}
 
   static async createBatchTripCheckin(date: Date = new Date()) {
-    const logTripSync = await LogTripSync.find({
+    const logTripSync = await BusinessTrip.find({
       where: {
         start_time: LessThanOrEqual(date),
         end_time: MoreThanOrEqual(date),
       },
     });
     for (const item of logTripSync) {
+      const orgid = (await User.findOne({ where: { user_id: item.userId } }))
+        ?.main_department_id;
+      if (!orgid) continue;
+      const companyName = (
+        await Department.findOne({ where: { department_id: orgid } })
+      )?.company;
+      if (companyName == "浙江精一新材料有限公司") continue;
       await this.createTripCheckin(item, date);
     }
   }
 
   static async createByRootId(fbtRootId: string, date: Date = new Date()) {
-    const logTrip = await LogTripSync.findOne({ where: { fbtRootId } });
+    const logTrip = await BusinessTrip.findOne({ where: { fbtRootId } });
     if (logTrip) await this.createTripCheckin(logTrip, date);
   }
 
   private static async createTripCheckin(
-    logTripSync: LogTripSync,
+    logTripSync: BusinessTrip,
     date: Date = new Date()
   ) {
     const sendTripCheckin = new SendTripCheckin();
@@ -77,26 +85,24 @@ export class SendTripCheckin {
       relations: ["city"],
       order: { create_time: "DESC" },
     });
-    if (!apply) return null;
-    const leader = await User.getLeaderId(apply.proposerUserId);
+    const leader = await User.getLeaderId(checkin.userId);
+    const user = await User.findOne({ where: { user_id: checkin.userId } });
+    if (!user) return null;
     return {
-      _widget_1709084666154: JdyUtil.setText(apply.proposer_name),
+      _widget_1709084666154: JdyUtil.setText(user.name),
       _widget_1728656241816: JdyUtil.setDate(checkin.checkinDate),
-      _widget_1728656241817: JdyUtil.setText(apply.reason),
-      _widget_1709085088670: JdyUtil.setText(apply.remark),
-      _widget_1709112718167: JdyUtil.setText(apply.remark),
+      _widget_1709085088671: JdyUtil.setText(checkin.reason ?? apply?.reason),
+      _widget_1709085088670: JdyUtil.setText(checkin.remark ?? apply?.remark),
       _widget_1709084666150: JdyUtil.setCombos(leader),
       _widget_1719704502367: JdyUtil.setCombos(leader),
       _widget_1709084666146: JdyUtil.setText(checkin.userId),
-      _widget_1709084666149: JdyUtil.setNumber(parseInt(apply.departmentId)),
+      _widget_1709084666149: JdyUtil.setNumber(
+        parseInt(user.main_department_id)
+      ),
       _widget_1728663996213: JdyUtil.setText(
         `${checkin.checkinDate.getTime()}${checkin.userId}`
       ),
       _widget_1728663996210: JdyUtil.setText("未打卡"),
-      _widget_1728672318803: JdyUtil.setText(
-        apply.city.map((ci) => ci.name)?.join(",")
-      ),
-      _widget_1709085088671: JdyUtil.setText(apply.reason),
       _widget_1728672400386: "需要打卡",
     };
   }
@@ -174,12 +180,12 @@ export class SendTripCheckin {
     }
     if (data?.fbtRootId && data.state == "已回公司") {
       const newEndDate = endOfDay(addDays(data.checkinDate, -1));
-      const tripSync = await LogTripSync.findOne({
+      const tripSync = await BusinessTrip.findOne({
         where: { fbtRootId: data.fbtRootId },
       });
       if (!tripSync)
         throw new Error(
-          `LogTripSync not found ${data.fbtRootId} at updateTripCheckinFromJdy`
+          `BusinessTrip not found ${data.fbtRootId} at updateTripCheckinFromJdy`
         );
       const fbtApply = await FbtApply.findOne({
         where: { id: tripSync.fbtCurrentId },

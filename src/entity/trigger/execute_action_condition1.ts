@@ -1,4 +1,4 @@
-import { Execute_Action } from "./execute_action";
+import { Execute_Action } from "./execute_action1";
 import { Entity, Column, ManyToOne, Relation } from "typeorm";
 import { TriggerMethod, SetType } from "../../type/trigger";
 import AbstractContent from "../AbstractContent";

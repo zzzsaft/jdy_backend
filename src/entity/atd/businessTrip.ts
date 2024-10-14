@@ -12,7 +12,7 @@ import {
 } from "typeorm";
 
 @Entity({ name: "atd_business_trip" })
-export class LogTripSync extends BaseEntity {
+export class BusinessTrip extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -64,6 +64,9 @@ export class LogTripSync extends BaseEntity {
   @Column({ name: "revise_log", nullable: true })
   reviseLog: string;
 
+  @Column({ type: "jsonb", name: "revise_logs", nullable: true })
+  reviseLogs: string[];
+
   @CreateDateColumn()
   created_at: Date;
   @UpdateDateColumn()
@@ -83,7 +86,7 @@ export class LogTripSync extends BaseEntity {
         },
     createTime: Date
   ) {
-    const record = new LogTripSync();
+    const record = new BusinessTrip();
     record.fbtRootId = fbtRootId;
     if (xftBillId.billId) {
       record.xftBillId = xftBillId.billId;
@@ -104,7 +107,7 @@ export class LogTripSync extends BaseEntity {
     end_time: Date,
     create_time: Date
   ) {
-    const conflicts = await LogTripSync.find({
+    const conflicts = await BusinessTrip.find({
       where: [
         {
           userId,
@@ -137,10 +140,10 @@ export class LogTripSync extends BaseEntity {
     remark: string;
     customer: string;
   }) {
-    const exist = await LogTripSync.exists({ where: { xftFormId } });
+    const exist = await BusinessTrip.exists({ where: { xftFormId } });
     if (exist) return null;
 
-    const record = new LogTripSync();
+    const record = new BusinessTrip();
     if (startTime) record.start_time = startTime;
     if (endTime) record.end_time = endTime;
     record.userId = userId;

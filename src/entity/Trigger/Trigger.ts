@@ -1,17 +1,8 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  OneToMany,
-  Relation,
-  AfterLoad,
-  BeforeInsert,
-} from "typeorm";
+import { Entity, Column, OneToMany, Relation } from "typeorm";
 import AbstractContent from "../AbstractContent";
-import { Execute_Action } from "./execute_action";
-import { Trigger_Condition } from "./trigger_condition";
-import { Flow_State_Change } from "./flow_state_change";
-import { before } from "lodash";
+import { Execute_Action } from "./execute_action1";
+import { Flow_State_Change } from "./flow_state_change1";
+import { Trigger_Condition } from "./trigger_condition1";
 
 @Entity()
 export class Trigger extends AbstractContent {

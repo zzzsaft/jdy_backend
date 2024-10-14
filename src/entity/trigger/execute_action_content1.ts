@@ -1,7 +1,7 @@
 import { Entity, Column, ManyToOne, Relation } from "typeorm";
 import AbstractContent from "../AbstractContent";
 import { SetType } from "../../type/trigger";
-import { Execute_Action } from "./execute_action";
+import { Execute_Action } from "./execute_action1";
 
 @Entity({
   name: "trigger_execute_action_content",

@@ -11,7 +11,7 @@ import {
 import { User } from "../basic/employee";
 import { pointTransformer } from "../../utils/fileUtils";
 
-@Entity("atd_trip_checkin")
+@Entity("atd_business_trip_checkin")
 export class XftTripCheckin extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;

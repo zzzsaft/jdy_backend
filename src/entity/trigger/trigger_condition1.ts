@@ -1,7 +1,7 @@
 import { Entity, Column, ManyToOne, Relation } from "typeorm";
 import { TriggerMethod } from "../../type/trigger";
 import AbstractContent from "../AbstractContent";
-import { Trigger } from "./Trigger";
+import { Trigger } from "./trigger";
 
 @Entity()
 export class Trigger_Condition extends AbstractContent {

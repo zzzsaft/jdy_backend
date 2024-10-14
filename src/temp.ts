@@ -10,7 +10,7 @@ import { Between, IsNull, Like, Not } from "typeorm";
 import { XftCity } from "./entity/util/xft_city";
 import { FbtApply } from "./entity/atd/fbt_trip_apply";
 import { XftTripLog } from "./schedule/getFbtApply";
-import { LogTripSync } from "./entity/atd/trip";
+import { BusinessTrip } from "./entity/atd/businessTrip";
 import { xftOAApiClient } from "./api/xft/xft_oa";
 import { BusinessTripEvent } from "./controllers/xft/atd/businessTrip.atd.xft.controller";
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
@@ -119,7 +119,7 @@ export const processXftTripLog = async () => {
 };
 
 export const processPrecisionIssueData = async () => {
-  const logTrip = await LogTripSync.createQueryBuilder("log_trip_sync")
+  const logTrip = await BusinessTrip.createQueryBuilder("log_trip_sync")
     .where("EXTRACT(HOUR FROM log_trip_sync.start_time) BETWEEN 11 AND 13")
     .andWhere({ xftBillId: Not(IsNull()) })
     .getMany();
