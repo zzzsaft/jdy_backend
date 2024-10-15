@@ -1,6 +1,10 @@
 import { format } from "date-fns";
 import { xftItripApiClient } from "../../api/xft/xft_itrip";
-import { adjustToTimeNode, getHalfDay } from "../../utils/dateUtils";
+import {
+  adjustToTimeNode,
+  formatDate,
+  getHalfDay,
+} from "../../utils/dateUtils";
 import { BusinessTrip } from "../../entity/atd/businessTrip";
 import { XftCity } from "../../entity/util/xft_city";
 import { FbtApply } from "../../entity/atd/fbt_trip_apply";
@@ -80,20 +84,19 @@ export class BusinessTripServices {
       start_time: adjustToTimeNode(start_time, true),
       end_time: adjustToTimeNode(end_time, true),
     });
-
+    if (!businessTrip.reviseLogs) businessTrip.reviseLogs = [];
+    let log = `原始时间${formatDate(businessTrip.start_time)} ${formatDate(
+      businessTrip.end_time
+    )} 修改为${formatDate(start_time)} ${formatDate(end_time)}`;
     if (result) {
-      businessTrip.reviseLogs.push(
-        `修改差旅记录成功 原始时间${businessTrip.start_time} ${businessTrip.end_time} 修改为${start_time} ${end_time}`
-      );
+      businessTrip.reviseLogs.push(`修改差旅记录成功 ${log}`);
       businessTrip.start_time = start_time;
       businessTrip.end_time = end_time;
       await businessTrip.save();
-      sendMessages(businessTrip, fbtApply);
+      await sendMessages(businessTrip, fbtApply);
       return true;
     } else {
-      businessTrip.reviseLogs.push(
-        `修改差旅记录失败 原始时间${businessTrip.start_time} ${businessTrip.end_time} 修改为${start_time} ${end_time}`
-      );
+      businessTrip.reviseLogs.push(`修改差旅记录失败 ${log}`);
       await businessTrip.save();
       return false;
     }
@@ -153,7 +156,7 @@ const sendMessages = async (businessTrip: BusinessTrip, fbtApply: FbtApply) => {
   )}`;
   const endTime = `${format(endTime1, "yyyy-MM-dd")} ${getHalfDay(endTime1)}`;
   // 发送消息
-  new MessageHelper([fbtApply.proposerUserId]).sendTextNotice({
+  await new MessageHelper([fbtApply.proposerUserId]).sendTextNotice({
     main_title: {
       title: "分贝通差旅同步考勤成功",
       desc: format(new Date(fbtApply.create_time), "yyyy-MM-dd HH:mm"),

@@ -24,6 +24,8 @@ export class XftTripCheckin extends BaseEntity {
   @Column({ nullable: true })
   remark: string;
   @Column({ nullable: true })
+  type: string;
+  @Column({ nullable: true })
   departmentId: string;
   @Column({ name: "send_date", nullable: true })
   sendDate: Date;
@@ -42,13 +44,15 @@ export class XftTripCheckin extends BaseEntity {
   @Column({ nullable: true })
   reason: string;
   @Column({ nullable: true })
-  custom: string;
+  customer: string;
   @Column({ nullable: true })
   contact: string;
   @Column({ name: "contact_num", nullable: true })
   contactNum: string;
   @Column({ nullable: true })
   photo: string;
+  @Column({ nullable: true })
+  company: string;
   @Column({ name: "jdy_id", nullable: true })
   jdyId: string;
   @Column({ nullable: true, name: "process_id" })
@@ -97,7 +101,7 @@ export class XftTripCheckin extends BaseEntity {
     latitude,
     address,
     reason,
-    custom,
+    customer,
     contact,
     contactNum,
     remark,
@@ -110,12 +114,12 @@ export class XftTripCheckin extends BaseEntity {
     latitude: number;
     address: string;
     reason: string;
-    custom: string;
+    customer: string;
     contact: string;
     contactNum: string;
     remark: string;
     jdyId: string;
-    state: string;
+    state?: string;
   }) {
     const checkinDate = new Date(checkinTime);
     checkinDate.setHours(0, 0, 0, 0);
@@ -138,13 +142,12 @@ export class XftTripCheckin extends BaseEntity {
     checkin.latitude = latitude;
     checkin.longitude = longitude;
     checkin.reason = reason;
-    checkin.custom = custom;
+    checkin.customer = customer;
     checkin.contact = contact;
     checkin.contactNum = contactNum;
     checkin.remark = remark;
     checkin.jdyId = jdyId;
-
-    checkin.state = state;
+    if (state) checkin.state = state;
     return checkin;
   }
 }

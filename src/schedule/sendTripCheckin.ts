@@ -142,29 +142,29 @@ export class SendTripCheckin {
     };
   }
 
-  static async addBatchTripCheckinFromJdy() {
-    const added: XftTripCheckin[] = [];
-    const app = jdyFormDataApiClient.getFormId("出差信息填报");
-    const jdyData = await jdyFormDataApiClient.batchDataQuery(
-      app.appid,
-      app.entryid,
-      {
-        limit: 100,
-      }
-    );
-    for (const item of jdyData) {
-      const a = await XftTripCheckin.addExist(
-        await this.generateDataByJdy(item)
-      );
-      if (a) added.push(a);
-    }
-    await XftTripCheckin.save(added);
-  }
+  // static async addBatchTripCheckinFromJdy() {
+  //   const added: XftTripCheckin[] = [];
+  //   const app = jdyFormDataApiClient.getFormId("出差信息填报");
+  //   const jdyData = await jdyFormDataApiClient.batchDataQuery(
+  //     app.appid,
+  //     app.entryid,
+  //     {
+  //       limit: 100,
+  //     }
+  //   );
+  //   for (const item of jdyData) {
+  //     const a = await XftTripCheckin.addExist(
+  //       await this.generateDataByJdy(item)
+  //     );
+  //     if (a) added.push(a);
+  //   }
+  //   await XftTripCheckin.save(added);
+  // }
 
   static async addTripCheckinFromJdy(item) {
     const data = await SendTripCheckin.generateDataByJdy(item);
-    const checkin = await XftTripCheckin.addExist(data);
-    if (checkin) await XftTripCheckin.save(checkin);
+    // const checkin = await XftTripCheckin.addExist(data);
+    // if (checkin) await XftTripCheckin.save(checkin);
   }
 
   static async updateTripCheckinFromJdy(item) {

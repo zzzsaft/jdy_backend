@@ -15,6 +15,8 @@ import { xftOAApiClient } from "./api/xft/xft_oa";
 import { BusinessTripEvent } from "./controllers/xft/atd/businessTrip.atd.xft.controller";
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
 import { LogExpress } from "./entity/log/log_express";
+import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
+import { updateNextBusinessTrip } from "./services/jdy/businessTripCheckinServices";
 export const 获取空缺请假记录 = async () => {
   const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
     .select("leave.leaveRecSeq")
@@ -163,56 +165,56 @@ export const testJdyCreateTripCheckin = async () => {
 export const testJdyCreateTripCheckinSingle = async () => {
   const msg = {
     data: {
-      _id: "670a69358dd49ef51b6ab62e",
+      _id: "670c5f1604e34125c61cada5",
       _widget_1708934717359: {},
       _widget_1708934717360: [],
-      _widget_1708994681757: "2024-10-12T07:38:00.000Z",
+      _widget_1708994681757: "2024-10-14T00:00:00.000Z",
       _widget_1709084666146: {
-        _id: "5cd12b45fd7c244e400bfc6c",
-        name: "耿洪亮",
+        _id: "5ca96e972503b18a670894ee",
+        name: "晋尚崇",
         status: 1,
         type: 0,
-        username: "GengHongLiang",
+        username: "JinShangChong",
       },
       _widget_1709084666149: {
-        _id: "653b5095bea83252be55b464",
-        dept_no: 227,
-        name: "销售一部",
+        _id: "64b657d6bea83252bee55b22",
+        dept_no: 212,
+        name: "售后部",
         type: 0,
       },
       _widget_1709084666150: [],
-      _widget_1709084666154: "耿洪亮",
+      _widget_1709084666154: "晋尚崇",
       _widget_1709085088667: "",
-      _widget_1709085088670: "无锡𦐒可成新材，日照友谊塑料制品公司",
-      _widget_1709085088671: "",
+      _widget_1709085088670: "温州欧三秦科技有限公司",
+      _widget_1709085088671: "售后调试",
       _widget_1709085088673: "",
       _widget_1709085088674: "",
       _widget_1709085088675: "",
       _widget_1709085088676: "",
-      _widget_1709112718167: "无锡𦐒可成新材，日照友谊塑料制品公司",
+      _widget_1709112718167: "温州欧三秦科技有限公司",
       _widget_1709628384098: "",
       _widget_1709628384106: "",
       _widget_1709781056934: {},
       _widget_1719704502364: "",
       _widget_1719704502367: [
         {
-          _id: "5cd12b45fd7c244e400bfc69",
-          name: "郎晓利",
+          _id: "5cccf98264906b1ccb099262",
+          name: "田乃根",
           status: 1,
           type: 0,
-          username: "LangXiaoLi",
+          username: "TianNaiGen",
         },
       ],
       _widget_1719799732079: "",
       _widget_1719799732080: "",
       _widget_1719799732081: "",
       _widget_1719799732082: "",
-      _widget_1728656241816: "2024-10-11T16:00:00.000Z",
-      _widget_1728663996210: "已回公司",
-      _widget_1728663996213: "1728735399059GengHongLiang",
+      _widget_1728656241816: "2024-10-13T16:00:00.000Z",
+      _widget_1728663996210: "",
+      _widget_1728663996213: "1728864000399JinShangChong",
       _widget_1728672400386: "已回公司",
       appId: "5cfef4b5de0b2278b05c8380",
-      createTime: "2024-10-12T12:19:01.677Z",
+      createTime: "2024-10-14T00:00:22.294Z",
       creator: {
         _id: "5c9dabe62503b18a678e0e36",
         name: "精诚时代集团",
@@ -223,22 +225,27 @@ export const testJdyCreateTripCheckinSingle = async () => {
       deleteTime: null,
       deleter: null,
       entryId: "65dc463c9b200f9b5e3b5851",
-      flowState: 0,
+      flowState: 1,
       formName: "出差信息填报",
-      updateTime: "2024-10-14T09:31:15.371Z",
+      updateTime: "2024-10-14T00:00:48.571Z",
       updater: {
-        _id: "6189db48c482520007e2e435",
-        name: "梁之",
+        _id: "5ca96e972503b18a670894ee",
+        name: "晋尚崇",
         status: 1,
         type: 0,
-        username: "LiangZhi",
+        username: "JinShangChong",
       },
     },
     op: "data_update",
-    opTime: 1728898275371,
+    opTime: 1728864048571,
   };
   // const msg = JSON.parse(item.msg);
   if (msg?.op === "data_update") {
     await controllerMethod(msg);
   }
+};
+
+export const testUpdateNextBusinessTrip = async () => {
+  const tripCheckin = await XftTripCheckin.findOne({ where: { id: 4792 } });
+  if (tripCheckin) await updateNextBusinessTrip(tripCheckin);
 };

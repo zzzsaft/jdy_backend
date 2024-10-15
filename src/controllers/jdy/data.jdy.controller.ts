@@ -13,6 +13,7 @@ import { updateExistInfo, 入职申请表 } from "./addPerson.controller";
 import { 来宾预约单 } from "./visitor.controller";
 import { 离职, 转正 } from "./updateUser.jdy.controller";
 import { SendTripCheckin } from "../../schedule/sendTripCheckin";
+import { BusinessTripCheckinServices } from "../../services/jdy/businessTripCheckinServices";
 
 function getSignature(
   nonce: string,
@@ -75,8 +76,8 @@ const JdyControllers = {
       data_update: updateExistInfo,
     },
     "65dc463c9b200f9b5e3b5851": {
-      data_create: SendTripCheckin.addTripCheckinFromJdy,
-      data_update: SendTripCheckin.updateTripCheckinFromJdy,
+      data_create: BusinessTripCheckinServices.dataCreate,
+      data_update: BusinessTripCheckinServices.dataUpdate,
     },
   },
   "5cd2228a0be7121e839d41bc": {

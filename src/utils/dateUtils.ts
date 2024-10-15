@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 export const getWeekDayName = (date: string) => {
   // 映射英文星期到中文
   const daysMap = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -38,4 +39,8 @@ export const adjustToTimeNode = (
   }
 
   return adjustedDate;
+};
+
+export const formatDate = (date: Date) => {
+  return format(date, "yyyy-MM-dd HH:mm");
 };

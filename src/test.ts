@@ -55,6 +55,7 @@ import {
   processXftTripLog,
   testJdyCreateTripCheckin,
   testJdyCreateTripCheckinSingle,
+  testUpdateNextBusinessTrip,
   testXftTrip,
   导入分贝通人员id,
   检查分贝通未导入id,
@@ -75,11 +76,12 @@ import { parkingApiClient } from "./api/parking/app";
 //   "670c27ca3f18ccc122114ddb"
 // );
 // console.log(a);
-// await PgDataSource.initialize();
 // await testJdyCreateTripCheckinSingle();
 // await JdyForm.updateForm();
 // await testXftTrip();
-
+// await PgDataSource.initialize();
+// await testJdyCreateTripCheckinSingle();
+// await BusinessTripCheckinServices.scheduleCreate();
 // await SendTripCheckin.createBatchTripCheckin();
 // await processPrecisionIssueData();
 // await testCron();
@@ -117,6 +119,11 @@ import { Department } from "./entity/basic/department";
 import { SendTripCheckin } from "./schedule/sendTripCheckin";
 import { JdyForm } from "./entity/util/jdy_form";
 import { workflowApiClient } from "./api/jdy/workflow";
+import {
+  BusinessTripCheckinServices,
+  updateNextBusinessTrip,
+} from "./services/jdy/businessTripCheckinServices";
+import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
