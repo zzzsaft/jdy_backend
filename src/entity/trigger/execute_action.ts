@@ -1,8 +1,8 @@
 import { Entity, Column, ManyToOne, Relation, OneToMany } from "typeorm";
 import { TriggerAction } from "../../type/trigger";
 import AbstractContent from "../AbstractContent";
-import { Execute_Action_Condition } from "./execute_action_condition1";
-import { Execute_Action_Content } from "./execute_action_content1";
+import { Execute_Action_Condition } from "./execute_action_condition";
+import { Execute_Action_Content } from "./execute_action_content";
 import { Trigger } from "./trigger";
 
 @Entity({
