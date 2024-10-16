@@ -8,6 +8,8 @@ import { JdyUtil } from "../../utils/jdyUtils";
 import { BusinessTrip } from "../../entity/atd/businessTrip";
 import { BusinessTripServices } from "../xft/businessTripServices";
 import { LessThanOrEqual, MoreThanOrEqual } from "typeorm";
+import { JdyTaskEvent } from "./event";
+import { formatDate } from "../../utils/dateUtils";
 
 export class BusinessTripCheckinServices {
   static async dataCreate(content) {
@@ -27,6 +29,7 @@ export class BusinessTripCheckinServices {
       existdata = await existdata.save();
       await updateBusinessTrip(existdata);
     }
+    await sendMessage(data);
   }
   static async scheduleCreate(date: Date = new Date()) {
     const logTripSync = await BusinessTrip.find({
@@ -63,6 +66,7 @@ export class BusinessTripCheckinServices {
       checkin.state = "未打卡";
       checkin.jdyId = result?.data?._id;
       await checkin.save();
+      sendMessage(await jdyDatetoDb(result["data"]));
     }
   }
 }
@@ -164,7 +168,7 @@ const jdyDatetoDb = async (item) => {
   let type = item?.["_widget_1728932584746"] ?? "出差打卡";
   // type = type == (!type || type == "") ? "出差打卡" : "外出打卡";
   const checkinTime = JdyUtil.getDate(item["_widget_1708994681757"]);
-  const checkinDate = new Date(checkinTime);
+  const checkinDate = JdyUtil.getDate(item["_widget_1728656241816"]);
   checkinDate.setHours(0, 0, 0, 0);
   const result = {
     jdyId: item["_id"],
@@ -293,4 +297,41 @@ export const updateNextBusinessTrip = async (tripCheckin: XftTripCheckin) => {
       timeSlot.end_time
     );
   }
+};
+
+export const sendMessage = async (content) => {
+  const data = await jdyDatetoDb(content["data"]);
+  const horizontal_content_list = [
+    {
+      keyname: "应打卡时间",
+      value: format(data?.checkinDate, "yyyy-MM-dd"),
+    },
+    {
+      keyname: "出差原因",
+      value: data?.reason,
+    },
+    {
+      keyname: "客户名称",
+      value: data?.customer,
+    },
+  ];
+  if (data?.checkinTime)
+    horizontal_content_list.push({
+      keyname: "打卡时间",
+      value: format(data?.checkinTime, "yyyy-MM-dd HH:mm"),
+    });
+  await JdyTaskEvent.sendMsgToWxUser(data["jdyId"], [
+    {
+      keyname: "应打卡时间",
+      value: format(data?.checkinDate, "yyyy-MM-dd"),
+    },
+    {
+      keyname: "出差原因",
+      value: data?.reason,
+    },
+    {
+      keyname: "客户名称",
+      value: data?.customer,
+    },
+  ]);
 };

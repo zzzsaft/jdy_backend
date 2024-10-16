@@ -8,6 +8,8 @@ import { sendtoUserwithLeaveChoice } from "./sendLeave";
 import { GetFbtApply } from "./getFbtApply";
 import { SendTripCheckin } from "./sendTripCheckin";
 import { sendXftTodoList } from "./sendXftTask";
+import { BusinessTripCheckinServices } from "../services/jdy/businessTripCheckinServices";
+import { BusinessTripServices } from "../services/xft/businessTripServices";
 
 const syncWechat = async () => {
   await Department.updateDepartment();
@@ -28,6 +30,7 @@ const fbtApplySchedule = cron.schedule("5,20,35,50 * * * *", async () => {
     return;
   }
   await new GetFbtApply().getApply();
+  await BusinessTripServices.scheduleCreate();
 });
 
 //每日1点触发任务
@@ -44,7 +47,7 @@ const sendLeave = cron.schedule("0 8 * * 6", async () => {
 });
 
 const sendTripCheckin = cron.schedule("0 0-59/20 8-20 * * *", async () => {
-  await SendTripCheckin.createBatchTripCheckin();
+  await BusinessTripCheckinServices.scheduleCreate();
   logger.info("更新外出打卡");
 });
 

@@ -85,5 +85,7 @@ export const testLoginUrl = (userid, todoId: any = null) => {
       JSON.stringify(extPam)
     )}&secret=${secret}`;
   }
-  return `${XFT_HOST}?pageId=workbench&secret=${secret}`;
+  const url = `${XFT_HOST}?pageId=workbench&secret=${secret}`;
+  console.log(url);
+  return url;
 };

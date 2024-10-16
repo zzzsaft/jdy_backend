@@ -9,7 +9,6 @@ import {
   // Point,
 } from "typeorm";
 import { User } from "../basic/employee";
-import { pointTransformer } from "../../utils/fileUtils";
 
 @Entity("atd_business_trip_checkin")
 export class XftTripCheckin extends BaseEntity {

@@ -142,12 +142,13 @@ export const logTripSyncByid = async (id: string) => {
 
 export const testXftTrip = async () => {
   const content =
-    '{"appCode":"xft-bpm","appName":"OA审批","businessCode":"OA000001","businessName":"待审批通知","businessParam":"FORM_255494674440257537","createTime":"2024-10-09 08:19:40","dealStatus":"1","details":"【王同钊】发起了【出差】申请，申请人：王同钊，出差行程：台州-杭州，出差日期：2024-10-09 上午 到 2024-10-11下午，出差天数：3，出差事由：浙大安装玻璃换控制器，请您尽快审批，发起时间：2024-10-09 08:19:39。","id":"TD1843808509500493826","processId":"1115028796","processStatus":"1","receiver":{"enterpriseNum":"AAA00512","thirdpartyUserId":"","userName":"斯浩","xftUserId":"V0030"},"sendTime":"2024-10-09T08:19:39","sendUser":{"enterpriseNum":"AAA00512","thirdpartyUserId":"","userName":"王同钊","xftUserId":"V003K"},"terminal":"0","title":"王同钊发起的出差","url":{}}';
+    '{"appCode":"xft-bpm","appName":"OA审批","businessCode":"OA000001","businessName":"待审批通知","businessParam":"SALD_AAA00512_0000002148","createTime":"2024-10-16 18:59:35","dealStatus":"0","details":"【黄鸾凤】发起了【定调薪审批】申请，总笔数：1，调薪笔数：1，请您尽快审批，发起时间：2024-10-16 18:59:33。","id":"TD1846506264160186369","processId":"1138573852","processStatus":"0","receiver":{"enterpriseNum":"AAA00512","thirdpartyUserId":"","userName":"蔡小勇","xftUserId":"V002P"},"sendTime":"2024-10-16T18:59:33","sendUser":{"enterpriseNum":"AAA00512","thirdpartyUserId":"","userName":"黄鸾凤","xftUserId":"V01WO"},"terminal":"0","title":"黄鸾凤发起的定调薪审批","url":{}}';
   const task = new XftTaskEvent(content);
   await task.getWxUserId();
   await task.getMsgId();
+  await task.sendCard();
   // const record = await xftOAApiClient.getFormData(["FORM_255494674440257537"]);
-  await new BusinessTripEvent(task).process();
+  // await new BusinessTripEvent(task).process();
 };
 
 export const testJdyCreateTripCheckin = async () => {
@@ -163,86 +164,11 @@ export const testJdyCreateTripCheckin = async () => {
 };
 
 export const testJdyCreateTripCheckinSingle = async () => {
-  const msg = {
-    data: {
-      _id: "670c5f1604e34125c61cada5",
-      _widget_1708934717359: {},
-      _widget_1708934717360: [],
-      _widget_1708994681757: "2024-10-14T00:00:00.000Z",
-      _widget_1709084666146: {
-        _id: "5ca96e972503b18a670894ee",
-        name: "晋尚崇",
-        status: 1,
-        type: 0,
-        username: "JinShangChong",
-      },
-      _widget_1709084666149: {
-        _id: "64b657d6bea83252bee55b22",
-        dept_no: 212,
-        name: "售后部",
-        type: 0,
-      },
-      _widget_1709084666150: [],
-      _widget_1709084666154: "晋尚崇",
-      _widget_1709085088667: "",
-      _widget_1709085088670: "温州欧三秦科技有限公司",
-      _widget_1709085088671: "售后调试",
-      _widget_1709085088673: "",
-      _widget_1709085088674: "",
-      _widget_1709085088675: "",
-      _widget_1709085088676: "",
-      _widget_1709112718167: "温州欧三秦科技有限公司",
-      _widget_1709628384098: "",
-      _widget_1709628384106: "",
-      _widget_1709781056934: {},
-      _widget_1719704502364: "",
-      _widget_1719704502367: [
-        {
-          _id: "5cccf98264906b1ccb099262",
-          name: "田乃根",
-          status: 1,
-          type: 0,
-          username: "TianNaiGen",
-        },
-      ],
-      _widget_1719799732079: "",
-      _widget_1719799732080: "",
-      _widget_1719799732081: "",
-      _widget_1719799732082: "",
-      _widget_1728656241816: "2024-10-13T16:00:00.000Z",
-      _widget_1728663996210: "",
-      _widget_1728663996213: "1728864000399JinShangChong",
-      _widget_1728672400386: "已回公司",
-      appId: "5cfef4b5de0b2278b05c8380",
-      createTime: "2024-10-14T00:00:22.294Z",
-      creator: {
-        _id: "5c9dabe62503b18a678e0e36",
-        name: "精诚时代集团",
-        status: 1,
-        type: 0,
-        username: "#admin",
-      },
-      deleteTime: null,
-      deleter: null,
-      entryId: "65dc463c9b200f9b5e3b5851",
-      flowState: 1,
-      formName: "出差信息填报",
-      updateTime: "2024-10-14T00:00:48.571Z",
-      updater: {
-        _id: "5ca96e972503b18a670894ee",
-        name: "晋尚崇",
-        status: 1,
-        type: 0,
-        username: "JinShangChong",
-      },
-    },
-    op: "data_update",
-    opTime: 1728864048571,
-  };
+  const msg = null;
   // const msg = JSON.parse(item.msg);
-  if (msg?.op === "data_update") {
-    await controllerMethod(msg);
-  }
+  // if (msg?.op === "data_update") {
+  //   await controllerMethod(msg);
+  // }
 };
 
 export const testUpdateNextBusinessTrip = async () => {

@@ -28,7 +28,7 @@ export class GetFbtApply {
       for (const code of unexistApply) {
         const record = await GetFbtApply.getApplyDetail(code);
         const applyDb = await this._addToDB(record);
-        if (applyDb) await XftTripLog.importLogbyApply(applyDb).process();
+        // if (applyDb) await XftTripLog.importLogbyApply(applyDb).process();
       }
     } catch (error) {
       logger.error("Error fetching apply data:", error);

@@ -44,6 +44,8 @@ export class JdyTaskEvent {
       }
       await event.getMsgId();
       await event.disableButton();
+      if (!event.msgId && (event.status == 0 || event.status == 4))
+        await event.sendCard();
     }
   }
   private constructor(task) {
@@ -58,17 +60,11 @@ export class JdyTaskEvent {
     this.finish_action =
       {
         auto_approve: "去重审批",
-
         forward: "提交",
-
         back: "回退",
-
         close: "关闭",
-
         transfer: "转交",
-
         batch_forward: "批量提交",
-
         sign_after: "后加签",
       }?.[this.finish_action] ?? "";
   }

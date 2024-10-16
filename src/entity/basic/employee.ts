@@ -95,7 +95,7 @@ export class User extends BaseEntity {
 
   static async getUser_id(xft_enterprise_id: string): Promise<string> {
     const user = await User.findOne({
-      where: { xft_enterprise_id },
+      where: { xft_enterprise_id, is_employed: true },
     });
     if (user) {
       return user.user_id;

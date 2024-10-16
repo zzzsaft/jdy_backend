@@ -44,3 +44,23 @@ export const adjustToTimeNode = (
 export const formatDate = (date: Date) => {
   return format(date, "yyyy-MM-dd HH:mm");
 };
+
+export const getDate = (date: string, time: string, begin: boolean) => {
+  if (time == "AM" && begin) {
+    return new Date(date + "T00:00:00");
+  } else if (time == "AM" && !begin) {
+    return new Date(date + "T11:59:59");
+  } else if (time == "PM" && begin) {
+    return new Date(date + "T12:00:00");
+  } else if (time == "PM" && !begin) {
+    return new Date(date + "T23:59:00");
+  }
+  return new Date(date + "T" + time);
+};
+
+export const getDuration = (duration: string, unit: string) => {
+  if (unit == "DAY") {
+    return parseFloat(duration) * 24 * 60 * 60;
+  }
+  return parseFloat(duration) * 60 * 60;
+};

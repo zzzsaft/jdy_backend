@@ -75,11 +75,16 @@ import { parkingApiClient } from "./api/parking/app";
 // const a = await workflowApiClient.workflowInstanceGet(
 //   "670c27ca3f18ccc122114ddb"
 // );
+// await PgDataSource.initialize();
+// await testXftTrip();
+// await BusinessTripServices.scheduleCreate(new Date("2024-10-15"));
+
 // console.log(a);
 // await testJdyCreateTripCheckinSingle();
 // await JdyForm.updateForm();
 // await testXftTrip();
-// await PgDataSource.initialize();
+
+// testLoginUrl("YuYaSha");
 // await testJdyCreateTripCheckinSingle();
 // await BusinessTripCheckinServices.scheduleCreate();
 // await SendTripCheckin.createBatchTripCheckin();
@@ -121,9 +126,11 @@ import { JdyForm } from "./entity/util/jdy_form";
 import { workflowApiClient } from "./api/jdy/workflow";
 import {
   BusinessTripCheckinServices,
+  sendMessage,
   updateNextBusinessTrip,
 } from "./services/jdy/businessTripCheckinServices";
 import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
+import { BusinessTripServices } from "./services/xft/businessTripServices";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
