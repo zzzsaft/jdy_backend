@@ -58,6 +58,18 @@ function encrypt(plaintext: Buffer): string {
     .toString("base64");
 }
 
+export const testXftSSOLogin = async (request: Request, response: Response) => {
+  const 连接器ID = "223147993689554944";
+  const 连接流ID = "224943279282388992";
+  const XFT_HOST = `https://xft.cmbchina.com/xft-gateway/xft-login-new/xwapi/login/${连接器ID}_${连接流ID}`;
+  const userInfo = {
+    userid: "ceshi",
+    timestamp: Date.now(),
+  };
+  const secret = encrypt(Buffer.from(JSON.stringify(userInfo)));
+  response.redirect(`${XFT_HOST}?pageId=workbench&secret=${secret}`);
+};
+
 export const testLoginUrl = (userid, todoId: any = null) => {
   const 连接器ID = "223147993689554944";
   const 连接流ID = "224943279282388992";

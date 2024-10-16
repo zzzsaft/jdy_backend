@@ -8,7 +8,6 @@ import { JdyUtil } from "../../utils/jdyUtils";
 import { BusinessTrip } from "../../entity/atd/businessTrip";
 import { BusinessTripServices } from "../xft/businessTripServices";
 import { LessThanOrEqual, MoreThanOrEqual } from "typeorm";
-import { FbtApplyServices } from "../fbt/applyServies";
 
 export class BusinessTripCheckinServices {
   static async dataCreate(content) {
@@ -200,6 +199,7 @@ const startWorkFlow = async (data) => {
     options: { is_start_workflow: true },
   });
 };
+
 const startWorkFlowJ1 = async (data) => {
   return await jdyFormDataApiClient.singleDataCreate({
     app_id: "60e268ff3075400008bab4ad",
@@ -273,7 +273,7 @@ export const updateNextBusinessTrip = async (tripCheckin: XftTripCheckin) => {
     relations: ["city", "user"],
   });
   if (!fbtApply) return;
-  const timeSlot = await FbtApplyServices.createNonConflictingTimeSlot(
+  const timeSlot = await BusinessTripServices.createNonConflictingTimeSlot(
     fbtApply
   );
   if (!timeSlot)
