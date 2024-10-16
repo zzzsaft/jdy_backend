@@ -156,6 +156,37 @@ export class BusinessTripServices {
   }
 }
 
+const generateBusinessTrip = async (fbtApply: FbtApply) => {
+  const existBusinessTrip = await BusinessTrip.findOne({
+    where: { fbtRootId: fbtApply.root_id },
+  });
+  if (existBusinessTrip?.fbtCurrentId == fbtApply.id) return null;
+  const timeSlot = await BusinessTripServices.createNonConflictingTimeSlot(
+    fbtApply
+  );
+  let businessTrip = new BusinessTrip();
+  businessTrip.city = fbtApply.city.map((city) => city.name);
+  businessTrip.userId = fbtApply.proposerUserId;
+  businessTrip.fbtRootId = fbtApply.root_id;
+  businessTrip.fbtCurrentId = fbtApply.id;
+  businessTrip.create_time = fbtApply.create_time;
+  businessTrip.source = "分贝通";
+  businessTrip.start_time = timeSlot?.start_time ?? (null as any);
+  businessTrip.end_time = timeSlot?.end_time ?? (null as any);
+  businessTrip.reason = fbtApply.reason;
+  businessTrip.remark = fbtApply.remark;
+  if (!businessTrip.start_time || !businessTrip.end_time) {
+    businessTrip.err = `时间段为空${formatDate(
+      businessTrip.start_time
+    )} ${formatDate(businessTrip.end_time)}`;
+  }
+  if (existBusinessTrip) BusinessTrip.merge(businessTrip, existBusinessTrip);
+  businessTrip = await BusinessTrip.upsert(businessTrip, {
+    conflictPaths: ["fbtRootId"],
+    skipUpdateIfNoValuesChanged: true,
+  });
+};
+
 const _修改xft差旅记录 = async ({
   billId,
   changerNumber,
