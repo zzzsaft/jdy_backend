@@ -28,15 +28,17 @@ export class BusinessTripServices {
   static async 添加xft差旅记录(businessTrip: BusinessTrip, fbtApply: FbtApply) {
     if (!businessTrip || !fbtApply) return null;
     if (!businessTrip.start_time || !businessTrip.end_time) {
-      businessTrip.err = `时间段为空${fbtApply.start_time} ${fbtApply.end_time}`;
+      await businessTrip.save();
       return null;
     }
     if (!businessTrip.userId) {
       businessTrip.err = `userId为空`;
+      await businessTrip.save();
       return null;
     }
     if (fbtApply.city.length == 1 && fbtApply.city[0].name.includes("台州")) {
       businessTrip.err = "台州";
+      await businessTrip.save();
       return;
     }
     let applier = businessTrip.userId.slice(0, 20);
@@ -197,8 +199,8 @@ export class BusinessTripServices {
     businessTrip.remark = fbtApply.remark;
     if (!businessTrip.start_time || !businessTrip.end_time) {
       businessTrip.err = `时间段为空${formatDate(
-        businessTrip.start_time
-      )} ${formatDate(businessTrip.end_time)}`;
+        fbtApply.start_time
+      )} ${formatDate(fbtApply.end_time)}`;
     }
     if (existBusinessTrip) BusinessTrip.merge(businessTrip, existBusinessTrip);
     // await BusinessTrip.upsert(businessTrip, {

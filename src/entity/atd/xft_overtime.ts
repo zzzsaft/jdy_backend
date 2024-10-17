@@ -50,6 +50,10 @@ export class XftAtdOvertime extends BaseEntity {
   updated_at: Date;
 
   static async addRecord(record, detail) {
+    const exist = await XftAtdOvertime.findOne({
+      where: { serialNumber: record.serialNumber },
+    });
+    if (exist) return;
     let overtimeType = {
       "0": "工作日",
       "1": "休息日",

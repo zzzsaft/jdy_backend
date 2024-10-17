@@ -75,7 +75,8 @@ import { parkingApiClient } from "./api/parking/app";
 // const a = await workflowApiClient.workflowInstanceGet(
 //   "670c27ca3f18ccc122114ddb"
 // );
-// await PgDataSource.initialize();
+await PgDataSource.initialize();
+await BusinessTripServices.scheduleCreate();
 // await testXftTrip();
 // await BusinessTripServices.scheduleCreate(new Date("2024-10-15"));
 

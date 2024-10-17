@@ -10,10 +10,13 @@ import { BusinessTripServices } from "../xft/businessTripServices";
 import { LessThanOrEqual, MoreThanOrEqual } from "typeorm";
 import { JdyTaskEvent } from "./event";
 import { formatDate } from "../../utils/dateUtils";
+import { MessageHelper } from "../../api/wechat/message";
 
 export class BusinessTripCheckinServices {
   static async dataCreate(content) {
     const data = await jdyDatetoDb(content);
+    const fbtRootId = await sendNotice(data);
+    if (fbtRootId) data["fbtRootId"] = fbtRootId;
     const exist = await XftTripCheckin.exists({ where: { jdyId: data.jdyId } });
     if (exist) return;
     await XftTripCheckin.create({ ...data }).save();
@@ -299,8 +302,8 @@ export const updateNextBusinessTrip = async (tripCheckin: XftTripCheckin) => {
   }
 };
 
-export const sendMessage = async (content) => {
-  const data = await jdyDatetoDb(content["data"]);
+export const sendMessage = async (data) => {
+  // const data = await jdyDatetoDb(content["data"]);
   const horizontal_content_list = [
     {
       keyname: "应打卡时间",
@@ -334,4 +337,27 @@ export const sendMessage = async (content) => {
       value: data?.customer,
     },
   ]);
+};
+
+const sendNotice = async (data) => {
+  const checkinDate = data?.checkinDate;
+  if (data?.type != "出差打卡" || !checkinDate) return;
+  const exist = await BusinessTrip.findOne({
+    where: {
+      userId: data.userId,
+      start_time: LessThanOrEqual(checkinDate),
+      end_time: MoreThanOrEqual(checkinDate),
+    },
+  });
+  if (exist) return exist.fbtRootId;
+  await new MessageHelper([data.userId]).send_plain_text(
+    `未找到${format(data.checkinDate, "yyyy-MM-dd")}拜访${
+      data.customer
+    }的差旅记录，请点击右下方选择分贝通或薪福通（进出口及精一）进行差旅申请，否则将影响您的考勤、报销、与差旅补贴。`
+  );
+  await new MessageHelper(["ZhengJie", "LiangZhi"]).send_plain_text(
+    `未找到${data.name}${format(data.checkinDate, "yyyy-MM-dd")}拜访${
+      data.customer
+    }的差旅记录，请及时提醒进行申请办理。`
+  );
 };

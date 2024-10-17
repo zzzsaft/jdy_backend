@@ -61,6 +61,10 @@ export class XftAtdLeave extends BaseEntity {
   updated_at: Date;
 
   static async addRecord(record) {
+    const exist = await XftAtdLeave.findOne({
+      where: { leaveRecSeq: parseInt(record.leaveRecSeq) },
+    });
+    if (exist) return;
     let weekdays = 0;
     try {
       weekdays = record.leaveDtlDtos.filter(
