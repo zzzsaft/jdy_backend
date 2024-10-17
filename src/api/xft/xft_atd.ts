@@ -20,6 +20,29 @@ export type importAtd = {
   importNum: number;
 };
 
+type RealTimeAttendanceStaQuery = {
+  scheduleClass?: "0" | "1"; // 0-全部 1-已出勤 2-未出勤
+  scheduleRest?: "0" | "1"; // 0-全部 1-已出勤 2-休息
+  noScheduleClass?: "0" | "1"; // 0-全部
+  freeTime?: "0" | "1"; // 0-全部 1-自由工时
+  clock?: "0"; // 0-全部
+};
+
+type RealTimeAttendanceBizQuery = {
+  atdBiz?: "1" | "2" | "3" | "4"; // 1-请假 2-加班 3-外出 4-出差
+  atdAbnormal?: "1" | "2" | "3" | "4" | "5" | "6"; // 1-迟到 2-早退 3-缺卡 4-加班超时 5-加班未完成 6-加班未报销
+};
+
+type AttendanceRequest = {
+  attendanceDate: string; // 考勤日期 (格式: yyyy-MM-dd)
+  staffNameOrNumber?: string; // 姓名或者员工工号
+  organizationSeq?: string; // 部门号
+  atdGroupSeq?: string; // 考勤组号
+  classSeq?: string; // 班次号
+  realTimeAttendanceStaQuery?: RealTimeAttendanceStaQuery; // 统计区域
+  realTimeAttendanceBizQuery?: RealTimeAttendanceBizQuery; // 业务区域
+};
+
 class XFTAttendanceApiClient {
   async importAtd(payload: importAtd[]) {
     const chunkedList = _.chunk(payload, 900);
@@ -240,5 +263,30 @@ class XFTAttendanceApiClient {
     // 返回最近两个月的周六总数量
     return saturdaysOfLastMonth.length + saturdaysOfThisMonth.length;
   };
+  async getRealTimeAtd(payload: AttendanceRequest) {
+    return await appApiClient.doRequest(
+      {
+        method: "POST",
+        path: "/atd/prd/xft-atn/realtime-attendance/open-api-query",
+        payload,
+      },
+      "U0000"
+    );
+  }
+  /**
+   * 考勤类型 1-固定班 2-排班 3-自由工时
+   * @param payload
+   * @returns {body:[{attendanceGroupBaseInfoDtoList:{groupName,groupSeq}}]}
+   */
+  async getAttendanceGroup(payload: { groupType: string }) {
+    return await appApiClient.doRequest(
+      {
+        method: "POST",
+        path: "/atd/prd/xft-atn/attendance-group/query",
+        payload,
+      },
+      "U0000"
+    );
+  }
 }
 export const xftatdApiClient = new XFTAttendanceApiClient();
