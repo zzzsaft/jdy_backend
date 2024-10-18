@@ -1,4 +1,4 @@
-import { endOfDay, format, startOfDay, startOfMonth } from "date-fns";
+import { endOfDay, format, isBefore, startOfDay, startOfMonth } from "date-fns";
 import { xftItripApiClient } from "../../api/xft/xft_itrip";
 import {
   adjustToTimeNode,
@@ -10,6 +10,7 @@ import { XftCity } from "../../entity/util/xft_city";
 import { FbtApply } from "../../entity/atd/fbt_trip_apply";
 import { MessageHelper } from "../../api/wechat/message";
 import { Between } from "typeorm";
+import _ from "lodash";
 
 export class BusinessTripServices {
   static async scheduleCreate(date: Date = new Date()) {
@@ -81,7 +82,8 @@ export class BusinessTripServices {
     businessTrip: BusinessTrip,
     fbtApply: FbtApply,
     start_time: Date,
-    end_time: Date
+    end_time: Date,
+    companion: string[] = []
   ) {
     if (!businessTrip || !fbtApply) return null;
     if (!businessTrip.xftBillId) return null;
@@ -99,6 +101,7 @@ export class BusinessTripServices {
       destinationCityCode,
       start_time: adjustToTimeNode(start_time, true),
       end_time: adjustToTimeNode(end_time, true),
+      peerEmpNumbers: companion.map((user) => user.slice(0, 20)),
     });
     if (!businessTrip.reviseLogs) businessTrip.reviseLogs = [];
     let log = `原始时间${formatDate(businessTrip.start_time)} ${formatDate(
@@ -177,9 +180,10 @@ export class BusinessTripServices {
     });
     if (
       existBusinessTrip &&
-      (existBusinessTrip.fbtCurrentId == fbtApply.id ||
-        existBusinessTrip.create_time.getTime() <=
-          fbtApply.create_time.getTime())
+      existBusinessTrip.fbtCurrentId == fbtApply.id
+      // ||
+      // existBusinessTrip.create_time.getTime() <=
+      //   fbtApply.create_time.getTime()
     ) {
       return null;
     }
@@ -197,12 +201,20 @@ export class BusinessTripServices {
     businessTrip.end_time = timeSlot?.end_time ?? (null as any);
     businessTrip.reason = fbtApply.reason;
     businessTrip.remark = fbtApply.remark;
+    businessTrip.companion = fbtApply.user
+      .map((user) => user.userId)
+      .filter((user) => user != fbtApply.proposerUserId);
+
+    if (
+      existBusinessTrip &&
+      existBusinessTrip.reviseLogs.some((str) => str.includes("已回公司"))
+    )
+      businessTrip.end_time = existBusinessTrip.end_time;
     if (!businessTrip.start_time || !businessTrip.end_time) {
       businessTrip.err = `时间段为空${formatDate(
         fbtApply.start_time
       )} ${formatDate(fbtApply.end_time)}`;
     }
-    if (existBusinessTrip) BusinessTrip.merge(businessTrip, existBusinessTrip);
     // await BusinessTrip.upsert(businessTrip, {
     //   conflictPaths: ["fbtRootId"],
     //   skipUpdateIfNoValuesChanged: true,
@@ -212,10 +224,12 @@ export class BusinessTripServices {
     } else if (
       businessTrip.start_time.getTime() !=
         existBusinessTrip.start_time.getTime() ||
-      businessTrip.end_time.getTime() != existBusinessTrip.end_time.getTime()
+      businessTrip.end_time.getTime() != existBusinessTrip.end_time.getTime() ||
+      !_.isEqual(businessTrip.companion, existBusinessTrip.companion)
     ) {
+      BusinessTrip.merge(existBusinessTrip, businessTrip);
       await BusinessTripServices.修改xft差旅记录(
-        businessTrip,
+        existBusinessTrip,
         fbtApply,
         businessTrip.start_time,
         businessTrip.end_time
@@ -232,11 +246,21 @@ const _修改xft差旅记录 = async ({
   start_time,
   end_time,
   changeReason = "1",
+  peerEmpNumbers = [],
+}: {
+  billId: string;
+  changerNumber: string;
+  departCityCode: any;
+  destinationCityCode: any;
+  start_time: Date;
+  end_time: Date;
+  changeReason?: string;
+  peerEmpNumbers?: string[]; // 参数的类型标注为 string[]
 }) => {
   const result = await xftItripApiClient.updateApplyTravel({
     billId,
     changerNumber,
-    // peerEmpNumbers: [],
+    peerEmpNumbers,
     changeReason,
     changeInfo: {
       businessTrip: {

@@ -43,6 +43,13 @@ export class BusinessTripCheckinServices {
     });
     for (const item of logTripSync) {
       await BusinessTripCheckinServices.createTripCheckin(item, date);
+      if (item.companion.length > 0) {
+        for (const companion of item.companion) {
+          const newItem = BusinessTrip.create(item);
+          newItem.userId = companion;
+          await BusinessTripCheckinServices.createTripCheckin(newItem, date);
+        }
+      }
     }
   }
   static async createTripCheckin(

@@ -77,8 +77,16 @@ import { parkingApiClient } from "./api/parking/app";
 // );
 // await BusinessTripServices.scheduleCreate();
 // await testXftTrip();
+
 await PgDataSource.initialize();
-await testaaaaa();
+// const a = await FbtApply.findOne({
+//   where: { id: "6709fa135e3eaa103beaccc5" },
+//   relations: ["city", "user"],
+// });
+// if (a) {
+//   await BusinessTripServices.createBusinessTrip(a);
+// }
+// await 测试补卡记录();
 // const record = await xftatdApiClient.getOvertimeRecord("0000003133");
 // console.log();
 // await BusinessTripServices.scheduleCreate(new Date("2024-10-15"));

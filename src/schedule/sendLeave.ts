@@ -135,7 +135,7 @@ interface DateRange {
 
 export const proceedLeave = async (optionIds, config, user) => {
   let flag = false;
-  if (optionIds.length * 2 > config["quota"]) {
+  if (optionIds.length / 2 > config["quota"]) {
     new MessageHelper([user]).send_plain_text(
       "您选择的日期范围超过了剩余的轮休假天数，请重新选择。"
     );

@@ -50,17 +50,26 @@ const xftLeave = async (msg, key, user, msgId: WechatMessage) => {
   }
 };
 const a = {
-  // xml: {
   ToUserName: { value: "wwd56c5091f4258911" },
   FromUserName: { value: "LiangJi" },
-  CreateTime: { value: "1729241885" },
   MsgType: { value: "event" },
+  Event: { value: "template_card_event" },
+  CreateTime: { value: "1729241783" },
   AgentID: { value: "1000061" },
-  Event: { value: "LOCATION" },
-  Latitude: { value: "28.6498" },
-  Longitude: { value: "121.209" },
-  Precision: { value: "4" },
-  AppType: { value: "wxwork" },
-  // },
+  EventKey: {
+    value:
+      '{"stfSeq":"0000000009","stfName":"梁骥","orgSeq":"0072","stfNumber":"LiangJi","lveUnit":"DAY","lveType":"CUST16","quota":3}',
+  },
+  TaskId: { value: "ee44ce3d-621f-4e28-8755-e2276b1027df" },
+  CardType: { value: "vote_interaction" },
+  SelectedItems: {
+    SelectedItem: {
+      QuestionKey: { value: "leave" },
+      OptionIds: {
+        OptionId: [{ value: "2024-10-20/AM" }, { value: "2024-10-20/PM" }],
+      },
+    },
+  },
+  ResponseCode: { value: "Am0jw1GYXWn8sRjyUszT71F_WkNe1tIG3I9GAzxK7P4" },
 };
 export const testaaaaa = async () => await handleMessageEvent(a);

@@ -46,6 +46,9 @@ export class BusinessTrip extends BaseEntity {
   @Column({ type: "jsonb", nullable: true })
   city: string[];
 
+  @Column({ type: "jsonb", nullable: true })
+  companion: string[];
+
   @Column({ nullable: true })
   source: string;
 

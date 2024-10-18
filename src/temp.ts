@@ -17,6 +17,7 @@ import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
 import { LogExpress } from "./entity/log/log_express";
 import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
 import { updateNextBusinessTrip } from "./services/jdy/businessTripCheckinServices";
+import { LeaveEvent } from "./controllers/xft/atd/leave.atd.xft.controller";
 export const 获取空缺请假记录 = async () => {
   const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
     .select("leave.leaveRecSeq")
@@ -51,35 +52,35 @@ export const 测试补卡记录 = async () => {
     appName: "OA审批",
     businessCode: "OA000001",
     businessName: "待审批通知",
-    businessParam: "MUC_xft-hrm_COM_AAA00512_0000000131",
-    createTime: "2024-10-06 13:29:51",
+    businessParam: "HOL_xft-hrm_COM_AAA00512_1000006725",
+    createTime: "2024-10-18 20:58:55",
     dealStatus: "0",
     details:
-      "【杨兴旺】发起了【补卡】申请，流程类型：补卡，申请人：杨兴旺，申请时间：2024-10-05 20:00:00，班次信息：精一生产人员白班:08:00-16:50，补卡原因：补卡，请您尽快审批，发起时间：2024-10-06 13:29:50。",
-    id: "TD1842799406589648897",
-    processId: "1108765946",
+      "【王旭】发起了【请假】申请，流程类型：请假，申请人：王旭，请假类型：轮休假，起止时间：2024-10-20 上午-2024-10-20 下午，请假时长：1天，请假原因：，请您尽快审批，发起时间：2024-10-18 20:58:54。",
+    id: "TD1847261072507420673",
+    processId: "1145419506",
     processStatus: "0",
     receiver: {
       enterpriseNum: "AAA00512",
       thirdpartyUserId: "",
-      userName: "辛钊",
-      xftUserId: "U0000",
+      userName: "沈海潮",
+      xftUserId: "V001A",
     },
-    sendTime: "2024-10-06T13:29:50",
+    sendTime: "2024-10-18T20:58:54",
     sendUser: {
       enterpriseNum: "AAA00512",
       thirdpartyUserId: "",
-      userName: "杨兴旺",
-      xftUserId: "U0000",
+      userName: "王旭",
+      xftUserId: "V001K",
     },
     terminal: "0",
-    title: "杨兴旺发起的补卡",
+    title: "王旭发起的请假",
     url: {},
   };
   const task = new XftTaskEvent(JSON.stringify(record));
   await task.getWxUserId();
   await task.getMsgId();
-  await new ReissueEvent(task).process();
+  await new LeaveEvent(task).process();
 };
 
 export const 导入分贝通人员id = async () => {

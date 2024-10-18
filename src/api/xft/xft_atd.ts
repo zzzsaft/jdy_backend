@@ -168,11 +168,12 @@ class XFTAttendanceApiClient {
     return { total: 5, left: currentMonthLeft - quotaThisMonth?.["usedBal"] };
   }
   async getSingleDayOffQuotaLeftByUserId(userid: string) {
-    const quota = await xftatdApiClient.getQuota(
+    let quota = await xftatdApiClient.getQuota(
       format(startOfMonth(subMonths(new Date(), 1)), "yyyy-MM-dd"),
       format(endOfMonth(new Date()), "yyyy-MM-dd"),
       userid
     );
+    quota = quota.filter((item) => item.stfNumber == userid);
     return this.getSingleDayOffQuotaLeft(quota);
   }
   async getAllSingleDayOffQuotaLeft() {
