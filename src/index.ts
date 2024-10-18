@@ -20,8 +20,8 @@ PgDataSource.initialize()
     const port = parseInt(process.env.PORT ?? "2002");
     app.use(cors());
     app.use(autoParse);
-    app.use(expressLog);
     app.use(requestLimiter);
+    app.use(expressLog);
     // register all application routes
     AppRoutes.forEach((route) => {
       app[route.method](

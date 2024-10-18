@@ -14,7 +14,7 @@ const customFormat = winston.format.printf(({ level, message, timestamp }) => {
 export const logger = winston.createLogger({
   exitOnError: false,
   level: "info",
-  format: winston.format.combine(winston.format.timestamp(), customFormat),
+  format: winston.format.combine(customFormat),
   transports: [
     new winston.transports.Console(),
     new winston.transports.File({ filename: "error.log", level: "error" }),

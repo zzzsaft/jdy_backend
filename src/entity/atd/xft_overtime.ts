@@ -30,6 +30,8 @@ export class XftAtdOvertime extends BaseEntity {
   begDate: Date;
   @Column()
   endDate: Date;
+  @Column()
+  overtimeDate: Date;
   @Column({ nullable: true })
   remark: string;
   @Column()
@@ -50,10 +52,6 @@ export class XftAtdOvertime extends BaseEntity {
   updated_at: Date;
 
   static async addRecord(record, detail) {
-    const exist = await XftAtdOvertime.findOne({
-      where: { serialNumber: record.serialNumber },
-    });
-    if (exist) return;
     let overtimeType = {
       "0": "工作日",
       "1": "休息日",
@@ -66,6 +64,7 @@ export class XftAtdOvertime extends BaseEntity {
     const overtime = {
       ...record,
       ...detail,
+      serialNumber: record.serialNumber,
       stfSeq: record.staffSeq,
       stfName,
       userId,

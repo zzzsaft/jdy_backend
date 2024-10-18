@@ -28,13 +28,14 @@ export const expressLog = async (req, res, next) => {
 };
 
 export const requestLimiter = rateLimit({
-  windowMs: 1000, // 时间窗口为 1 秒
+  windowMs: 5000, // 时间窗口为 1 秒
   max: 1, // 每个IP+请求体在 1 秒内最多允许 1 次请求
   keyGenerator: (req: Request) => {
     // 基于 IP 和请求体生成唯一键
     return `${req.ip}-${JSON.stringify(req.body)}`;
   },
   handler: (req: Request, res: Response) => {
+    console.log("Too many requests, please try again later.");
     res
       .status(200)
       .json({ message: "Too many requests, please try again later." });

@@ -1,7 +1,8 @@
-import { format } from "date-fns";
+import { format, isBefore } from "date-fns";
 import { XftTaskEvent } from "../todo.xft.controller";
 import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
 import { xftatdApiClient } from "../../../api/xft/xft_atd";
+import { xftOAApiClient } from "../../../api/xft/xft_oa";
 
 export class OvertimeEvent {
   task: XftTaskEvent;
@@ -14,6 +15,7 @@ export class OvertimeEvent {
   overtimeLen: number;
   durationUnit: string;
   overtimeType: string;
+  overtimeDate: string;
 
   constructor(task: XftTaskEvent) {
     this.task = task;
@@ -21,6 +23,7 @@ export class OvertimeEvent {
 
   async process() {
     await this.getRecord();
+    if (await this.rejectOA()) return;
     if (this.task.dealStatus == "1") {
       await this.sendNotice(this.stfNumber);
     } else if (this.task.dealStatus == "0") {
@@ -72,15 +75,25 @@ export class OvertimeEvent {
     );
   };
 
-  // passOA = async () => {
-  //   const operate = await xftOAApiClient.operate(
-  //     this.task.operateConfig("pass")
-  //   );
-  // };
+  rejectOA = async () => {
+    if (isBefore(new Date(this.beginDate), new Date(this.overtimeDate))) {
+      const operate = await xftOAApiClient.operate(
+        this.task.operateConfig("reject")
+      );
+      this.task.status = "已驳回";
+      this.task.horizontal_content_list.push({
+        keyname: "驳回原因",
+        value: `您申请的加班日期为${this.overtimeDate},加班开始时间为${this.beginDate} ${this.beginTime},请注意加班时间应选择当日，如果确定加班时间为昨日，请联系HR添加。`,
+      });
+      await this.sendNotice(this.stfNumber);
+      return true;
+    }
+    return false;
+  };
 
-  rejectOA = async () => {};
+  // rejectOA = async () => {};
 
-  sendNotice = async (userid: string, status = this.task.status) => {
+  sendNotice = async (userid: string = "", status = this.task.status) => {
     let userids = Array.from(new Set([userid, this.task.sendUserId]));
     await this.task.sendNotice(
       userids,

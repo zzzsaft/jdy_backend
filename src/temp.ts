@@ -18,32 +18,37 @@ import { LogExpress } from "./entity/log/log_express";
 import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
 import { updateNextBusinessTrip } from "./services/jdy/businessTripCheckinServices";
 import { LeaveEvent } from "./controllers/xft/atd/leave.atd.xft.controller";
+import { XftAtdOvertime } from "./entity/atd/xft_overtime";
 export const 获取空缺请假记录 = async () => {
-  const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
-    .select("leave.leaveRecSeq")
-    .orderBy("leave.leaveRecSeq", "ASC")
-    .getRawMany();
+  // const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
+  //   .select("leave.leaveRecSeq")
+  //   .orderBy("leave.leaveRecSeq", "ASC")
+  //   .getRawMany();
 
-  // 提取 leaveRecSeq 数字
-  const leaveRecSeqArray = leaveRecSeqs.map((item) =>
-    parseInt(item.leave_leaveRecSeq)
-  );
+  // // 提取 leaveRecSeq 数字
+  // const leaveRecSeqArray = leaveRecSeqs.map((item) =>
+  //   parseInt(item.leave_leaveRecSeq)
+  // );
 
-  const minSeq = _.min(leaveRecSeqArray) || 1000000000; // 获取最小值，或者指定起始值
-  const maxSeq = _.max(leaveRecSeqArray) || 1000000000; // 获取最大值
+  // const minSeq = _.min(leaveRecSeqArray) || 1000000000; // 获取最小值，或者指定起始值
+  // const maxSeq = _.max(leaveRecSeqArray) || 1000000000; // 获取最大值
 
   // 创建一个完整的范围数组
-  const fullRange = _.range(1000005600, 1000005684 + 1);
+  // const fullRange = _.range(3703, 3880);
+  const fullRange = _.range(2695, 3705);
 
   // 找出缺失的数字
-  const missingLeaveRecSeqs = _.difference(fullRange, leaveRecSeqArray);
-  for (const i of missingLeaveRecSeqs) {
-    const rRecord = await xftatdApiClient.getLeaveRecord(i.toString());
+  // const missingLeaveRecSeqs = _.difference(fullRange, leaveRecSeqArray);
+  for (const i of fullRange) {
+    const rRecord = await xftatdApiClient.getOvertimeRecord(`000000${i}`);
     if (rRecord["returnCode"] == "SUC0000")
-      await XftAtdLeave.addRecord(rRecord["body"]);
+      await XftAtdOvertime.addRecord(
+        rRecord["body"]["recordResponseDto"],
+        rRecord["body"]["detailResponseDto"]
+      );
     await sleep(10);
   }
-  console.log(missingLeaveRecSeqs);
+  console.log(fullRange);
 };
 
 export const 测试补卡记录 = async () => {
