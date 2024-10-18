@@ -33,9 +33,15 @@ const xftLeave = async (msg, key, user, msgId: WechatMessage) => {
   const selectedItem = msg?.["SelectedItems"]?.["SelectedItem"];
   const questionKey = selectedItem?.["QuestionKey"]?.["value"];
   if (questionKey != "leave") return;
-  const optionIds = selectedItem?.["OptionIds"]?.["OptionId"].map(
-    (optionId) => optionId["value"]
-  );
+  const OptionId = selectedItem?.["OptionIds"]?.["OptionId"];
+  // .map(
+  //   (optionId) => optionId["value"]
+  // );
+  const optionIds = Array.isArray(OptionId)
+    ? OptionId.map((optionId) => optionId["value"]) // 如果是数组，使用 map
+    : OptionId?.["value"]
+    ? [OptionId["value"]]
+    : []; // 如果是对象，取出 value 并放入数组
   const config = JSON.parse(key);
   let flag = await proceedLeave(optionIds, config, user);
   if (flag) {
@@ -44,26 +50,17 @@ const xftLeave = async (msg, key, user, msgId: WechatMessage) => {
   }
 };
 const a = {
+  // xml: {
   ToUserName: { value: "wwd56c5091f4258911" },
-  FromUserName: { value: "LiangZhi" },
+  FromUserName: { value: "LiangJi" },
+  CreateTime: { value: "1729241885" },
   MsgType: { value: "event" },
-  Event: { value: "template_card_event" },
-  CreateTime: { value: "1727802657" },
   AgentID: { value: "1000061" },
-  EventKey: {
-    value:
-      '{"stfSeq":"0000000001","stfName":"梁之","orgSeq":"0085","stfNumber":"LiangZhi","lveUnit":"DAY","lveType":"CUST16","quota":5}',
-  },
-  TaskId: { value: "a301aaf6-429a-49af-bb77-63b1603384fb" },
-  CardType: { value: "vote_interaction" },
-  SelectedItems: {
-    SelectedItem: {
-      QuestionKey: { value: "leave" },
-      OptionIds: {
-        OptionId: [{ value: "2024-10-06/AM" }, { value: "2024-10-06/PM" }],
-      },
-    },
-  },
-  ResponseCode: { value: "O_UsvgZL8ryPuVekBcBGYsntInlFyVAWMGMSDJjPZFo" },
+  Event: { value: "LOCATION" },
+  Latitude: { value: "28.6498" },
+  Longitude: { value: "121.209" },
+  Precision: { value: "4" },
+  AppType: { value: "wxwork" },
+  // },
 };
 export const testaaaaa = async () => await handleMessageEvent(a);

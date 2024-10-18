@@ -80,7 +80,11 @@ export class XftAtdOvertime extends BaseEntity {
         detail.durationUnit
       ),
     };
-    await XftAtdOvertime.create(overtime).save();
+    // await XftAtdOvertime.create(overtime).save();
+    await XftAtdOvertime.upsert(XftAtdOvertime.create(overtime), {
+      conflictPaths: ["serialNumber"],
+      skipUpdateIfNoValuesChanged: true,
+    });
   }
 }
 

@@ -75,9 +75,12 @@ import { parkingApiClient } from "./api/parking/app";
 // const a = await workflowApiClient.workflowInstanceGet(
 //   "670c27ca3f18ccc122114ddb"
 // );
-// await PgDataSource.initialize();
 // await BusinessTripServices.scheduleCreate();
 // await testXftTrip();
+await PgDataSource.initialize();
+await testaaaaa();
+// const record = await xftatdApiClient.getOvertimeRecord("0000003133");
+// console.log();
 // await BusinessTripServices.scheduleCreate(new Date("2024-10-15"));
 // await 获取未排班人员();
 // console.log(a);
