@@ -9,8 +9,8 @@ import {
   Unique,
 } from "typeorm";
 
-@Entity({ name: "util_form_widget", schema: "jdy" })
-// @Unique(["app_id", "entry_id",'name'])
+@Entity({ name: "form_widget", schema: "jdy" })
+@Unique(["app_id", "entry_id", "name"])
 export class JdyWidget extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
@@ -27,11 +27,21 @@ export class JdyWidget extends BaseEntity {
   @Column()
   type: string;
   @Column()
-  is_delete: boolean;
+  is_delete: boolean = false;
+  @Column({ nullable: true })
+  jdy_id: string;
   @ManyToOne(() => JdyWidget, (widget) => widget.subforms, { nullable: true })
   parent: JdyWidget | null;
   @OneToMany(() => JdyWidget, (widget) => widget.parent)
   subforms: JdyWidget[];
+
+  // Function to find existing widget
+  static findWidget(
+    existingWidgets: JdyWidget[],
+    widgetName: string
+  ): JdyWidget | undefined {
+    return existingWidgets.find((widget) => widget.name === widgetName);
+  }
 
   static async insertWidgets(appId: string, entryId: string, widgets: any[]) {
     const existingWidgets = await JdyWidget.find({
@@ -40,7 +50,8 @@ export class JdyWidget extends BaseEntity {
     });
 
     // Mark existing widgets as deleted if not found in the new set
-    await JdyWidget.markMissingWidgets(existingWidgets, widgets);
+    const widgetsToSave = [];
+    await JdyWidget.markMissingWidgets(existingWidgets, widgets, widgetsToSave);
 
     // Insert or update widgets
     for (const widgetData of widgets) {
@@ -52,7 +63,8 @@ export class JdyWidget extends BaseEntity {
         appId,
         entryId,
         widgetData,
-        existWidget
+        existWidget,
+        widgetsToSave
       );
 
       // Handle subforms if they exist
@@ -61,73 +73,79 @@ export class JdyWidget extends BaseEntity {
           appId,
           entryId,
           widget,
-          widgetData.items
+          widgetData.items,
+          widgetsToSave
         );
       }
+    }
+
+    // Batch save all accumulated widgets at once
+    if (widgetsToSave.length > 0) {
+      await JdyWidget.save(widgetsToSave);
     }
   }
 
   // Function to mark missing widgets as deleted
   static async markMissingWidgets(
     existingWidgets: JdyWidget[],
-    widgets: any[]
+    widgets: any[],
+    widgetsToSave: JdyWidget[]
   ) {
     for (const existWidget of existingWidgets) {
       const isPresent = widgets.find((w) => w.name === existWidget.name);
       if (!isPresent && !existWidget.is_delete) {
         existWidget.is_delete = true;
-        await JdyWidget.save(existWidget);
+        widgetsToSave.push(existWidget); // Accumulate the widget to save later
       }
     }
   }
 
-  // Function to find existing widget
-  static findWidget(
-    existingWidgets: JdyWidget[],
-    widgetName: string
-  ): JdyWidget | undefined {
-    return existingWidgets.find((widget) => widget.name === widgetName);
-  }
-
-  // Function to insert or update a widget
+  // Function to insert or update a widget and accumulate for batch saving
   static async insertOrUpdateWidget(
     appId: string,
     entryId: string,
     widgetData: any,
-    existWidget: JdyWidget | undefined
+    existWidget: JdyWidget | undefined,
+    widgetsToSave: JdyWidget[]
   ) {
     if (existWidget) {
       existWidget.is_delete = false; // Restore if it was marked as deleted
-      return await JdyWidget.save(existWidget);
+      widgetsToSave.push(existWidget); // Accumulate the widget to save later
+      return existWidget;
     }
 
-    // Create new widget if it doesn't exist
-    return await JdyWidget.insertWidget(appId, entryId, widgetData);
+    // Create new widget if it doesn't exist and accumulate for batch saving
+    const newWidget = await JdyWidget.createWidget(appId, entryId, widgetData);
+    widgetsToSave.push(newWidget); // Accumulate the widget to save later
+    return newWidget;
   }
 
-  // Function to handle subforms
+  // Function to handle subforms and accumulate for batch saving
   static async insertSubforms(
     appId: string,
     entryId: string,
     parentWidget: JdyWidget,
-    subformWidgets: any[]
+    subformWidgets: any[],
+    widgetsToSave: JdyWidget[]
   ) {
     for (const subformWidget of subformWidgets) {
-      const existSubform = parentWidget.subforms.find(
+      const existSubform = parentWidget.subforms?.find(
         (subform) => subform.name === subformWidget.name
       );
       if (!existSubform) {
-        await JdyWidget.insertWidget(
+        const newSubform = await JdyWidget.createWidget(
           appId,
           entryId,
           subformWidget,
           parentWidget
         );
+        widgetsToSave.push(newSubform); // Accumulate the subform widget to save later
       }
     }
   }
 
-  static async insertWidget(
+  // Function to create a widget (used in place of save)
+  static async createWidget(
     appId: string,
     entryId: string,
     widgetData: any,
@@ -144,6 +162,6 @@ export class JdyWidget extends BaseEntity {
     widget.type = type;
     widget.parent = parent; // Set parent widget
 
-    return await JdyWidget.save(widget);
+    return widget;
   }
 }

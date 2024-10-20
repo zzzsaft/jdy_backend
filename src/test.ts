@@ -14,12 +14,6 @@ import {
   isSaturday,
 } from "date-fns";
 import { xftOAApiClient } from "./api/xft/xft_oa";
-// // import { contactApiClient } from "./utils/wechat/contact";
-// // import { createUser } from "./controllers/wechat/contact.wechat.controller";
-// // import { addEmployeeToXft } from "./controllers/jdy/addPerson.controller";
-// // import { xftUserApiClient } from "./utils/xft/xft_user";
-
-// import { importJdyToXft } from "./utils/xft/temp";
 import { xftatdApiClient } from "./api/xft/xft_atd";
 import { importErrorAtd } from "./schedule/getCheckinData";
 import { LogExpress } from "./entity/log/log_express";
@@ -79,6 +73,8 @@ import { parkingApiClient } from "./api/parking/app";
 // await testXftTrip();
 // await parkingApiClient.getCarById("1846020091524780033");
 // await PgDataSource.initialize();
+// await BusinessTripServices.scheduleCreate(new Date("2024-10-18"));
+// await insertWidgets("5cfef4b5de0b2278b05c8380", "67037803a6ba29ba0521efb2");
 // await BusinessTripCheckinServices.scheduleCreate();
 // await 获取空缺请假记录();
 // const a = await FbtApply.findOne({
@@ -146,6 +142,7 @@ import {
 import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
 import { BusinessTripServices } from "./services/xft/businessTripServices";
 import { 获取未排班人员 } from "./services/xft/checkinServices";
+import { insertWidgets } from "./services/jdy/formServices";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";

@@ -20,7 +20,14 @@ import { Checkin } from "../entity/atd/checkin";
 class GetCheckinData {
   twoDaysInSeconds = 2 * 24 * 60 * 60;
   constructor() {}
-
+  addWangChao = async () => {
+    const raw_checkin_data = await checkinApiClient.getHardwareCheckinData(
+      ["WangChao"],
+      new Date("2024-10-01"),
+      new Date()
+    );
+    const err = await this.insertToXFT(raw_checkin_data);
+  };
   getNextRawCheckinData = async () => {
     let err: any[] = [];
     const userList = (await jctimesApiClient.getUserLists()).map(
@@ -326,7 +333,7 @@ export const importErrorAtd = async () => {
     if (res.staffNumber == "KangYingXiang") res.staffName = "亢应祥";
     if (res.staffNumber == "XuLai") res.staffName = "孔令街";
     if (res.staffNumber == "MouYongChu") res.staffName = "牟永初";
-    if (res.staffNumber == "WangJian") res.staffName = "五轴王剑";
+    if (res.staffNumber == "WangJian") res.staffName = "王剑";
     if (res.staffNumber == "WangJian01") res.staffName = "王剑";
     if (res.staffNumber == "HeJie2") res.staffName = "何杰";
   });

@@ -25,10 +25,6 @@ const checkinDateSchedule = cron.schedule("0,15,30,45 * * * *", async () => {
 
 //每过15分钟触发任务
 const fbtApplySchedule = cron.schedule("5,20,35,50 * * * *", async () => {
-  const hour = new Date().getHours();
-  if (hour < 8 || hour > 20) {
-    return;
-  }
   await new GetFbtApply().getApply();
   await BusinessTripServices.scheduleCreate();
 });

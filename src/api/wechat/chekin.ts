@@ -36,8 +36,8 @@ class CheckinApiClient extends ApiClient {
 
       // 添加当前区间
       intervals.push([
-        currentStartDate.getTime() / 1000,
-        currentEndDate.getTime() / 1000,
+        Math.floor(currentStartDate.getTime() / 1000),
+        Math.floor(currentEndDate.getTime() / 1000),
       ]);
 
       // 下一个区间的开始日期为当前结束日期

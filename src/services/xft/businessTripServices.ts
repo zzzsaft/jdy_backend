@@ -207,7 +207,7 @@ export class BusinessTripServices {
 
     if (
       existBusinessTrip &&
-      existBusinessTrip.reviseLogs.some((str) => str.includes("已回公司"))
+      existBusinessTrip.reviseLogs?.some((str) => str.includes("已回公司"))
     )
       businessTrip.end_time = existBusinessTrip.end_time;
     if (!businessTrip.start_time || !businessTrip.end_time) {
@@ -222,18 +222,26 @@ export class BusinessTripServices {
     if (!existBusinessTrip) {
       await BusinessTripServices.添加xft差旅记录(businessTrip, fbtApply);
     } else if (
-      businessTrip.start_time.getTime() !=
-        existBusinessTrip.start_time.getTime() ||
-      businessTrip.end_time.getTime() != existBusinessTrip.end_time.getTime() ||
+      businessTrip.start_time?.getTime() <
+        existBusinessTrip.start_time?.getTime() ||
+      businessTrip.end_time?.getTime() !=
+        existBusinessTrip.end_time?.getTime() ||
       !_.isEqual(businessTrip.companion, existBusinessTrip.companion)
     ) {
+      const startTime = Math.min(
+        existBusinessTrip.start_time?.getTime(),
+        businessTrip.start_time?.getTime()
+      );
       BusinessTrip.merge(existBusinessTrip, businessTrip);
       await BusinessTripServices.修改xft差旅记录(
         existBusinessTrip,
         fbtApply,
-        businessTrip.start_time,
+        new Date(startTime),
         businessTrip.end_time
       );
+    } else {
+      BusinessTrip.merge(existBusinessTrip, businessTrip);
+      await existBusinessTrip.save();
     }
   }
 }
