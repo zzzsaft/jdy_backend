@@ -7,9 +7,9 @@ import dotenv from "dotenv";
 import { logger } from "../../config/logger";
 import { appAxios } from "../../utils/fileUtils";
 export class ApiClient {
-  host: string;
-  apiKey: string;
-  version: string;
+  protected host: string;
+  protected apiKey: string;
+  protected version: string;
   /**
    * 构造方法
    * @param { String } apiKey - apiKey
@@ -33,7 +33,10 @@ export class ApiClient {
    * @param { Object } options.query - url参数,可选
    * @param { Object } options.payload - 请求参数,可选
    */
-  async doRequest(options: IRequestOptions, limitOption: ILimitOpion) {
+  protected async doRequest(
+    options: IRequestOptions,
+    limitOption: ILimitOpion
+  ) {
     const httpMethod = _.toUpper(options.method);
     const query = options.query ? `?${qs.stringify(options.query)}` : "";
     const axiosRequestConfig = {

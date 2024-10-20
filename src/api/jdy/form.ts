@@ -4,13 +4,13 @@ import { ApiClient } from "./api_client";
 const FORM_BASE_PATH = "app/entry/";
 
 class FormApiClient extends ApiClient {
-  validVersions = ["v5"];
-  defaultVersion = "v5";
+  protected validVersions = ["v5"];
+  protected defaultVersion = "v5";
 
   /**
    * check version
    */
-  async doRequest(options, limitOption: ILimitOpion) {
+  protected async doRequest(options, limitOption: ILimitOpion) {
     if (!this.validVersions.includes(this.version)) {
       this.version = this.defaultVersion;
     }
@@ -38,4 +38,4 @@ class FormApiClient extends ApiClient {
     );
   }
 }
-export default new FormApiClient("v5");
+export const formApiClient = new FormApiClient("v5");

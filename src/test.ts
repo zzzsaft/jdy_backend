@@ -77,8 +77,9 @@ import { parkingApiClient } from "./api/parking/app";
 // );
 // await BusinessTripServices.scheduleCreate();
 // await testXftTrip();
-
+// await parkingApiClient.getCarById("1846020091524780033");
 // await PgDataSource.initialize();
+// await BusinessTripCheckinServices.scheduleCreate();
 // await 获取空缺请假记录();
 // const a = await FbtApply.findOne({
 //   where: { id: "6709fa135e3eaa103beaccc5" },

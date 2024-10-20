@@ -41,12 +41,12 @@ const updateUserSchedule = cron.schedule("0 1 * * *", async () => {
 });
 
 //每周五下午4点触发任务
-const sendLeave = cron.schedule("0 8 * * 6", async () => {
+const sendLeave = cron.schedule("0 16 * * 5", async () => {
   await sendtoUserwithLeaveChoice();
   logger.info("周五下午任务");
 });
 
-const sendTripCheckin = cron.schedule("0 0-59/20 8-20 * * *", async () => {
+const sendTripCheckin = cron.schedule("0 0-59/20 7-20 * * *", async () => {
   await BusinessTripCheckinServices.scheduleCreate();
   logger.info("更新外出打卡");
 });

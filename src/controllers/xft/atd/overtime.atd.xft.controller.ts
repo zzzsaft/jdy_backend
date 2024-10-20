@@ -80,6 +80,7 @@ export class OvertimeEvent {
       const operate = await xftOAApiClient.operate(
         this.task.operateConfig("reject")
       );
+      if (this.task.dealStatus == "1") return true;
       this.task.status = "已驳回";
       this.task.horizontal_content_list.push({
         keyname: "驳回原因",
