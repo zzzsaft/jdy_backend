@@ -1,8 +1,6 @@
 import { formApiClient } from "../../api/jdy/form";
 import { JdyWidget } from "../../entity/util/jdy_form_widget";
 
-export class FormServices {}
-
 export const insertWidgets = async (appId: string, entryId: string) => {
   const widgets = await formApiClient.formWidgets(appId, entryId);
   await widgetService(appId, entryId, widgets["widgets"]);
@@ -12,19 +10,6 @@ const widgetService = async (appid, entryid, widgets) => {
 };
 class WidgetService {
   constructor(private appId: string, private entryId: string) {}
-  updateIfChanged(existingWidget: JdyWidget, widgetData: any) {
-    const { label, type, widgetName } = widgetData;
-
-    if (
-      existingWidget.label !== label ||
-      existingWidget.type !== type ||
-      existingWidget.widgetName !== widgetName
-    ) {
-      existingWidget.label = label;
-      existingWidget.type = type;
-      existingWidget.widgetName = widgetName;
-    }
-  }
   async insertOrUpdateWidgets(widgets: any[]) {
     const existingWidgets = await JdyWidget.find({
       where: { app_id: this.appId, entry_id: this.entryId },
@@ -56,16 +41,17 @@ class WidgetService {
 
   // 处理传入的widget及其子表单
   private async processWidgets(widgets: any[], existingWidgets: JdyWidget[]) {
-    const savedWidgets: JdyWidget[] = [];
+    let savedWidgets: JdyWidget[] = [];
 
     for (const widgetData of widgets) {
+      let newWidget;
       let existingWidget = existingWidgets.find(
         (widget) => widget.name === widgetData.name
       );
 
       if (!existingWidget) {
         // 新增widget
-        const newWidget = this.createWidgetInstance(widgetData);
+        newWidget = this.createWidgetInstance(widgetData);
         savedWidgets.push(newWidget);
       } else {
         // 更新已有widget
@@ -78,6 +64,9 @@ class WidgetService {
           widgetData.items,
           existingWidget?.subforms || []
         );
+        for (const childWidget of childWidgets) {
+          childWidget.parent = existingWidget ?? newWidget; // 关联parent
+        }
         savedWidgets.push(...childWidgets);
       }
     }

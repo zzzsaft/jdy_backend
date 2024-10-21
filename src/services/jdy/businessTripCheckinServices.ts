@@ -43,7 +43,7 @@ export class BusinessTripCheckinServices {
     });
     for (const item of logTripSync) {
       await BusinessTripCheckinServices.createTripCheckin(item, date);
-      if (item.companion.length > 0) {
+      if (item.companion?.length > 0) {
         for (const companion of item.companion) {
           const newItem = BusinessTrip.create(item);
           newItem.userId = companion;
@@ -103,6 +103,7 @@ const generateCheckinbyBusinessTrip = async ({
   const user = await User.findOne({ where: { user_id: userId } });
   if (!user)
     throw new Error(`XftTripCheckin, addRecord, User not found ${userId}`);
+  if (user.is_employed == false) return null;
   const org = await Department.findOne({
     where: { department_id: user.main_department_id },
   });

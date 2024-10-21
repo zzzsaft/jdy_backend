@@ -27,6 +27,10 @@ const checkinDateSchedule = cron.schedule("0,15,30,45 * * * *", async () => {
 const fbtApplySchedule = cron.schedule("5,20,35,50 * * * *", async () => {
   await new GetFbtApply().getApply();
   await BusinessTripServices.scheduleCreate();
+  const hour = new Date().getHours();
+  if (hour > 7 && hour < 23) {
+    await BusinessTripCheckinServices.scheduleCreate();
+  }
 });
 
 //每日1点触发任务
@@ -42,7 +46,7 @@ const sendLeave = cron.schedule("0 16 * * 5", async () => {
   logger.info("周五下午任务");
 });
 
-const sendTripCheckin = cron.schedule("0 0-59/20 7-20 * * *", async () => {
+const sendTripCheckin = cron.schedule("0 */20 7-20 * * *", async () => {
   await BusinessTripCheckinServices.scheduleCreate();
   logger.info("更新外出打卡");
 });

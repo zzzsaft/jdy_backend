@@ -69,11 +69,12 @@ import { parkingApiClient } from "./api/parking/app";
 // const a = await workflowApiClient.workflowInstanceGet(
 //   "670c27ca3f18ccc122114ddb"
 // );
+// await testCron();
 // await BusinessTripServices.scheduleCreate();
 // await testXftTrip();
 // await parkingApiClient.getCarById("1846020091524780033");
 // await PgDataSource.initialize();
-// await BusinessTripServices.scheduleCreate(new Date("2024-10-18"));
+// await BusinessTripCheckinServices.scheduleCreate();
 // await insertWidgets("5cfef4b5de0b2278b05c8380", "67037803a6ba29ba0521efb2");
 // await BusinessTripCheckinServices.scheduleCreate();
 // await 获取空缺请假记录();
@@ -142,7 +143,7 @@ import {
 import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
 import { BusinessTripServices } from "./services/xft/businessTripServices";
 import { 获取未排班人员 } from "./services/xft/checkinServices";
-import { insertWidgets } from "./services/jdy/formServices";
+import { insertWidgets } from "./services/jdy/widgetServices";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";

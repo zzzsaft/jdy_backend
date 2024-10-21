@@ -1,49 +1,92 @@
 import {
-  BaseEntity,
-  Column,
   Entity,
-  PrimaryColumn,
   PrimaryGeneratedColumn,
-  Unique,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  OneToMany,
+  UpdateDateColumn,
 } from "typeorm";
-import { appApiClient } from "../../api/jdy/app";
+import { JdyForm } from "./jdy_form";
+import { PgDataSource } from "../../config/data-source";
 
-@Entity({ name: "util_jdy_form", schema: "jdy" })
-@Unique(["app_id", "entry_id"])
-export class JdyForm extends BaseEntity {
+@Entity({ name: "temporary" })
+class JdyData {
   @PrimaryGeneratedColumn()
   id: number;
   @Column()
-  app_id: string;
-
+  jdy_id: string;
   @Column()
-  entry_id: string;
-
+  name: string;
+  @Column({ type: "jsonb" })
+  value: any;
   @Column()
-  app_name: string;
-
+  is_delete: boolean;
   @Column()
-  entry_name: string;
+  is_modify: boolean;
+  @Column()
+  creator: string;
+  @Column()
+  updater: string;
+  @Column()
+  createTime: Date;
+  @Column()
+  updateTime: Date;
+  @CreateDateColumn()
+  created_at: Date;
+  @UpdateDateColumn()
+  updated_at: Date;
+  @ManyToOne(() => JdyData, (jdyData) => jdyData.subforms, { nullable: true })
+  parent: JdyData | null;
+  @OneToMany(() => JdyData, (jdyData) => jdyData.parent)
+  subforms: JdyData[];
+}
 
-  static async updateForm() {
-    const jdyFormList: JdyForm[] = [];
-    const applist = await appApiClient.appList();
-    for (let app of applist["apps"]) {
-      const entryList = await appApiClient.entryList(app.app_id);
-      for (let entry of entryList["forms"]) {
-        jdyFormList.push(
-          JdyForm.create({
-            app_id: app.app_id,
-            entry_id: entry.entry_id,
-            app_name: app.name,
-            entry_name: entry.name,
-          })
-        );
-      }
-    }
-    await JdyForm.upsert(jdyFormList, {
-      conflictPaths: ["app_id", "entry_id"],
-      skipUpdateIfNoValuesChanged: true,
-    });
+async function getTable({ appid, entryid }) {
+  const form = await JdyForm.findOne({
+    where: { app_id: appid, entry_id: entryid },
+  });
+  if (!form) {
+    throw new Error("Form not found");
   }
+  const tableName = `${form.id}-${form.app_name}-${form.entry_name}`;
+
+  // 确保表存在
+  await createTableIfNotExists(tableName);
+
+  // 动态修改表名
+  PgDataSource.getMetadata(JdyData).tableName = tableName;
+
+  return PgDataSource.getRepository(JdyData);
+}
+
+async function createTableIfNotExists(tableName: string) {
+  const queryRunner = PgDataSource.createQueryRunner();
+
+  // 检查表是否存在
+  const tableExists = await queryRunner.hasTable(tableName);
+  if (!tableExists) {
+    // 创建表 SQL
+    await queryRunner.query(`
+      CREATE TABLE ${tableName} (
+        id SERIAL PRIMARY KEY,
+        jdy_id VARCHAR(255),
+        name VARCHAR(255),
+        value JSONB,
+        is_delete BOOLEAN DEFAULT FALSE,
+        is_modify BOOLEAN DEFAULT FALSE,
+        creator VARCHAR(255),
+        updator VARCHAR(255),
+        parent_id INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (parent_id) REFERENCES ${tableName}(id) ON DELETE CASCADE
+      );
+    `);
+    console.log(`Table ${tableName} created successfully.`);
+  } else {
+    console.log(`Table ${tableName} already exists.`);
+  }
+
+  await queryRunner.release();
 }
