@@ -72,6 +72,7 @@ import { parkingApiClient } from "./api/parking/app";
 // await testCron();
 // await BusinessTripServices.scheduleCreate();
 // await testXftTrip();
+// await xftSalaryApiClient.setAtd();
 // await parkingApiClient.getCarById("1846020091524780033");
 // await PgDataSource.initialize();
 // await BusinessTripCheckinServices.scheduleCreate();

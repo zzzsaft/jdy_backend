@@ -29,9 +29,13 @@ class JdyData {
   @Column()
   updater: string;
   @Column()
+  deleter: string;
+  @Column()
   createTime: Date;
   @Column()
   updateTime: Date;
+  @Column({ nullable: true })
+  deleteTime: Date;
   @CreateDateColumn()
   created_at: Date;
   @UpdateDateColumn()
@@ -40,24 +44,24 @@ class JdyData {
   parent: JdyData | null;
   @OneToMany(() => JdyData, (jdyData) => jdyData.parent)
   subforms: JdyData[];
-}
 
-async function getTable({ appid, entryid }) {
-  const form = await JdyForm.findOne({
-    where: { app_id: appid, entry_id: entryid },
-  });
-  if (!form) {
-    throw new Error("Form not found");
+  static async getTable({ appid, entryid }) {
+    const form = await JdyForm.findOne({
+      where: { app_id: appid, entry_id: entryid },
+    });
+    if (!form) {
+      throw new Error("Form not found");
+    }
+    const tableName = `${form.id}-${form.app_name}-${form.entry_name}`;
+
+    // 确保表存在
+    await createTableIfNotExists(tableName);
+
+    // 动态修改表名
+    PgDataSource.getMetadata(JdyData).tableName = tableName;
+
+    return PgDataSource.getRepository(JdyData);
   }
-  const tableName = `${form.id}-${form.app_name}-${form.entry_name}`;
-
-  // 确保表存在
-  await createTableIfNotExists(tableName);
-
-  // 动态修改表名
-  PgDataSource.getMetadata(JdyData).tableName = tableName;
-
-  return PgDataSource.getRepository(JdyData);
 }
 
 async function createTableIfNotExists(tableName: string) {
@@ -77,7 +81,11 @@ async function createTableIfNotExists(tableName: string) {
         is_modify BOOLEAN DEFAULT FALSE,
         creator VARCHAR(255),
         updator VARCHAR(255),
+        deleter VARCHAR(255),
         parent_id INT,
+        createTime TIMESTAMP,
+        updateTime TIMESTAMP,
+        deleteTime TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (parent_id) REFERENCES ${tableName}(id) ON DELETE CASCADE

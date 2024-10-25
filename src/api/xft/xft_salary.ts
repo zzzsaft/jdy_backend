@@ -2,6 +2,42 @@ import { format } from "date-fns";
 import { appApiClient, connectApiClient } from "./api_client";
 
 class XFTSalaryApiClient {
+  async setAtd() {
+    return await appApiClient.doRequest({
+      method: "POST",
+      path: "/sal/sal/xft-sly/data-collection/third-party-data-collection/third-party-field-collection",
+      payload: {
+        // basicInfo: {
+        //   enterpriseId: "AAA00512",
+        //   dataSourceName: "O",
+        // },
+        // fieldList: {
+        //   // "52111": "班次",
+        // },
+      },
+    });
+  }
+  async setAtd1() {
+    return await appApiClient.doRequest({
+      method: "POST",
+      path: "/sal/sal/xft-sly/data-collection/third-party-data-collection/third-party-data-collection",
+      payload: {
+        dataList: {
+          staffName: "梁之",
+          staffId: "0000000001",
+          data: {
+            "52111": "",
+          },
+        },
+        basicInfo: {
+          dimension: "202410",
+          groupId: "000000000001",
+          startDate: "2024-10-21",
+          endDate: "2024-10-21",
+        },
+      },
+    });
+  }
   async getSalaryHead() {
     return await appApiClient.doRequest({
       method: "POST",
