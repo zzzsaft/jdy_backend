@@ -58,8 +58,7 @@ export class BusinessTripCheckinServices {
   ) {
     if (businessTrip.start_time < date || businessTrip.end_time > date) {
       const checkin = await generateCheckinbyBusinessTrip({
-        userId: businessTrip.userId,
-        fbtRootId: businessTrip.fbtRootId,
+        businessTrip,
         checkinDate: date,
         type: "出差打卡",
       });
@@ -82,16 +81,16 @@ export class BusinessTripCheckinServices {
 }
 
 const generateCheckinbyBusinessTrip = async ({
-  userId,
-  fbtRootId,
+  businessTrip,
   checkinDate,
   type,
 }: {
-  userId: string;
-  fbtRootId: string;
+  businessTrip: BusinessTrip;
   checkinDate: Date;
   type: "出差打卡" | "外出打卡";
 }) => {
+  const userId = businessTrip.userId;
+  const fbtRootId = businessTrip.fbtRootId;
   checkinDate.setHours(0, 0, 0, 0);
   const exist = await XftTripCheckin.exists({
     where: {
@@ -120,6 +119,8 @@ const generateCheckinbyBusinessTrip = async ({
   checkin.checkinDate = new Date(checkinDate);
   checkin.state = "未发起";
   checkin.type = type;
+  checkin.reason = businessTrip.reason ?? "";
+  checkin.remark = businessTrip.remark ?? "";
   if (fbtRootId) {
     const apply = await FbtApply.findOne({
       where: { root_id: checkin.fbtRootId },

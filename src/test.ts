@@ -65,6 +65,98 @@ import {
 // import { XftCity } from "./entity/util/xft_city";
 // import { LogCheckin } from "./entity/log/log_checkin";
 // import { xftSalaryApiClient } from "./api/xft/xft_salary";
+import { fbtUserApiClient } from "./api/fenbeitong/user";
+import { fbtApplyApiClient } from "./api/fenbeitong/apply";
+import { FbtApply } from "./entity/atd/fbt_trip_apply";
+import { GetFbtApply, XftTripLog } from "./schedule/getFbtApply";
+import { xftItripApiClient } from "./api/xft/xft_itrip";
+import { XftCity } from "./entity/util/xft_city";
+import { LogCheckin } from "./entity/log/log_checkin";
+import { xftSalaryApiClient } from "./api/xft/xft_salary";
+import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
+import { parkingApiClient } from "./api/parking/app";
+// const a = await workflowApiClient.workflowInstanceGet(
+//   "670c27ca3f18ccc122114ddb"
+// );
+// await testCron();
+// await BusinessTripServices.scheduleCreate();
+// await testXftTrip();
+// await xftSalaryApiClient.setAtd();
+// await parkingApiClient.getCarById("1846020091524780033");
+// await PgDataSource.initialize();
+// await BusinessTripCheckinServices.scheduleCreate();
+// await insertWidgets("5cfef4b5de0b2278b05c8380", "67037803a6ba29ba0521efb2");
+// await BusinessTripCheckinServices.scheduleCreate();
+// await 获取空缺请假记录();
+// const a = await FbtApply.findOne({
+//   where: { id: "6709fa135e3eaa103beaccc5" },
+//   relations: ["city", "user"],
+// });
+// if (a) {
+//   await BusinessTripServices.createBusinessTrip(a);
+// }
+// await 测试补卡记录();
+// const record = await xftatdApiClient.getOvertimeRecord("0000003134");
+// console.log();
+// await BusinessTripServices.scheduleCreate(new Date("2024-10-15"));
+// await 获取未排班人员();
+// console.log(a);
+// await testJdyCreateTripCheckinSingle();
+// await JdyForm.updateForm();
+// await testXftTrip();
+
+// testLoginUrl("YuYaSha");
+// await testJdyCreateTripCheckinSingle();
+// await BusinessTripCheckinServices.scheduleCreate();
+// await SendTripCheckin.createBatchTripCheckin();
+// await processPrecisionIssueData();
+// await testCron();
+// await processPrecisionIssueData();
+// await processXftTripLog();
+// const a = await xftOAApiClient.getFormData([
+//   "CF_:604ec40b-3ab8-4b8b-a93e-9fac566ce49a:180e5b2247a64797",
+// ]);
+// await getTodoList();
+// await SendTripCheckin.createBatchTripCheckin();
+// await xftOAApiClient.trialCodeFriend({ trailVarJsonStr: { reason: "222" } });
+// await SendTripCheckin.createByRootId("661e0b0c608b8f537df3b5a6");
+// await processXftTripLog();
+// const a = await fbtApplyApiClient.getApplyOrder("6703ab09ec07c26f03933818");
+// console.log(a);
+// const a1 =
+//   '[{"nodeId":"d2c459cca2bd4861bfab1f879764fe19","nodeName":"开始","type":"START","subType":"bpm.start","assignType":null,"actionType":null,"approverUserList":[{"userId":"U0000","userName":"梁之","userPhone":"18869965222"}],"reason":null,"starterSelfSelectRequired":null},{"nodeId":"31863550864111efbb2be9be85076fbe","nodeName":"审批人","type":"APPROVE","subType":"trip.approve","assignType":"trip.user","actionType":"oneByOne","approverUserList":[{"userId":"U0000","userName":"梁之","userPhone":"18869965222"}],"reason":null,"starterSelfSelectRequired":null}]';
+// const a3 = JSON.parse(a1);
+// const msg = await parkingApiClient.visitorAppoint({
+//   guestCompany: "合肥长阳",
+//   guestType: "国内客户",
+//   visitorCarNum: "",
+//   visitorName: "韩先生，吴",
+//   visitorPhone: "15825686848",
+//   visitorPurpose: "售中验货",
+//   visitorTime: "2024-09-12 09:08:00",
+//   visitorLeaveTime: "2024-09-12 13:08:00",
+//   visitorReason: "",
+// });
+// console.log(await importErrorAtd());
+// const a = await xftOAApiClient.getFormBussinesData();
+// console.log(new Date().getTime().toString());
+// console.log(await testLoginUrl("WuFeng"));
+import { Department } from "./entity/basic/department";
+import { SendTripCheckin } from "./schedule/sendTripCheckin";
+import { JdyForm } from "./entity/util/jdy_form";
+import { workflowApiClient } from "./api/jdy/workflow";
+import {
+  BusinessTripCheckinServices,
+  sendMessage,
+  updateNextBusinessTrip,
+} from "./services/jdy/businessTripCheckinServices";
+import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
+import { BusinessTripServices } from "./services/xft/businessTripServices";
+import { 获取未排班人员 } from "./services/xft/checkinServices";
+import { insertWidgets } from "./services/jdy/widgetServices";
+// import { attt } from "./controllers/xft/event.xft.controller";
+// import { LogCheckin } from "./entity/common/log_checkin";
+// import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 // import { parkingApiClient } from "./api/parking/app";
 // // const a = await workflowApiClient.workflowInstanceGet(
