@@ -14,7 +14,7 @@ const getRealTimeAtd = async (data: {
 }) => {
   const payload = {
     // attendanceDate: format(new Date(), "yyyy-MM-dd"),
-    attendanceDate: "2024-10-17",
+    attendanceDate: "2024-10-22",
     attendanceItemSetType: "K",
     ...(data.atdGroupSeq && { atdGroupSeq: data.atdGroupSeq }),
     realTimeAttendanceStaQuery: {

@@ -22,9 +22,9 @@ class GetCheckinData {
   constructor() {}
   addWangChao = async () => {
     const raw_checkin_data = await checkinApiClient.getHardwareCheckinData(
-      ["WangChao"],
-      new Date("2024-10-01"),
-      new Date()
+      ["HeYanPing"],
+      new Date("2024-10-02"),
+      new Date("2024-10-04")
     );
     const err = await this.insertToXFT(raw_checkin_data);
   };

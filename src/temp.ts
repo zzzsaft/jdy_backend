@@ -57,35 +57,35 @@ export const 测试补卡记录 = async () => {
     appName: "OA审批",
     businessCode: "OA000001",
     businessName: "待审批通知",
-    businessParam: "HOL_xft-hrm_COM_AAA00512_1000006725",
-    createTime: "2024-10-18 20:58:55",
+    businessParam: "MUC_xft-hrm_COM_AAA00512_0000000870",
+    createTime: "2024-10-25 00:18:46",
     dealStatus: "0",
     details:
-      "【王旭】发起了【请假】申请，流程类型：请假，申请人：王旭，请假类型：轮休假，起止时间：2024-10-20 上午-2024-10-20 下午，请假时长：1天，请假原因：，请您尽快审批，发起时间：2024-10-18 20:58:54。",
-    id: "TD1847261072507420673",
-    processId: "1145419506",
+      "【梁之】发起了【补卡】申请，申请人：梁之，补卡时间：2024-10-24 11:30:00，班次信息：精诚-冬令时打卡规则:07:30-16:40，补卡原因：-，请您尽快审批，发起时间：2024-10-25 00:18:45。",
+    id: "TD1849485694853963778",
+    processId: "1160962811",
     processStatus: "0",
     receiver: {
       enterpriseNum: "AAA00512",
       thirdpartyUserId: "",
-      userName: "沈海潮",
-      xftUserId: "V001A",
+      userName: "梁仙明",
+      xftUserId: "V00JR",
     },
-    sendTime: "2024-10-18T20:58:54",
+    sendTime: "2024-10-25T00:18:45",
     sendUser: {
       enterpriseNum: "AAA00512",
       thirdpartyUserId: "",
-      userName: "王旭",
-      xftUserId: "V001K",
+      userName: "梁之",
+      xftUserId: "U0000",
     },
     terminal: "0",
-    title: "王旭发起的请假",
+    title: "梁之发起的补卡",
     url: {},
   };
   const task = new XftTaskEvent(JSON.stringify(record));
   await task.getWxUserId();
   await task.getMsgId();
-  await new LeaveEvent(task).process();
+  await new ReissueEvent(task).process();
 };
 
 export const 导入分贝通人员id = async () => {
@@ -180,4 +180,34 @@ export const testJdyCreateTripCheckinSingle = async () => {
 export const testUpdateNextBusinessTrip = async () => {
   const tripCheckin = await XftTripCheckin.findOne({ where: { id: 4792 } });
   if (tripCheckin) await updateNextBusinessTrip(tripCheckin);
+};
+
+export const testChangeShift = async () => {
+  await xftOAApiClient.trial({
+    starterId: "U0000",
+    busData: {
+      value: {
+        "adtShift-BGNDATE:": "2024-10-23",
+        "adtShift-NRDSEQ": "0000000004",
+        "adtShift-ORDSEQ": "0000000005",
+        // ATTZBQRYY: [
+        //   {
+        //     STFNAM: "梁之",
+        //     STFSEQ: "0000000001",
+        //     STFNBR: "LiangZhi",
+        //     BGNDATE: "2024-10-23",
+        //     ORDSEQ: "0000000005",
+        //     NRDSEQ: "-1",
+        //     REMARK: "1",
+        //     ORDNAM: "【精诚-冬令时打卡规则】 07:30-当日16:40",
+        //     DATTYP: "0",
+        //     NRDNAM: "休息",
+        //     SMTCHN: "0",
+        //   },
+        // ],
+      },
+      // mappings: [],
+    },
+    procKey: "FORM_11695218202410221334159741",
+  });
 };

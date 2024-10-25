@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format, parse, differenceInMinutes } from "date-fns";
 export const getWeekDayName = (date: string) => {
   // 映射英文星期到中文
   const daysMap = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -63,4 +63,19 @@ export const getDuration = (duration: string, unit: string) => {
     return parseFloat(duration) * 24 * 60 * 60;
   }
   return parseFloat(duration) * 60 * 60;
+};
+
+export const getDifference = (time1: string, time2: string) => {
+  // 定义解析函数，支持两种时间格式
+  const parseTime = (timeStr: string) => {
+    return timeStr.length === 8
+      ? parse(timeStr, "HH:mm:ss", new Date())
+      : parse(timeStr, "HH:mm", new Date());
+  };
+  // 使用 parse 解析时间字符串
+  const date1 = parseTime(time1);
+  const date2 = parseTime(time2);
+
+  // 计算两个时间之间的差值（分钟）
+  return differenceInMinutes(date2, date1);
 };

@@ -3,6 +3,11 @@ import { XftTaskEvent } from "../todo.xft.controller";
 import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
 import { xftatdApiClient } from "../../../api/xft/xft_atd";
 import { XftAtdReissue } from "../../../entity/atd/xft_reissue";
+import { User } from "../../../entity/basic/employee";
+import { Department } from "../../../entity/basic/department";
+import { xftOAApiClient } from "../../../api/xft/xft_oa";
+import { atdClassService } from "../../../services/fbt/atdClass.services";
+import { getDifference } from "../../../utils/dateUtils";
 
 export class ReissueEvent {
   task: XftTaskEvent;
@@ -14,6 +19,7 @@ export class ReissueEvent {
   staffNbr: string;
   remark: string;
   useSupplementCardNumber: number;
+  classesSeq: string;
 
   constructor(task: XftTaskEvent) {
     this.task = task;
@@ -24,6 +30,7 @@ export class ReissueEvent {
     if (this.task.dealStatus == "1") {
       await this.sendNotice(this.staffNbr);
     } else if (this.task.dealStatus == "0") {
+      if (await this.rejectOA()) return;
       await this.sendCard();
     }
   }
@@ -71,7 +78,37 @@ export class ReissueEvent {
   //   );
   // };
 
-  rejectOA = async () => {};
+  rejectOA = async () => {
+    let flag = false;
+    const workTimes = await atdClassService.getClassWorkTime(this.classesSeq);
+    for (const time of workTimes) {
+      let diff = getDifference(time, this.time);
+      if (diff < 30) {
+        flag = true;
+        break;
+      }
+    }
+    if (flag) {
+      const user = await User.findOne({ where: { user_id: this.staffNbr } });
+      if (!user) return false;
+      const org = await Department.findOne({
+        where: { department_id: user.main_department_id },
+      });
+      if (!org || !(org.level3 == "加工中心" || org.department_id == "70"))
+        return false;
+      const operate = await xftOAApiClient.operate(
+        this.task.operateConfig("reject")
+      );
+      this.task.status = "已驳回";
+      this.task.horizontal_content_list.push({
+        keyname: "驳回原因",
+        value: `如因生产结束原因提前下班，请在下班时打卡并提交请假【生产带薪假】，未打卡或未提交请假单将会被视为漏卡。`,
+      });
+      await this.sendNotice(this.staffNbr);
+      return true;
+    }
+    return false;
+  };
 
   sendNotice = async (userid: string, status = this.task.status) => {
     let userids = Array.from(new Set([userid, this.task.sendUserId]));

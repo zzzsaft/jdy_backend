@@ -44,6 +44,16 @@ type AttendanceRequest = {
 };
 
 class XFTAttendanceApiClient {
+  async getClass() {
+    return await appApiClient.doRequest(
+      {
+        method: "POST",
+        path: "/atd/prd/xft-atn/atd-class/query-class-detail",
+        payload: {},
+      },
+      "U0000"
+    );
+  }
   async importAtd(payload: importAtd[]) {
     const chunkedList = _.chunk(payload, 900);
     let err: any[] = [];
