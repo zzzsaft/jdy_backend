@@ -7,7 +7,14 @@ import { User } from "../../entity/basic/employee";
 import { JdyUtil } from "../../utils/jdyUtils";
 import { BusinessTrip } from "../../entity/atd/businessTrip";
 import { BusinessTripServices } from "../xft/businessTripServices";
-import { LessThanOrEqual, MoreThanOrEqual } from "typeorm";
+import {
+  And,
+  Equal,
+  IsNull,
+  LessThanOrEqual,
+  MoreThanOrEqual,
+  Or,
+} from "typeorm";
 import { JdyTaskEvent } from "./event";
 import { formatDate } from "../../utils/dateUtils";
 import { MessageHelper } from "../../api/wechat/message";
@@ -35,13 +42,14 @@ export class BusinessTripCheckinServices {
     await sendMessage(data);
   }
   static async scheduleCreate(date: Date = new Date()) {
-    const logTripSync = await BusinessTrip.find({
+    const businessTrip = await BusinessTrip.find({
       where: {
         start_time: LessThanOrEqual(date),
         end_time: MoreThanOrEqual(date),
+        err: Or(IsNull(), Equal("")),
       },
     });
-    for (const item of logTripSync) {
+    for (const item of businessTrip) {
       await BusinessTripCheckinServices.createTripCheckin(item, date);
       if (item.companion?.length > 0) {
         for (const companion of item.companion) {
@@ -56,7 +64,7 @@ export class BusinessTripCheckinServices {
     businessTrip: BusinessTrip,
     date: Date = new Date()
   ) {
-    if (businessTrip.start_time < date || businessTrip.end_time > date) {
+    if (businessTrip.start_time <= date && businessTrip.end_time >= date) {
       const checkin = await generateCheckinbyBusinessTrip({
         businessTrip,
         checkinDate: date,
@@ -99,6 +107,7 @@ const generateCheckinbyBusinessTrip = async ({
     },
   });
   if (exist) return null;
+  if (businessTrip.err != "") return null;
   const user = await User.findOne({ where: { user_id: userId } });
   if (!user)
     throw new Error(`XftTripCheckin, addRecord, User not found ${userId}`);

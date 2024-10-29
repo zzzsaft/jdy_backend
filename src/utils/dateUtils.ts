@@ -1,4 +1,14 @@
-import { format, parse, differenceInMinutes } from "date-fns";
+import {
+  format,
+  parse,
+  differenceInMinutes,
+  eachDayOfInterval,
+  endOfMonth,
+  isSaturday,
+  isSunday,
+  startOfMonth,
+  subMonths,
+} from "date-fns";
 export const getWeekDayName = (date: string) => {
   // 映射英文星期到中文
   const daysMap = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -78,4 +88,82 @@ export const getDifference = (time1: string, time2: string) => {
 
   // 计算两个时间之间的差值（分钟）
   return differenceInMinutes(date2, date1);
+};
+
+export const getLast2MouthSaturday = () => {
+  const currentDate = new Date();
+
+  // 获取上个月的开始和结束日期
+  const startLastMonth = startOfMonth(subMonths(currentDate, 1));
+  const endLastMonth = endOfMonth(subMonths(currentDate, 1));
+
+  // 获取本月的开始和结束日期
+  const startThisMonth = startOfMonth(currentDate);
+  const endThisMonth = endOfMonth(currentDate);
+
+  // 获取上个月的所有天数
+  const daysOfLastMonth = eachDayOfInterval({
+    start: startLastMonth,
+    end: endLastMonth,
+  });
+
+  // 获取本月的所有天数
+  const daysOfThisMonth = eachDayOfInterval({
+    start: startThisMonth,
+    end: endThisMonth,
+  });
+
+  // 筛选出上个月和本月的周六
+  const saturdaysOfLastMonth = daysOfLastMonth.filter((day) => isSaturday(day));
+  const saturdaysOfThisMonth = daysOfThisMonth.filter((day) => isSaturday(day));
+
+  // 返回最近两个月的周六总数量
+  return saturdaysOfLastMonth.length + saturdaysOfThisMonth.length;
+};
+
+export const getLastMouthSaturday = () => {
+  const days = eachDayOfInterval({
+    start: startOfMonth(new Date()),
+    end: endOfMonth(new Date()),
+  });
+
+  const saturdays = days.filter(isSaturday).length;
+  const sundays = days.filter(isSunday).length;
+
+  if (saturdays == sundays) return saturdays;
+  else return false;
+};
+
+export const splitDatesIntoContinuousIntervals = (
+  startDate: Date,
+  endDate: Date
+): [number, number][] => {
+  const intervals: [number, number][] = [];
+  let currentStartDate = new Date(startDate.getTime());
+
+  // 确保开始日期早于结束日期
+  if (startDate > endDate) {
+    throw new Error("Start date must be before end date.");
+  }
+
+  // 生成连续的日期区间
+  while (currentStartDate < endDate) {
+    let currentEndDate = new Date(currentStartDate.getTime());
+    currentEndDate.setDate(currentEndDate.getDate() + 29); // 结束日期为开始日期+30天
+
+    // 如果当前结束日期超过了最终结束日期，则将结束日期设置为endDate
+    if (currentEndDate > endDate) {
+      currentEndDate = new Date(endDate.getTime());
+    }
+
+    // 添加当前区间
+    intervals.push([
+      Math.floor(currentStartDate.getTime() / 1000),
+      Math.floor(currentEndDate.getTime() / 1000),
+    ]);
+
+    // 下一个区间的开始日期为当前结束日期
+    currentStartDate = new Date(currentEndDate.getTime());
+  }
+  return intervals;
 };

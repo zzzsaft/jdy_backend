@@ -18,6 +18,7 @@ import { sleep } from "../config/limiter";
 import { XftAtdLeave } from "../entity/atd/xft_leave";
 import _ from "lodash";
 import { getWeekDayName } from "../utils/dateUtils";
+import { quotaServices } from "../services/xft/quotaServices";
 
 export const getWeekendDates = () => {
   const today = new Date();
@@ -110,7 +111,7 @@ export const sendtoUserwithLeaveChoiceTest = async () => {
 
 export const sendtoUserwithLeaveChoice = async () => {
   const { saturday, sunday } = getWeekendDates();
-  let allQuota = await xftatdApiClient.getAllSingleDayOffQuotaLeft();
+  let allQuota = await quotaServices.getAllSingleDayOffQuotaLeft();
   const userids = await XftAtdLeave.getUsersInRange(saturday, sunday);
   allQuota = _.omit(allQuota, userids);
   for (const key in allQuota) {

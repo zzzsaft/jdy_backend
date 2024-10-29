@@ -6,6 +6,7 @@ import { xftatdApiClient } from "../../../api/xft/xft_atd";
 import { xftOAApiClient } from "../../../api/xft/xft_oa";
 import { XftTaskEvent } from "../todo.xft.controller";
 import { User } from "../../../entity/basic/employee";
+import { quotaServices } from "../../../services/xft/quotaServices";
 
 export class LeaveEvent {
   task: XftTaskEvent;
@@ -108,12 +109,12 @@ export class LeaveEvent {
   };
 
   rejectOA = async () => {
-    const quota = await xftatdApiClient.getSingleDayOffQuotaLeftByUserId(
+    const quota = await quotaServices.getSingleDayOffQuotaLeftByUserId(
       this.stfNumber
     );
     this.quota = quota;
     if (quota.total != 5) return false;
-    if (this.leaveDuration > quota.left) {
+    if (parseFloat(this.leaveDuration) > quota.left) {
       const operate = await xftOAApiClient.operate(
         this.task.operateConfig(
           "reject",

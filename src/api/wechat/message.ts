@@ -206,5 +206,24 @@ class MessageApiClient extends ApiClient {
       }
     );
   }
+  async recall(msgid: string) {
+    return await this.doRequest(
+      {
+        method: "POST",
+        path: "/cgi-bin/message/recall",
+        payload: {
+          msgid,
+        },
+        query: {
+          access_token: await token.get_token(),
+        },
+      },
+      {
+        name: "recallMessage",
+        duration: 1000,
+        limit: 30,
+      }
+    );
+  }
 }
-const messageApiClient = new MessageApiClient();
+export const messageApiClient = new MessageApiClient();

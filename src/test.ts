@@ -14,7 +14,7 @@ import { PgDataSource } from "./config/data-source";
 //   isSaturday,
 // } from "date-fns";
 // import { xftOAApiClient } from "./api/xft/xft_oa";
-// import { xftatdApiClient } from "./api/xft/xft_atd";
+import { xftatdApiClient } from "./api/xft/xft_atd";
 // import { getCheckinData, importErrorAtd } from "./schedule/getCheckinData";
 // import { LogExpress } from "./entity/log/log_express";
 // import {
@@ -75,6 +75,8 @@ import { LogCheckin } from "./entity/log/log_checkin";
 import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
+// await PgDataSource.initialize();
+// await checkinServices.scheduleCheckinMonthly();
 // const a = await workflowApiClient.workflowInstanceGet(
 //   "670c27ca3f18ccc122114ddb"
 // );
@@ -83,10 +85,11 @@ import { parkingApiClient } from "./api/parking/app";
 // await testXftTrip();
 // await xftSalaryApiClient.setAtd();
 // await parkingApiClient.getCarById("1846020091524780033");
-// await PgDataSource.initialize();
-// await BusinessTripCheckinServices.scheduleCreate();
+// await messageApiClient.recall(
+//   "ApdmTZacy5fwcrmY4C90r6XZWFFtnT7bhxQ6wduTtz9YJc8CHKKV75Ojq7RjpZJHwsUswiwWZuhBS1RFRlqB5w"
+// );
+// await BusinessTripCheckinServices.scheduleCreate(new Date("2024-10-25"));
 // await insertWidgets("5cfef4b5de0b2278b05c8380", "67037803a6ba29ba0521efb2");
-// await BusinessTripCheckinServices.scheduleCreate();
 // await 获取空缺请假记录();
 // const a = await FbtApply.findOne({
 //   where: { id: "6709fa135e3eaa103beaccc5" },
@@ -152,8 +155,13 @@ import {
 } from "./services/jdy/businessTripCheckinServices";
 import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
 import { BusinessTripServices } from "./services/xft/businessTripServices";
-import { 获取未排班人员 } from "./services/xft/checkinServices";
+import {
+  checkinServices,
+  获取未排班人员,
+} from "./services/xft/checkinServices";
 import { insertWidgets } from "./services/jdy/widgetServices";
+import { quotaServices } from "./services/xft/quotaServices";
+import { messageApiClient } from "./api/wechat/message";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
@@ -166,7 +174,6 @@ import { insertWidgets } from "./services/jdy/widgetServices";
 // // await testXftTrip();
 // // await parkingApiClient.getCarById("1846020091524780033");
 // // await testChangeShift();
-await PgDataSource.initialize();
 // // await atdClassService.getClassWorkTime("0000000006");
 // // await getCheckinData.addWangChao();
 // // await BusinessTripServices.scheduleCreate(new Date("2024-10-18"));
@@ -180,7 +187,6 @@ await PgDataSource.initialize();
 // // if (a) {
 // //   await BusinessTripServices.createBusinessTrip(a);
 // // }
-await 测试补卡记录();
 // // const record = await xftatdApiClient.getOvertimeRecord("0000003134");
 // // console.log();
 // // await BusinessTripServices.scheduleCreate(new Date("2024-10-15"));
@@ -289,7 +295,6 @@ await 测试补卡记录();
 // // console.log();
 // // await 导入分贝通人员id();
 // // console.log(await fbtUserApiClient.getSSOLink("18869965222", "home"));
-// // await 测试补卡记录();
 // // await 获取空缺请假记录();
 // // // XftAtdLeave.maxLeaveRecSeq().then((a) => {
 // // //   console.log(a);
@@ -370,7 +375,14 @@ await 测试补卡记录();
 // // await xftUserApiClient.getMapping("0000000001");
 // // await xftUserApiClient.getMapping("0000000263");
 // // await xftUserApiClient.updateMapping("0000000263", "LiuYong");
-// // console.log(await xftatdApiClient.getSingleDayOffQuotaLeftByUserId("XuMin"));
+// console.log(
+//   await quotaServices.getSingleDayOffQuotaLeftByUserId("ZhangHongMing")
+// );
+// const a = await quotaServices.getAllSingleDayOffQuotaLeft();
+// const result = Object.entries(a)
+//   .filter(([key, value]) => value.left < 0)
+//   .map(([key]) => key);
+// console.log(result);
 // // console.log(process.env.FBT_NAME);
 // // await fbtOrderApiClient.getFormList({
 // //   create_start_time: "2024-08-01",

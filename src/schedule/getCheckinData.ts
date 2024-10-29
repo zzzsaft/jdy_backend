@@ -8,8 +8,6 @@ import {
 import { HardwareCheckinData } from "../entity/atd/wx_hardware_checkin_data";
 import { CheckinData } from "../entity/atd/checkin_data";
 import { Between, In } from "typeorm";
-import cron from "node-cron";
-import { logger } from "../config/logger";
 import { User } from "../entity/basic/employee";
 import { jctimesApiClient } from "../api/jctimes/app";
 import { LogCheckin } from "../entity/log/log_checkin";

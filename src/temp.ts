@@ -57,35 +57,35 @@ export const 测试补卡记录 = async () => {
     appName: "OA审批",
     businessCode: "OA000001",
     businessName: "待审批通知",
-    businessParam: "MUC_xft-hrm_COM_AAA00512_0000000870",
-    createTime: "2024-10-25 00:18:46",
+    businessParam: "HOL_xft-hrm_COM_AAA00512_1000007750",
+    createTime: "2024-10-28 11:17:59",
     dealStatus: "0",
     details:
-      "【梁之】发起了【补卡】申请，申请人：梁之，补卡时间：2024-10-24 11:30:00，班次信息：精诚-冬令时打卡规则:07:30-16:40，补卡原因：-，请您尽快审批，发起时间：2024-10-25 00:18:45。",
-    id: "TD1849485694853963778",
-    processId: "1160962811",
+      "【袁利佳】发起了【请假】申请，流程类型：请假，申请人：袁利佳，请假类型：轮休假，起止时间：2024-10-27 上午-2024-10-27 下午，请假时长：1天，请假原因：轮休假，请您尽快审批，发起时间：2024-10-28 11:17:58。",
+    id: "TD1850738756001533953",
+    processId: "1168708184",
     processStatus: "0",
     receiver: {
       enterpriseNum: "AAA00512",
       thirdpartyUserId: "",
-      userName: "梁仙明",
-      xftUserId: "V00JR",
+      userName: "牟建鹏",
+      xftUserId: "V00K3",
     },
-    sendTime: "2024-10-25T00:18:45",
+    sendTime: "2024-10-28T11:17:58",
     sendUser: {
       enterpriseNum: "AAA00512",
       thirdpartyUserId: "",
-      userName: "梁之",
-      xftUserId: "U0000",
+      userName: "袁利佳",
+      xftUserId: "V01EV",
     },
     terminal: "0",
-    title: "梁之发起的补卡",
+    title: "袁利佳发起的请假",
     url: {},
   };
   const task = new XftTaskEvent(JSON.stringify(record));
   await task.getWxUserId();
   await task.getMsgId();
-  await new ReissueEvent(task).process();
+  await new LeaveEvent(task).process();
 };
 
 export const 导入分贝通人员id = async () => {

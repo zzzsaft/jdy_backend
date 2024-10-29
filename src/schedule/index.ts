@@ -10,6 +10,7 @@ import { SendTripCheckin } from "./sendTripCheckin";
 import { sendXftTodoList } from "./sendXftTask";
 import { BusinessTripCheckinServices } from "../services/jdy/businessTripCheckinServices";
 import { BusinessTripServices } from "../services/xft/businessTripServices";
+import { checkinServices } from "../services/xft/checkinServices";
 
 const syncWechat = async () => {
   await Department.updateDepartment();
@@ -20,7 +21,7 @@ const syncWechat = async () => {
 
 //每过15分钟触发任务
 const checkinDateSchedule = cron.schedule("0,15,30,45 * * * *", async () => {
-  await getCheckinData.getNextRawCheckinData();
+  await checkinServices.scheduleCheckin();
 });
 
 //每过15分钟触发任务
@@ -37,6 +38,7 @@ const fbtApplySchedule = cron.schedule("5,20,35,50 * * * *", async () => {
 const updateUserSchedule = cron.schedule("0 1 * * *", async () => {
   await syncWechat();
   await syncXft();
+  await checkinServices.scheduleCheckinDaily();
   logger.info("1点更新部门人员数据");
 });
 
