@@ -75,8 +75,9 @@ import { LogCheckin } from "./entity/log/log_checkin";
 import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
-// await PgDataSource.initialize();
+await PgDataSource.initialize();
 // await checkinServices.scheduleCheckinMonthly();
+// await sendXftTodoList();
 // const a = await workflowApiClient.workflowInstanceGet(
 //   "670c27ca3f18ccc122114ddb"
 // );
@@ -162,6 +163,8 @@ import {
 import { insertWidgets } from "./services/jdy/widgetServices";
 import { quotaServices } from "./services/xft/quotaServices";
 import { messageApiClient } from "./api/wechat/message";
+import { xftGeneralApiClient } from "./api/xft/xft_general";
+import { sendXftTodoList } from "./schedule/sendXftTask";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";

@@ -42,10 +42,10 @@ export class LeaveEvent {
       await User.getLeaderId(this.stfNumber);
       await this.sendNotice([this.stfNumber]);
     } else if (this.task.dealStatus == "0") {
+      if (await this.rejectOA()) {
+        return;
+      }
       if (this.task.details.includes("请假类型：轮休假")) {
-        if (await this.rejectOA()) {
-          return;
-        }
         if (await this.passOA()) {
           await this.sendNotice([this.task.receiverId]);
         } else {
@@ -109,25 +109,48 @@ export class LeaveEvent {
   };
 
   rejectOA = async () => {
-    const quota = await quotaServices.getSingleDayOffQuotaLeftByUserId(
-      this.stfNumber
-    );
-    this.quota = quota;
-    if (quota.total != 5) return false;
-    if (parseFloat(this.leaveDuration) > quota.left) {
-      const operate = await xftOAApiClient.operate(
-        this.task.operateConfig(
-          "reject",
-          `本月还剩${quota.left}日轮休假，请查看近两月请假记录。如有疑问请联系人力资源部。`
-        )
+    const org = await User.getOrg(this.stfNumber);
+    if (org && org.level3 == "加工中心" && org.level1 != "配件事业部") {
+      if (this.begDate != this.endDate) {
+        const operate = await xftOAApiClient.operate(
+          this.task.operateConfig(
+            "reject",
+            `请假开始时间与结束时间不一致，请重新提交。`
+          )
+        );
+        this.task.status = "已驳回";
+        this.task.horizontal_content_list.push({
+          keyname: "驳回原因",
+          value:
+            `不符合请假规则，提交${this.begDate}上午申请则代表请假19:30-次日凌晨1:30，` +
+            `提交${this.begDate}下午申请则代表请假次日凌晨1:30-次日上午7:30，如需要请全天班，` +
+            `请提交${this.begDate}上午-下午假勤申请`,
+        });
+        await this.sendNotice([this.task.receiverId]);
+        return true;
+      }
+    }
+    if (this.task.details.includes("请假类型：轮休假")) {
+      const quota = await quotaServices.getSingleDayOffQuotaLeftByUserId(
+        this.stfNumber
       );
-      this.task.status = "已驳回";
-      this.task.horizontal_content_list.push({
-        keyname: "驳回原因",
-        value: `本月还剩${quota.left}日轮休假，请查看近两月请假记录。如有疑问请联系人力资源部。`,
-      });
-      await this.sendNotice([this.task.receiverId]);
-      return true;
+      this.quota = quota;
+      if (quota.total != 5) return false;
+      if (quota.left < 0) {
+        const operate = await xftOAApiClient.operate(
+          this.task.operateConfig(
+            "reject",
+            `本月还剩${quota.left}日轮休假，请查看近两月请假记录。如有疑问请联系人力资源部。`
+          )
+        );
+        this.task.status = "已驳回";
+        this.task.horizontal_content_list.push({
+          keyname: "驳回原因",
+          value: `本月还剩${quota.left}日轮休假，请查看近两月请假记录。如有疑问请联系人力资源部。`,
+        });
+        await this.sendNotice([this.task.receiverId]);
+        return true;
+      }
     }
   };
 

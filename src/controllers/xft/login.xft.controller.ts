@@ -41,7 +41,7 @@ export const xftSSOLogin = async (request: Request, response: Response) => {
     )}&secret=${secret}`;
   }
   if (pageId) {
-    redirectUrl = `${XFT_HOST}?pageId=${pageId}&ecret=${secret}`;
+    redirectUrl = `${XFT_HOST}?pageId=${pageId}&secret=${secret}`;
   }
   response.redirect(redirectUrl);
 };

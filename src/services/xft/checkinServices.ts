@@ -1,6 +1,14 @@
 import { get } from "lodash";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
-import { addDays, endOfDay, format, startOfDay, startOfMonth } from "date-fns";
+import {
+  addDays,
+  eachDayOfInterval,
+  endOfDay,
+  endOfMonth,
+  format,
+  startOfDay,
+  startOfMonth,
+} from "date-fns";
 import { User } from "../../entity/basic/employee";
 import {
   checkinApiClient,
@@ -9,16 +17,25 @@ import {
 import { HardwareCheckinData } from "../../entity/atd/wx_hardware_checkin_data";
 import { LogCheckin } from "../../entity/log/log_checkin";
 import { jctimesApiClient } from "../../api/jctimes/app";
+import { Between } from "typeorm";
+import _ from "lodash";
 class CheckinServices {
   async scheduleCheckinMonthly() {
     const startTime = startOfMonth(new Date());
-    const endTime = new Date();
-    await updateCheckin(startTime, endTime);
+    const endTime = endOfMonth(new Date());
+    // const raw_checkin_data = await getCheckin(startTime, endTime);
+    // await insertHardwareCheckinData(raw_checkin_data);
+    const dates = eachDayOfInterval({ start: startTime, end: endTime });
+
+    for (let i = 0; i < dates.length - 1; i++) {
+      await insertToXFTfromDb(dates[i], dates[i + 1]);
+    }
   }
-  async scheduleCheckinDaily() {
-    const startTime = startOfDay(addDays(new Date(), -1));
-    const endTime = endOfDay(addDays(new Date(), -1));
+  async scheduleCheckinDaily(datenumber = -1) {
+    const startTime = startOfDay(addDays(new Date(), datenumber));
+    const endTime = endOfDay(addDays(new Date(), datenumber));
     await updateCheckin(startTime, endTime);
+    return true;
   }
   async scheduleCheckin() {
     const startTime = await LogCheckin.getLastDate();
@@ -84,8 +101,13 @@ const insertToXFT = async (dataList: HardwareCheckin) => {
     select: ["user_id", "name"], // 只选择 user_id 和 name 字段
   });
   const userMap = new Map(users.map((user) => [user.user_id, user.name]));
-  const data = dataList.map((data, index) => {
-    const userName = userMap.get(data.userid) || ""; // 从 Map 中获取用户姓名
+  const uniqueDataMap = new Map<string, any>();
+  let index = 1;
+  let data1: any[] = [];
+  for (const data of dataList) {
+    const userName = userMap.get(data.userid) || "";
+    const key = `${data.userid}-${data.unix_checkin_time}`;
+    if (uniqueDataMap.has(key)) continue;
     const result = {
       staffName: userName,
       staffNumber: data.userid,
@@ -98,6 +120,93 @@ const insertToXFT = async (dataList: HardwareCheckin) => {
     if (result["staffName"] == "") {
       err.push(result);
     }
+    uniqueDataMap.set(key, result);
+    index++;
+    data1.push(result);
+  }
+  // const data = dataList.map((data, index) => {
+  //   const userName = userMap.get(data.userid) || ""; // 从 Map 中获取用户姓名
+  //   const result = {
+  //     staffName: userName,
+  //     staffNumber: data.userid,
+  //     clickDate: format(data.checkin_time, "yyyy-MM-dd"),
+  //     clickTime: format(data.checkin_time, "HH:mm:ss"),
+  //     remark: "企业微信打卡",
+  //     workPlace: data.device_name,
+  //     importNum: index % 1000,
+  //   };
+  //   if (result["staffName"] == "") {
+  //     err.push(result);
+  //   }
+  //   return result;
+  // });
+
+  const errs = await xftatdApiClient.importAtd(data1);
+  for (const temp of errs) {
+    const body = data1.find((da) => da.importNum == temp["importNum"]);
+    err.push({
+      errmsg: temp["errorMessage"],
+      body: body,
+    });
+  }
+  err = err.concat(errs);
+  return err;
+};
+
+const insertHardwareCheckinData = async (rawlist: HardwareCheckin) => {
+  const dataList: HardwareCheckinData[] = [];
+  const uniqueDataMap = new Map<string, HardwareCheckinData>();
+  for (const data of rawlist) {
+    const key = `${data.userid}-${data.unix_checkin_time}`;
+    if (uniqueDataMap.has(key)) continue;
+    const newData = HardwareCheckinData.create({
+      userid: data.userid,
+      unix_checkin_time: data.unix_checkin_time,
+      checkin_time: data.checkin_time,
+      checkin_date: data.checkin_time,
+      device_sn: data.device_sn,
+      device_name: data.device_name,
+    });
+    uniqueDataMap.set(key, newData);
+    dataList.push(newData);
+  }
+  const chunkedList = _.chunk(dataList, 2000);
+  for (const chunk of chunkedList) {
+    await HardwareCheckinData.upsert(chunk, {
+      conflictPaths: ["userid", "unix_checkin_time"],
+      skipUpdateIfNoValuesChanged: true,
+    });
+  }
+};
+
+const insertToXFTfromDb = async (startTime, endTime) => {
+  let err: any[] = [];
+  const dataDb = await HardwareCheckinData.createQueryBuilder("checkin")
+    .leftJoinAndSelect(
+      "md_employee",
+      "employee",
+      "checkin.userid = employee.user_id"
+    )
+    .where("checkin.checkin_time BETWEEN :startTime AND :endTime", {
+      startTime,
+      endTime,
+    })
+    .select([
+      "checkin", // 获取 checkin 表的所有字段
+      "employee.name", // 获取 md_employee 表中的 name 字段
+    ])
+    .orderBy("checkin.userid")
+    .getRawMany();
+  const data = dataDb.map((data, index) => {
+    const result = {
+      staffName: data.employee_name,
+      staffNumber: data.checkin_userid,
+      clickDate: format(data.checkin_checkin_time, "yyyy-MM-dd"),
+      clickTime: format(data.checkin_checkin_time, "HH:mm:ss"),
+      remark: "企业微信打卡",
+      workPlace: data.checkin_device_name,
+      importNum: index,
+    };
     return result;
   });
   const errs = await xftatdApiClient.importAtd(data);
@@ -112,35 +221,21 @@ const insertToXFT = async (dataList: HardwareCheckin) => {
   return err;
 };
 
-const insertHardwareCheckinData = async (rawlist: HardwareCheckin) => {
-  const dataList: HardwareCheckinData[] = [];
-  for (const data of rawlist) {
-    const newData = HardwareCheckinData.create({
-      userid: data.userid,
-      unix_checkin_time: data.unix_checkin_time,
-      checkin_time: data.checkin_time,
-      checkin_date: data.checkin_time,
-      device_sn: data.device_sn,
-      device_name: data.device_name,
-    });
-    dataList.push(newData);
-  }
-  await HardwareCheckinData.upsert(dataList, {
-    conflictPaths: ["userid", "unix_checkin_time"],
-    skipUpdateIfNoValuesChanged: true,
-  });
-};
-
-const updateCheckin = async (startTime, endTime) => {
-  let err: any[] = [];
+const getCheckin = async (startTime, endTime) => {
   const userList = (await jctimesApiClient.getUserLists()).map(
     (user) => user.userid
   );
-  const raw_checkin_data = await checkinApiClient.getHardwareCheckinData(
+  return await checkinApiClient.getHardwareCheckinData(
     userList,
     startTime,
     endTime
   );
+};
+
+const updateCheckin = async (startTime, endTime) => {
+  let err: any[] = [];
+  const raw_checkin_data = await getCheckin(startTime, endTime);
+  await insertHardwareCheckinData(raw_checkin_data);
   err = await insertToXFT(raw_checkin_data);
   const log = LogCheckin.create({
     StartDate: startTime,
@@ -148,5 +243,4 @@ const updateCheckin = async (startTime, endTime) => {
     errmsg: JSON.stringify(err),
   });
   await LogCheckin.save(log);
-  await insertHardwareCheckinData(raw_checkin_data);
 };

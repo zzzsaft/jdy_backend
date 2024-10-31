@@ -104,7 +104,7 @@ export class User extends BaseEntity {
         await xftUserApiClient.getEmployeeDetail(xft_enterprise_id)
       )["body"]?.["number"];
       if (!userid) {
-        throw new Error("User not found.");
+        throw new Error(`User not found.${xft_enterprise_id}`);
       }
       const user = await User.findOne({
         where: { user_id: Like(`%${userid}%`) },
@@ -174,6 +174,15 @@ export class User extends BaseEntity {
   }
 
   static async getOrg(userId: string): Promise<Department | null> {
-    return await Department.findOne({ where: { department_id: userId } });
+    const orgid = (
+      await User.findOne({
+        where: { user_id: userId },
+        select: ["main_department_id"],
+      })
+    )?.main_department_id;
+    if (orgid) {
+      return await Department.findOne({ where: { department_id: orgid } });
+    }
+    return null;
   }
 }

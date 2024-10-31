@@ -1,14 +1,20 @@
 import { isLicensePlate, sendImage } from "../controllers/utils.controllers";
 import { Request, Response } from "express";
 import { quotaServices } from "../services/xft/quotaServices";
+import { checkinServices } from "../services/xft/checkinServices";
 const test = async (request: Request, response: Response) => {
   console.log("Test");
   response.send("Hello World!");
 };
 const getQuota = async (request: Request, response: Response) => {
-  const userid = request.params.userid;
-
+  const userid = request.query.userid as string;
   response.send(await quotaServices.getSingleDayOffQuotaLeftByUserId(userid));
+};
+
+const updateCheckin = async (request: Request, response: Response) => {
+  const date = request.query.dateNumber as string;
+  const result = await checkinServices.scheduleCheckinDaily(parseInt(date));
+  response.send(date);
 };
 export const UtilsRoutes = [
   {
@@ -35,5 +41,10 @@ export const UtilsRoutes = [
     path: "/getQuota",
     method: "get",
     action: getQuota,
+  },
+  {
+    path: "/updateCheckin",
+    method: "get",
+    action: updateCheckin,
   },
 ];

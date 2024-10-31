@@ -65,6 +65,7 @@ class CheckinApiClient extends ApiClient {
         path: "/cgi-bin/hardware/get_hardware_checkin_data",
         payload: {
           ...options,
+          filter_type: 2,
         },
         query: {
           access_token: await token_checkin.get_token(),
