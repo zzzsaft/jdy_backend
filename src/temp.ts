@@ -19,6 +19,7 @@ import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
 import { updateNextBusinessTrip } from "./services/jdy/businessTripCheckinServices";
 import { LeaveEvent } from "./controllers/xft/atd/leave.atd.xft.controller";
 import { XftAtdOvertime } from "./entity/atd/xft_overtime";
+import { OvertimeEvent } from "./controllers/xft/atd/overtime.atd.xft.controller";
 export const 获取空缺请假记录 = async () => {
   // const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
   //   .select("leave.leaveRecSeq")
@@ -57,35 +58,35 @@ export const 测试补卡记录 = async () => {
     appName: "OA审批",
     businessCode: "OA000001",
     businessName: "待审批通知",
-    businessParam: "HOL_xft-hrm_COM_AAA00512_1000007750",
-    createTime: "2024-10-28 11:17:59",
+    businessParam: "OT_xft-hrm_COM_AAA00512_0000003972",
+    createTime: "2024-10-21 08:32:29",
     dealStatus: "0",
     details:
-      "【袁利佳】发起了【请假】申请，流程类型：请假，申请人：袁利佳，请假类型：轮休假，起止时间：2024-10-27 上午-2024-10-27 下午，请假时长：1天，请假原因：轮休假，请您尽快审批，发起时间：2024-10-28 11:17:58。",
-    id: "TD1850738756001533953",
-    processId: "1168708184",
+      "【董小涛】发起了【加班】申请，流程类型：加班，申请人：董小涛，加班类型：工作日，起止时间：2024-10-21 03:30-2024-10-21 07:30，加班申请时长：4.00小时，加班原因：工作需要，请您尽快审批，发起时间：2024-10-21 08:32:28。",
+    id: "TD1848160390674198530",
+    processId: "1148729500",
     processStatus: "0",
     receiver: {
       enterpriseNum: "AAA00512",
       thirdpartyUserId: "",
-      userName: "牟建鹏",
-      xftUserId: "V00K3",
+      userName: "陈昌盛",
+      xftUserId: "V00LU",
     },
-    sendTime: "2024-10-28T11:17:58",
+    sendTime: "2024-10-21T08:32:28",
     sendUser: {
       enterpriseNum: "AAA00512",
       thirdpartyUserId: "",
-      userName: "袁利佳",
-      xftUserId: "V01EV",
+      userName: "董小涛",
+      xftUserId: "V00L7",
     },
     terminal: "0",
-    title: "袁利佳发起的请假",
+    title: "董小涛发起的加班",
     url: {},
   };
   const task = new XftTaskEvent(JSON.stringify(record));
   await task.getWxUserId();
   await task.getMsgId();
-  await new LeaveEvent(task).process();
+  await new OvertimeEvent(task).process();
 };
 
 export const 导入分贝通人员id = async () => {

@@ -110,7 +110,7 @@ const insertToXFT = async (dataList: HardwareCheckin) => {
     if (uniqueDataMap.has(key)) continue;
     const result = {
       staffName: userName,
-      staffNumber: data.userid,
+      staffNumber: data.userid.slice(0, 15),
       clickDate: format(data.checkin_time, "yyyy-MM-dd"),
       clickTime: format(data.checkin_time, "HH:mm:ss"),
       remark: "企业微信打卡",
@@ -124,23 +124,6 @@ const insertToXFT = async (dataList: HardwareCheckin) => {
     index++;
     data1.push(result);
   }
-  // const data = dataList.map((data, index) => {
-  //   const userName = userMap.get(data.userid) || ""; // 从 Map 中获取用户姓名
-  //   const result = {
-  //     staffName: userName,
-  //     staffNumber: data.userid,
-  //     clickDate: format(data.checkin_time, "yyyy-MM-dd"),
-  //     clickTime: format(data.checkin_time, "HH:mm:ss"),
-  //     remark: "企业微信打卡",
-  //     workPlace: data.device_name,
-  //     importNum: index % 1000,
-  //   };
-  //   if (result["staffName"] == "") {
-  //     err.push(result);
-  //   }
-  //   return result;
-  // });
-
   const errs = await xftatdApiClient.importAtd(data1);
   for (const temp of errs) {
     const body = data1.find((da) => da.importNum == temp["importNum"]);
@@ -200,7 +183,7 @@ const insertToXFTfromDb = async (startTime, endTime) => {
   const data = dataDb.map((data, index) => {
     const result = {
       staffName: data.employee_name,
-      staffNumber: data.checkin_userid,
+      staffNumber: data.checkin_userid.slice(0, 15),
       clickDate: format(data.checkin_checkin_time, "yyyy-MM-dd"),
       clickTime: format(data.checkin_checkin_time, "HH:mm:ss"),
       remark: "企业微信打卡",

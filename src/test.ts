@@ -75,8 +75,21 @@ import { LogCheckin } from "./entity/log/log_checkin";
 import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
+
 await PgDataSource.initialize();
-// await checkinServices.scheduleCheckinMonthly();
+// const data = [
+//   {
+//     staffName: "测试账号",
+//     staffNumber: "ceshi",
+//     clickDate: "2024-10-22",
+//     clickTime: "09:00:00",
+//     remark: "出差打卡",
+//     workPlace: "出差打卡【无效打卡】",
+//     importNum: 2,
+//   },
+// ];
+// const errs = await xftatdApiClient.importAtd(data);
+// await checkinServices.scheduleCheckin();
 // await sendXftTodoList();
 // const a = await workflowApiClient.workflowInstanceGet(
 //   "670c27ca3f18ccc122114ddb"
@@ -86,8 +99,9 @@ await PgDataSource.initialize();
 // await testXftTrip();
 // await xftSalaryApiClient.setAtd();
 // await parkingApiClient.getCarById("1846020091524780033");
+// await 测试补卡记录();
 // await messageApiClient.recall(
-//   "ApdmTZacy5fwcrmY4C90r6XZWFFtnT7bhxQ6wduTtz9YJc8CHKKV75Ojq7RjpZJHwsUswiwWZuhBS1RFRlqB5w"
+//   "fm2I_jKMoHlBN2oQKAwL7_muqVBwF_2XCv2WVR4b5RCAvG122fRjDvLGDc7SEFG_uANT3GAEUqYoKymGrhGsWw"
 // );
 // await BusinessTripCheckinServices.scheduleCreate(new Date("2024-10-25"));
 // await insertWidgets("5cfef4b5de0b2278b05c8380", "67037803a6ba29ba0521efb2");
@@ -99,7 +113,6 @@ await PgDataSource.initialize();
 // if (a) {
 //   await BusinessTripServices.createBusinessTrip(a);
 // }
-// await 测试补卡记录();
 // const record = await xftatdApiClient.getOvertimeRecord("0000003134");
 // console.log();
 // await BusinessTripServices.scheduleCreate(new Date("2024-10-15"));
@@ -165,6 +178,7 @@ import { quotaServices } from "./services/xft/quotaServices";
 import { messageApiClient } from "./api/wechat/message";
 import { xftGeneralApiClient } from "./api/xft/xft_general";
 import { sendXftTodoList } from "./schedule/sendXftTask";
+import { getDifference } from "./utils/dateUtils";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
@@ -378,9 +392,7 @@ import { sendXftTodoList } from "./schedule/sendXftTask";
 // // await xftUserApiClient.getMapping("0000000001");
 // // await xftUserApiClient.getMapping("0000000263");
 // // await xftUserApiClient.updateMapping("0000000263", "LiuYong");
-// console.log(
-//   await quotaServices.getSingleDayOffQuotaLeftByUserId("ZhangHongMing")
-// );
+console.log(await quotaServices.getSingleDayOffQuotaLeftByUserId("LiangZhi"));
 // const a = await quotaServices.getAllSingleDayOffQuotaLeft();
 // const result = Object.entries(a)
 //   .filter(([key, value]) => value.left < 0)

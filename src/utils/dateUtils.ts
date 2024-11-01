@@ -93,24 +93,16 @@ export const getDifference = (time1: string, time2: string) => {
 export const getLast2MouthSaturday = () => {
   const currentDate = new Date();
 
-  // 获取上个月的开始和结束日期
-  const startLastMonth = startOfMonth(subMonths(currentDate, 1));
-  const endLastMonth = endOfMonth(subMonths(currentDate, 1));
-
-  // 获取本月的开始和结束日期
-  const startThisMonth = startOfMonth(currentDate);
-  const endThisMonth = endOfMonth(currentDate);
-
   // 获取上个月的所有天数
   const daysOfLastMonth = eachDayOfInterval({
-    start: startLastMonth,
-    end: endLastMonth,
+    start: startOfMonth(subMonths(currentDate, 1)),
+    end: endOfMonth(subMonths(currentDate, 1)),
   });
 
   // 获取本月的所有天数
   const daysOfThisMonth = eachDayOfInterval({
-    start: startThisMonth,
-    end: endThisMonth,
+    start: startOfMonth(currentDate),
+    end: endOfMonth(currentDate),
   });
 
   // 筛选出上个月和本月的周六
@@ -121,10 +113,10 @@ export const getLast2MouthSaturday = () => {
   return saturdaysOfLastMonth.length + saturdaysOfThisMonth.length;
 };
 
-export const getLastMouthSaturday = () => {
+export const getMouthSaturday = (date = new Date()) => {
   const days = eachDayOfInterval({
-    start: startOfMonth(new Date()),
-    end: endOfMonth(new Date()),
+    start: startOfMonth(date),
+    end: endOfMonth(date),
   });
 
   const saturdays = days.filter(isSaturday).length;

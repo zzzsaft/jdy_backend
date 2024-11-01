@@ -1,10 +1,7 @@
 import { startOfMonth, subMonths, endOfMonth, format } from "date-fns";
 import _ from "lodash";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
-import {
-  getLast2MouthSaturday,
-  getLastMouthSaturday,
-} from "../../utils/dateUtils";
+import { getLast2MouthSaturday, getMouthSaturday } from "../../utils/dateUtils";
 
 class QuotaServices {
   private async getQuota(
@@ -59,12 +56,19 @@ class QuotaServices {
       (quota) => quota["balPeriod"] == currentMonth
     );
 
-    if (quotaThisMonth?.["deservedBal"] != 5 || getLastMouthSaturday() == 5)
+    let thisMouthSaturday = getMouthSaturday();
+    let lastMouthSaturday = getMouthSaturday(subMonths(new Date(), -1));
+    if (
+      quotaThisMonth?.["deservedBal"] != 5 ||
+      thisMouthSaturday == 5
+      // ||
+      // (thisMouthSaturday != 4 && lastMouthSaturday == 4)
+    )
       return {
         total: quotaThisMonth?.["initialBal"],
         left: quotaThisMonth?.["leftBal"],
       };
-    if (getLastMouthSaturday() == 4) {
+    if (getMouthSaturday() == 4) {
       return {
         total: quotaThisMonth?.["initialBal"],
         left: parseFloat(quotaThisMonth?.["leftBal"]) - 1,

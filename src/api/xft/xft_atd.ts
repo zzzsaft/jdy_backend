@@ -9,10 +9,7 @@ import {
   startOfMonth,
   subMonths,
 } from "date-fns";
-import {
-  getLast2MouthSaturday,
-  getLastMouthSaturday,
-} from "../../utils/dateUtils";
+import { getLast2MouthSaturday, getMouthSaturday } from "../../utils/dateUtils";
 
 export type importAtd = {
   staffName: string;
