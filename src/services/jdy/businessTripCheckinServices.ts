@@ -1,4 +1,12 @@
-import { addDays, differenceInCalendarDays, endOfDay, format } from "date-fns";
+import {
+  addDays,
+  differenceInCalendarDays,
+  endOfDay,
+  endOfMonth,
+  format,
+  lastDayOfMonth,
+  startOfMonth,
+} from "date-fns";
 import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { XftTripCheckin } from "../../entity/atd/business_trip_checkin";
 import { FbtApply } from "../../entity/atd/fbt_trip_apply";
@@ -9,6 +17,7 @@ import { BusinessTrip } from "../../entity/atd/businessTrip";
 import { BusinessTripServices } from "../xft/businessTripServices";
 import {
   And,
+  Between,
   Equal,
   IsNull,
   LessThanOrEqual,
@@ -18,17 +27,19 @@ import {
 import { JdyTaskEvent } from "./event";
 import { formatDate } from "../../utils/dateUtils";
 import { MessageHelper } from "../../api/wechat/message";
+import { xftatdApiClient } from "../../api/xft/xft_atd";
 
 export class BusinessTripCheckinServices {
-  static async dataCreate(content) {
+  async dataCreate(content) {
     const data = await jdyDatetoDb(content);
     const fbtRootId = await sendNotice(data);
     if (fbtRootId) data["fbtRootId"] = fbtRootId;
     const exist = await XftTripCheckin.exists({ where: { jdyId: data.jdyId } });
     if (exist) return;
-    await XftTripCheckin.create({ ...data }).save();
+    const checkin = await XftTripCheckin.create({ ...data }).save();
+    await this.addCheckinRecord(checkin);
   }
-  static async dataUpdate(content) {
+  async dataUpdate(content) {
     const data = await jdyDatetoDb(content);
     let existdata = await XftTripCheckin.findOne({
       where: { jdyId: content["_id"] },
@@ -37,6 +48,7 @@ export class BusinessTripCheckinServices {
     if (data) {
       XftTripCheckin.merge(existdata, { ...data });
       existdata = await existdata.save();
+      await this.addCheckinRecord(existdata);
       await updateBusinessTrip(existdata);
     }
     await sendMessage(data);
@@ -86,7 +98,45 @@ export class BusinessTripCheckinServices {
       sendMessage(await jdyDatetoDb(result["data"]));
     }
   }
+  addCheckinRecord = async (checkin: XftTripCheckin) => {
+    if (
+      checkin.state != "已打卡" &&
+      checkin.state != "当日打卡" &&
+      checkin.state != "次日补卡"
+    )
+      return;
+    if (checkin.address.includes("台州") && checkin.state != "次日补卡") return;
+    const result = {
+      staffName: checkin.name,
+      staffNumber: checkin.userId.slice(0, 15),
+      clickDate: format(checkin.checkinTime, "yyyy-MM-dd"),
+      clickTime: format(checkin.checkinTime, "HH:mm:ss"),
+      remark: "出差打卡",
+      workPlace: `${checkin.address}【有效打卡】`,
+      importNum: 1,
+    };
+    if (checkin.state == "次日补卡") {
+      result["workPlace"] = `${checkin.address.slice(0, 80)}【有效补卡】`;
+      result.clickDate = format(checkin.checkinDate, "yyyy-MM-dd");
+      result.clickTime = "10:00:00";
+    }
+    await xftatdApiClient.importAtd([result]);
+  };
 }
+
+export const businessTripCheckinServices = new BusinessTripCheckinServices();
+
+export const addCheckinToXFT = async (date = new Date("2024-10-1")) => {
+  const data = await XftTripCheckin.find({
+    where: {
+      checkinDate: Between(startOfMonth(date), endOfMonth(date)),
+      name: "蔡小勇",
+    },
+  });
+  for (const item of data) {
+    await businessTripCheckinServices.addCheckinRecord(item);
+  }
+};
 
 const generateCheckinbyBusinessTrip = async ({
   businessTrip,
@@ -130,6 +180,7 @@ const generateCheckinbyBusinessTrip = async ({
   checkin.type = type;
   checkin.reason = businessTrip.reason ?? "";
   checkin.remark = businessTrip.remark ?? "";
+  checkin.xftFormId = businessTrip.xftFormId;
   if (fbtRootId) {
     const apply = await FbtApply.findOne({
       where: { root_id: checkin.fbtRootId },
@@ -367,7 +418,7 @@ const sendNotice = async (data) => {
       end_time: MoreThanOrEqual(checkinDate),
     },
   });
-  if (exist) return exist.fbtRootId;
+  if (exist) return exist.fbtRootId ?? exist.xftFormId;
   await new MessageHelper([data.userId]).send_plain_text(
     `未找到${format(data.checkinDate, "yyyy-MM-dd")}拜访${
       data.customer

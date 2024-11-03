@@ -45,6 +45,7 @@ import { xftatdApiClient } from "./api/xft/xft_atd";
 // import { LogAxios } from "./entity/log/log_axios";
 // import { Like } from "typeorm";
 import {
+  createBTcheckin,
   processPrecisionIssueData,
   processXftTripLog,
   testChangeShift,
@@ -76,6 +77,14 @@ import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
 await PgDataSource.initialize();
+// await createBTcheckin();
+// const a = await xftatdApiClient.getDayResult({
+//   attendanceDate: "2024-10-22",
+//   staffNumber: "LiangZhi",
+// });
+// let b = await resolveContent(a["body"]["dayStaDtoList"][0]);
+// console.log(a);
+// await addCheckinToXFT();
 // await checkinServices.scheduleCheckinMonthly();
 // await sendXftTodoList();
 // const a = await workflowApiClient.workflowInstanceGet(
@@ -150,6 +159,7 @@ import { SendTripCheckin } from "./schedule/sendTripCheckin";
 import { JdyForm } from "./entity/util/jdy_form";
 import { workflowApiClient } from "./api/jdy/workflow";
 import {
+  addCheckinToXFT,
   BusinessTripCheckinServices,
   sendMessage,
   updateNextBusinessTrip,
@@ -162,9 +172,10 @@ import {
 } from "./services/xft/checkinServices";
 import { insertWidgets } from "./services/jdy/widgetServices";
 import { quotaServices } from "./services/xft/quotaServices";
-import { messageApiClient } from "./api/wechat/message";
+import { messageApiClient, MessageHelper } from "./api/wechat/message";
 import { xftGeneralApiClient } from "./api/xft/xft_general";
 import { sendXftTodoList } from "./schedule/sendXftTask";
+import { resolveContent } from "./services/xft/dayResultServices";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";

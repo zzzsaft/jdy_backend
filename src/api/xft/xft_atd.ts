@@ -184,6 +184,19 @@ class XFTAttendanceApiClient {
       "U0000"
     );
   }
+  async getDayResult(payload: {
+    attendanceDate: string;
+    staffNumber?: string;
+  }) {
+    return await appApiClient.doRequest(
+      {
+        method: "POST",
+        path: "/atd/prd/xft-atn/sta-result/day/query",
+        payload,
+      },
+      "U0000"
+    );
+  }
   /**
    * 考勤类型 1-固定班 2-排班 3-自由工时
    * @param payload

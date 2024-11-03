@@ -54,8 +54,8 @@ export class XftTripCheckin extends BaseEntity {
   company: string;
   @Column({ name: "jdy_id", nullable: true })
   jdyId: string;
-  @Column({ nullable: true, name: "process_id" })
-  processId: string;
+  @Column({ nullable: true, name: "xft_form_id" })
+  xftFormId: string;
   @CreateDateColumn()
   created_at: Date;
   @UpdateDateColumn()

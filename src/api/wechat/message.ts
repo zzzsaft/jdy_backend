@@ -40,6 +40,7 @@ export type buttonCardType = templateCardType & {
     key?: string; //type是0时必填
     url?: string; //type是1时必填
   }[];
+  button_selection?: any;
 };
 export type voteInteractionCardType = {
   main_title: { title: string; desc: string };
@@ -100,6 +101,7 @@ export class MessageHelper {
       button_list,
       card_action,
       event,
+      button_selection,
     } = config;
     const taskid = uuidv4();
     this.request_body["msgtype"] = "template_card";
@@ -111,6 +113,7 @@ export class MessageHelper {
       task_id: taskid,
       button_list,
       card_action,
+      button_selection,
     };
     const msg = await messageApiClient.sendMessage(this.request_body);
     if (msg["errcode"] == 0)

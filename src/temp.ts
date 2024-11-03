@@ -6,7 +6,7 @@ import { XftTaskEvent } from "./controllers/xft/todo.xft.controller";
 import { ReissueEvent } from "./controllers/xft/atd/reissue.atd.xft.controller";
 import { fbtUserApiClient } from "./api/fenbeitong/user";
 import { User } from "./entity/basic/employee";
-import { Between, IsNull, Like, Not } from "typeorm";
+import { And, Between, IsNull, Like, MoreThanOrEqual, Not } from "typeorm";
 import { XftCity } from "./entity/util/xft_city";
 import { FbtApply } from "./entity/atd/fbt_trip_apply";
 import { XftTripLog } from "./schedule/getFbtApply";
@@ -16,7 +16,10 @@ import { BusinessTripEvent } from "./controllers/xft/atd/businessTrip.atd.xft.co
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
 import { LogExpress } from "./entity/log/log_express";
 import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
-import { updateNextBusinessTrip } from "./services/jdy/businessTripCheckinServices";
+import {
+  businessTripCheckinServices,
+  updateNextBusinessTrip,
+} from "./services/jdy/businessTripCheckinServices";
 import { LeaveEvent } from "./controllers/xft/atd/leave.atd.xft.controller";
 import { XftAtdOvertime } from "./entity/atd/xft_overtime";
 export const 获取空缺请假记录 = async () => {
@@ -210,4 +213,20 @@ export const testChangeShift = async () => {
     },
     procKey: "FORM_11695218202410221334159741",
   });
+};
+
+export const createBTcheckin = async () => {
+  const data = await LogExpress.find({
+    where: {
+      path: "/jdy/data",
+      msg: And(Like("%出差信息填报%")),
+      created_at: MoreThanOrEqual(new Date("2024-11-02")),
+    },
+  });
+  for (const item of data) {
+    const msg = JSON.parse(item.msg);
+    if (msg?.op === "data_create") {
+      await businessTripCheckinServices.dataCreate(msg["data"]);
+    }
+  }
 };

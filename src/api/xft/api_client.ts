@@ -76,7 +76,9 @@ class ApiClient {
             data["returnCode"] !== "SUC0000")
         ) {
           logger.error(
-            `请求错误！Error Code: ${data.returnCode}, Error Msg: ${data.errorMsg},body: ${options.payload}`
+            `请求错误！Error Code: ${data.returnCode}, Error Msg: ${
+              data.errorMsg
+            },body: ${JSON.stringify(options.payload)}`
           );
         }
       }
@@ -88,7 +90,9 @@ class ApiClient {
         const { status, data } = response;
         if (status && status > 200 && data.code && data.msg) {
           throw new Error(
-            `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg},body: ${options.payload}`
+            `请求错误！Error Code: ${data.code}, Error Msg: ${
+              data.msg
+            },body: ${JSON.stringify(options.payload)}`
           );
         }
       }
