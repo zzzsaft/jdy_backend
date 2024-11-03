@@ -1,8 +1,9 @@
-import { format, isBefore } from "date-fns";
+import { addDays, format, isBefore, parse } from "date-fns";
 import { XftTaskEvent } from "../todo.xft.controller";
 import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
 import { xftatdApiClient } from "../../../api/xft/xft_atd";
 import { xftOAApiClient } from "../../../api/xft/xft_oa";
+import { getDifference } from "../../../utils/dateUtils";
 
 export class OvertimeEvent {
   task: XftTaskEvent;
@@ -77,22 +78,41 @@ export class OvertimeEvent {
 
   rejectOA = async () => {
     if (isBefore(new Date(this.beginDate), new Date(this.overtimeDate))) {
-      const operate = await xftOAApiClient.operate(
-        this.task.operateConfig("reject")
+      return await this._rejectOA(
+        `您申请的加班日期为${this.overtimeDate},加班开始时间为${this.beginDate}` +
+          ` ${this.beginTime},请注意加班时间应选择当日，如果确定加班时间为昨日，请联系HR添加。`
       );
-      if (this.task.dealStatus == "1") return true;
-      this.task.status = "已驳回";
-      this.task.horizontal_content_list.push({
-        keyname: "驳回原因",
-        value: `您申请的加班日期为${this.overtimeDate},加班开始时间为${this.beginDate} ${this.beginTime},请注意加班时间应选择当日，如果确定加班时间为昨日，请联系HR添加。`,
-      });
-      await this.sendNotice(this.stfNumber);
-      return true;
+    }
+    if (this.beginDate == this.overtimeDate) {
+      const flag = getDifference(this.beginTime, "05:30");
+      if (flag > 0 && this.overtimeLen < 6) {
+        let startDate = format(
+          addDays(new Date(this.overtimeDate), -1),
+          "yyyy-MM-dd"
+        );
+        return await this._rejectOA(
+          `如果您本日工作开始为${startDate}晚上,应申请${startDate}为加班日期` +
+            `加班时间选择次日，如果确定加班日期为${this.overtimeDate}，请联系HR添加。`
+        );
+      }
     }
     return false;
   };
 
-  // rejectOA = async () => {};
+  _rejectOA = async (reason) => {
+    const operate = await xftOAApiClient.operate(
+      this.task.operateConfig("reject", reason)
+    );
+    if (operate["returnCode"] != "SUC0000") return false;
+    if (this.task.dealStatus == "1") return true;
+    this.task.status = "已驳回";
+    this.task.horizontal_content_list.push({
+      keyname: "驳回原因",
+      value: reason,
+    });
+    await this.sendNotice(this.stfNumber);
+    return true;
+  };
 
   sendNotice = async (userid: string = "", status = this.task.status) => {
     let userids = Array.from(new Set([userid, this.task.sendUserId]));
