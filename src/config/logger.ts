@@ -8,7 +8,7 @@ const customFormat = winston.format.printf(({ level, message, timestamp }) => {
   const stack = new Error().stack?.split("\n")[3]; // 获取调用栈的第三行
   const callerInfo = stack ? stack.trim() : "";
 
-  return `${timestamp} [${level}]: ${message} ${callerInfo}`;
+  return `[${level}]: ${message}`;
 });
 // Winston logger
 export const logger = winston.createLogger({

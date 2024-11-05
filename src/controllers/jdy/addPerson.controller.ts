@@ -72,12 +72,14 @@ export const updateExistInfo = async (data) => {
 };
 
 const saveNewInfotoDahua = async (data) => {
+  let userId = data["_widget_1720801227437"];
+  if (!(await User.findOneBy({ user_id: userId }))?.dahua_id) return;
   const photo = data["_widget_1704998079070"];
   const url = photo[0]["url"];
   const fileName = photo[0]["name"];
   const fileStream = await downloadFileStream(url);
   await addtoDahua({
-    userId: data["_widget_1720801227437"],
+    userId,
     name: data["full_name"],
     fileStream,
     fileName,

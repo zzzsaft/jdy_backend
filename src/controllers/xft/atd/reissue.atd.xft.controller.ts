@@ -82,18 +82,6 @@ export class ReissueEvent {
     let flag = false;
     const user = await User.findOne({ where: { user_id: this.staffNbr } });
     if (!user) return false;
-    if (user.attendance == "1") {
-      const operate = await xftOAApiClient.operate(
-        this.task.operateConfig("reject")
-      );
-      this.task.status = "已驳回";
-      this.task.horizontal_content_list.push({
-        keyname: "驳回原因",
-        value: `暂不支持提交补卡申请，请提供出勤证明至人事部处理`,
-      });
-      await this.sendNotice(this.staffNbr);
-      return true;
-    }
     const workTimes = await atdClassService.getClassWorkTime(this.classesSeq);
     for (const time of workTimes) {
       let diff = getDifference(time, this.time);

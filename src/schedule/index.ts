@@ -8,7 +8,7 @@ import { sendtoUserwithLeaveChoice } from "./sendLeave";
 import { GetFbtApply } from "./getFbtApply";
 import { SendTripCheckin } from "./sendTripCheckin";
 import { sendXftTodoList } from "./sendXftTask";
-import { BusinessTripCheckinServices } from "../services/jdy/businessTripCheckinServices";
+import { businessTripCheckinServices } from "../services/jdy/businessTripCheckinServices";
 import { BusinessTripServices } from "../services/xft/businessTripServices";
 import { checkinServices } from "../services/xft/checkinServices";
 
@@ -21,7 +21,8 @@ const syncWechat = async () => {
 
 //每过15分钟触发任务
 const checkinDateSchedule = cron.schedule("0,15,30,45 * * * *", async () => {
-  await checkinServices.scheduleCheckin();
+  const hours = new Date().getHours();
+  if (hours > 7 && hours < 23) await checkinServices.scheduleCheckin();
 });
 
 //每过15分钟触发任务
@@ -30,7 +31,7 @@ const fbtApplySchedule = cron.schedule("5,20,35,50 * * * *", async () => {
   await BusinessTripServices.scheduleCreate();
   const hour = new Date().getHours();
   if (hour > 7 && hour < 23) {
-    await BusinessTripCheckinServices.scheduleCreate();
+    await businessTripCheckinServices.scheduleCreate();
   }
 });
 
@@ -49,7 +50,7 @@ const sendLeave = cron.schedule("0 16 * * 5", async () => {
 });
 
 const sendTripCheckin = cron.schedule("0 */20 7-20 * * *", async () => {
-  await BusinessTripCheckinServices.scheduleCreate();
+  await businessTripCheckinServices.scheduleCreate();
   logger.info("更新外出打卡");
 });
 

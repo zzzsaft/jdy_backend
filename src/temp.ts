@@ -23,6 +23,7 @@ import {
 import { LeaveEvent } from "./controllers/xft/atd/leave.atd.xft.controller";
 import { XftAtdOvertime } from "./entity/atd/xft_overtime";
 import { OvertimeEvent } from "./controllers/xft/atd/overtime.atd.xft.controller";
+import { personApiClient } from "./api/dahua/person";
 export const 获取空缺请假记录 = async () => {
   // const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
   //   .select("leave.leaveRecSeq")
@@ -221,13 +222,25 @@ export const createBTcheckin = async () => {
     where: {
       path: "/jdy/data",
       msg: And(Like("%出差信息填报%")),
-      created_at: MoreThanOrEqual(new Date("2024-11-02")),
+      created_at: MoreThanOrEqual(new Date("2024-11-03")),
     },
   });
   for (const item of data) {
     const msg = JSON.parse(item.msg);
-    if (msg?.op === "data_create") {
-      await businessTripCheckinServices.dataCreate(msg["data"]);
+    if (msg?.op === "data_update") {
+      await businessTripCheckinServices.dataUpdate(msg["data"]);
+    }
+  }
+};
+
+export const deleteDahuaId = async () => {
+  const ids = (await personApiClient.getPersonInfo()).map((a) => a["id"]);
+  const users = (await User.find({ where: { dahua_id: Not(IsNull()) } })).map(
+    (a) => a.dahua_id
+  );
+  for (const id of ids) {
+    if (!users.includes(id)) {
+      await personApiClient.deletePerson(id);
     }
   }
 };

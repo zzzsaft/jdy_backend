@@ -22,6 +22,29 @@ class PersonApiClient extends ApiClient {
     });
   }
 
+  async _getPersonInfo(pageNum = 1) {
+    return await this.doRequest({
+      method: "POST",
+      path: "/gateway/person/api/personFile/page",
+      payload: { pageNum, pageSize: 100, orgCode: "001" },
+    });
+  }
+
+  async getPersonInfo() {
+    let result: any[] = [];
+    for (let i = 1; i < 12; i++) {
+      result.push(...(await this._getPersonInfo(i))["data"]["pageData"]);
+    }
+    return result;
+  }
+
+  async deletePerson(fileId) {
+    return await this.doRequest({
+      method: "DELETE",
+      path: `/gateway/dsc-owner/api/deletePerson/${fileId}`,
+    });
+  }
+
   async authAsync(personFileId) {
     return await this.doRequest({
       method: "POST",

@@ -13,10 +13,7 @@ import { updateExistInfo, 入职申请表 } from "./addPerson.controller";
 import { 来宾预约单 } from "./visitor.controller";
 import { 离职, 转正 } from "./updateUser.jdy.controller";
 import { SendTripCheckin } from "../../schedule/sendTripCheckin";
-import {
-  businessTripCheckinServices,
-  BusinessTripCheckinServices,
-} from "../../services/jdy/businessTripCheckinServices";
+import { businessTripCheckinServices } from "../../services/jdy/businessTripCheckinServices";
 
 function getSignature(
   nonce: string,

@@ -110,7 +110,12 @@ export class LeaveEvent {
 
   rejectOA = async () => {
     const org = await User.getOrg(this.stfNumber);
-    if (org && org.level3 == "加工中心" && org.level1 != "配件事业部") {
+    if (
+      org &&
+      org.level3 == "加工中心" &&
+      org.level1 != "配件事业部" &&
+      this.lveUnit == "DAY"
+    ) {
       if (this.begDate != this.endDate) {
         const operate = await xftOAApiClient.operate(
           this.task.operateConfig(

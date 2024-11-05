@@ -1,5 +1,6 @@
 import {
   addDays,
+  addMinutes,
   differenceInCalendarDays,
   endOfDay,
   endOfMonth,
@@ -29,7 +30,7 @@ import { formatDate } from "../../utils/dateUtils";
 import { MessageHelper } from "../../api/wechat/message";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
 
-export class BusinessTripCheckinServices {
+class BusinessTripCheckinServices {
   async dataCreate(content) {
     const data = await jdyDatetoDb(content);
     const fbtRootId = await sendNotice(data);
@@ -48,12 +49,15 @@ export class BusinessTripCheckinServices {
     if (data) {
       XftTripCheckin.merge(existdata, { ...data });
       existdata = await existdata.save();
-      await this.addCheckinRecord(existdata);
       await updateBusinessTrip(existdata);
+      let newExistdata = await XftTripCheckin.findOne({
+        where: { jdyId: content["_id"] },
+      });
+      if (newExistdata) await this.addCheckinRecord(newExistdata);
     }
     await sendMessage(data);
   }
-  static async scheduleCreate(date: Date = new Date()) {
+  async scheduleCreate(date: Date = new Date()) {
     const businessTrip = await BusinessTrip.find({
       where: {
         start_time: LessThanOrEqual(date),
@@ -62,20 +66,17 @@ export class BusinessTripCheckinServices {
       },
     });
     for (const item of businessTrip) {
-      await BusinessTripCheckinServices.createTripCheckin(item, date);
+      await this.createTripCheckin(item, date);
       if (item.companion?.length > 0) {
         for (const companion of item.companion) {
           const newItem = BusinessTrip.create(item);
           newItem.userId = companion;
-          await BusinessTripCheckinServices.createTripCheckin(newItem, date);
+          await this.createTripCheckin(newItem, date);
         }
       }
     }
   }
-  static async createTripCheckin(
-    businessTrip: BusinessTrip,
-    date: Date = new Date()
-  ) {
+  async createTripCheckin(businessTrip: BusinessTrip, date: Date = new Date()) {
     if (businessTrip.start_time <= date && businessTrip.end_time >= date) {
       const checkin = await generateCheckinbyBusinessTrip({
         businessTrip,
@@ -105,7 +106,7 @@ export class BusinessTripCheckinServices {
       checkin.state != "次日补卡"
     )
       return;
-    if (checkin.address.includes("台州") && checkin.state != "次日补卡") return;
+    if (!checkin.checkinTime) return;
     const result = {
       staffName: checkin.name,
       staffNumber: checkin.userId.slice(0, 15),
@@ -115,6 +116,19 @@ export class BusinessTripCheckinServices {
       workPlace: `${checkin.address}【有效打卡】`,
       importNum: 1,
     };
+    if (!checkin.fbtRootId && !checkin.xftFormId) {
+      const tripId = await findBusinessTrip(
+        checkin.userId,
+        checkin.checkinDate
+      );
+      if (!tripId) {
+        (result["clickTime"] = format(
+          addMinutes(checkin.checkinTime, -1),
+          "HH:mm:ss"
+        )),
+          (result["workPlace"] = `${checkin.address.slice(0, 80)}【无效打卡】`);
+      }
+    }
     if (checkin.state == "次日补卡") {
       result["workPlace"] = `${checkin.address.slice(0, 80)}【有效补卡】`;
       result.clickDate = format(checkin.checkinDate, "yyyy-MM-dd");
@@ -408,17 +422,22 @@ export const sendMessage = async (data) => {
   ]);
 };
 
-const sendNotice = async (data) => {
-  const checkinDate = data?.checkinDate;
-  if (data?.type != "出差打卡" || !checkinDate) return;
+const findBusinessTrip = async (userId, checkinDate) => {
   const exist = await BusinessTrip.findOne({
     where: {
-      userId: data.userId,
+      userId,
       start_time: LessThanOrEqual(checkinDate),
       end_time: MoreThanOrEqual(checkinDate),
     },
   });
-  if (exist) return exist.fbtRootId ?? exist.xftFormId;
+  return exist?.fbtRootId ?? exist?.xftFormId;
+};
+
+const sendNotice = async (data) => {
+  const checkinDate = data?.checkinDate;
+  if (data?.type != "出差打卡" || !checkinDate) return;
+  const tripId = await findBusinessTrip(data.userId, checkinDate);
+  if (tripId) return tripId;
   await new MessageHelper([data.userId]).send_plain_text(
     `未找到${format(data.checkinDate, "yyyy-MM-dd")}拜访${
       data.customer

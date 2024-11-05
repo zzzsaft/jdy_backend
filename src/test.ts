@@ -46,6 +46,7 @@ import { xftatdApiClient } from "./api/xft/xft_atd";
 // import { Like } from "typeorm";
 import {
   createBTcheckin,
+  deleteDahuaId,
   processPrecisionIssueData,
   processXftTripLog,
   testChangeShift,
@@ -76,8 +77,15 @@ import { LogCheckin } from "./entity/log/log_checkin";
 import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
-
-await PgDataSource.initialize();
+// await PgDataSource.initialize();
+// await deleteDahuaId();
+// await createBTcheckin();
+// const a = await xftatdApiClient.getDayResult({
+//   staffNumber: "ZhengJie",
+//   attendanceDate: "2024-10-11",
+// });
+// console.log(JSON.parse(a["body"]["dayStaDtoList"][0]["attendanceItemResult"]));
+// await checkinServices.scheduleCheckin();
 // await checkinServices.scheduleCheckinMonthly();
 // await sendXftTodoList();
 // const a = await workflowApiClient.workflowInstanceGet(
@@ -153,7 +161,6 @@ import { JdyForm } from "./entity/util/jdy_form";
 import { workflowApiClient } from "./api/jdy/workflow";
 import {
   addCheckinToXFT,
-  BusinessTripCheckinServices,
   sendMessage,
   updateNextBusinessTrip,
 } from "./services/jdy/businessTripCheckinServices";
@@ -168,6 +175,8 @@ import { quotaServices } from "./services/xft/quotaServices";
 import { messageApiClient, MessageHelper } from "./api/wechat/message";
 import { xftGeneralApiClient } from "./api/xft/xft_general";
 import { sendXftTodoList } from "./schedule/sendXftTask";
+import { jctimesApiClient } from "./api/jctimes/app";
+import { personApiClient } from "./api/dahua/person";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
@@ -381,7 +390,7 @@ import { sendXftTodoList } from "./schedule/sendXftTask";
 // // await xftUserApiClient.getMapping("0000000001");
 // // await xftUserApiClient.getMapping("0000000263");
 // // await xftUserApiClient.updateMapping("0000000263", "LiuYong");
-console.log(await quotaServices.getSingleDayOffQuotaLeftByUserId("LiangZhi"));
+// console.log(await quotaServices.getSingleDayOffQuotaLeftByUserId("LiangZhi"));
 // const a = await quotaServices.getAllSingleDayOffQuotaLeft();
 // const result = Object.entries(a)
 //   .filter(([key, value]) => value.left < 0)
