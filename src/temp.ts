@@ -62,35 +62,35 @@ export const 测试补卡记录 = async () => {
     appName: "OA审批",
     businessCode: "OA000001",
     businessName: "待审批通知",
-    businessParam: "OT_xft-hrm_COM_AAA00512_0000003972",
-    createTime: "2024-10-21 08:32:29",
+    businessParam: "MUC_xft-hrm_COM_AAA00512_0000001131",
+    createTime: "2024-10-31 10:13:59",
     dealStatus: "0",
     details:
-      "【董小涛】发起了【加班】申请，流程类型：加班，申请人：董小涛，加班类型：工作日，起止时间：2024-10-21 03:30-2024-10-21 07:30，加班申请时长：4.00小时，加班原因：工作需要，请您尽快审批，发起时间：2024-10-21 08:32:28。",
-    id: "TD1848160390674198530",
-    processId: "1148729500",
+      "【赵翌辰】发起了【补卡】申请，申请人：赵翌辰，补卡时间：2024-10-30 16:40:00，班次信息：精诚-品牌部冬季打卡规则:09:00-16:40，补卡原因：外出拍摄，请您尽快审批，发起时间：2024-10-31 10:13:58。",
+    id: "TD1851809812814151682",
+    processId: "1179174148",
     processStatus: "0",
     receiver: {
       enterpriseNum: "AAA00512",
       thirdpartyUserId: "",
-      userName: "陈昌盛",
-      xftUserId: "V00LU",
+      userName: "林青青",
+      xftUserId: "U0000",
     },
-    sendTime: "2024-10-21T08:32:28",
+    sendTime: "2024-10-31T10:13:58",
     sendUser: {
       enterpriseNum: "AAA00512",
       thirdpartyUserId: "",
-      userName: "董小涛",
-      xftUserId: "V00L7",
+      userName: "赵翌辰",
+      xftUserId: "U0000",
     },
     terminal: "0",
-    title: "董小涛发起的加班",
+    title: "赵翌辰发起的补卡",
     url: {},
   };
   const task = new XftTaskEvent(JSON.stringify(record));
   await task.getWxUserId();
   await task.getMsgId();
-  await new OvertimeEvent(task).process();
+  await new ReissueEvent(task).process();
 };
 
 export const 导入分贝通人员id = async () => {

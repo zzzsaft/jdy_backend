@@ -1,5 +1,7 @@
+import _ from "lodash";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
 import { XftAtdClass } from "../../entity/atd/xft_class";
+import { getDifference } from "../../utils/dateUtils";
 
 class AtdClassService {
   async updateAtdClass() {
@@ -15,6 +17,17 @@ class AtdClassService {
       .filter((dto) => dto.classTimeType == "1")
       .map((dto) => dto.clockTime);
     return result;
+  }
+  async getClosedTime(classesSeq: string, time: string) {
+    const workTimes = await this.getClassWorkTime(classesSeq);
+    const atdClass = await XftAtdClass.findOne({
+      where: { classSeq: classesSeq },
+    });
+    if (!atdClass) return;
+    const closestTimeEntry = _.minBy(atdClass.classTimeDtos, (entry: any) =>
+      Math.abs(getDifference(time, entry.clockTime))
+    );
+    return closestTimeEntry?.classTimeType ?? null;
   }
 }
 export const atdClassService = new AtdClassService();

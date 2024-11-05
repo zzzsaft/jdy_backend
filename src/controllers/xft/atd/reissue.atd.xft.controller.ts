@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { addHours, format, isAfter, isBefore } from "date-fns";
 import { XftTaskEvent } from "../todo.xft.controller";
 import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
 import { xftatdApiClient } from "../../../api/xft/xft_atd";
@@ -7,7 +7,11 @@ import { User } from "../../../entity/basic/employee";
 import { Department } from "../../../entity/basic/department";
 import { xftOAApiClient } from "../../../api/xft/xft_oa";
 import { atdClassService } from "../../../services/fbt/atdClass.services";
-import { getDifference } from "../../../utils/dateUtils";
+import { getDate, getDifference } from "../../../utils/dateUtils";
+import { XftAtdClass } from "../../../entity/atd/xft_class";
+import { EntryExistRecords } from "../../../entity/parking/dh_entry_exit_record";
+import { Between } from "typeorm";
+import _ from "lodash";
 
 export class ReissueEvent {
   task: XftTaskEvent;
@@ -48,6 +52,16 @@ export class ReissueEvent {
       "其他补卡";
     this.publicPrivateType =
       { "1": "因公", "2": "因私" }[this.publicPrivateType] ?? "";
+    const cardType = await atdClassService.getClosedTime(
+      this.classesSeq,
+      this.time
+    );
+    if (
+      this.supplementCardType == "其他补卡" &&
+      (cardType == "1" || cardType == "0")
+    ) {
+      this.supplementCardType = cardType == "0" ? "上班补卡" : "下班补卡";
+    }
     this.task.horizontal_content_list = [
       {
         keyname: "补卡类型",
@@ -79,18 +93,18 @@ export class ReissueEvent {
   // };
 
   rejectOA = async () => {
-    let flag = false;
     const user = await User.findOne({ where: { user_id: this.staffNbr } });
-    if (!user) return false;
-    const workTimes = await atdClassService.getClassWorkTime(this.classesSeq);
-    for (const time of workTimes) {
-      let diff = getDifference(time, this.time);
-      if (diff < 30) {
-        flag = true;
-        break;
-      }
+
+    if (await this.determineReject()) {
+      const operate = await xftOAApiClient.operate(
+        this.task.operateConfig("reject")
+      );
+      this.task.status = "已驳回";
+      await this.sendNotice(this.staffNbr);
+      return true;
     }
-    if (flag) {
+
+    if (this.supplementCardType == "下班补卡") {
       if (!user) return false;
       const org = await Department.findOne({
         where: { department_id: user.main_department_id },
@@ -123,4 +137,86 @@ export class ReissueEvent {
   sendCard = async () => {
     await this.task.sendButtonCard("");
   };
+
+  async determineReject() {
+    const time = getDate(this.date, this.time, false);
+    const cards = await EntryExistRecords.find({
+      where: {
+        userId: this.staffNbr,
+        time: Between(addHours(time, -2), addHours(time, 2)), // 时间范围在补卡时间前1小时内
+      },
+    });
+    if (!cards) return false;
+    this.task.horizontal_content_list.push({
+      keyname: "最近出入场记录",
+      value: cards
+        .map((card) => `${format(card.time, "HH:mm")}[${card.method}]`)
+        .join(","),
+    });
+    /*如果是上班补卡，出入场记录中，有早于补卡时间的记录，
+    则通过，如果有晚于补卡时间1小时内的入场记录，
+    且在入厂记录之前没有出厂记录，则驳回
+    */
+    if (this.supplementCardType == "上班补卡") {
+      const flag1 =
+        cards.filter(
+          (card) => card.enterOrExit == 0 && isBefore(card.time, time)
+        ).length > 0;
+      let flag2 = false;
+      const earliestEntry = _.minBy(
+        cards.filter(
+          (card) =>
+            card.enterOrExit === 0 && // 入场记录
+            isAfter(card.time, time) // 晚于补卡时间的记录
+        ),
+        (card) => card.time
+      );
+      if (earliestEntry) {
+        flag2 =
+          cards.filter(
+            (card) =>
+              card.enterOrExit == 1 && isBefore(card.time, earliestEntry.time)
+          ).length == 0;
+      }
+      if (flag1) return false;
+      if (flag2) {
+        this.task.horizontal_content_list.push({
+          keyname: "驳回原因",
+          value: `存在晚于补卡时间1小时内的入场记录，但在入场记录之前没有出场记录,请核实。`,
+        });
+        return true;
+      }
+    }
+    if (this.supplementCardType == "下班补卡") {
+      const flag1 =
+        cards.filter(
+          (card) => card.enterOrExit == 1 && isAfter(card.time, time)
+        ).length > 0;
+      let flag2 = false;
+      const latestLeave = _.maxBy(
+        cards.filter(
+          (card) =>
+            card.enterOrExit === 1 && // 入场记录
+            isBefore(card.time, time) // 早于补卡时间的记录
+        ),
+        (card) => card.time
+      );
+      if (latestLeave) {
+        flag2 =
+          cards.filter(
+            (card) =>
+              card.enterOrExit == 0 && isAfter(card.time, latestLeave.time)
+          ).length == 0;
+      }
+      if (flag1) return false;
+      if (flag2) {
+        this.task.horizontal_content_list.push({
+          keyname: "驳回原因",
+          value: `存在早于补卡时间1小时内的出场记录，并且在出场记录之后没有入场记录,请核实。`,
+        });
+        return true;
+      }
+    }
+    return false;
+  }
 }

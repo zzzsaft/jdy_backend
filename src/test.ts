@@ -77,8 +77,9 @@ import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
 await PgDataSource.initialize();
+// await 测试补卡记录();
 // await updateDahua();
-await deleteDahuaId();
+// await deleteDahuaId();
 // await createBTcheckin();
 // const a = await xftatdApiClient.getDayResult({
 //   staffNumber: "ZhengJie",
@@ -97,9 +98,9 @@ await deleteDahuaId();
 // await xftSalaryApiClient.setAtd();
 // await parkingApiClient.getCarById("1846020091524780033");
 // await 测试补卡记录();
-// await messageApiClient.recall(
-//   "fm2I_jKMoHlBN2oQKAwL7_muqVBwF_2XCv2WVR4b5RCAvG122fRjDvLGDc7SEFG_uANT3GAEUqYoKymGrhGsWw"
-// );
+await messageApiClient.recall(
+  "Dv0oBVNA9p2BIWPODPqgkmnCTs8UertSUsT4Gu9Fep2121bUXZ11sTB00eDTzUuS8G1aZsnyvNiMVt-lpStaTg"
+);
 // await BusinessTripCheckinServices.scheduleCreate(new Date("2024-10-25"));
 // await insertWidgets("5cfef4b5de0b2278b05c8380", "67037803a6ba29ba0521efb2");
 // await 获取空缺请假记录();
@@ -178,6 +179,7 @@ import { sendXftTodoList } from "./schedule/sendXftTask";
 import { jctimesApiClient } from "./api/jctimes/app";
 import { personApiClient } from "./api/dahua/person";
 import { deleteDahuaId, updateDahua } from "./services/dahuaServices";
+import { atdClassService } from "./services/fbt/atdClass.services";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
