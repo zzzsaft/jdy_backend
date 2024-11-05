@@ -3,6 +3,7 @@ import { ApiClient } from "./api_client";
 import FormData from "form-data";
 import { logger } from "../../config/logger";
 import * as fs from "fs";
+import { sleep } from "../../config/limiter";
 
 type UploadInfo = {
   url: string;
@@ -49,6 +50,7 @@ class FileApiClient extends ApiClient {
       headers: {
         content_type: "multipart/form-data",
       },
+      timeout: 10000,
     };
     const response = await axios.post(
       this.policy.host,

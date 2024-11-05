@@ -10,6 +10,7 @@ import { xftOrgnizationApiClient } from "../../api/xft/xft_orgnization";
 import { Department } from "../../entity/basic/department";
 import { EmployeeLifecycle } from "../../entity/basic/employee_lifecycle";
 import { SalaryRecord } from "../../entity/basic/salary-record";
+import { dahuaServices } from "../../services/dahuaServices";
 
 export const 入职申请表 = async (data) => {
   await saveNewInfotoDahua(data);
@@ -46,7 +47,7 @@ export const saveExistInfo = async () => {
     const url = photo[0]["url"];
     const fileName = photo[0]["name"];
     const fileStream = await downloadFileStream(url);
-    await addtoDahua({
+    await dahuaServices.addtoDahua({
       userId,
       name: jdyInfo["full_name"],
       fileStream,
@@ -63,7 +64,7 @@ export const updateExistInfo = async (data) => {
   const url = photo[0]["url"];
   const fileName = photo[0]["name"];
   const fileStream = await downloadFileStream(url);
-  await addtoDahua({
+  await dahuaServices.addtoDahua({
     userId,
     name: data["full_name"],
     fileStream,
@@ -78,28 +79,12 @@ const saveNewInfotoDahua = async (data) => {
   const url = photo[0]["url"];
   const fileName = photo[0]["name"];
   const fileStream = await downloadFileStream(url);
-  await addtoDahua({
+  await dahuaServices.addtoDahua({
     userId,
     name: data["full_name"],
     fileStream,
     fileName,
   });
-};
-
-export const addtoDahua = async ({ userId, name, fileStream, fileName }) => {
-  let dir = "";
-  if (fileStream) {
-    dir = await fileApiClient.uploadFile(fileStream, fileName);
-  }
-  const dahuaPerson = await personApiClient.addPersonFile({
-    name: name,
-    facePhotoPath: dir,
-  });
-  if (dahuaPerson["success"]) {
-    await User.addDahuaId(userId, dahuaPerson["data"]["personFileId"]);
-    await personApiClient.authAsync(dahuaPerson["data"]["personFileId"]);
-  }
-  logger.info(`add person to dahua success: ${name}`);
 };
 
 export const addEmployeeToXft = async (data) => {

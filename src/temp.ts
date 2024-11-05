@@ -232,15 +232,3 @@ export const createBTcheckin = async () => {
     }
   }
 };
-
-export const deleteDahuaId = async () => {
-  const ids = (await personApiClient.getPersonInfo()).map((a) => a["id"]);
-  const users = (await User.find({ where: { dahua_id: Not(IsNull()) } })).map(
-    (a) => a.dahua_id
-  );
-  for (const id of ids) {
-    if (!users.includes(id)) {
-      await personApiClient.deletePerson(id);
-    }
-  }
-};

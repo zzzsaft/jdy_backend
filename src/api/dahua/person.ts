@@ -14,6 +14,22 @@ class PersonApiClient extends ApiClient {
     });
   }
 
+  async updatePersonFile(file: {
+    id: string;
+    name: string;
+    facePhotoPath: string;
+  }) {
+    return await this.doRequest({
+      method: "POST",
+      path: "/gateway/person/api/personFile",
+      payload: {
+        ...file,
+        orgCode: "001100",
+        storeId: "332265869940375552",
+      },
+    });
+  }
+
   async getOrgCode() {
     return await this.doRequest({
       method: "POST",

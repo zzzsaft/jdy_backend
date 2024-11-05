@@ -39,6 +39,7 @@
       "path": "^0.12.7",
       "pg": "^8.11.5",
       "reflect-metadata": "^0.1.13",
+      "sharp": "^0.33.5",
       "sm-crypto": "^0.3.13",
       "typeorm": "^0.3.20",
       "urlencode": "^2.0.0",

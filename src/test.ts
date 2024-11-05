@@ -46,7 +46,6 @@ import { xftatdApiClient } from "./api/xft/xft_atd";
 // import { Like } from "typeorm";
 import {
   createBTcheckin,
-  deleteDahuaId,
   processPrecisionIssueData,
   processXftTripLog,
   testChangeShift,
@@ -77,8 +76,9 @@ import { LogCheckin } from "./entity/log/log_checkin";
 import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
-// await PgDataSource.initialize();
-// await deleteDahuaId();
+await PgDataSource.initialize();
+// await updateDahua();
+await deleteDahuaId();
 // await createBTcheckin();
 // const a = await xftatdApiClient.getDayResult({
 //   staffNumber: "ZhengJie",
@@ -177,6 +177,7 @@ import { xftGeneralApiClient } from "./api/xft/xft_general";
 import { sendXftTodoList } from "./schedule/sendXftTask";
 import { jctimesApiClient } from "./api/jctimes/app";
 import { personApiClient } from "./api/dahua/person";
+import { deleteDahuaId, updateDahua } from "./services/dahuaServices";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";

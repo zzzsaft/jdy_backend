@@ -6,6 +6,7 @@ import path from "path";
 import { logger } from "../config/logger";
 import { LogAxios } from "../entity/log/log_axios";
 import { ValueTransformer } from "typeorm";
+import sharp from "sharp";
 const bool = process.env.NODE_ENV === "production";
 export async function downloadFileStream(url) {
   try {
@@ -127,24 +128,62 @@ export const appAxios = async (config: AxiosRequestConfig) => {
   return response;
 };
 
-// 创建 ValueTransformer 来处理 POINT 数据
-export const pointTransformer: ValueTransformer = {
-  to: (coordinates: { longitude: number; latitude: number } | undefined) => {
-    if (coordinates) {
-      return [coordinates.longitude, coordinates.latitude];
+/**
+ * 将流转换为 Buffer
+ * @param readable 流对象
+ * @returns Promise<Buffer>
+ */
+function streamToBuffer(readable: stream.Readable): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    readable.on("data", (chunk) => chunks.push(chunk));
+    readable.on("end", () => resolve(Buffer.concat(chunks)));
+    readable.on("error", reject);
+  });
+}
+
+/**
+ * 压缩文件流并返回一个 PassThrough 流
+ * @param inputStream 文件流
+ * @returns 返回一个 PassThrough 流，其中包含压缩后的图像数据
+ */
+export async function compressImage(
+  inputStream: stream.Readable
+): Promise<stream.PassThrough> {
+  const passthrough = new stream.PassThrough(); // 创建一个 PassThrough 流
+  const targetSize = 2 * 1024 * 1024; // 目标大小：1MB
+  let quality = 90; // 初始压缩质量
+  let outputBuffer: Buffer | null = null;
+
+  // 将流转换为 Buffer
+  const inputBuffer = await streamToBuffer(inputStream);
+
+  // 使用 sharp 处理 Buffer
+  const image = sharp(inputBuffer);
+
+  // 持续调整质量直到图片达到目标大小
+  while (true) {
+    outputBuffer = await image
+      .jpeg({ quality }) // 设置 JPEG 格式压缩质量
+      .toBuffer();
+
+    // 如果文件大小小于目标大小，退出循环
+    if (outputBuffer.length <= targetSize) {
+      break;
     }
-    // 如果 coordinates 为 undefined，返回 null 或者默认值
-    return null; // 或者 `POINT(0 0)`
-  },
-  from: (point: string) => {
-    if (!point) return null;
-    const match = point.match(/POINT\(([\d.-]+) ([\d.-]+)\)/);
-    if (match) {
-      return {
-        longitude: parseFloat(match[1]),
-        latitude: parseFloat(match[2]),
-      };
+
+    // 降低质量
+    quality -= 5;
+
+    // 防止质量降得太低
+    if (quality <= 5) {
+      break;
     }
-    return { longitude: 0, latitude: 0 };
-  },
-};
+  }
+
+  // 将压缩后的数据写入 PassThrough 流
+  passthrough.end(outputBuffer);
+  console.log("图片压缩完成");
+
+  return passthrough;
+}

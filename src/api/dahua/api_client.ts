@@ -26,7 +26,7 @@ export class ApiClient {
       method: httpMethod,
       url: `${this.host}${options.path}${query}`,
       data: options.payload,
-      timeout: 5000,
+      timeout: 10000,
       headers: await this.genHeaders(),
     };
     let response;
@@ -62,6 +62,7 @@ export class ApiClient {
     return {
       "Content-Type": "application/json",
       Authorization: `Bearer ${await token.get_token()}`,
+      "Accept-Language": "zh-CN",
     };
   }
 }

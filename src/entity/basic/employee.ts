@@ -47,6 +47,8 @@ export class User extends BaseEntity {
   fbtThirdId: string;
   @Column({ nullable: true })
   leader: string;
+  @Column({ nullable: true, name: "photo_name" })
+  photoName: string;
   @CreateDateColumn()
   created_at: Date;
   @UpdateDateColumn()
