@@ -8,6 +8,7 @@ import {
   isSunday,
   startOfMonth,
   subMonths,
+  addMinutes,
 } from "date-fns";
 export const getWeekDayName = (date: string) => {
   // 映射英文星期到中文
@@ -76,6 +77,7 @@ export const getDuration = (duration: string, unit: string) => {
 };
 
 export const getDifference = (time1: string, time2: string) => {
+  if (!time1 || !time2) return null;
   // 定义解析函数，支持两种时间格式
   const parseTime = (timeStr: string) => {
     return timeStr.length === 8
@@ -158,4 +160,19 @@ export const splitDatesIntoContinuousIntervals = (
     currentStartDate = new Date(currentEndDate.getTime());
   }
   return intervals;
+};
+
+export const mergeDateAndTime = (dateStr: string, timeStr: string) => {
+  if (!dateStr || !timeStr) return null;
+  // 将时间字符串转换为分钟数，31:00 -> 31小时 => 31 * 60 分钟
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  const totalMinutes = hours * 60 + minutes;
+
+  // 解析日期字符串
+  const date = parse(dateStr, "yyyy-MM-dd", new Date());
+
+  // 将总分钟数加到日期上，得到最终的时间
+  const finalDate = addMinutes(date, totalMinutes);
+
+  return finalDate;
 };

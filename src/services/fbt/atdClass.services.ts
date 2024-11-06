@@ -25,7 +25,7 @@ class AtdClassService {
     });
     if (!atdClass) return;
     const closestTimeEntry = _.minBy(atdClass.classTimeDtos, (entry: any) =>
-      Math.abs(getDifference(time, entry.clockTime))
+      Math.abs(getDifference(time, entry.clockTime) ?? 0)
     );
     return closestTimeEntry?.classTimeType ?? null;
   }

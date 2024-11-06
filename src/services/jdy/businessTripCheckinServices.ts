@@ -99,7 +99,7 @@ class BusinessTripCheckinServices {
       sendMessage(await jdyDatetoDb(result["data"]));
     }
   }
-  addCheckinRecord = async (checkin: XftTripCheckin) => {
+  async addCheckinRecord(checkin: XftTripCheckin) {
     if (
       checkin.state != "已打卡" &&
       checkin.state != "当日打卡" &&
@@ -135,7 +135,7 @@ class BusinessTripCheckinServices {
       result.clickTime = "10:00:00";
     }
     await xftatdApiClient.importAtd([result]);
-  };
+  }
 }
 
 export const businessTripCheckinServices = new BusinessTripCheckinServices();

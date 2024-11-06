@@ -1,104 +1,48 @@
 import _ from "lodash";
 import { User } from "../../entity/basic/employee";
+import { xftatdApiClient } from "../../api/xft/xft_atd";
+import { addDays, endOfMonth, format, isBefore, startOfMonth } from "date-fns";
+import { AtdDayResult } from "../../entity/atd/day_result";
+import { logger } from "../../config/logger";
 
-class DayResultServices {}
+class DayResultServices {
+  getDayResult = async (date: Date = new Date()) => {
+    const atd = await xftatdApiClient.getDayResult({
+      // staffNumber: "ZhengJie",
+      attendanceDate: format(date, "yyyy-MM-dd"),
+    });
+    const users = await User.find();
+    const data: AtdDayResult[] = [];
+    for (const dto of atd["body"]["dayStaDtoList"]) {
+      const result = JSON.parse(dto.attendanceItemResult);
+      const user = users.find((user) => user.xft_id == dto.staffSeq);
+      if (!user || user.user_id != dto.staffNumber) {
+        logger.error(`User not found at getDayResult: ${dto.staffSeq}`);
+        continue;
+      }
+      result["userId"] = user?.user_id;
+      result["name"] = user?.name;
+      result["departmentId"] = user?.main_department_id;
+      data.push(AtdDayResult.createAttendanceData(result));
+    }
+    for (const dt of _.chunk(data, 500)) {
+      await AtdDayResult.upsert(dt, ["date", "userId"]);
+    }
+  };
+  async getMonthResult(date: Date = new Date()) {
+    const startOfMonthDate = startOfMonth(date);
+    const endOfMonthDate = isBefore(endOfMonth(date), new Date())
+      ? endOfMonth(date)
+      : new Date();
 
-export const resolveContent = async (data: any) => {
-  const attendanceItemResult = JSON.parse(data.attendanceItemResult);
-  const result = Object.fromEntries(
-    Object.entries(keyMap).map(([key, value]) => [
-      value,
-      attendanceItemResult[key],
-    ])
-  );
-  result["attendanceDate"] = new Date(data.attendanceDate);
-  const user = await User.findOne({ where: { xft_id: data.staffSeq } });
-  result["userid"] = user?.user_id;
-  result["name"] = user?.name;
-  return result;
-};
-const keyMap = {
-  STFNAM: "姓名",
-  STFNBR: "员工号",
-  GRONAM: "考勤组",
-  ATDDPT: "部门号",
-  ATDDAT: "日期",
-  DAYWEK: "星期",
-  CHANAM: "班次",
-  WOKLOC: "上班地点",
-  RQLX01: "类型",
-  CORDAT: "转正日期",
-  FIRCAR: "最早卡",
-  LSTCAR: "最晚卡",
-  CLKONT: "上班1打卡时间",
-  ONRES: "上班1打卡结果",
-  CLKOFT: "下班1打卡时间",
-  OFFRES: "下班1打卡结果",
-  CLKONT2: "上班2打卡时间",
-  ONRES2: "上班2打卡结果",
-  CLKOFT2: "下班2打卡时间",
-  OFFRES2: "下班2打卡结果",
-  CLKONT3: "上班3打卡时间",
-  ONRES3: "上班3打卡结果",
-  CLKOFT3: "下班3打卡时间",
-  OFFRES3: "下班3打卡结果",
-  WRKLT1: "出勤天数",
-  BZCQS1: "应出勤时长",
-  BZCQS2: "实际出勤时长",
-  LATTIM: "迟到时长",
-  LAATI0: "迟到次数",
-  EARTIM: "早退时长",
-  EACON1: "早退次数",
-  RBKTIM: "补卡次数",
-  DAYJ04: "休息天数",
-  LAATI2: "严重迟到次数",
-  LAATI3: "严重迟到时长",
-  LAATI4: "旷工迟到次数",
-  AMADA1: "上班缺卡次数",
-  AMADA2: "下班缺卡次数",
-  CLKT03: "外勤打卡次数",
-  DAYJ05: "旷工天数",
-  TRPDA2: "出差天数",
-  GOTLTH: "外出时长",
-  RCBZG: "餐补资格",
-  RQQSC: "缺勤时长",
-  DAYJ01: "工作日加班",
-  DAYJ02: "休息日加班",
-  DAYJ03: "节假日加班",
-  ANNUALD: "年假时长",
-  PRIAFFD: "事假时长",
-  SIKAFFD: "短期病假时长",
-  WEDINGD: "婚假时长",
-  TRANSFD: "调休假时长",
-  BEREAVD: "丧假时长",
-  MATENTD: "产假时长",
-  PAMATED: "陪产假时长",
-  MATECKD: "产检假时长",
-  ABORTND: "流产假时长",
-  FAMILYD: "探亲假时长",
-  UNWORKD: "非出勤假时长",
-  BREASTD: "哺乳假时长",
-  FEDBRK: "哺乳时间",
-  FEDMRGD: "合并哺乳时间",
-  BABCRED: "育儿假时长",
-  ANNUAL: "年假",
-  PRIAFF: "事假",
-  SIKAFF: "短期病假",
-  WEDING: "婚假",
-  TRANSF: "调休假",
-  BEREAV: "丧假",
-  MATENT: "产假",
-  PAMATE: "陪产假",
-  MATECK: "产检假",
-  ABORTN: "流产假",
-  FAMILY: "探亲假",
-  UNWORK: "非出勤假",
-  BREAST: "哺乳假",
-  CPSTY1: "补偿方式",
-  RJBCD1: "加班迟到时长",
-  RJBZT1: "加班早退时长",
-  ZJBCQS: "加班出勤时长",
-  RJBQQS: "加班缺勤时长",
-  RJBQKC: "加班缺卡次数",
-  RJBQJ: "加班请假时长",
-};
+    // 循环当前月的每一天
+    for (
+      let currentDate = startOfMonthDate;
+      currentDate <= endOfMonthDate;
+      currentDate = addDays(currentDate, 1)
+    ) {
+      await this.getDayResult(currentDate);
+    }
+  }
+}
+export const dayResultServices = new DayResultServices();

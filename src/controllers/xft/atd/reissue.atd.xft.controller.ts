@@ -32,7 +32,7 @@ export class ReissueEvent {
   async process() {
     await this.getRecord();
     if (this.task.dealStatus == "1") {
-      await this.sendNotice(this.staffNbr);
+      await this.sendNotice([this.staffNbr]);
     } else if (this.task.dealStatus == "0") {
       if (await this.rejectOA()) return;
       await this.sendCard();
@@ -100,7 +100,7 @@ export class ReissueEvent {
         this.task.operateConfig("reject")
       );
       this.task.status = "已驳回";
-      await this.sendNotice(this.staffNbr);
+      await this.sendNotice([this.staffNbr, this.task.receiverId]);
       return true;
     }
 
@@ -119,14 +119,14 @@ export class ReissueEvent {
         keyname: "驳回原因",
         value: `如因生产结束原因提前下班，请在下班时打卡并提交请假【生产带薪假】，未打卡或未提交请假单将会被视为漏卡。`,
       });
-      await this.sendNotice(this.staffNbr);
+      await this.sendNotice([this.staffNbr]);
       return true;
     }
     return false;
   };
 
-  sendNotice = async (userid: string, status = this.task.status) => {
-    let userids = Array.from(new Set([userid, this.task.sendUserId]));
+  sendNotice = async (userid: string[], status = this.task.status) => {
+    let userids = Array.from(new Set([...userid, this.task.sendUserId]));
     await this.task.sendNotice(
       userids,
       `(${status})${this.task.title}`,
@@ -148,13 +148,13 @@ export class ReissueEvent {
     });
     if (!cards) return false;
     this.task.horizontal_content_list.push({
-      keyname: "最近出入场记录",
+      keyname: "出入场记录",
       value: cards
         .map((card) => `${format(card.time, "HH:mm")}[${card.method}]`)
         .join(","),
     });
     /*如果是上班补卡，出入场记录中，有早于补卡时间的记录，
-    则通过，如果有晚于补卡时间1小时内的入场记录，
+    则通过，如果有晚于补卡时间2小时内的入场记录，
     且在入厂记录之前没有出厂记录，则驳回
     */
     if (this.supplementCardType == "上班补卡") {
@@ -182,7 +182,7 @@ export class ReissueEvent {
       if (flag2) {
         this.task.horizontal_content_list.push({
           keyname: "驳回原因",
-          value: `存在晚于补卡时间1小时内的入场记录，但在入场记录之前没有出场记录,请核实。`,
+          value: `存在晚于补卡时间2小时内的入场记录，但在入场记录之前没有出场记录,请核实。`,
         });
         return true;
       }
@@ -212,7 +212,7 @@ export class ReissueEvent {
       if (flag2) {
         this.task.horizontal_content_list.push({
           keyname: "驳回原因",
-          value: `存在早于补卡时间1小时内的出场记录，并且在出场记录之后没有入场记录,请核实。`,
+          value: `存在早于补卡时间2小时内的出场记录，并且在出场记录之后没有入场记录,请核实。`,
         });
         return true;
       }

@@ -85,7 +85,7 @@ export class OvertimeEvent {
     }
     if (this.beginDate == this.overtimeDate) {
       const flag = getDifference(this.beginTime, "05:30");
-      if (flag > 0 && this.overtimeLen < 6) {
+      if (flag && flag > 0 && this.overtimeLen < 6) {
         let startDate = format(
           addDays(new Date(this.overtimeDate), -1),
           "yyyy-MM-dd"

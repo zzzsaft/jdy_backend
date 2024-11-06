@@ -11,6 +11,8 @@ import { sendXftTodoList } from "./sendXftTask";
 import { businessTripCheckinServices } from "../services/jdy/businessTripCheckinServices";
 import { BusinessTripServices } from "../services/xft/businessTripServices";
 import { checkinServices } from "../services/xft/checkinServices";
+import { dayResultServices } from "../services/xft/dayResultServices";
+import { addDays } from "date-fns";
 
 const syncWechat = async () => {
   await Department.updateDepartment();
@@ -36,11 +38,12 @@ const fbtApplySchedule = cron.schedule("5,20,35,50 * * * *", async () => {
 });
 
 //每日1点触发任务
-const updateUserSchedule = cron.schedule("0 1 * * *", async () => {
+const updateUserSchedule = cron.schedule("0 2 * * *", async () => {
   await syncWechat();
   await syncXft();
   await checkinServices.scheduleCheckinDaily();
   logger.info("1点更新部门人员数据");
+  await dayResultServices.getDayResult(addDays(new Date(), -1));
 });
 
 //每周五下午4点触发任务
