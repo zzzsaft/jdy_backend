@@ -27,6 +27,7 @@ interface CardRecord {
 const locationMap = {
   "0001": "新前梦工厂",
   新前梦工厂: "新前梦工厂",
+  澄江分厂: "澄江分厂",
 };
 
 @Entity({ name: "entry_exit_records" })

@@ -31,12 +31,14 @@ class RestOvertimeServices {
     await this.addToXft(record);
   }
   async count(date: Date, userid) {
-    return await JdyRestOvertime.sum("durationDay", {
-      userid,
-      result: "通过",
-      type: "轮休假加班",
-      startTime: Between(startOfMonth(date), endOfMonth(date)),
-    });
+    return (
+      (await JdyRestOvertime.sum("durationDay", {
+        userid,
+        result: Not("拒绝"),
+        type: "轮休假加班",
+        startTime: Between(startOfMonth(date), endOfMonth(date)),
+      })) ?? 0
+    );
   }
   async addToXft(data: JdyRestOvertime) {
     if (data.result != "通过" && data.type != "轮休假加班") return;

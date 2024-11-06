@@ -2,6 +2,7 @@ import { startOfMonth, subMonths, endOfMonth, format } from "date-fns";
 import _ from "lodash";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
 import { getLast2MouthSaturday, getMouthSaturday } from "../../utils/dateUtils";
+import { restOvertimeServices } from "../jdy/restOvertimeServices";
 
 class QuotaServices {
   private async getQuota(
@@ -44,7 +45,10 @@ class QuotaServices {
       userid
     );
     quota = quota.filter((item) => item.stfNumber == userid);
-    return this.getSingleDayOffQuotaLeft(quota);
+    const restOvertime = await restOvertimeServices.count(new Date(), userid);
+    const result = this.getSingleDayOffQuotaLeft(quota);
+    result["left"] = result["left"] - restOvertime;
+    return result;
   }
   private getSingleDayOffQuotaLeft(quotas) {
     const currentMonth = format(new Date(), "yyyyMM");
