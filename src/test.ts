@@ -54,6 +54,7 @@ import {
   testUpdateNextBusinessTrip,
   testXftTrip,
   导入分贝通人员id,
+  授权大华人员,
   检查分贝通未导入id,
   测试补卡记录,
   // 测试补卡记录,
@@ -76,7 +77,11 @@ import { LogCheckin } from "./entity/log/log_checkin";
 import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
-// await PgDataSource.initialize();
+await PgDataSource.initialize();
+await 授权大华人员();
+// await createShiftExcel("202411");
+// await addExistToXft();
+// await addExistRecord();
 // await 测试补卡记录();
 // await updateDahua();
 // await deleteDahuaId();
@@ -183,6 +188,12 @@ import { atdClassService } from "./services/fbt/atdClass.services";
 import { dayResultServices } from "./services/xft/dayResultServices";
 import { XftTaskEvent } from "./controllers/xft/todo.xft.controller";
 import { ReissueEvent } from "./controllers/xft/atd/reissue.atd.xft.controller";
+import {
+  addExistRecord,
+  addExistToXft,
+  createShiftExcel,
+} from "./services/jdy/restOvertimeServices";
+import { User } from "./entity/basic/employee";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";

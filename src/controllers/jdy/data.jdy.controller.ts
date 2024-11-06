@@ -14,6 +14,7 @@ import { 来宾预约单 } from "./visitor.controller";
 import { 离职, 转正 } from "./updateUser.jdy.controller";
 import { SendTripCheckin } from "../../schedule/sendTripCheckin";
 import { businessTripCheckinServices } from "../../services/jdy/businessTripCheckinServices";
+import { restOvertimeServices } from "../../services/jdy/restOvertimeServices";
 
 function getSignature(
   nonce: string,
@@ -78,6 +79,10 @@ const JdyControllers = {
     "65dc463c9b200f9b5e3b5851": {
       data_create: businessTripCheckinServices.dataCreate,
       data_update: businessTripCheckinServices.dataUpdate,
+    },
+    "64ccdcf9a03b0f000875fcde": {
+      data_create: restOvertimeServices.add,
+      data_update: restOvertimeServices.add,
     },
   },
   "5cd2228a0be7121e839d41bc": {

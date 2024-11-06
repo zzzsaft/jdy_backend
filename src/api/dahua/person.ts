@@ -69,6 +69,8 @@ class PersonApiClient extends ApiClient {
         { operateType: 1, deviceId: "AD091B6PAJ15DFE", personFileId },
         { operateType: 1, deviceId: "AC0F22DPAJ9C7DB", personFileId },
         { operateType: 1, deviceId: "AC0F22DPAJ722C6", personFileId },
+        { operateType: 1, deviceId: "AG0D966PAJ13D25", personFileId },
+        { operateType: 1, deviceId: "AG0E2D9PAJF7CDD", personFileId },
       ],
     });
   }

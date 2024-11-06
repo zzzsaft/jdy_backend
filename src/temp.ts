@@ -232,3 +232,11 @@ export const createBTcheckin = async () => {
     }
   }
 };
+export const 授权大华人员 = async () => {
+  const users = await User.find({
+    where: { dahua_id: Not(IsNull()), is_employed: true },
+  });
+  for (const user of users) {
+    await personApiClient.authAsync(user.dahua_id);
+  }
+};

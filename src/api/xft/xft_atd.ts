@@ -140,7 +140,10 @@ class XFTAttendanceApiClient {
       {
         method: "POST",
         path: "/atd/prd/xft-atn/overtime/import-single",
-        payload,
+        payload: {
+          ...payload,
+          compensationWay: "2",
+        },
       },
       "U0000"
     );

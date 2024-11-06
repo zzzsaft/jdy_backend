@@ -1,9 +1,18 @@
 import _ from "lodash";
 import { User } from "../../entity/basic/employee";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
-import { addDays, endOfMonth, format, isBefore, startOfMonth } from "date-fns";
+import {
+  addDays,
+  endOfDay,
+  endOfMonth,
+  format,
+  isBefore,
+  startOfDay,
+  startOfMonth,
+} from "date-fns";
 import { AtdDayResult } from "../../entity/atd/day_result";
 import { logger } from "../../config/logger";
+import { Between } from "typeorm";
 
 class DayResultServices {
   getDayResult = async (date: Date = new Date()) => {
@@ -43,6 +52,16 @@ class DayResultServices {
     ) {
       await this.getDayResult(currentDate);
     }
+  }
+  async getShift(date: Date, userid: string) {
+    const result = await AtdDayResult.find({
+      where: {
+        date: Between(addDays(date, -2), endOfDay(date)),
+        userId: userid,
+      },
+      select: ["shift"],
+    });
+    return result.filter((r) => r.shift != null)[0]?.shift;
   }
 }
 export const dayResultServices = new DayResultServices();
