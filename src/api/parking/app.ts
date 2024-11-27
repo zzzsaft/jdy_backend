@@ -9,6 +9,7 @@ interface ICreateCarInfo {
   beginTime: string;
   endTime: string;
   userId: string;
+  area: string;
 }
 interface IUpdateCarInfo {
   id: string;

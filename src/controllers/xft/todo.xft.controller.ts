@@ -7,10 +7,10 @@ import { logger } from "../../config/logger";
 import { v4 as uuidv4 } from "uuid";
 
 import { format } from "date-fns";
-import { LeaveEvent } from "./atd/leave.atd.xft.controller";
-import { OvertimeEvent } from "./atd/overtime.atd.xft.controller";
-import { BusinessTripEvent } from "./atd/businessTrip.atd.xft.controller";
-import { ReissueEvent } from "./atd/reissue.atd.xft.controller";
+import { ReissueEvent } from "../../services/xft/atd/reissue.atd.xft.controller";
+import { BusinessTripEvent } from "../../services/xft/atd/businessTrip.atd.xft.controller";
+import { OvertimeEvent } from "../../services/xft/atd/overtime.atd.xft.controller";
+import { LeaveEvent } from "../../services/xft/atd/leave.atd.xft.controller";
 
 export class XftTaskEvent {
   url: string;

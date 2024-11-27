@@ -3,7 +3,6 @@ import { XftAtdLeave } from "./entity/atd/xft_leave";
 import { xftatdApiClient } from "./api/xft/xft_atd";
 import { sleep } from "./config/limiter";
 import { XftTaskEvent } from "./controllers/xft/todo.xft.controller";
-import { ReissueEvent } from "./controllers/xft/atd/reissue.atd.xft.controller";
 import { fbtUserApiClient } from "./api/fenbeitong/user";
 import { User } from "./entity/basic/employee";
 import { And, Between, IsNull, Like, MoreThanOrEqual, Not } from "typeorm";
@@ -12,7 +11,6 @@ import { FbtApply } from "./entity/atd/fbt_trip_apply";
 import { XftTripLog } from "./schedule/getFbtApply";
 import { BusinessTrip } from "./entity/atd/businessTrip";
 import { xftOAApiClient } from "./api/xft/xft_oa";
-import { BusinessTripEvent } from "./controllers/xft/atd/businessTrip.atd.xft.controller";
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
 import { LogExpress } from "./entity/log/log_express";
 import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
@@ -20,10 +18,10 @@ import {
   businessTripCheckinServices,
   updateNextBusinessTrip,
 } from "./services/jdy/businessTripCheckinServices";
-import { LeaveEvent } from "./controllers/xft/atd/leave.atd.xft.controller";
 import { XftAtdOvertime } from "./entity/atd/xft_overtime";
-import { OvertimeEvent } from "./controllers/xft/atd/overtime.atd.xft.controller";
 import { personApiClient } from "./api/dahua/person";
+import { EntryExistRecords } from "./entity/parking/dh_entry_exit_record";
+import { ReissueEvent } from "./services/xft/atd/reissue.atd.xft.controller";
 // export const 获取空缺请假记录 = async () => {
 //   // const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
 //   //   .select("leave.leaveRecSeq")
@@ -234,9 +232,26 @@ export const createBTcheckin = async () => {
 };
 export const 授权大华人员 = async () => {
   const users = await User.find({
-    where: { dahua_id: Not(IsNull()), is_employed: true },
+    where: { dahua_id: Not(IsNull()), is_employed: false },
   });
   for (const user of users) {
-    await personApiClient.authAsync(user.dahua_id);
+    await personApiClient.authAsync(user.dahua_id, []);
+  }
+};
+export const 修复停车记录 = async () => {
+  const log = await LogExpress.find({
+    where: { path: "/parking/v2", msg: Like("%1854067794543378432_0001%") },
+  });
+  for (const item of log) {
+    const msg = JSON.parse(item.msg);
+    if (msg?.parkingRecordId) {
+      const record = await EntryExistRecords.findOne({
+        where: { recordId: msg.parkingRecordId },
+      });
+      if (record) {
+        record.location = "澄江分厂";
+        record.save();
+      }
+    }
   }
 };

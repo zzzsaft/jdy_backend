@@ -15,6 +15,7 @@ export const 来宾预约单 = async (data) => {
     visitorReason: "",
     visitorTime: format(time, "yyyy-MM-dd HH:mm:ss"),
     visitorLeaveTime: format(addHours(time, 4), "yyyy-MM-dd HH:mm:ss"),
+    area: "dream",
   };
   if (inviteStatus) {
     const msg = await parkingApiClient.visitorAppoint(payload);

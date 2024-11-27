@@ -1,5 +1,4 @@
 import { addHours, format, isAfter, isBefore } from "date-fns";
-import { XftTaskEvent } from "../todo.xft.controller";
 import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
 import { xftatdApiClient } from "../../../api/xft/xft_atd";
 import { XftAtdReissue } from "../../../entity/atd/xft_reissue";
@@ -12,6 +11,7 @@ import { XftAtdClass } from "../../../entity/atd/xft_class";
 import { EntryExistRecords } from "../../../entity/parking/dh_entry_exit_record";
 import { Between } from "typeorm";
 import _ from "lodash";
+import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
 
 export class ReissueEvent {
   task: XftTaskEvent;

@@ -56,6 +56,8 @@ export class XftTripCheckin extends BaseEntity {
   jdyId: string;
   @Column({ nullable: true, name: "xft_form_id" })
   xftFormId: string;
+  @Column({ nullable: true, name: "is_checked" })
+  isChecked: boolean;
   @CreateDateColumn()
   created_at: Date;
   @UpdateDateColumn()

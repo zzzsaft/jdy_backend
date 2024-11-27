@@ -93,12 +93,18 @@ export const updateDahua = async () => {
     sleep(500);
   }
 };
-const updateExistInfo = async (data) => {
+export const updateExistInfo = async (data) => {
   const userId = data["_widget_1691239227137"];
   const photo: any[] = data["_widget_1704997861762"];
   if (photo.length == 0) return;
   const url = photo[0]["url"];
   const fileName = photo[0]["name"];
+  const user = await User.findOne({ where: { user_id: userId } });
+  if (!user) {
+    logger.error(`user not found: ${userId}`);
+    return;
+  }
+  if (user.photoName == fileName) return;
   const fileStream = await downloadFileStream(url);
   await dahuaServices.updateDahua({
     userId,

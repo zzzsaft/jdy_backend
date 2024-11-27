@@ -16,6 +16,7 @@ interface CarRecord {
   carOutTime?: string;
   parkingRecordId: string;
   carNum: string;
+  parkingLotId: string;
 }
 interface CardRecord {
   communityName: string;
@@ -25,7 +26,8 @@ interface CardRecord {
   eventTime: string | number;
 }
 const locationMap = {
-  "0001": "新前梦工厂",
+  "1854067794543378432_0001": "澄江分厂",
+  "1806514428502343680_0001": "新前梦工厂",
   新前梦工厂: "新前梦工厂",
   澄江分厂: "澄江分厂",
 };
@@ -83,7 +85,7 @@ export class EntryExistRecords extends BaseEntity {
         : record.carOutTime
         ? new Date(record.carOutTime)
         : new Date();
-      const location = locationMap[record.parkingLotCode] ?? "其他";
+      const location = locationMap[record.parkingLotId] ?? "其他";
       const carInfo = await ParkingInfo.getInfoByCarNum(record.carNum);
       if (carInfo) {
         userId = carInfo.ownerId;

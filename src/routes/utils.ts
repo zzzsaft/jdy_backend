@@ -35,6 +35,11 @@ const createShift = async (request: Request, response: Response) => {
   });
   result.file.on("end", () => {});
 };
+const sendSalaryList = async (request: Request, response: Response) => {
+  const date = request.query.dateNumber as string;
+  const result = await checkinServices.scheduleCheckinDaily(parseInt(date));
+  response.send(date);
+};
 export const UtilsRoutes = [
   {
     path: "/utils/plate/:license_plate",
@@ -68,6 +73,11 @@ export const UtilsRoutes = [
   },
   {
     path: "/shift_excel/:dateString",
+    method: "get",
+    action: createShift,
+  },
+  {
+    path: "/send_salary",
     method: "get",
     action: createShift,
   },

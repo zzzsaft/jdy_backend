@@ -1,9 +1,9 @@
 import { xftatdApiClient } from "../../../api/xft/xft_atd";
-import { XftTaskEvent } from "../todo.xft.controller";
 import { format } from "date-fns";
 import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
 import { xftOAApiClient } from "../../../api/xft/xft_oa";
 import { BusinessTrip } from "../../../entity/atd/businessTrip";
+import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
 
 export class BusinessTripEvent {
   task: XftTaskEvent;
@@ -30,11 +30,11 @@ export class BusinessTripEvent {
 
   async process() {
     await this.getRecord();
-    // if (this.task.dealStatus == "1") {
-    //   await this.sendNotice(this.stfNumber);
-    // } else if (this.task.dealStatus == "0") {
-    //   await this.sendCard();
-    // }
+    if (this.task.dealStatus == "1") {
+      await this.sendNotice(this.task.sendUserId);
+    } else if (this.task.dealStatus == "0") {
+      await this.sendCard();
+    }
   }
 
   getRecord = async () => {

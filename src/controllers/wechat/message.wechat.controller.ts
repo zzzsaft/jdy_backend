@@ -3,7 +3,6 @@ import { proceedLeave } from "../../schedule/sendLeave";
 import { MessageHelper } from "../../api/wechat/message";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
 import { xftOAApiClient } from "../../api/xft/xft_oa";
-import { LeaveEvent } from "../xft/atd/leave.atd.xft.controller";
 import { XftTaskEvent } from "../xft/todo.xft.controller";
 
 export const handleMessageEvent = async (msg: any) => {

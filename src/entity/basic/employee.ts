@@ -49,6 +49,8 @@ export class User extends BaseEntity {
   leader: string;
   @Column({ nullable: true, name: "photo_name" })
   photoName: string;
+  @Column({ nullable: true, name: "wx_face" })
+  wxFace: boolean;
   @CreateDateColumn()
   created_at: Date;
   @UpdateDateColumn()

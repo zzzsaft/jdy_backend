@@ -4,9 +4,9 @@ import _ from "lodash";
 import { XftAtdLeave } from "../../../entity/atd/xft_leave";
 import { xftatdApiClient } from "../../../api/xft/xft_atd";
 import { xftOAApiClient } from "../../../api/xft/xft_oa";
-import { XftTaskEvent } from "../todo.xft.controller";
 import { User } from "../../../entity/basic/employee";
 import { quotaServices } from "../../../services/xft/quotaServices";
+import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
 
 export class LeaveEvent {
   task: XftTaskEvent;
@@ -90,7 +90,7 @@ export class LeaveEvent {
   };
 
   passOA = async () => {
-    if (this.quota.total != 5) return false;
+    if (this.quota.total < 5) return false;
     if (this.leaveDtlDtos) {
       const isWeekend = this.leaveDtlDtos.every(
         (dtos) => dtos["weekDay"] == 1 || dtos["weekDay"] == 7
@@ -114,49 +114,61 @@ export class LeaveEvent {
       org &&
       org.level3 == "加工中心" &&
       org.level1 != "配件事业部" &&
-      this.lveUnit == "DAY"
+      this.lveUnit == "DAY" &&
+      parseFloat(this.leaveDuration) <= 1
     ) {
       if (this.begDate != this.endDate) {
-        const operate = await xftOAApiClient.operate(
-          this.task.operateConfig(
-            "reject",
-            `请假开始时间与结束时间不一致，请重新提交。`
-          )
-        );
-        this.task.status = "已驳回";
-        this.task.horizontal_content_list.push({
-          keyname: "驳回原因",
-          value:
-            `不符合请假规则，提交${this.begDate}上午申请则代表请假19:30-次日凌晨1:30，` +
+        this._rejectOA(
+          `不符合请假规则，提交${this.begDate}上午申请则代表请假19:30-次日凌晨1:30，` +
             `提交${this.begDate}下午申请则代表请假次日凌晨1:30-次日上午7:30，如需要请全天班，` +
-            `请提交${this.begDate}上午-下午假勤申请`,
-        });
-        await this.sendNotice([this.task.receiverId]);
+            `请提交${this.begDate}上午-下午假勤申请`
+        );
         return true;
       }
     }
     if (this.task.details.includes("请假类型：轮休假")) {
-      const quota = await quotaServices.getSingleDayOffQuotaLeftByUserId(
-        this.stfNumber
-      );
-      this.quota = quota;
+      const quota = await this.getQuota();
       if (quota.total != 5) return false;
       if (quota.left < 0) {
-        const operate = await xftOAApiClient.operate(
-          this.task.operateConfig(
-            "reject",
-            `本月还剩${quota.left}日轮休假，请查看近两月请假记录。如有疑问请联系人力资源部。`
-          )
+        this._rejectOA(
+          `本月还剩${quota.left}日轮休假，请查看近两月请假记录。如有疑问请联系人力资源部。`
         );
-        this.task.status = "已驳回";
-        this.task.horizontal_content_list.push({
-          keyname: "驳回原因",
-          value: `本月还剩${quota.left}日轮休假，请查看近两月请假记录。如有疑问请联系人力资源部。`,
-        });
-        await this.sendNotice([this.task.receiverId]);
         return true;
       }
     }
+    if (
+      this.task.details.includes("请假类型：事假") &&
+      !this.task.details.includes("事假小时")
+    ) {
+      const quota = await this.getQuota();
+      if (quota.total == 2 && quota.left > 0) {
+        this._rejectOA(
+          `本月还剩${quota.left}日轮休假，请先使用轮休假申请请假。`
+        );
+        return true;
+      }
+    }
+    if (this.task.details.includes("事假小时")) {
+    }
+  };
+
+  _rejectOA = async (reason) => {
+    const operate = await xftOAApiClient.operate(
+      this.task.operateConfig("reject", reason)
+    );
+    this.task.status = "已驳回";
+    this.task.horizontal_content_list.push({
+      keyname: "驳回原因",
+      value: reason,
+    });
+    await this.sendNotice([this.task.receiverId]);
+  };
+  getQuota = async () => {
+    const quota = await quotaServices.getSingleDayOffQuotaLeftByUserId(
+      this.stfNumber
+    );
+    this.quota = quota;
+    return quota;
   };
 
   sendNotice = async (userid: string[], status = this.task.status) => {

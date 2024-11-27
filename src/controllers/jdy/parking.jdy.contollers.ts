@@ -5,6 +5,7 @@ import { isTaskFinished } from "./jdyUtil";
 import { MessageHelper } from "../../api/wechat/message";
 import { logger } from "../../config/logger";
 import { ParkingInfo } from "../../entity/parking/dh_car_info";
+import { carPlateServices } from "../../services/carPlateServices";
 
 export const addCar = async (data) => {
   const carNum = data["_widget_1720515048364"];
@@ -20,38 +21,21 @@ export const addCar = async (data) => {
   const type = data["_widget_1721320851863"];
 
   const userId = data["_widget_1720515048365"];
-
-  const result = await parkingApiClient.addCar({
+  const result = await carPlateServices.addCarPlate({
     carNum,
     carOwner,
     phone,
+    licensePlateColor,
     beginTime,
     endTime,
-    licensePlateColor,
     userId,
+    type,
+    brand,
   });
-  if (!result["success"]) {
-    logger.error(result);
-    return;
-  }
   const id = jdyFormDataApiClient.getFormId("车辆信息登记");
   await jdyFormDataApiClient.singleDataUpdate(id.appid, id.entryid, data._id, {
-    _widget_1720515048363: { value: result?.["result"]?.["id"] },
+    _widget_1720515048363: { value: result.xinQianId },
   });
-  await ParkingInfo.addInfo(
-    {
-      id: result?.["result"]?.["id"],
-      ownerId: userId,
-      ownerName: carOwner,
-      ownerPhone: phone,
-      carNum,
-      licensePlateColor,
-      beginTime,
-      endTime,
-    },
-    type,
-    brand
-  );
 };
 
 export const updateCar = async (data) => {
@@ -67,25 +51,16 @@ export const updateCar = async (data) => {
   const licensePlateColor = data["_widget_1720677256474"] ?? "蓝色";
   const userId = data["_widget_1720515048365"];
   if (!id) return;
-  await parkingApiClient.updateCar({
-    id,
+  await carPlateServices.updateCarPlate({
     carNum,
     carOwner,
     phone,
+    licensePlateColor,
     beginTime,
     endTime,
-    licensePlateColor,
     userId,
-  });
-  await ParkingInfo.updateInfo({
-    id,
-    ownerId: userId,
-    ownerName: carOwner,
-    ownerPhone: phone,
-    carNum,
-    licensePlateColor,
-    beginTime,
-    endTime,
+    type: data["_widget_1721320851863"],
+    brand: data["_widget_1721320993137"],
   });
 };
 

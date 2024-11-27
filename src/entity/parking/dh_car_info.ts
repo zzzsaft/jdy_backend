@@ -4,6 +4,7 @@ import {
   CreateDateColumn,
   Entity,
   PrimaryColumn,
+  PrimaryGeneratedColumn,
 } from "typeorm";
 import { logger } from "../../config/logger";
 
@@ -20,8 +21,12 @@ type ParkingInfoType = {
 
 @Entity({ name: "parking_info" })
 export class ParkingInfo extends BaseEntity {
-  @PrimaryColumn()
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
+  @Column({ name: "xin_qian_id", unique: true, nullable: true })
+  xinQianId: string;
+  @Column({ name: "cheng_jiang_id", unique: true, nullable: true })
+  chengJiangId: string;
   @Column({ name: "user_id" })
   ownerId: string;
   @Column({ name: "name", nullable: true })
@@ -43,46 +48,46 @@ export class ParkingInfo extends BaseEntity {
   @CreateDateColumn({ name: "created_at", nullable: true })
   createdAt: Date;
 
-  static async addInfo(info: ParkingInfoType, type?, brand?) {
-    try {
-      const newRecord = ParkingInfo.create({
-        id: info.id,
-        ownerId: info.ownerId,
-        ownerName: info.ownerName,
-        ownerPhone: info.ownerPhone,
-        carNum: info.carNum,
-        licensePlateColor: info.licensePlateColor,
-        beginTime: new Date(info.beginTime),
-        endTime: new Date(info.endTime),
-        type,
-        brand,
-      });
-      await ParkingInfo.save(newRecord);
-      return newRecord;
-    } catch (e) {
-      logger.error(e);
-      logger.error(info);
-    }
-  }
-  static async updateInfo(info: ParkingInfoType) {
-    try {
-      await ParkingInfo.update(
-        { id: info.id },
-        {
-          ownerId: info.ownerId,
-          ownerName: info.ownerName,
-          ownerPhone: info.ownerPhone,
-          carNum: info.carNum,
-          licensePlateColor: info.licensePlateColor,
-          beginTime: new Date(info.beginTime),
-          endTime: new Date(info.endTime),
-        }
-      );
-    } catch (e) {
-      logger.error(e);
-      logger.error(info);
-    }
-  }
+  // static async addInfo(info: ParkingInfoType, type?, brand?) {
+  //   try {
+  //     const newRecord = ParkingInfo.create({
+  //       id: info.id,
+  //       ownerId: info.ownerId,
+  //       ownerName: info.ownerName,
+  //       ownerPhone: info.ownerPhone,
+  //       carNum: info.carNum,
+  //       licensePlateColor: info.licensePlateColor,
+  //       beginTime: new Date(info.beginTime),
+  //       endTime: new Date(info.endTime),
+  //       type,
+  //       brand,
+  //     });
+  //     await ParkingInfo.save(newRecord);
+  //     return newRecord;
+  //   } catch (e) {
+  //     logger.error(e);
+  //     logger.error(info);
+  //   }
+  // }
+  // static async updateInfo(info: ParkingInfoType) {
+  //   try {
+  //     await ParkingInfo.update(
+  //       { id: info.id },
+  //       {
+  //         ownerId: info.ownerId,
+  //         ownerName: info.ownerName,
+  //         ownerPhone: info.ownerPhone,
+  //         carNum: info.carNum,
+  //         licensePlateColor: info.licensePlateColor,
+  //         beginTime: new Date(info.beginTime),
+  //         endTime: new Date(info.endTime),
+  //       }
+  //     );
+  //   } catch (e) {
+  //     logger.error(e);
+  //     logger.error(info);
+  //   }
+  // }
   static async getInfoByCarNum(carNum: string) {
     return await ParkingInfo.findOne({ where: { carNum: carNum } });
   }

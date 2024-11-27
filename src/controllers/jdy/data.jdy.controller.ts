@@ -9,12 +9,13 @@ import {
   updateCar,
 } from "./parking.jdy.contollers";
 import exp from "constants";
-import { updateExistInfo, 入职申请表 } from "./addPerson.controller";
+import { 入职申请表 } from "./addPerson.controller";
 import { 来宾预约单 } from "./visitor.controller";
 import { 离职, 转正 } from "./updateUser.jdy.controller";
 import { SendTripCheckin } from "../../schedule/sendTripCheckin";
 import { businessTripCheckinServices } from "../../services/jdy/businessTripCheckinServices";
 import { restOvertimeServices } from "../../services/jdy/restOvertimeServices";
+import { updateExistInfo } from "../../services/dahuaServices";
 
 function getSignature(
   nonce: string,
@@ -77,7 +78,7 @@ const JdyControllers = {
       data_update: updateExistInfo,
     },
     "65dc463c9b200f9b5e3b5851": {
-      data_create: businessTripCheckinServices.dataCreate,
+      data_create: businessTripCheckinServices.dataProcess,
       data_update: businessTripCheckinServices.dataUpdate,
     },
     "64ccdcf9a03b0f000875fcde": {

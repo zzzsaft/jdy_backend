@@ -31,16 +31,28 @@ import { MessageHelper } from "../../api/wechat/message";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
 
 class BusinessTripCheckinServices {
-  async dataCreate(content) {
+  dataProcess = async (content) => {
     const data = await jdyDatetoDb(content);
+    let existdata = await XftTripCheckin.findOne({
+      where: { jdyId: content["_id"] },
+    });
+    if (!existdata) {
+      let newData = await this.dataCreate(data);
+
+      await businessTripCheckinServices.addCheckinRecord(newData);
+    }
+    // else{
+
+    //    existdata= await this.dataUpdate(existdata)};
+    // existdata = await existdata?.save()
+  };
+  dataCreate = async (data) => {
     const fbtRootId = await sendNotice(data);
     if (fbtRootId) data["fbtRootId"] = fbtRootId;
-    const exist = await XftTripCheckin.exists({ where: { jdyId: data.jdyId } });
-    if (exist) return;
-    const checkin = await XftTripCheckin.create({ ...data }).save();
-    await this.addCheckinRecord(checkin);
-  }
-  async dataUpdate(content) {
+    const checkin = XftTripCheckin.create({ ...data });
+    return await checkin.save();
+  };
+  dataUpdate = async (content) => {
     const data = await jdyDatetoDb(content);
     let existdata = await XftTripCheckin.findOne({
       where: { jdyId: content["_id"] },
@@ -53,10 +65,12 @@ class BusinessTripCheckinServices {
       let newExistdata = await XftTripCheckin.findOne({
         where: { jdyId: content["_id"] },
       });
-      if (newExistdata) await this.addCheckinRecord(newExistdata);
+      if (newExistdata)
+        await businessTripCheckinServices.addCheckinRecord(newExistdata);
     }
     await sendMessage(data);
-  }
+    return existdata;
+  };
   async scheduleCreate(date: Date = new Date()) {
     const businessTrip = await BusinessTrip.find({
       where: {
@@ -99,7 +113,8 @@ class BusinessTripCheckinServices {
       sendMessage(await jdyDatetoDb(result["data"]));
     }
   }
-  async addCheckinRecord(checkin: XftTripCheckin) {
+  addCheckinRecord = async (checkin: XftTripCheckin) => {
+    if (checkin.isChecked) return checkin;
     if (
       checkin.state != "已打卡" &&
       checkin.state != "当日打卡" &&
@@ -135,7 +150,8 @@ class BusinessTripCheckinServices {
       result.clickTime = "10:00:00";
     }
     await xftatdApiClient.importAtd([result]);
-  }
+    checkin.isChecked = true;
+  };
 }
 
 export const businessTripCheckinServices = new BusinessTripCheckinServices();

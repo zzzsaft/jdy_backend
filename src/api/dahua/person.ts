@@ -20,7 +20,7 @@ class PersonApiClient extends ApiClient {
     facePhotoPath: string;
   }) {
     return await this.doRequest({
-      method: "POST",
+      method: "PUT",
       path: "/gateway/person/api/personFile",
       payload: {
         ...file,
@@ -61,17 +61,20 @@ class PersonApiClient extends ApiClient {
     });
   }
 
-  async authAsync(personFileId) {
+  async authAsync(
+    personFileId,
+    deviceIds = [
+      { operateType: 1, deviceId: "AD091B6PAJ15DFE", personFileId },
+      { operateType: 1, deviceId: "AC0F22DPAJ9C7DB", personFileId },
+      { operateType: 1, deviceId: "AC0F22DPAJ722C6", personFileId },
+      { operateType: 1, deviceId: "AG0D966PAJ13D25", personFileId },
+      { operateType: 1, deviceId: "AG0E2D9PAJF7CDD", personFileId },
+    ]
+  ) {
     return await this.doRequest({
       method: "POST",
       path: "/gateway/dsc-owner/api/authAsync",
-      payload: [
-        { operateType: 1, deviceId: "AD091B6PAJ15DFE", personFileId },
-        { operateType: 1, deviceId: "AC0F22DPAJ9C7DB", personFileId },
-        { operateType: 1, deviceId: "AC0F22DPAJ722C6", personFileId },
-        { operateType: 1, deviceId: "AG0D966PAJ13D25", personFileId },
-        { operateType: 1, deviceId: "AG0E2D9PAJF7CDD", personFileId },
-      ],
+      payload: deviceIds,
     });
   }
 }

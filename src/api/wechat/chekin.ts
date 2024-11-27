@@ -98,5 +98,25 @@ class CheckinApiClient extends ApiClient {
       }
     );
   }
+  async addCheckinUserface({ userid, userface }) {
+    return await this.doRequest(
+      {
+        method: "POST",
+        path: "/cgi-bin/checkin/addcheckinuserface",
+        payload: {
+          userid,
+          userface,
+        },
+        query: {
+          access_token: await token_checkin.get_token(),
+        },
+      },
+      {
+        name: "face",
+        duration: 60000,
+        limit: 10,
+      }
+    );
+  }
 }
 export const checkinApiClient = new CheckinApiClient();

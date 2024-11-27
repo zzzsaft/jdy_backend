@@ -1,4 +1,3 @@
-import { get } from "lodash";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
 import {
   addDays,
@@ -19,6 +18,13 @@ import { LogCheckin } from "../../entity/log/log_checkin";
 import { jctimesApiClient } from "../../api/jctimes/app";
 import { Between } from "typeorm";
 import _ from "lodash";
+import { jdyFormDataApiClient } from "../../api/jdy/form_data";
+import {
+  compressImage,
+  downloadFileStream,
+  streamToBase64,
+} from "../../utils/fileUtils";
+import { PassThrough } from "stream";
 class CheckinServices {
   async scheduleCheckinMonthly() {
     const startTime = startOfMonth(new Date());
@@ -226,4 +232,47 @@ const updateCheckin = async (startTime, endTime) => {
     errmsg: JSON.stringify(err),
   });
   await LogCheckin.save(log);
+};
+
+export const addUserfaceToWechat = async () => {
+  const data = await 获取员工档案();
+  for (const jdyInfo of data) {
+    await updateExistInfo(jdyInfo);
+  }
+};
+const updateExistInfo = async (data) => {
+  const userId = data["_widget_1691239227137"];
+  if (userId == "") return;
+  const user = await User.findOne({ where: { user_id: userId } });
+  if (!user || user.wxFace || !user.is_employed) return;
+  const photo: any[] = data["_widget_1704997861762"];
+  if (photo.length == 0) return;
+  const url = photo[0]["url"];
+  const fileName = photo[0]["name"];
+  let fileStream = await downloadFileStream(url);
+  fileStream = await compressImage(fileStream);
+  let face = await streamToBase64(fileStream);
+  const result = await checkinApiClient.addCheckinUserface({
+    userid: userId,
+    userface: face,
+  });
+  if (result["errcode"] == 0) {
+    user.wxFace = true;
+    await user.save();
+  } else {
+    console.log(result);
+  }
+};
+const 获取员工档案 = async () => {
+  const app = jdyFormDataApiClient.getFormId("员工档案");
+  return await jdyFormDataApiClient.batchDataQuery(app.appid, app.entryid, {
+    filter: {
+      rel: "and",
+      cond: [
+        { field: "_widget_1701399332764", method: "ne", value: ["离职"] },
+        { field: "_widget_1704997861762", method: "not_empty" },
+      ],
+    },
+    limit: 100,
+  });
 };

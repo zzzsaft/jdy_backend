@@ -22,23 +22,13 @@ export class XftAtdOut extends BaseEntity {
   @Column({ nullable: true })
   staffSeq: string;
   @Column({ nullable: true })
-  stfName: string;
-  @Column({ nullable: true })
   userId: string;
   @Column({ nullable: true })
   userName: string;
   @Column({ nullable: true })
-  userNumber: string;
-  @Column({ nullable: true })
   departmentId: string;
   @Column()
-  orgSeq: string;
-  @Column()
   orgName: string;
-  @Column()
-  weekdays: number;
-  @Column()
-  businessType: string;
   @Column()
   beginTime: Date;
   @Column()

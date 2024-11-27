@@ -92,6 +92,15 @@ class XFTAttendanceApiClient {
       },
     });
   }
+  async getOutRecord(serialNumber) {
+    return await appApiClient.doRequest({
+      method: "POST",
+      path: "/atd/prd/xft-atn/go-out/record-query",
+      payload: {
+        serialNumber,
+      },
+    });
+  }
   async getBusinessTripRecord(payload: {
     businessSeq?: string;
     staffNameOrStaffNumber?: string;

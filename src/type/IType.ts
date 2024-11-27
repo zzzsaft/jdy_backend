@@ -52,4 +52,5 @@ export interface IAppoint {
    */
   visitorTime: string;
   // [property: string]: any;
+  area: string;
 }

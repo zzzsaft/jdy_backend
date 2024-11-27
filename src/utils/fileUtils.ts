@@ -151,7 +151,7 @@ export async function compressImage(
   inputStream: stream.Readable
 ): Promise<stream.PassThrough> {
   const passthrough = new stream.PassThrough(); // 创建一个 PassThrough 流
-  const targetSize = 2 * 1024 * 1024; // 目标大小：1MB
+  const targetSize = 1 * 1024 * 1024; // 目标大小：1MB
   let quality = 90; // 初始压缩质量
   let outputBuffer: Buffer | null = null;
 
@@ -186,4 +186,23 @@ export async function compressImage(
   console.log("图片压缩完成");
 
   return passthrough;
+}
+
+/**
+ * 将流转换为 Base64 字符串
+ * @param readable 流对象
+ * @returns Promise<string> 返回 Base64 字符串
+ */
+export function streamToBase64(readable: stream.Readable): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+
+    readable.on("data", (chunk) => chunks.push(chunk)); // 收集流中的数据
+    readable.on("end", () => {
+      const buffer = Buffer.concat(chunks); // 将所有数据拼接成一个 Buffer
+      const base64 = buffer.toString("base64"); // 转换为 Base64
+      resolve(base64); // 返回 Base64 字符串
+    });
+    readable.on("error", reject); // 捕获流错误
+  });
 }

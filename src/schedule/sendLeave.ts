@@ -11,7 +11,6 @@ import {
 } from "date-fns";
 import { xftatdApiClient } from "../api/xft/xft_atd";
 import { XftTaskEvent } from "../controllers/xft/todo.xft.controller";
-import { LeaveEvent } from "../controllers/xft/atd/leave.atd.xft.controller";
 import { User } from "../entity/basic/employee";
 import { Department } from "../entity/basic/department";
 import { sleep } from "../config/limiter";
@@ -118,10 +117,10 @@ export const sendtoUserwithLeaveChoice = async () => {
     const quota = allQuota[key];
     if (quota.total == 5) {
       const user = await getUser(key);
-      if (user) {
+      if (user && user.userid.length < 19) {
         // console.log(user, quota.left);
         await sendLeave(user, quota.left);
-        await sleep(10);
+        await sleep(100);
       }
     }
   }
@@ -150,10 +149,10 @@ export const proceedLeave = async (optionIds, config, user) => {
     const record = await xftatdApiClient.addLeave({ ...config, ...range });
     if (record["returnCode"] == "SUC0000") {
       flag = true;
-      const leaveRec = (await XftAtdLeave.maxLeaveRecSeq()) + 1;
-      const rRecord = await xftatdApiClient.getLeaveRecord(leaveRec);
-      if (rRecord["returnCode"] == "SUC0000")
-        await XftAtdLeave.addRecord(rRecord["body"]);
+      // const leaveRec = (await XftAtdLeave.maxLeaveRecSeq()) + 1;
+      // const rRecord = await xftatdApiClient.getLeaveRecord(leaveRec);
+      // if (rRecord["returnCode"] == "SUC0000")
+      //   await XftAtdLeave.addRecord(rRecord["body"]);
       new MessageHelper([user, ...leaders]).sendTextNotice({
         main_title: {
           title: `(已自动通过)${name}的轮休假申请`,
