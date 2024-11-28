@@ -40,12 +40,12 @@ export const 获取空缺请假记录 = async () => {
 
   // 创建一个完整的范围数组
   // const fullRange = _.range(3703, 3880);
-  const fullRange = _.range(1000, 2000);
+  const fullRange = _.range(10, 99);
 
   // 找出缺失的数字
   // const missingLeaveRecSeqs = _.difference(fullRange, leaveRecSeqArray);
   for (const i of fullRange) {
-    const rRecord = await xftatdApiClient.getOutRecord(`000000${i}`);
+    const rRecord = await xftatdApiClient.getOutRecord(`00000000${i}`);
     if (rRecord["returnCode"] == "SUC0000")
       await XftAtdOut.addRecord(rRecord["body"]["outgoing"]);
     await sleep(10);

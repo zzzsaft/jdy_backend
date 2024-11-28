@@ -49,6 +49,8 @@ export class XftAtdOut extends BaseEntity {
   updated_at: Date;
   @Column()
   oldCteateTime: Date;
+  @Column({ nullable: true })
+  approveStatus: string;
 
   static async addRecord(record) {
     if (!record) return;

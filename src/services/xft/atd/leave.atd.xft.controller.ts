@@ -7,6 +7,8 @@ import { xftOAApiClient } from "../../../api/xft/xft_oa";
 import { User } from "../../../entity/basic/employee";
 import { quotaServices } from "../../../services/xft/quotaServices";
 import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
+import { getDifference, isAfterTime } from "../../../utils/dateUtils";
+import { MessageHelper } from "../../../api/wechat/message";
 
 export class LeaveEvent {
   task: XftTaskEvent;
@@ -148,8 +150,6 @@ export class LeaveEvent {
         return true;
       }
     }
-    if (this.task.details.includes("事假小时")) {
-    }
   };
 
   _rejectOA = async (reason) => {
@@ -189,4 +189,15 @@ export class LeaveEvent {
     const daysMap = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
     return daysMap[new Date(date).getDay()];
   }
+
+  leaveNotify = async () => {
+    if (!this.task.details.includes("事假小时")) return;
+    let flag = getDifference(this.begTime, "7:30") ?? 0;
+    let flag1 = getDifference(this.begTime, "12:40") ?? 0;
+    if (flag > 0) {
+      await new MessageHelper([this.stfNumber]).send_plain_text(
+        `请假时间开始时间为${this.begTime}，请在该时间点进行打卡签退，否则视为缺卡`
+      );
+    }
+  };
 }

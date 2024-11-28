@@ -79,7 +79,7 @@ export class EntryExistRecords extends BaseEntity {
       if (exists) return;
       let userId, name, phone, gap;
       const url = fileName
-        ? "http://hz.jc-times.com:2000/image/car/" +
+        ? "http://hz.jc-times.com:2000/images/car/" +
           fileName.split("/").pop()?.split(".")[0]
         : "";
       const carNum = record.carNum;
@@ -138,7 +138,7 @@ export class EntryExistRecords extends BaseEntity {
       if (!record.personId) return;
       let userId, name, phone, gap;
       const url = fileName
-        ? "http://hz.jc-times.com:2000/image/card/" +
+        ? "http://hz.jc-times.com:2000/images/card/" +
           fileName.split("/").pop()?.split(".")[0]
         : "";
       const method = record.enterOrExit == 1 ? "人脸入场" : "人脸出场";
