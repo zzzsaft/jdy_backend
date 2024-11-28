@@ -41,7 +41,7 @@ export class XftAtdOvertime extends BaseEntity {
   @Column({ nullable: true })
   revokeStatus: string;
   @Column("interval", { nullable: true })
-  overtimeLen: number;
+  overtimeLen: any;
   @Column("interval", { nullable: true })
   overtimeAutoLen: number;
   @Column("interval", { nullable: true })

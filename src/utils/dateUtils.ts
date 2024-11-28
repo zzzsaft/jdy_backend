@@ -9,6 +9,11 @@ import {
   startOfMonth,
   subMonths,
   addMinutes,
+  setMinutes,
+  isBefore,
+  setHours,
+  startOfDay,
+  isAfter,
 } from "date-fns";
 export const getWeekDayName = (date: string | Date) => {
   // 映射英文星期到中文
@@ -115,6 +120,24 @@ export const getLast2MouthSaturday = () => {
   return saturdaysOfLastMonth.length + saturdaysOfThisMonth.length;
 };
 
+export const getSaturdaySunday = () => {
+  const currentDate = new Date();
+
+  // 获取本月的所有天数
+  const daysOfThisMonth = eachDayOfInterval({
+    start: startOfMonth(currentDate),
+    end: endOfMonth(currentDate),
+  });
+
+  // 筛选出上个月和本月的周六
+  const saturdaysOfThisMonth = daysOfThisMonth.filter(
+    (day) => isSaturday(day) || isSunday(day)
+  );
+
+  // 返回最近两个月的周六总数量
+  return saturdaysOfThisMonth.length;
+};
+
 export const getMouthSaturday = (date = new Date()) => {
   const days = eachDayOfInterval({
     start: startOfMonth(date),
@@ -175,4 +198,14 @@ export const mergeDateAndTime = (dateStr: string, timeStr: string) => {
   const finalDate = addMinutes(date, totalMinutes);
 
   return finalDate;
+};
+export const isBeforeTime = (date: Date, timeStr: string) => {
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  const targetTime = setMinutes(setHours(startOfDay(date), hours), minutes);
+  return isBefore(date, targetTime);
+};
+export const isAfterTime = (date: Date, timeStr: string) => {
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  const targetTime = setMinutes(setHours(startOfDay(date), hours), minutes);
+  return isAfter(date, targetTime);
 };

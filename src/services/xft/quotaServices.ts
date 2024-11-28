@@ -1,7 +1,11 @@
 import { startOfMonth, subMonths, endOfMonth, format } from "date-fns";
 import _ from "lodash";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
-import { getLast2MouthSaturday, getMouthSaturday } from "../../utils/dateUtils";
+import {
+  getLast2MouthSaturday,
+  getMouthSaturday,
+  getSaturdaySunday,
+} from "../../utils/dateUtils";
 import { restOvertimeServices } from "../jdy/restOvertimeServices";
 
 class QuotaServices {
@@ -62,6 +66,11 @@ class QuotaServices {
 
     let thisMouthSaturday = getMouthSaturday();
     let lastMouthSaturday = getMouthSaturday(subMonths(new Date(), -1));
+    if (quotaThisMonth?.["deservedBal"] == 10)
+      return {
+        total: getSaturdaySunday(),
+        left: getSaturdaySunday() - quotaThisMonth?.["usedBal"],
+      };
     if (
       quotaThisMonth?.["deservedBal"] != 5 ||
       thisMouthSaturday == 5

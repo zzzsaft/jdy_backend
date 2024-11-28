@@ -13,13 +13,18 @@ import stream from "stream";
 import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { logger } from "../../config/logger";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
-import { getWeekDayName } from "../../utils/dateUtils";
+import {
+  getWeekDayName,
+  isAfterTime,
+  isBeforeTime,
+} from "../../utils/dateUtils";
 import { AtdDayResult } from "../../entity/atd/day_result";
 import _ from "lodash";
 import { dayResultServices } from "../xft/dayResultServices";
+import { XftAtdOvertime } from "../../entity/atd/xft_overtime";
 
 class RestOvertimeServices {
-  async add(data) {
+  add = async (data) => {
     const record = await JdyRestOvertime.createRecord(data);
     if (!record) {
       logger.error(
@@ -29,18 +34,36 @@ class RestOvertimeServices {
     }
     await JdyRestOvertime.upsert(record, ["id"]);
     await this.addToXft(record);
-  }
+  };
   async count(date: Date, userid) {
-    return (
+    let count = 0;
+    count +=
       (await JdyRestOvertime.sum("durationDay", {
         userid,
         result: Not("拒绝"),
         type: "轮休假加班",
         startTime: Between(startOfMonth(date), endOfMonth(date)),
-      })) ?? 0
+      })) ?? 0;
+    count += _.sum(
+      (
+        await XftAtdOvertime.find({
+          where: {
+            userId: userid,
+            approveStatus: "passed",
+            overtimeType: "休息日",
+            begDate: Between(startOfMonth(date), endOfMonth(date)),
+          },
+        })
+      ).map((item) => {
+        if (isBeforeTime(item.begDate, "12:00")) return 0.5;
+        if (isAfterTime(item.begDate, "12:00")) return 0.5;
+        if (isBeforeTime(item.endDate, "12:00")) return 0.5;
+        return 1;
+      })
     );
+    return count;
   }
-  async addToXft(data: JdyRestOvertime) {
+  addToXft = async (data: JdyRestOvertime) => {
     if (data.result != "通过" && data.type != "轮休假加班") return;
     const diffDay = differenceInCalendarDays(data.endTime, data.startTime);
     const result = await xftatdApiClient.addOvertime({
@@ -57,7 +80,7 @@ class RestOvertimeServices {
       data.result = "已导入";
       await data.save();
     }
-  }
+  };
   async getShiftExceltoLocal(
     dateString: string = format(new Date(), "yyyyMM")
   ) {
@@ -150,7 +173,7 @@ export const createShiftExcel = async (
   }
   worksheet.columns = [...column];
 
-  const data = await JdyRestOvertime.find({
+  let data = await JdyRestOvertime.find({
     where: {
       startTime: Between(startOfMonth(date), endOfMonth(date)),
       result: Not("不通过"),
@@ -158,6 +181,21 @@ export const createShiftExcel = async (
     },
     select: ["userid", "name", "startTime"],
   });
+  const data1 = (
+    await XftAtdOvertime.find({
+      where: {
+        approveStatus: "passed",
+        overtimeType: "休息日",
+        begDate: Between(startOfMonth(date), endOfMonth(date)),
+      },
+      select: ["userId", "stfName", "begDate"],
+    })
+  ).map(({ stfName, begDate, userId }) => ({
+    userid: userId,
+    name: stfName,
+    startTime: begDate,
+  })) as any;
+  data = [...data, ...data1];
   const groupedData = _.groupBy(data, "userid");
   // 使用 for...in 循环遍历分组后的结果
   for (const userid in groupedData) {
@@ -180,6 +218,4 @@ export const createShiftExcel = async (
   worksheet.insertRow(2, ""); // 插入第二行空行
   worksheet.insertRow(3, ""); // 插入第二行空行
   return workbook;
-  const filePath = `./${format(date, "yyyyMM")}排班表.xlsx`;
-  await workbook.xlsx.writeFile(filePath);
 };
