@@ -8,6 +8,9 @@ import {
   differenceInDays,
   startOfDay,
   endOfDay,
+  isEqual,
+  endOfMonth,
+  startOfMonth,
 } from "date-fns";
 import { xftatdApiClient } from "../api/xft/xft_atd";
 import { XftTaskEvent } from "../controllers/xft/todo.xft.controller";
@@ -115,7 +118,10 @@ export const sendtoUserwithLeaveChoice = async () => {
   allQuota = _.omit(allQuota, userids);
   for (const key in allQuota) {
     const quota = allQuota[key];
-    if (quota.total == 5) {
+    if (quota.total >= 5) {
+      if (isEqual(sunday, startOfMonth(sunday))) {
+        quota.left = quota.left + 1;
+      }
       const user = await getUser(key);
       if (user && user.userid.length < 19) {
         // console.log(user, quota.left);
@@ -149,10 +155,13 @@ export const proceedLeave = async (optionIds, config, user) => {
     const record = await xftatdApiClient.addLeave({ ...config, ...range });
     if (record["returnCode"] == "SUC0000") {
       flag = true;
-      // const leaveRec = (await XftAtdLeave.maxLeaveRecSeq()) + 1;
-      // const rRecord = await xftatdApiClient.getLeaveRecord(leaveRec);
-      // if (rRecord["returnCode"] == "SUC0000")
-      //   await XftAtdLeave.addRecord(rRecord["body"]);
+      const rRecords = await xftatdApiClient.getLeaveRecord(user);
+      if (rRecords["returnCode"] == "SUC0000")
+        for (const rRecord of rRecords["body"]["list"]) {
+          if (record["lveTypeName"] == "轮休假") {
+            await XftAtdLeave.addRecord(rRecord);
+          }
+        }
       new MessageHelper([user, ...leaders]).sendTextNotice({
         main_title: {
           title: `(已自动通过)${name}的轮休假申请`,

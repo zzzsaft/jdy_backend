@@ -59,7 +59,7 @@ export class LeaveEvent {
 
   getRecord = async () => {
     const leaveRecSeq = this.task.businessParam.split("_").pop();
-    const record = await xftatdApiClient.getLeaveRecord(leaveRecSeq);
+    const record = await xftatdApiClient.getLeaveDetail(leaveRecSeq);
     await this.proceedRecord(record);
   };
 

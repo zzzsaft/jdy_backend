@@ -1,6 +1,7 @@
 import _ from "lodash";
 import { appApiClient, connectApiClient } from "./api_client";
 import {
+  addDays,
   eachDayOfInterval,
   endOfMonth,
   format,
@@ -74,12 +75,29 @@ class XFTAttendanceApiClient {
       "U0000"
     );
   }
-  async getLeaveRecord(leaveRecSeq) {
+  async getLeaveDetail(leaveRecSeq) {
     return await appApiClient.doRequest({
       method: "POST",
       path: "/atd/prd/xft-atn/leave/record-query/detail",
       payload: {
         leaveRecSeq,
+      },
+    });
+  }
+  async getLeaveRecord(
+    stfNumber,
+    begDate: Date = addDays(new Date(), -1),
+    endDate: Date = addDays(new Date(), 2)
+  ) {
+    return await appApiClient.doRequest({
+      method: "POST",
+      path: "/atd/prd/xft-atn/leave/record-query",
+      payload: {
+        begDate: format(begDate, "yyyy-MM-dd"),
+        endDate: format(endDate, "yyyy-MM-dd"),
+        stfNumber,
+        pageNo: 1,
+        pageSize: 1000,
       },
     });
   }
