@@ -1,5 +1,6 @@
 import {
   BaseEntity,
+  Between,
   Column,
   Entity,
   Like,
@@ -62,6 +63,10 @@ export class EntryExistRecords extends BaseEntity {
   image: string;
   @Column({ nullable: true })
   url: string;
+  @Column({ nullable: true, name: "out_id" })
+  outId: string;
+  @Column({ nullable: true, name: "out_type" })
+  outType: string;
 
   static async addCarRecord(record: CarRecord, fileName: string) {
     try {
@@ -196,5 +201,21 @@ export class EntryExistRecords extends BaseEntity {
       })
       .orderBy("records.time", "DESC")
       .getOne();
+  }
+  static async setOutId(
+    beginDate: Date,
+    endDate: Date,
+    outId: string,
+    userid: string,
+    outType: string
+  ) {
+    const records = await EntryExistRecords.find({
+      where: { time: Between(beginDate, endDate), userId: userid },
+    });
+    for (const record of records) {
+      record.outId = outId;
+      record.outType = outType;
+      record.save();
+    }
   }
 }

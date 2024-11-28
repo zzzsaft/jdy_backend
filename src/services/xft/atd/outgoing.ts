@@ -4,12 +4,13 @@ import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
 import { xftOAApiClient } from "../../../api/xft/xft_oa";
 import { BusinessTrip } from "../../../entity/atd/businessTrip";
 import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
+import { XftAtdOut } from "../../../entity/atd/xft_out";
 
 export class OutGoingEvent {
   task: XftTaskEvent;
 
   sponsorName: string;
-  sponsorNbr: string;
+  staffNbr: string;
   applyReson: string;
   beginTime: string;
   endTime: string;
@@ -24,7 +25,7 @@ export class OutGoingEvent {
   async process() {
     await this.getRecord();
     if (this.task.dealStatus == "1") {
-      await this.sendNotice(this.sponsorNbr);
+      await this.sendNotice(this.staffNbr);
     } else if (this.task.dealStatus == "0") {
       await this.sendCard();
     }
@@ -38,6 +39,7 @@ export class OutGoingEvent {
 
   proceedRecord = async (record) => {
     Object.assign(this, record["body"]["outgoing"]);
+    await XftAtdOut.addRecord(record["body"]["outgoing"]);
     this.task.horizontal_content_list = [
       {
         keyname: "申请人",

@@ -12,8 +12,8 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 import { User } from "../basic/employee";
-import { Department } from "../basic/department";
-import { fromZonedTime, toZonedTime } from "date-fns-tz";
+import { EntryExistRecords } from "../parking/dh_entry_exit_record";
+
 @Entity("atd_xft_out")
 export class XftAtdOut extends BaseEntity {
   @PrimaryColumn()
@@ -24,10 +24,10 @@ export class XftAtdOut extends BaseEntity {
   @Column({ nullable: true })
   userId: string;
   @Column({ nullable: true })
-  userName: string;
+  name: string;
   @Column({ nullable: true })
   departmentId: string;
-  @Column()
+  @Column({ nullable: true })
   orgName: string;
   @Column()
   beginTime: Date;
@@ -36,11 +36,9 @@ export class XftAtdOut extends BaseEntity {
   @Column("interval", { nullable: true })
   duration: number;
   @Column({ nullable: true })
-  leaveReason: string;
+  remark: string;
   @Column({ nullable: true })
-  recSts: string;
-  @Column({ nullable: true })
-  passTime: Date;
+  informationFlag: string;
   @Column()
   dataSource: string;
   @Column({ nullable: true })
@@ -49,47 +47,45 @@ export class XftAtdOut extends BaseEntity {
   created_at: Date;
   @UpdateDateColumn()
   updated_at: Date;
+  @Column()
+  oldCteateTime: Date;
 
   static async addRecord(record) {
-    let weekdays = 0;
-    try {
-      weekdays = record.leaveDtlDtos.filter(
-        (dtos) => dtos["weekDay"] >= 2 && dtos["weekDay"] <= 6
-      ).length;
-    } catch (error) {}
-    const leave = {
+    if (!record) return;
+    let user = await User.findOne({ where: { xft_id: record.staffSeq } });
+    if (!user) {
+      console.log(`User not found. stfSeq: ${record.staffSeq}`);
+      return;
+    }
+    const out = {
       ...record,
-      leaveRecSeq: parseInt(record.leaveRecSeq),
-      begDate: getDate(record.begDate, record.begTime, true),
-      endDate: getDate(record.endDate, record.endTime, false),
-      duration: getDuration(record.leaveDuration, record.lveUnit),
-      userId: (await User.findOne({ where: { xft_id: record.stfSeq } }))
-        ?.user_id,
-      departmentId: (
-        await Department.findOne({ where: { xft_id: record.orgSeq } })
-      )?.department_id,
-      weekdays,
+      userId: user.user_id,
+      name: user.name,
+      departmentId: user.main_department_id,
+      beginTime: new Date(record.beginTime),
+      endTime: new Date(record.endTime),
+      duration: record.duration * 60,
     };
-    // await XftAtdLeave.create(leave).save();
+    const content: XftAtdOut = XftAtdOut.create(out);
+    await XftAtdOut.upsert(content, ["serialNumber"]);
+    await EntryExistRecords.setOutId(
+      content.beginTime,
+      content.endTime,
+      content.serialNumber.toString(),
+      user.user_id,
+      "外出"
+    );
   }
 }
-
-const getDate = (date: string, time: string, begin: boolean) => {
-  if (time == "AM" && begin) {
-    return new Date(date + "T00:00:00");
-  } else if (time == "AM" && !begin) {
-    return new Date(date + "T11:59:59");
-  } else if (time == "PM" && begin) {
-    return new Date(date + "T12:00:00");
-  } else if (time == "PM" && !begin) {
-    return new Date(date + "T23:59:00");
+export const testEntryExitRecord = async () => {
+  const data = await XftAtdOut.find();
+  for (const content of data) {
+    await EntryExistRecords.setOutId(
+      content.beginTime,
+      content.endTime,
+      content.serialNumber.toString(),
+      content.userId,
+      "外出"
+    );
   }
-  return new Date(date + "T" + time);
-};
-
-const getDuration = (duration: string, unit: string) => {
-  if (unit == "DAY") {
-    return parseFloat(duration) * 24 * 60 * 60;
-  }
-  return parseFloat(duration) * 60 * 60;
 };

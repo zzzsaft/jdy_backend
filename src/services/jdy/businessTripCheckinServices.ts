@@ -159,8 +159,10 @@ export const businessTripCheckinServices = new BusinessTripCheckinServices();
 export const addCheckinToXFT = async (date = new Date("2024-10-1")) => {
   const data = await XftTripCheckin.find({
     where: {
-      checkinDate: Between(startOfMonth(date), endOfMonth(date)),
-      name: "蔡小勇",
+      checkinDate: Between(
+        startOfMonth(new Date("2024-11-01")),
+        new Date("2024-11-10")
+      ),
     },
   });
   for (const item of data) {

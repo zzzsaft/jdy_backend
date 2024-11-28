@@ -11,6 +11,7 @@ import { ReissueEvent } from "../../services/xft/atd/reissue.atd.xft.controller"
 import { BusinessTripEvent } from "../../services/xft/atd/businessTrip.atd.xft.controller";
 import { OvertimeEvent } from "../../services/xft/atd/overtime.atd.xft.controller";
 import { LeaveEvent } from "../../services/xft/atd/leave.atd.xft.controller";
+import { OutGoingEvent } from "../../services/xft/atd/outgoing";
 
 export class XftTaskEvent {
   url: string;
@@ -193,9 +194,9 @@ export const xftTaskCallback = async (content) => {
     await new ReissueEvent(task).process();
     return;
   }
-  if (task.dealStatus == "0") {
-    if (task.details.includes("【外出】")) await task.sendButtonCard();
-    else await task.sendCard();
+  if (task.details.includes("【外出】")) {
+    await new OutGoingEvent(task).process();
+    return;
   }
   if (task.processStatus != "0") {
     const noticeUsers: string[] = [task.sendUserId];

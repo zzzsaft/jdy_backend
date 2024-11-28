@@ -22,73 +22,50 @@ import { XftAtdOvertime } from "./entity/atd/xft_overtime";
 import { personApiClient } from "./api/dahua/person";
 import { EntryExistRecords } from "./entity/parking/dh_entry_exit_record";
 import { ReissueEvent } from "./services/xft/atd/reissue.atd.xft.controller";
-// export const 获取空缺请假记录 = async () => {
-//   // const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
-//   //   .select("leave.leaveRecSeq")
-//   //   .orderBy("leave.leaveRecSeq", "ASC")
-//   //   .getRawMany();
+import { OutGoingEvent } from "./services/xft/atd/outgoing";
+import { XftAtdOut } from "./entity/atd/xft_out";
+export const 获取空缺请假记录 = async () => {
+  // const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
+  //   .select("leave.leaveRecSeq")
+  //   .orderBy("leave.leaveRecSeq", "ASC")
+  //   .getRawMany();
 
-//   // // 提取 leaveRecSeq 数字
-//   // const leaveRecSeqArray = leaveRecSeqs.map((item) =>
-//   //   parseInt(item.leave_leaveRecSeq)
-//   // );
+  // // 提取 leaveRecSeq 数字
+  // const leaveRecSeqArray = leaveRecSeqs.map((item) =>
+  //   parseInt(item.leave_leaveRecSeq)
+  // );
 
-//   // const minSeq = _.min(leaveRecSeqArray) || 1000000000; // 获取最小值，或者指定起始值
-//   // const maxSeq = _.max(leaveRecSeqArray) || 1000000000; // 获取最大值
+  // const minSeq = _.min(leaveRecSeqArray) || 1000000000; // 获取最小值，或者指定起始值
+  // const maxSeq = _.max(leaveRecSeqArray) || 1000000000; // 获取最大值
 
-//   // 创建一个完整的范围数组
-//   // const fullRange = _.range(3703, 3880);
-//   const fullRange = _.range(2695, 3705);
+  // 创建一个完整的范围数组
+  // const fullRange = _.range(3703, 3880);
+  const fullRange = _.range(1000, 2000);
 
-//   // 找出缺失的数字
-//   // const missingLeaveRecSeqs = _.difference(fullRange, leaveRecSeqArray);
-//   for (const i of fullRange) {
-//     const rRecord = await xftatdApiClient.getOvertimeRecord(`000000${i}`);
-//     if (rRecord["returnCode"] == "SUC0000")
-//       await XftAtdOvertime.addRecord(
-//         rRecord["body"]["recordResponseDto"],
-//         rRecord["body"]["detailResponseDto"]
-//       );
-//     await sleep(10);
-//   }
-//   console.log(fullRange);
-// };
+  // 找出缺失的数字
+  // const missingLeaveRecSeqs = _.difference(fullRange, leaveRecSeqArray);
+  for (const i of fullRange) {
+    const rRecord = await xftatdApiClient.getOutRecord(`000000${i}`);
+    if (rRecord["returnCode"] == "SUC0000")
+      await XftAtdOut.addRecord(rRecord["body"]["outgoing"]);
+    await sleep(10);
+  }
+  console.log(fullRange);
+};
 
 export const 测试补卡记录 = async () => {
-  const record = {
-    appCode: "xft-bpm",
-    appName: "OA审批",
-    businessCode: "OA000001",
-    businessName: "待审批通知",
-    businessParam: "MUC_xft-hrm_COM_AAA00512_0000001300",
-    createTime: "2024-11-06 15:05:53",
-    dealStatus: "0",
-    details:
-      "【陈志伟】发起了【补卡】申请，申请人：陈志伟，补卡时间：2024-11-04 07:30:00，班次信息：精诚-冬令时打卡规则:07:30-16:40，补卡原因：忘打卡，请您尽快审批，发起时间：2024-11-06 15:05:52。",
-    id: "TD1854057598805315586",
-    processId: "1197688161",
-    processStatus: "0",
-    receiver: {
-      enterpriseNum: "AAA00512",
-      thirdpartyUserId: "",
-      userName: "杨奎",
-      xftUserId: "V002F",
+  const logs = await LogExpress.find({
+    where: {
+      path: "/xft/event",
+      content: And(Like("%【外出】申请%"), Like('%"dealStatus":"1"%')),
     },
-    sendTime: "2024-11-06T15:05:52",
-    sendUser: {
-      enterpriseNum: "AAA00512",
-      thirdpartyUserId: "",
-      userName: "陈志伟",
-      xftUserId: "V002N",
-    },
-    terminal: "0",
-    title: "陈志伟发起的补卡",
-    url: {},
-  };
-  const task = new XftTaskEvent(JSON.stringify(record));
-  await task.getWxUserId();
-  await task.getMsgId();
-  await new ReissueEvent(task).process();
+  });
+  for (const item of logs) {
+    const task = new XftTaskEvent(item.content);
+    await task.getWxUserId();
+    await task.getMsgId();
+    await new OutGoingEvent(task).process();
+  }
 };
 
 export const 导入分贝通人员id = async () => {
