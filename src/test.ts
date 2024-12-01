@@ -78,7 +78,14 @@ import { LogCheckin } from "./entity/log/log_checkin";
 import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
-// await PgDataSource.initialize();
+await PgDataSource.initialize();
+const a = await JdyRestOvertime.find({
+  where: {
+    startTime: MoreThan(new Date("2024-10-31")),
+    serialNumber: IsNull(),
+  },
+});
+for (const i of a) await restOvertimeServices.addToXft(i);
 // await 修复停车记录();
 // console.log(await quotaServices.getSingleDayOffQuotaLeftByUserId("LuBin2"));
 // await createShiftExcel("202411");
@@ -193,9 +200,12 @@ import {
   addExistRecord,
   addExistToXft,
   createShiftExcel,
+  restOvertimeServices,
 } from "./services/jdy/restOvertimeServices";
 import { User } from "./entity/basic/employee";
 import { addChengJiangCar } from "./services/carPlateServices";
+import { JdyRestOvertime } from "./entity/atd/jdy_rest_overtime";
+import { IsNull, MoreThan, Not } from "typeorm";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";

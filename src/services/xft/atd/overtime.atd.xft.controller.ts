@@ -34,7 +34,7 @@ export class OvertimeEvent {
 
   getRecord = async () => {
     const leaveRecSeq = this.task.businessParam.split("_").pop();
-    const record = await xftatdApiClient.getOvertimeRecord(leaveRecSeq);
+    const record = await xftatdApiClient.getOvertimeDetail(leaveRecSeq);
     await this.proceedRecord(record);
   };
 

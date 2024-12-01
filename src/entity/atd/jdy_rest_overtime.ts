@@ -35,6 +35,8 @@ export class JdyRestOvertime extends BaseEntity {
   created_at: Date;
   @UpdateDateColumn()
   updated_at: Date;
+  @Column({ nullable: true })
+  serialNumber: string;
 
   static async createRecord(record) {
     const jdyUser = JdyUtil.getUser(record["_widget_1691150876586"]);

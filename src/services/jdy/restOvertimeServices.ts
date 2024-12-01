@@ -6,6 +6,7 @@ import {
   differenceInCalendarDays,
   endOfMonth,
   format,
+  isEqual,
   parse,
   startOfMonth,
 } from "date-fns";
@@ -77,8 +78,23 @@ class RestOvertimeServices {
       overtimeReason: data.remark,
     });
     if (result["body"]?.["body"] == null) {
-      data.result = "已导入";
-      await data.save();
+      await this.addToDb(data);
+    }
+  };
+  addToDb = async (data: JdyRestOvertime) => {
+    const records = await xftatdApiClient.getOvertimeRecord(
+      format(data.startTime, "yyyy-MM-dd"),
+      format(data.endTime, "yyyy-MM-dd"),
+      data.userid
+    );
+    if (!records["body"]["records"]) return;
+    for (const record of records["body"]["records"]) {
+      await XftAtdOvertime.addRecord1(record);
+      if (isEqual(record["beginTime"], data.startTime)) {
+        data.serialNumber = record["busNumber"];
+        data.result = "已导入";
+        await data.save();
+      }
     }
   };
   async getShiftExceltoLocal(

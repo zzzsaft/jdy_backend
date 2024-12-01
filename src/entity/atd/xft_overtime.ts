@@ -85,6 +85,39 @@ export class XftAtdOvertime extends BaseEntity {
       skipUpdateIfNoValuesChanged: true,
     });
   }
+  static async addRecord1(record) {
+    let overtimeType = {
+      "0": "工作日",
+      "1": "休息日",
+      "2": "节假日",
+    };
+    const user = await User.findOne({
+      where: { user_id: record.applicantNumber },
+    });
+    const userId = user?.user_id;
+    const stfName = user?.name;
+    const departmentId = user?.main_department_id;
+    const overtime = {
+      ...record,
+      serialNumber: record.busNumber,
+      stfName,
+      userId,
+      departmentId,
+      overtimeType: overtimeType[record.overtimeType],
+      begDate: new Date(record.beginTime),
+      endDate: new Date(record.endTime),
+      overtimeLen: getDuration(record.applyDuration, record.unit),
+      overtimeFinalLen: getDuration(record.finalDuration, record.unit),
+      remark: record.reason,
+      overtimeDate: new Date(record.beginTime),
+      revokeStatus: record.cancelStatus,
+    };
+    // await XftAtdOvertime.create(overtime).save();
+    await XftAtdOvertime.upsert(XftAtdOvertime.create(overtime), {
+      conflictPaths: ["serialNumber"],
+      skipUpdateIfNoValuesChanged: true,
+    });
+  }
 }
 
 const getDate = (date: string, time: string, begin: boolean) => {
@@ -101,7 +134,7 @@ const getDate = (date: string, time: string, begin: boolean) => {
 };
 
 const getDuration = (duration: string, unit: string) => {
-  if (unit == "0") {
+  if (unit == "0" || unit == "HOUR") {
     return parseFloat(duration) * 60 * 60;
   }
   return parseFloat(duration) * 60;

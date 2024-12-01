@@ -101,7 +101,23 @@ class XFTAttendanceApiClient {
       },
     });
   }
-  async getOvertimeRecord(serialNumber) {
+  async getOvertimeRecord(beginDate, endDate, userid) {
+    const payload = {
+      currentPage: 1,
+      pageSize: 1000,
+      beginDate,
+      endDate,
+    };
+    if (userid) {
+      payload["applicantNumber"] = userid;
+    }
+    return await appApiClient.doRequest({
+      method: "POST",
+      path: "/atd/prd/xft-ovt/overtime-data/query",
+      payload,
+    });
+  }
+  async getOvertimeDetail(serialNumber) {
     return await appApiClient.doRequest({
       method: "POST",
       path: "/atd/prd/xft-atn/overtime/record-query",

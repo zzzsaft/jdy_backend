@@ -9,6 +9,7 @@ import { XftAtdOut } from "../../../entity/atd/xft_out";
 export class OutGoingEvent {
   task: XftTaskEvent;
 
+  remark: string;
   sponsorName: string;
   staffNbr: string;
   applyReson: string;
@@ -47,7 +48,7 @@ export class OutGoingEvent {
       },
       {
         keyname: "出差事由",
-        value: this.applyReson,
+        value: this.remark,
       },
       {
         keyname: "开始时间",

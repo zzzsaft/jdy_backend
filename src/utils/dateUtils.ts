@@ -17,7 +17,15 @@ import {
 } from "date-fns";
 export const getWeekDayName = (date: string | Date) => {
   // 映射英文星期到中文
-  const daysMap = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  const daysMap = [
+    "星期日",
+    "星期一",
+    "星期二",
+    "星期三",
+    "星期四",
+    "星期五",
+    "星期六",
+  ];
   return daysMap[new Date(date).getDay()];
 };
 
