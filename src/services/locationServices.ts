@@ -1,16 +1,25 @@
 import { Between, IsNull, Not } from "typeorm";
 import { LogLocation } from "../entity/log/log_location";
-import { addMinutes } from "date-fns";
+import { addMinutes, differenceInMinutes } from "date-fns";
 import { gaoDeApiClient } from "../api/gaode/app";
 import _ from "lodash";
 
 class LocationService {
+  existLocation: { [userid: string]: Date } = {};
   addLocation = async (
     userid: string,
     time: Date,
     latitude: number,
     longitude: number
   ) => {
+    if (userid in this.existLocation) {
+      if (differenceInMinutes(time, this.existLocation[userid]) < 5) {
+        return;
+      }
+      this.existLocation[userid] = time;
+    } else {
+      this.existLocation[userid] = time;
+    }
     const exists = await LogLocation.findOne({
       where: {
         userid,

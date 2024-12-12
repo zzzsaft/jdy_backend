@@ -117,6 +117,22 @@ class BusinessTripCheckinServices {
     }
   }
   addCheckinRecord = async (checkin: XftTripCheckin) => {
+    const add = async (value) => {
+      await xftatdApiClient.addOutData([
+        {
+          staffName: checkin.name,
+          staffNumber: checkin.userId.slice(0, 20),
+          appModule: "D",
+          atdDate: checkin.checkinTime,
+          item: [
+            {
+              itemName: "出差打卡统计",
+              itemValue: value,
+            },
+          ],
+        },
+      ]);
+    };
     if (checkin.isChecked) return checkin;
     if (
       checkin.state != "已打卡" &&
@@ -125,35 +141,60 @@ class BusinessTripCheckinServices {
     )
       return;
     if (!checkin.checkinTime) return;
-    const result = {
-      staffName: checkin.name,
-      staffNumber: checkin.userId.slice(0, 15),
-      clickDate: format(checkin.checkinTime, "yyyy-MM-dd"),
-      clickTime: format(checkin.checkinTime, "HH:mm:ss"),
-      remark: "出差打卡",
-      workPlace: `${checkin.address}【有效打卡】`,
-      importNum: 1,
-    };
     if (!checkin.fbtRootId && !checkin.xftFormId) {
       const tripId = await findBusinessTrip(
         checkin.userId,
         checkin.checkinDate
       );
       if (!tripId) {
-        (result["clickTime"] = format(
-          addMinutes(checkin.checkinTime, -1),
-          "HH:mm:ss"
-        )),
-          (result["workPlace"] = `${checkin.address.slice(0, 80)}【无效打卡】`);
+        await add("无效打卡");
+        return;
       }
     }
     if (checkin.state == "次日补卡") {
-      result["workPlace"] = `${checkin.address.slice(0, 80)}【有效补卡】`;
-      result.clickDate = format(checkin.checkinDate, "yyyy-MM-dd");
-      result.clickTime = "10:00:00";
+      await add("有效补卡");
+      return;
     }
-    await xftatdApiClient.importAtd([result]);
+    await add("有效打卡");
     checkin.isChecked = true;
+  };
+  addCheckinRecordMonth = async (checkin: XftTripCheckin) => {
+    const add = (value) => {
+      return {
+        staffName: checkin.name,
+        staffNumber: checkin.userId.slice(0, 20),
+        appModule: "D",
+        atdDate: checkin.checkinTime,
+        item: [
+          {
+            itemName: "出差打卡统计",
+            itemValue: value,
+          },
+        ],
+      };
+    };
+    if (checkin.isChecked) return checkin;
+    if (
+      checkin.state != "已打卡" &&
+      checkin.state != "当日打卡" &&
+      checkin.state != "次日补卡"
+    )
+      return;
+    if (!checkin.checkinTime) return;
+    if (!checkin.fbtRootId && !checkin.xftFormId) {
+      const tripId = await findBusinessTrip(
+        checkin.userId,
+        checkin.checkinDate
+      );
+      if (!tripId) {
+        return add("无效打卡");
+      }
+    }
+    if (checkin.state == "次日补卡") {
+      return add("有效补卡");
+    }
+    checkin.isChecked = true;
+    return add("有效打卡");
   };
 }
 

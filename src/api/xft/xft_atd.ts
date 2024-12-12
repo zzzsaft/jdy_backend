@@ -169,6 +169,31 @@ class XFTAttendanceApiClient {
       "U0000"
     );
   }
+  async addOutData(
+    payload: {
+      staffNumber: string;
+      staffName: string;
+      appModule: "D" | "M";
+      atdDate: Date;
+      item: { itemName: string; itemValue: string | number }[];
+    }[]
+  ) {
+    for (const item of payload) {
+      item["atdCycle"] =
+        item.appModule == "D"
+          ? format(item.atdDate, "yyyy-MM-dd")
+          : format(item.atdDate, "yyyyMM");
+      item["excelTitle"] = item.item.map((item) => item.itemName);
+    }
+    return await appApiClient.doRequest(
+      {
+        method: "POST",
+        path: "/atd/prd/xft-atn/out-data/import",
+        payload,
+      },
+      "U0000"
+    );
+  }
   async addOvertime(payload: {
     staffName: string;
     staffNumber: string;
