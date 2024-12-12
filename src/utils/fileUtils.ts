@@ -70,64 +70,64 @@ export const readLocalFile = (localFilePath) => {
   return fs.createReadStream(localFilePath);
 };
 
-export const appAxios = async (config: AxiosRequestConfig) => {
-  let response: AxiosResponse<any>;
-  try {
-    response = await axios(config);
-    const { status, data } = response;
-    const host = new URL(config.url ?? "").host;
-    if (bool) {
-      await LogAxios.create({
-        host,
-        url: config.url,
-        method: config.method,
-        payload: JSON.stringify(config.data) ?? "".slice(0, 2000),
-        res_status: status,
-        res_data: JSON.stringify(data) ?? "".slice(0, 200),
-      }).save();
-    } else {
-      console.log({
-        host,
-        url: config.url,
-        method: config.method,
-        payload: JSON.stringify(config.data) ?? "".slice(0, 2000),
-        res_status: status,
-        res_data: JSON.stringify(data) ?? "".slice(0, 200),
-      });
-    }
-  } catch (e) {
-    response = e.response;
-    if (response && bool) {
-      const { status, data } = response;
-      const host = new URL(config.url ?? "").host;
-      await LogAxios.create({
-        host,
-        url: config.url,
-        method: config.method,
-        payload: JSON.stringify(config.data) ?? "".slice(0, 2000),
-        res_status: status,
-        res_data: JSON.stringify(data) ?? "".slice(0, 200),
-        err: JSON.stringify(e),
-      }).save();
-    }
-    if (!bool) {
-      console.log({
-        host: new URL(config.url ?? "").host,
-        url: config.url,
-        method: config.method,
-        payload: JSON.stringify(config.data) ?? "".slice(0, 2000),
-        res_status: response?.status,
-        res_data: JSON.stringify(response?.data) ?? "".slice(0, 200),
-      });
-    }
-    if (response) {
-      return response.data;
-    }
-    throw e;
+async function saveToDb(
+  config: AxiosRequestConfig,
+  response: AxiosResponse,
+  err?: any
+) {
+  if (!bool) {
+    console.log({
+      payload: JSON.stringify(config.data) ?? "".slice(0, 2000),
+      res_data: JSON.stringify(response.data) ?? "".slice(0, 200),
+    });
+    return;
   }
-  return response;
-};
+  const { url, method, data } = config;
+  const host = new URL(url ?? "").host;
+  const log = {
+    host,
+    url: url,
+    method: method,
+    payload: JSON.stringify(config.data) ?? "".slice(0, 2000),
+    res_status: response.status,
+    res_data: JSON.stringify(response.data) ?? "".slice(0, 200),
+  };
+  if (err) {
+    log["err"] = JSON.stringify(err);
+  }
+  await LogAxios.create({ ...log }).save();
+}
 
+export const appAxios = async (config: AxiosRequestConfig) => {
+  let attempt = 0;
+  let retries = 3;
+  let delay: number = 1000;
+  let response: AxiosResponse<any>;
+  while (attempt < retries) {
+    try {
+      response = await axios(config);
+      if (response) await saveToDb(config, response);
+      return response;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error("Axios error:", error.message);
+        console.error("Response data:", error.response?.data);
+      } else {
+        console.error("Unexpected error:", error);
+      }
+      if (error.response) {
+        await saveToDb(config, error.response, error);
+      }
+      attempt++;
+      console.warn(
+        `Attempt ${attempt} failed. Retrying in ${delay}ms...`,
+        error.message
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay)); // 延迟
+    }
+  }
+  return await axios(config);
+};
 /**
  * 将流转换为 Buffer
  * @param readable 流对象

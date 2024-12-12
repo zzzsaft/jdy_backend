@@ -6,6 +6,10 @@ import { handleContactEvent } from "./contact.wechat.controller";
 import { handleMessageEvent } from "./message.wechat.controller";
 import { LogExpress } from "../../entity/log/log_express";
 import { decryptMsg } from "../../api/wechat/decrypt";
+import { LogLocation } from "../../entity/log/log_location";
+import path from "path";
+import { Between, Like, MoreThan } from "typeorm";
+import { locationService } from "../../services/locationServices";
 
 export async function wechatWebHookCheck(request: Request, response: Response) {
   const encodingAESKey = process.env.WECHAT_ENCODING_AES_KEY ?? "";
@@ -39,6 +43,9 @@ const handleWechatMessage = async (msg) => {
     if (message["Event"]["value"] === "template_card_event") {
       await handleMessageEvent(message);
     }
+    if (message["Event"]["value"] === "LOCATION") {
+      await handleLocation(message);
+    }
   } catch (e) {
     logger.error(e);
   }
@@ -57,4 +64,33 @@ export const testWechatWebhook = async () => {
     }
   }
   return logs;
+};
+
+export const handleLocation = async (msg: any) => {
+  const latitude = msg["Latitude"]["value"];
+  const longitude = msg["Longitude"]["value"];
+  const user = msg["FromUserName"]["value"];
+  const time = msg["CreateTime"]["value"];
+  const date = new Date(time * 1000);
+  await locationService.addLocation(user, date, latitude, longitude);
+};
+
+export const testLocations = async () => {
+  const locations = await LogExpress.find({
+    where: {
+      path: "/wechat",
+      content: Like("%LOCATION%"),
+      created_at: Between(new Date("2024-11-01"), new Date("2024-11-09")),
+    },
+  });
+  const list: any[] = [];
+  for (const location of locations) {
+    const json = JSON.parse(location.content);
+    let message = json["xml"];
+    if (message["Event"]["value"] === "LOCATION") {
+      list.push(await handleLocation(message));
+    }
+  }
+  await LogLocation.save(list);
+  // return locations;
 };

@@ -103,7 +103,10 @@ class BusinessTripCheckinServices {
       let result;
       if (checkin.company == "浙江精一新材料有限公司") {
         result = await startWorkFlowJ1(data);
-      } else if (checkin.company == "浙江精诚模具机械有限公司") {
+      } else if (
+        checkin.company == "浙江精诚模具机械有限公司" ||
+        checkin.company == "精诚时代（台州）进出口有限公司"
+      ) {
         result = await startWorkFlow(data);
       }
       if (!result?.data?._id) return;

@@ -8,7 +8,6 @@ import {
   punishCar,
   updateCar,
 } from "./parking.jdy.contollers";
-import exp from "constants";
 import { 入职申请表 } from "./addPerson.controller";
 import { 来宾预约单 } from "./visitor.controller";
 import { 离职, 转正 } from "./updateUser.jdy.controller";
@@ -37,6 +36,7 @@ export const JdyWebhook = async (request: Request, response: Response) => {
   const signature = request.headers["x-jdy-signature"] as string;
   if (signature !== getSignature(nonce, payload, webhook_token, timestamp)) {
     response.status(401).send("fail");
+    return;
   }
   response.send("success");
   // new 智能助手(request.body);

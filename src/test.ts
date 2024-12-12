@@ -52,6 +52,7 @@ import {
   testJdyCreateTripCheckin,
   testJdyCreateTripCheckinSingle,
   testUpdateNextBusinessTrip,
+  testXftEvent,
   testXftTrip,
   修复停车记录,
   导入分贝通人员id,
@@ -79,13 +80,15 @@ import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
 await PgDataSource.initialize();
-const a = await JdyRestOvertime.find({
-  where: {
-    startTime: MoreThan(new Date("2024-10-31")),
-    serialNumber: IsNull(),
-  },
-});
-for (const i of a) await restOvertimeServices.addToXft(i);
+await testXftEvent();
+// console.log(await gaoDeApiClient.reGeo(41.0272, 28.6242));
+// await locationService.addLocation(
+//   "JianDianLong",
+//   new Date("2024-12-04 21:04:46"),
+//   28.6604,
+//   121.194
+// );
+// await testLocation();
 // await 修复停车记录();
 // console.log(await quotaServices.getSingleDayOffQuotaLeftByUserId("LuBin2"));
 // await createShiftExcel("202411");
@@ -206,6 +209,13 @@ import { User } from "./entity/basic/employee";
 import { addChengJiangCar } from "./services/carPlateServices";
 import { JdyRestOvertime } from "./entity/atd/jdy_rest_overtime";
 import { IsNull, MoreThan, Not } from "typeorm";
+import { testLocations } from "./controllers/wechat/wechat.controller";
+import { gaoDeApiClient } from "./api/gaode/app";
+import {
+  locationService,
+  testLocation,
+  testLocation1,
+} from "./services/locationServices";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";

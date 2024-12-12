@@ -5,7 +5,15 @@ import { sleep } from "./config/limiter";
 import { XftTaskEvent } from "./controllers/xft/todo.xft.controller";
 import { fbtUserApiClient } from "./api/fenbeitong/user";
 import { User } from "./entity/basic/employee";
-import { And, Between, IsNull, Like, MoreThanOrEqual, Not } from "typeorm";
+import {
+  And,
+  Between,
+  IsNull,
+  Like,
+  MoreThan,
+  MoreThanOrEqual,
+  Not,
+} from "typeorm";
 import { XftCity } from "./entity/util/xft_city";
 import { FbtApply } from "./entity/atd/fbt_trip_apply";
 import { XftTripLog } from "./schedule/getFbtApply";
@@ -24,6 +32,10 @@ import { EntryExistRecords } from "./entity/parking/dh_entry_exit_record";
 import { ReissueEvent } from "./services/xft/atd/reissue.atd.xft.controller";
 import { OutGoingEvent } from "./services/xft/atd/outgoing";
 import { XftAtdOut } from "./entity/atd/xft_out";
+import { JdyRestOvertime } from "./entity/atd/jdy_rest_overtime";
+import { restOvertimeServices } from "./services/jdy/restOvertimeServices";
+import convert from "xml-js";
+import { OvertimeEvent } from "./services/xft/atd/overtime.atd.xft.controller";
 export const 获取空缺请假记录 = async () => {
   // const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
   //   .select("leave.leaveRecSeq")
@@ -67,7 +79,20 @@ export const 测试补卡记录 = async () => {
     await new OutGoingEvent(task).process();
   }
 };
-
+export const testXftEvent = async () => {
+  const logs = await LogExpress.find({
+    where: {
+      path: "/xft/event",
+      content: Like("%hrm_COM_AAA00512_0000007349%"),
+    },
+  });
+  for (const item of logs) {
+    const task = new XftTaskEvent(item.content);
+    await task.getWxUserId();
+    await task.getMsgId();
+    await new OvertimeEvent(task).process();
+  }
+};
 export const 导入分贝通人员id = async () => {
   const users = await fbtUserApiClient.getUserList();
   for (const user of users) {
@@ -231,4 +256,13 @@ export const 修复停车记录 = async () => {
       }
     }
   }
+};
+export const 导入加班记录 = async () => {
+  const a = await JdyRestOvertime.find({
+    where: {
+      startTime: MoreThan(new Date("2024-10-31")),
+      serialNumber: IsNull(),
+    },
+  });
+  for (const i of a) await restOvertimeServices.addToXft(i);
 };

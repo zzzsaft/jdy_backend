@@ -32,7 +32,7 @@ const fbtApplySchedule = cron.schedule("5,20,35,50 * * * *", async () => {
   await new GetFbtApply().getApply();
   await BusinessTripServices.scheduleCreate();
   const hour = new Date().getHours();
-  if (hour > 7 && hour < 23) {
+  if (hour >= 8 && hour < 23) {
     await businessTripCheckinServices.scheduleCreate();
   }
 });

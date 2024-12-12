@@ -3,14 +3,14 @@ import axios from "axios";
 import qs from "querystring";
 import { logger } from "../../config/logger";
 import { IRequestOptions } from "../../type/IType";
-import nodeRSA from "node-rsa";
 
 export class ApiClient {
   host: string;
+  key: string;
 
   constructor() {
-    this.host = "http://jcoa.jc-times.com:780";
-    // this.host = "http://192.168.0.216:780";
+    this.host = "https://restapi.amap.com/v3";
+    this.key = process.env.GAODE_KEY ?? "";
   }
 
   /**
@@ -22,17 +22,15 @@ export class ApiClient {
    * @param { Object } options.payload - 请求参数,可选
    */
   async doRequest(options: IRequestOptions) {
-    const query = options.query;
+    const query = { ...options.query, key: this.key };
     const httpMethod = _.toUpper(options.method);
     const queryString = query ? `?${qs.stringify(query)}` : "";
-    // console.log(JSON.stringify(options.payload));
-    options.payload = { ...options.payload, time: new Date().getTime() };
     const axiosRequestConfig = {
       method: httpMethod,
       url: `${this.host}${options.path}${queryString}`,
-      data: { data: options.payload, sigature: genSignature(options.payload) },
+      data: options.payload || null,
       timeout: 10000,
-      headers: { Authorization: "Bearer token" },
+      // headers: { Authorization: "Bearer token" },
     };
     let response;
     try {
@@ -60,12 +58,3 @@ export class ApiClient {
     }
   }
 }
-
-const genSignature = (data) => {
-  const RSA_PRIVATE_KEY = process.env.RSA_PRIVATE_KEY;
-  const privateKey = new nodeRSA(`-----BEGIN RSA PRIVATE KEY-----
-    ${RSA_PRIVATE_KEY}
-    -----END RSA PRIVATE KEY-----`);
-  const signature = privateKey.sign(JSON.stringify(data), "base64");
-  return signature;
-};
