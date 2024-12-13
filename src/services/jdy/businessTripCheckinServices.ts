@@ -117,53 +117,16 @@ class BusinessTripCheckinServices {
     }
   }
   addCheckinRecord = async (checkin: XftTripCheckin) => {
-    const add = async (value) => {
-      await xftatdApiClient.addOutData([
-        {
-          staffName: checkin.name,
-          staffNumber: checkin.userId.slice(0, 20),
-          appModule: "D",
-          atdDate: checkin.checkinTime,
-          item: [
-            {
-              itemName: "出差打卡统计",
-              itemValue: value,
-            },
-          ],
-        },
-      ]);
-    };
-    if (checkin.isChecked) return checkin;
-    if (
-      checkin.state != "已打卡" &&
-      checkin.state != "当日打卡" &&
-      checkin.state != "次日补卡"
-    )
-      return;
-    if (!checkin.checkinTime) return;
-    if (!checkin.fbtRootId && !checkin.xftFormId) {
-      const tripId = await findBusinessTrip(
-        checkin.userId,
-        checkin.checkinDate
-      );
-      if (!tripId) {
-        await add("无效打卡");
-        return;
-      }
-    }
-    if (checkin.state == "次日补卡") {
-      await add("有效补卡");
-      return;
-    }
-    await add("有效打卡");
-    checkin.isChecked = true;
+    const record = await this.generateXftCheckinRecord(checkin);
+    if (!record) return;
+    await xftatdApiClient.addOutData([record]);
   };
-  addCheckinRecordMonth = async (checkin: XftTripCheckin) => {
+  generateXftCheckinRecord = async (checkin: XftTripCheckin) => {
     const add = (value) => {
       return {
         staffName: checkin.name,
         staffNumber: checkin.userId.slice(0, 20),
-        appModule: "D",
+        appModule: "D" as "D",
         atdDate: checkin.checkinTime,
         item: [
           {
@@ -173,14 +136,8 @@ class BusinessTripCheckinServices {
         ],
       };
     };
-    if (checkin.isChecked) return checkin;
-    if (
-      checkin.state != "已打卡" &&
-      checkin.state != "当日打卡" &&
-      checkin.state != "次日补卡"
-    )
+    if (!checkin.checkinTime || ["已回公司", "已请假"].includes(checkin.state))
       return;
-    if (!checkin.checkinTime) return;
     if (!checkin.fbtRootId && !checkin.xftFormId) {
       const tripId = await findBusinessTrip(
         checkin.userId,
@@ -188,10 +145,24 @@ class BusinessTripCheckinServices {
       );
       if (!tripId) {
         return add("无效打卡");
+      } else {
+        if (tripId.startsWith("FORM")) {
+          checkin.xftFormId = tripId;
+        } else {
+          checkin.fbtRootId = tripId;
+        }
+        await checkin.save();
       }
     }
     if (checkin.state == "次日补卡") {
       return add("有效补卡");
+    }
+    if (
+      checkin.area == "境外出差" ||
+      checkin.reason == "展会/会议" ||
+      checkin.userId == "XuLai"
+    ) {
+      return add("无补贴打卡");
     }
     checkin.isChecked = true;
     return add("有效打卡");
@@ -319,6 +290,7 @@ const jdyDatetoDb = async (item) => {
   const checkinDate = JdyUtil.getDate(item["_widget_1728656241816"]);
   checkinDate.setHours(0, 0, 0, 0);
   const result = {
+    area: item["_widget_1730947520279"],
     jdyId: item["_id"],
     userId,
     name,
@@ -372,6 +344,7 @@ const updateBusinessTrip = async (tripCheckin: XftTripCheckin) => {
     throw new Error(
       `BusinessTrip not found ${tripCheckin.fbtRootId} at updateTripCheckinFromJdy`
     );
+  if (businessTrip.end_time.getDate() == newEndDate.getDate()) return;
   if (!businessTrip.reviseLogs) businessTrip.reviseLogs = [];
   const fbtApply = await FbtApply.findOne({
     where: { id: businessTrip.fbtCurrentId },

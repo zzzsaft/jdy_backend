@@ -156,7 +156,7 @@ export const getMouthSaturday = (date = new Date()) => {
   const sundays = days.filter(isSunday).length;
 
   if (saturdays == sundays) return saturdays;
-  else return false;
+  else return 4.5;
 };
 
 export const splitDatesIntoContinuousIntervals = (

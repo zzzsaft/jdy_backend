@@ -81,15 +81,15 @@ class QuotaServices {
         total: quotaThisMonth?.["initialBal"],
         left: quotaThisMonth?.["leftBal"],
       };
-    if (getMouthSaturday() == 4) {
+    if (thisMouthSaturday == 4) {
       return {
         total: quotaThisMonth?.["initialBal"],
         left: parseFloat(quotaThisMonth?.["leftBal"]) - 1,
       };
     }
     const totalBal = getLast2MouthSaturday();
-    const left = Math.max(0, totalBal - quotaLastMonth?.["usedBal"] || 0);
-    const currentMonthLeft = left > 5 ? 5 : left;
+    const left = Math.max(0, totalBal - (quotaLastMonth?.["usedBal"] ?? 0));
+    const currentMonthLeft = quotaLastMonth ? (left > 5 ? 5 : left) : 4;
 
     return { total: 5, left: currentMonthLeft - quotaThisMonth?.["usedBal"] };
   }
