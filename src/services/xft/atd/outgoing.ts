@@ -5,6 +5,8 @@ import { xftOAApiClient } from "../../../api/xft/xft_oa";
 import { BusinessTrip } from "../../../entity/atd/businessTrip";
 import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
 import { XftAtdOut } from "../../../entity/atd/xft_out";
+import { tasks } from "./leave.atd.xft.controller";
+import { User } from "../../../entity/basic/employee";
 
 export class OutGoingEvent {
   task: XftTaskEvent;
@@ -24,11 +26,14 @@ export class OutGoingEvent {
   }
 
   async process() {
+    if (tasks.get(this.task.id) == this.task.dealStatus) return;
+    tasks.set(this.task.id, this.task.dealStatus);
     await this.getRecord();
+    const leaderid = await User.getLeaderId(this.staffNbr);
     if (this.task.dealStatus == "1") {
       await this.sendNotice(this.staffNbr);
     } else if (this.task.dealStatus == "0") {
-      await this.sendCard();
+      await this.sendCard(leaderid);
     }
   }
 
@@ -70,7 +75,7 @@ export class OutGoingEvent {
     );
   };
 
-  sendCard = async () => {
-    await this.task.sendButtonCard("");
+  sendCard = async (leaderid) => {
+    await this.task.sendButtonCard("", leaderid);
   };
 }

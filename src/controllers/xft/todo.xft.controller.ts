@@ -42,7 +42,7 @@ export class XftTaskEvent {
     media_id?: string;
     userid?: string;
   }[];
-  msgId: WechatMessage;
+  msgIds: WechatMessage[];
   constructor(content = "{}") {
     Object.assign(this, JSON.parse(content));
     const redirectUrl = `http://hz.jc-times.com:2000/xft/sso?todoid=${this.id}`;
@@ -69,7 +69,7 @@ export class XftTaskEvent {
   getMsgId = async () => {
     const msgId = await WechatMessage.getMsgId(this.id, "xft");
     if (msgId) {
-      this.msgId = msgId;
+      this.msgIds = msgId;
     }
   };
   operateConfig(operateType: "pass" | "reject", approveComment = "") {
@@ -164,12 +164,14 @@ export class XftTaskEvent {
     await new MessageHelper(userids).sendTextNotice(config);
   };
   disableButton = async () => {
-    if (this.msgId && this.dealStatus != "0") {
-      await new MessageHelper([this.receiverId]).disableButton(
-        this.msgId.responseCode,
-        this.status
-      );
-      await WechatMessage.disable(this.msgId.taskId);
+    if (this.msgIds && this.dealStatus != "0") {
+      for (const msgId of this.msgIds) {
+        await new MessageHelper([this.receiverId]).disableButton(
+          msgId.responseCode,
+          this.status
+        );
+        await WechatMessage.disable(msgId.taskId);
+      }
     }
   };
 }

@@ -143,9 +143,7 @@ class BusinessTripCheckinServices {
         checkin.userId,
         checkin.checkinDate
       );
-      if (!tripId) {
-        return add("无效打卡");
-      } else {
+      if (tripId) {
         if (tripId.startsWith("FORM")) {
           checkin.xftFormId = tripId;
         } else {
@@ -157,11 +155,9 @@ class BusinessTripCheckinServices {
     if (checkin.state == "次日补卡") {
       return add("有效补卡");
     }
-    if (
-      checkin.area == "境外出差" ||
-      checkin.reason == "展会/会议" ||
-      checkin.userId == "XuLai"
-    ) {
+    if (checkin.area == "境外出差" || checkin.reason == "展会/会议") {
+      return add("展会打卡");
+    } else if (checkin.userId == "XuLai") {
       return add("无补贴打卡");
     }
     checkin.isChecked = true;

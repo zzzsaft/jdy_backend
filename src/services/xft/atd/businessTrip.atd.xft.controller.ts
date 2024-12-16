@@ -4,6 +4,8 @@ import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
 import { xftOAApiClient } from "../../../api/xft/xft_oa";
 import { BusinessTrip } from "../../../entity/atd/businessTrip";
 import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
+import { tasks } from "./leave.atd.xft.controller";
+import { User } from "../../../entity/basic/employee";
 
 export class BusinessTripEvent {
   task: XftTaskEvent;
@@ -29,11 +31,15 @@ export class BusinessTripEvent {
   }
 
   async process() {
+    if (tasks.get(this.task.id) == this.task.dealStatus) return;
+    tasks.set(this.task.id, this.task.dealStatus);
+    await this.getRecord();
+    const leaderid = await User.getLeaderId(this.staffNumber);
     await this.getRecord();
     if (this.task.dealStatus == "1") {
       await this.sendNotice(this.task.sendUserId);
     } else if (this.task.dealStatus == "0") {
-      await this.sendCard();
+      await this.sendCard(leaderid);
     }
   }
 
@@ -96,8 +102,8 @@ export class BusinessTripEvent {
     );
   };
 
-  sendCard = async () => {
-    await this.task.sendButtonCard("");
+  sendCard = async (leaderid) => {
+    await this.task.sendButtonCard("", leaderid);
   };
 }
 const getDate = (date: string, time: string, begin: boolean) => {

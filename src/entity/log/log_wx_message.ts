@@ -41,7 +41,7 @@ export class WechatMessage extends AbstractContent {
         eventType,
       })
       .orderBy("msg.created_at", "DESC")
-      .getOne();
+      .getMany();
     if (msg) {
       return msg;
     }

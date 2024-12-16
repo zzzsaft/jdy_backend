@@ -12,6 +12,7 @@ import { EntryExistRecords } from "../../../entity/parking/dh_entry_exit_record"
 import { Between } from "typeorm";
 import _ from "lodash";
 import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
+import { tasks } from "./leave.atd.xft.controller";
 
 export class ReissueEvent {
   task: XftTaskEvent;
@@ -30,12 +31,15 @@ export class ReissueEvent {
   }
 
   async process() {
+    if (tasks.get(this.task.id) == this.task.dealStatus) return;
+    tasks.set(this.task.id, this.task.dealStatus);
+    const leaderid = await User.getLeaderId(this.staffNbr);
     await this.getRecord();
     if (this.task.dealStatus == "1") {
       await this.sendNotice([this.staffNbr]);
     } else if (this.task.dealStatus == "0") {
       if (await this.rejectOA()) return;
-      await this.sendCard();
+      await this.sendCard(leaderid);
     }
   }
 
@@ -134,8 +138,8 @@ export class ReissueEvent {
     );
   };
 
-  sendCard = async () => {
-    await this.task.sendButtonCard("");
+  sendCard = async (leaderid) => {
+    await this.task.sendButtonCard("", leaderid);
   };
 
   async determineReject() {

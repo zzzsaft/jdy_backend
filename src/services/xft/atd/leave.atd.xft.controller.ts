@@ -10,7 +10,7 @@ import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
 import { getDifference, isAfterTime } from "../../../utils/dateUtils";
 import { MessageHelper } from "../../../api/wechat/message";
 
-const tasks = new Map<string, string>();
+export const tasks = new Map<string, string>();
 
 export class LeaveEvent {
   task: XftTaskEvent;
