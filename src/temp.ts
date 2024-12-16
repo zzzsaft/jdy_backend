@@ -266,3 +266,18 @@ export const 导入加班记录 = async () => {
   });
   for (const i of a) await restOvertimeServices.addToXft(i);
 };
+export const 导入外出打卡记录 = async () => {
+  const a = await XftTripCheckin.find({
+    where: {
+      checkinDate: Between(new Date("2024-11-01"), new Date("2024-11-30")),
+    },
+  });
+  const result: any = [];
+  for (const i of a) {
+    const record = await businessTripCheckinServices.generateXftCheckinRecord(
+      i
+    );
+    if (record) result.push(record);
+  }
+  await xftatdApiClient.addOutData(result);
+};

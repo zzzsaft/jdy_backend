@@ -8,7 +8,6 @@ import { User } from "../../entity/basic/employee";
 
 export const handleContactEvent = async (msg: any) => {
   const UserID = msg["UserID"]["value"];
-  const Department = msg["Department"]["value"];
   let data;
   switch (msg["ChangeType"]["value"]) {
     case "create_user":

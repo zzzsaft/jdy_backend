@@ -10,6 +10,8 @@ import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
 import { getDifference, isAfterTime } from "../../../utils/dateUtils";
 import { MessageHelper } from "../../../api/wechat/message";
 
+const tasks = new Map<string, string>();
+
 export class LeaveEvent {
   task: XftTaskEvent;
   title: string;
@@ -39,9 +41,11 @@ export class LeaveEvent {
   }
 
   async process() {
+    if (tasks.get(this.task.id) == this.task.dealStatus) return;
+    tasks.set(this.task.id, this.task.dealStatus);
     await this.getRecord();
+    const leaderid = await User.getLeaderId(this.stfNumber);
     if (this.task.dealStatus == "1") {
-      await User.getLeaderId(this.stfNumber);
       await this.sendNotice([this.stfNumber]);
     } else if (this.task.dealStatus == "0") {
       if (await this.rejectOA()) {
@@ -49,12 +53,12 @@ export class LeaveEvent {
       }
       if (this.task.details.includes("请假类型：轮休假")) {
         if (await this.passOA()) {
-          await this.sendNotice([this.task.receiverId]);
+          await this.sendNotice([...leaderid, this.task.receiverId]);
         } else {
-          await this.sendCard();
+          await this.sendCard(leaderid);
         }
       } else {
-        await this.sendCard();
+        await this.sendCard(leaderid);
       }
     }
   }
@@ -180,8 +184,8 @@ export class LeaveEvent {
     );
   };
 
-  sendCard = async () => {
-    await this.task.sendButtonCard("");
+  sendCard = async (receiverid: string[] = []) => {
+    await this.task.sendButtonCard("", receiverid);
   };
 
   getDay(date: string) {

@@ -56,6 +56,7 @@ import {
   testXftTrip,
   修复停车记录,
   导入分贝通人员id,
+  导入外出打卡记录,
   授权大华人员,
   检查分贝通未导入id,
   测试补卡记录,
@@ -79,8 +80,11 @@ import { LogCheckin } from "./entity/log/log_checkin";
 import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
-await PgDataSource.initialize();
-await testXftEvent();
+// await PgDataSource.initialize();
+
+// console.log(await quotaServices.getSingleDayOffQuotaLeftByUserId("BaoMengYa"));
+// await 导入外出打卡记录();
+// await testXftEvent();
 // console.log(await gaoDeApiClient.reGeo(41.0272, 28.6242));
 // await locationService.addLocation(
 //   "JianDianLong",
@@ -216,6 +220,7 @@ import {
   testLocation,
   testLocation1,
 } from "./services/locationServices";
+import { handleContactEvent } from "./controllers/wechat/contact.wechat.controller";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";

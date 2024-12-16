@@ -12,6 +12,9 @@ import { BusinessTripEvent } from "../../services/xft/atd/businessTrip.atd.xft.c
 import { OvertimeEvent } from "../../services/xft/atd/overtime.atd.xft.controller";
 import { LeaveEvent } from "../../services/xft/atd/leave.atd.xft.controller";
 import { OutGoingEvent } from "../../services/xft/atd/outgoing";
+import { XftTask } from "../../entity/util/xft_task";
+
+export const XftTasks = new Map<string, string>();
 
 export class XftTaskEvent {
   url: string;
@@ -98,7 +101,10 @@ export class XftTaskEvent {
     }
     await new MessageHelper([this.receiverId]).sendButtonCard(config);
   };
-  sendButtonCard = async (sub_title_text: string = this.description) => {
+  sendButtonCard = async (
+    sub_title_text: string = this.description,
+    receiverids: string[] = []
+  ) => {
     const config: buttonCardType = {
       event: { eventId: this.id, eventType: "xft" as "xft" },
       sub_title_text,
@@ -125,7 +131,9 @@ export class XftTaskEvent {
     if (this.horizontal_content_list) {
       config.horizontal_content_list = this.horizontal_content_list;
     }
-    await new MessageHelper([this.receiverId]).sendButtonCard(config);
+    await new MessageHelper([this.receiverId, ...receiverids]).sendButtonCard(
+      config
+    );
   };
   // sendNotice = async (
   //   userids: string[],

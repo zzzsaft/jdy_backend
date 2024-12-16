@@ -34,10 +34,10 @@ export const JdyWebhook = async (request: Request, response: Response) => {
   const nonce = request.query.nonce as string;
   const timestamp = request.query.timestamp as string;
   const signature = request.headers["x-jdy-signature"] as string;
-  if (signature !== getSignature(nonce, payload, webhook_token, timestamp)) {
-    response.status(401).send("fail");
-    return;
-  }
+  // if (signature !== getSignature(nonce, payload, webhook_token, timestamp)) {
+  //   response.status(401).send("fail");
+  //   return;
+  // }
   response.send("success");
   // new 智能助手(request.body);
   await controllerMethod(request.body);
