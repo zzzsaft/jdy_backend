@@ -65,7 +65,8 @@ export class XftTaskEvent {
     this.sendUserId = await User.getUser_id(this.sendUser["xftUserId"]);
   };
   getMsgId = async () => {
-    const msgId = await WechatMessage.getMsgId(this.id, "xft");
+    let msgId = await WechatMessage.getMsgId(this.id, "xft");
+    if (!msgId) msgId = await WechatMessage.getMsgId(this.businessParam, "xft");
     if (msgId) {
       this.msgIds = msgId;
     }
@@ -104,7 +105,7 @@ export class XftTaskEvent {
     receiverids: string[] = []
   ) => {
     const config: buttonCardType = {
-      event: { eventId: this.id, eventType: "xft" as "xft" },
+      event: { eventId: this.businessParam, eventType: "xft" as "xft" },
       sub_title_text,
       button_list: [
         {
@@ -129,9 +130,7 @@ export class XftTaskEvent {
     if (this.horizontal_content_list) {
       config.horizontal_content_list = this.horizontal_content_list;
     }
-    await new MessageHelper([this.receiverId, ...receiverids]).sendButtonCard(
-      config
-    );
+    await new MessageHelper([this.receiverId]).sendButtonCard(config);
   };
   // sendNotice = async (
   //   userids: string[],

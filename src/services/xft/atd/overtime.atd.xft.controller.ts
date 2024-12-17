@@ -4,8 +4,6 @@ import { xftatdApiClient } from "../../../api/xft/xft_atd";
 import { xftOAApiClient } from "../../../api/xft/xft_oa";
 import { getDifference } from "../../../utils/dateUtils";
 import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
-import { tasks } from "./leave.atd.xft.controller";
-import { User } from "../../../entity/basic/employee";
 
 export class OvertimeEvent {
   task: XftTaskEvent;
@@ -25,15 +23,12 @@ export class OvertimeEvent {
   }
 
   async process() {
-    if (tasks.get(this.task.id) == this.task.dealStatus) return;
-    tasks.set(this.task.id, this.task.dealStatus);
-    const leaderid = await User.getLeaderId(this.stfNumber);
     await this.getRecord();
     if (await this.rejectOA()) return;
     if (this.task.dealStatus == "1") {
       await this.sendNotice(this.stfNumber);
     } else if (this.task.dealStatus == "0") {
-      await this.sendCard(leaderid);
+      await this.sendCard();
     }
   }
 
@@ -128,7 +123,7 @@ export class OvertimeEvent {
     );
   };
 
-  sendCard = async (leaderid) => {
-    await this.task.sendButtonCard("", leaderid);
+  sendCard = async () => {
+    await this.task.sendButtonCard("");
   };
 }

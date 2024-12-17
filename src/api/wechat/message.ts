@@ -116,15 +116,7 @@ export class MessageHelper {
       card_action,
       button_selection,
     };
-    const msg = await messageApiClient.sendMessage(this.request_body);
-    if (msg["errcode"] == 0)
-      await WechatMessage.addMsgId(
-        msg["msgid"],
-        msg["response_code"],
-        event.eventId,
-        event.eventType,
-        taskid
-      );
+    await this.sendMessage(event.eventId, event.eventType, taskid);
   }
   async sendTextNotice(config: templateCardType) {
     const {

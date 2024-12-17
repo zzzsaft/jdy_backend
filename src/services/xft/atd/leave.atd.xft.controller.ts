@@ -10,8 +10,6 @@ import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
 import { getDifference, isAfterTime } from "../../../utils/dateUtils";
 import { MessageHelper } from "../../../api/wechat/message";
 
-export const tasks = new Map<string, string>();
-
 export class LeaveEvent {
   task: XftTaskEvent;
   title: string;
@@ -41,8 +39,6 @@ export class LeaveEvent {
   }
 
   async process() {
-    if (tasks.get(this.task.id) == this.task.dealStatus) return;
-    tasks.set(this.task.id, this.task.dealStatus);
     await this.getRecord();
     const leaderid = await User.getLeaderId(this.stfNumber);
     if (this.task.dealStatus == "1") {

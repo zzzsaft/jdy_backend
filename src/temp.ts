@@ -8,11 +8,13 @@ import { User } from "./entity/basic/employee";
 import {
   And,
   Between,
+  In,
   IsNull,
   Like,
   MoreThan,
   MoreThanOrEqual,
   Not,
+  Or,
 } from "typeorm";
 import { XftCity } from "./entity/util/xft_city";
 import { FbtApply } from "./entity/atd/fbt_trip_apply";
@@ -36,6 +38,7 @@ import { JdyRestOvertime } from "./entity/atd/jdy_rest_overtime";
 import { restOvertimeServices } from "./services/jdy/restOvertimeServices";
 import convert from "xml-js";
 import { OvertimeEvent } from "./services/xft/atd/overtime.atd.xft.controller";
+import { LeaveEvent } from "./services/xft/atd/leave.atd.xft.controller";
 export const 获取空缺请假记录 = async () => {
   // const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
   //   .select("leave.leaveRecSeq")
@@ -69,14 +72,15 @@ export const 测试补卡记录 = async () => {
   const logs = await LogExpress.find({
     where: {
       path: "/xft/event",
-      content: And(Like("%【外出】申请%"), Like('%"dealStatus":"1"%')),
+      id: In([386709, 386710]),
+      // content: And(Like("%【外出】申请%"), Like('%"dealStatus":"1"%')),
     },
   });
   for (const item of logs) {
     const task = new XftTaskEvent(item.content);
     await task.getWxUserId();
     await task.getMsgId();
-    await new OutGoingEvent(task).process();
+    await new LeaveEvent(task).process();
   }
 };
 export const testXftEvent = async () => {

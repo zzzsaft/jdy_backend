@@ -80,7 +80,8 @@ import { LogCheckin } from "./entity/log/log_checkin";
 import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
-await PgDataSource.initialize();
+// await PgDataSource.initialize();
+// await 测试补卡记录();
 // await new Entry(1, new Date(), "LiangZhi").test();
 
 // console.log(await quotaServices.getSingleDayOffQuotaLeftByUserId("BaoMengYa"));
@@ -121,7 +122,7 @@ await PgDataSource.initialize();
 // await parkingApiClient.getCarById("1846020091524780033");
 // await 测试补卡记录();
 // await messageApiClient.recall(
-//   "Dv0oBVNA9p2BIWPODPqgkmnCTs8UertSUsT4Gu9Fep2121bUXZ11sTB00eDTzUuS8G1aZsnyvNiMVt-lpStaTg"
+//   "ApdmTZacy5fwcrmY4C90rwjxWe3YwUC_55gM0aM1N39EjZCkVriwMg1u62PjqhoNbyr72LqZK6OcsHcjT-cTFg"
 // );
 // await BusinessTripCheckinServices.scheduleCreate(new Date("2024-10-25"));
 // await insertWidgets("5cfef4b5de0b2278b05c8380", "67037803a6ba29ba0521efb2");
