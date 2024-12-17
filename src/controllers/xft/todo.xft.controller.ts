@@ -14,8 +14,6 @@ import { LeaveEvent } from "../../services/xft/atd/leave.atd.xft.controller";
 import { OutGoingEvent } from "../../services/xft/atd/outgoing";
 import { XftTask } from "../../entity/util/xft_task";
 
-export const XftTasks = new Map<string, string>();
-
 export class XftTaskEvent {
   url: string;
   id: string;
