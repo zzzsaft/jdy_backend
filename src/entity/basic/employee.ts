@@ -157,23 +157,49 @@ export class User extends BaseEntity {
   }
 
   static async getLeaderId(userId: string): Promise<string[]> {
-    let user = await User.findOne({ where: { user_id: userId } });
-    if (user?.leader) {
-      return [user.leader];
+    // 通过左连接同时查询 User 和 Department 信息，避免多次查询
+    const userWithDepartment = await User.createQueryBuilder("user")
+      .leftJoinAndSelect(
+        "md_department",
+        "org",
+        "user.main_department_id = org.department_id"
+      ) // 假设 User 表有 department_id 字段
+      .leftJoinAndSelect(
+        "md_department",
+        "parent_org",
+        "org.parent_id = parent_org.department_id"
+      ) // 左连接获取 MdDepartment 表
+      .where("user.user_id = :userId", { userId })
+      .select([
+        "user.leader",
+        "org.department_leader", // 当前部门领导
+        "parent_org.department_leader", // 父部门领导
+      ])
+      .getRawOne();
+
+    if (!userWithDepartment) {
+      return [];
     }
-    let orgid = user?.main_department_id ?? "";
-    let org = await Department.findOne({ where: { department_id: orgid } });
-    let leader = org?.department_leader;
+
+    // 如果用户有直接的 leader，返回
+    if (userWithDepartment.user_leader) {
+      const directLeader = userWithDepartment.user_leader?.split(",");
+      return directLeader ? directLeader : [];
+    }
+
+    const leader = userWithDepartment.org_department_leader?.split(",");
+
+    // 如果该用户自己是部门领导，则查找父部门的领导
     if (leader?.includes(userId)) {
-      let parentOrg = org?.parent_id;
-      if (parentOrg)
-        leader = (
-          await Department.findOne({ where: { department_id: parentOrg } })
-        )?.department_leader;
+      const parentLeader =
+        userWithDepartment.parent_org_department_leader?.split(",");
+      return parentLeader ? parentLeader : [];
     }
     if (leader) {
       return leader;
     }
+
+    // 如果没有直接领导，返回空数组
     return [];
   }
 
