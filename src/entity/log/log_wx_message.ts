@@ -27,7 +27,7 @@ export class WechatMessage extends AbstractContent {
     msgId: string,
     responseCode: string,
     eventId: string,
-    eventType: "jdy" | "xft" | "bestSign" | "general",
+    eventType: "jdy" | "xft" | "bestSign" | "general" | "traffic",
     taskId?: string,
     content?: string
   ) {

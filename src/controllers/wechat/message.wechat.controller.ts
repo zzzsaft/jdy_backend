@@ -2,6 +2,7 @@ import { WechatMessage } from "../../entity/log/log_wx_message";
 import { proceedLeave } from "../../schedule/sendLeave";
 import { MessageHelper } from "../../api/wechat/message";
 import { xftOAApiClient } from "../../api/xft/xft_oa";
+import { trafficService } from "../../services/entryService";
 
 export const handleMessageEvent = async (msg: any) => {
   const eventKey = msg["EventKey"]["value"];
@@ -16,6 +17,10 @@ export const handleMessageEvent = async (msg: any) => {
   }
   if (msgId?.eventType == "general") {
     await xftLeave(msg, eventKey, user, msgId);
+  }
+  if (msgId?.eventType == "traffic") {
+    await trafficService.leaderConfirm(JSON.parse(eventKey));
+    await new MessageHelper([user]).disableButton(msgId, "已完成");
   }
 };
 

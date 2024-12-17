@@ -10,6 +10,7 @@ import {
 import { logger } from "../../config/logger";
 import { ParkingInfo } from "./dh_car_info";
 import { User } from "../basic/employee";
+import { trafficService } from "../../services/entryService";
 
 interface CarRecord {
   parkingLotCode: string;
@@ -106,7 +107,7 @@ export class EntryExistRecords extends BaseEntity {
             ? (time.getTime() - existRecord.time.getTime()) / 1000
             : null;
       }
-      this.create({
+      const dbRecord = await this.create({
         recordId: record.parkingRecordId,
         userId,
         name,
@@ -121,6 +122,13 @@ export class EntryExistRecords extends BaseEntity {
         image: fileName,
         url,
       }).save();
+      if (userId) {
+        if (enterOrExit === 0) {
+          await trafficService.addIn(userId, time);
+        } else {
+          await trafficService.addOut(dbRecord.id, time, userId, name);
+        }
+      }
     } catch (error) {
       logger.error("Error adding car record:", error);
       logger.error("Record:", record);
@@ -167,7 +175,7 @@ export class EntryExistRecords extends BaseEntity {
           }
         }
       }
-      this.create({
+      const dbRecord = await this.create({
         recordId: record.id,
         userId,
         name,
@@ -181,6 +189,13 @@ export class EntryExistRecords extends BaseEntity {
         image: fileName,
         url,
       }).save();
+      if (userId) {
+        if (enterOrExit === 0) {
+          await trafficService.addIn(userId, time);
+        } else {
+          await trafficService.addOut(dbRecord.id, time, userId, name);
+        }
+      }
     } catch (error) {
       logger.error("Record:", record);
       logger.error("Error adding card record:", error);

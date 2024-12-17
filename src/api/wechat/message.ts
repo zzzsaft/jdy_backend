@@ -33,7 +33,7 @@ type templateCardType = {
 };
 
 export type buttonCardType = templateCardType & {
-  event: { eventId: string; eventType: "jdy" | "xft" | "bestSign" };
+  event: { eventId: string; eventType: "jdy" | "xft" | "bestSign" | "traffic" };
   button_list: {
     text: string;
     type?: 0 | 1; //按钮点击事件类型，0 或不填代表回调点击事件，1 代表跳转url
@@ -164,7 +164,7 @@ export class MessageHelper {
   }
   private sendMessage = async (
     eventId = "",
-    eventType: "jdy" | "xft" | "bestSign" | "general" = "general",
+    eventType: "jdy" | "xft" | "bestSign" | "general" | "traffic" = "general",
     taskid = ""
   ) => {
     const msg = await messageApiClient.sendMessage(this.request_body);
