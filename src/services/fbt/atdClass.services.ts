@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
 import { XftAtdClass } from "../../entity/atd/xft_class";
-import { getDifference } from "../../utils/dateUtils";
+import { getDifference, isTimeInRanges } from "../../utils/dateUtils";
 
 class AtdClassService {
   async updateAtdClass() {
@@ -29,5 +29,11 @@ class AtdClassService {
     );
     return closestTimeEntry?.classTimeType ?? null;
   }
+  validWorkTime = async (className: string, time: Date, baseDate = time) => {
+    const times = await XftAtdClass.findOne({ where: { className } });
+    if (!times) return false;
+    const intervals = times.workTime.split(" ").filter((x) => x);
+    return isTimeInRanges(intervals, time, baseDate);
+  };
 }
 export const atdClassService = new AtdClassService();

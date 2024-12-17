@@ -22,7 +22,7 @@ export class JdyTaskEvent {
     media_id?: string;
     userid?: string;
   }[];
-  msgId: WechatMessage;
+  msgIds: WechatMessage[];
   status: number;
   static async sendMsgToWxUser(
     instance_id: string,
@@ -44,7 +44,7 @@ export class JdyTaskEvent {
       }
       await event.getMsgId();
       await event.disableButton();
-      if (!event.msgId && (event.status == 0 || event.status == 4))
+      if (!event.msgIds && (event.status == 0 || event.status == 4))
         await event.sendCard();
     }
   }
@@ -71,7 +71,7 @@ export class JdyTaskEvent {
   getMsgId = async () => {
     const msgId = await WechatMessage.getMsgId(this.task_id, "jdy");
     if (msgId) {
-      this.msgId = msgId;
+      this.msgIds = msgId;
     }
   };
   sendCard = async () => {
@@ -115,12 +115,13 @@ export class JdyTaskEvent {
     await new MessageHelper(userids).sendTextNotice(config);
   };
   disableButton = async () => {
-    if (this.msgId && this.status != 0 && this.status != 4) {
-      await new MessageHelper([this.assignee]).disableButton(
-        this.msgId.responseCode,
-        this.finish_action
-      );
-      await WechatMessage.disable(this.msgId.taskId);
+    for (const msgId of this.msgIds) {
+      if (msgId && this.status != 0 && this.status != 4) {
+        await new MessageHelper([this.assignee]).disableButton(
+          msgId,
+          this.finish_action
+        );
+      }
     }
   };
 }

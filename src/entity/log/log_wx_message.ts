@@ -1,4 +1,10 @@
-import { Entity, Column, BaseEntity, PrimaryColumn } from "typeorm";
+import {
+  Entity,
+  Column,
+  BaseEntity,
+  PrimaryColumn,
+  CreateDateColumn,
+} from "typeorm";
 import { logger } from "../../config/logger";
 import AbstractContent from "../AbstractContent";
 @Entity({ name: "log_message" })
@@ -15,12 +21,15 @@ export class WechatMessage extends AbstractContent {
   eventType: string;
   @Column()
   disabled: boolean;
+  @Column({ name: "content", nullable: true })
+  content: string;
   static async addMsgId(
     msgId: string,
     responseCode: string,
     eventId: string,
     eventType: "jdy" | "xft" | "bestSign" | "general",
-    taskId?: string
+    taskId?: string,
+    content?: string
   ) {
     const msg = WechatMessage.create({
       msgId,
@@ -29,6 +38,7 @@ export class WechatMessage extends AbstractContent {
       eventType,
       taskId,
       disabled: false,
+      content,
     });
     await msg.save();
   }

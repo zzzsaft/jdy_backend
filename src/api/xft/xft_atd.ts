@@ -247,7 +247,13 @@ class XFTAttendanceApiClient {
       {
         method: "POST",
         path: "/atd/prd/xft-atn/realtime-attendance/open-api-query",
-        payload,
+        payload: {
+          ...payload,
+          pageQueryDto: {
+            pageNbr: 1,
+            pageSize: 1000,
+          },
+        },
       },
       "U0000"
     );

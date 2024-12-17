@@ -75,7 +75,7 @@ export class MessageHelper {
     this.request_body["text"] = {
       content: text,
     };
-    return await messageApiClient.sendMessage(this.request_body);
+    await this.sendMessage();
   }
 
   async send_text_card(
@@ -91,7 +91,7 @@ export class MessageHelper {
       url: url,
       btntxt: btntxt,
     };
-    return await messageApiClient.sendMessage(this.request_body);
+    await this.sendMessage();
   }
 
   async sendButtonCard(config: buttonCardType) {
@@ -145,7 +145,7 @@ export class MessageHelper {
       card_action,
       quote_area,
     };
-    const msg = await messageApiClient.sendMessage(this.request_body);
+    await this.sendMessage();
   }
   async sendVoteInteraction(config: voteInteractionCardType) {
     const { main_title, checkbox, submit_button, event } = config;
@@ -158,23 +158,34 @@ export class MessageHelper {
       checkbox,
       submit_button,
     };
-    const msg = await messageApiClient.sendMessage(this.request_body);
-    if (msg["errcode"] == 0)
-      await WechatMessage.addMsgId(
-        msg["msgid"],
-        msg["response_code"],
-        event.eventId,
-        event.eventType,
-        taskid
-      );
+    await this.sendMessage(event.eventId, event.eventType, taskid);
   }
-  async disableButton(response_code, replace_name) {
-    this.request_body["response_code"] = response_code;
+  async disableButton(log: WechatMessage, replace_name) {
+    if (log.disabled) return;
+    this.request_body["response_code"] = log.responseCode;
     this.request_body["button"] = {
       replace_name: replace_name,
     };
     await messageApiClient.updateMessage(this.request_body);
+    log.disabled = true;
+    await log.save();
   }
+  private sendMessage = async (
+    eventId = "",
+    eventType: "jdy" | "xft" | "bestSign" | "general" = "general",
+    taskid = ""
+  ) => {
+    const msg = await messageApiClient.sendMessage(this.request_body);
+    if (msg["errcode"] == 0)
+      await WechatMessage.addMsgId(
+        msg["msgid"],
+        msg?.["response_code"],
+        eventId,
+        eventType,
+        taskid,
+        JSON.stringify(this.request_body)
+      );
+  };
 }
 
 class MessageApiClient extends ApiClient {

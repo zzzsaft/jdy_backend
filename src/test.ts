@@ -80,7 +80,8 @@ import { LogCheckin } from "./entity/log/log_checkin";
 import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
-// await PgDataSource.initialize();
+await PgDataSource.initialize();
+// await new Entry(1, new Date(), "LiangZhi").test();
 
 // console.log(await quotaServices.getSingleDayOffQuotaLeftByUserId("BaoMengYa"));
 // await 导入外出打卡记录();
@@ -221,6 +222,8 @@ import {
   testLocation1,
 } from "./services/locationServices";
 import { handleContactEvent } from "./controllers/wechat/contact.wechat.controller";
+import { format } from "date-fns";
+import { Entry } from "./services/entryService";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";

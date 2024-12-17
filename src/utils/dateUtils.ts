@@ -14,6 +14,7 @@ import {
   setHours,
   startOfDay,
   isAfter,
+  addDays,
 } from "date-fns";
 export const getWeekDayName = (date: string | Date) => {
   // 映射英文星期到中文
@@ -217,3 +218,36 @@ export const isAfterTime = (date: Date, timeStr: string) => {
   const targetTime = setMinutes(setHours(startOfDay(date), hours), minutes);
   return isAfter(date, targetTime);
 };
+type TimeRange = {
+  start: Date;
+  end: Date;
+};
+function parseTimeRange(rangeStr: string, baseDate: Date): TimeRange {
+  const [startStr, endStr] = rangeStr.split("-");
+  const startTime = parse(startStr, "HH:mm", baseDate);
+  let endTime: Date;
+
+  if (endStr.startsWith("次日")) {
+    // 如果结束时间是次日，增加一天
+    const nextDayStr = endStr.replace("次日", "").trim();
+    endTime = parse(nextDayStr, "HH:mm", addDays(baseDate, 1));
+  } else {
+    endTime = parse(endStr, "HH:mm", baseDate);
+  }
+
+  return { start: startTime, end: endTime };
+}
+export function isTimeInRanges(
+  ranges: string[],
+  targetTime: Date,
+  baseDate: Date
+): boolean {
+  for (const range of ranges) {
+    const { start, end } = parseTimeRange(range, baseDate);
+
+    if (isAfter(targetTime, start) && isBefore(targetTime, end)) {
+      return true;
+    }
+  }
+  return false;
+}

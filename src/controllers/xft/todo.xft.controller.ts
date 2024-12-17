@@ -165,7 +165,7 @@ export class XftTaskEvent {
     if (this.msgIds && this.dealStatus != "0") {
       for (const msgId of this.msgIds) {
         await new MessageHelper([this.receiverId]).disableButton(
-          msgId.responseCode,
+          msgId,
           this.status
         );
         await WechatMessage.disable(msgId.taskId);

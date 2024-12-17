@@ -1,9 +1,7 @@
 import { WechatMessage } from "../../entity/log/log_wx_message";
 import { proceedLeave } from "../../schedule/sendLeave";
 import { MessageHelper } from "../../api/wechat/message";
-import { xftatdApiClient } from "../../api/xft/xft_atd";
 import { xftOAApiClient } from "../../api/xft/xft_oa";
-import { XftTaskEvent } from "../xft/todo.xft.controller";
 
 export const handleMessageEvent = async (msg: any) => {
   const eventKey = msg["EventKey"]["value"];
@@ -14,17 +12,18 @@ export const handleMessageEvent = async (msg: any) => {
   const msgId = await WechatMessage.findOne({ where: { taskId: taskId } });
   if (msgId?.disabled) return;
   if (msgId?.eventType == "xft") {
-    await xftMsg(taskId, eventKey);
+    await xftMsg(msgId, eventKey);
   }
   if (msgId?.eventType == "general") {
     await xftLeave(msg, eventKey, user, msgId);
   }
 };
 
-const xftMsg = async (taskId, key) => {
+const xftMsg = async (msgId: WechatMessage, key) => {
   const result = await xftOAApiClient.operate(JSON.parse(key));
   if (result["returnCode"] !== "SUC0000") {
-    await WechatMessage.disable(taskId);
+    msgId.disabled = true;
+    await msgId.save();
   }
 };
 
@@ -44,8 +43,7 @@ const xftLeave = async (msg, key, user, msgId: WechatMessage) => {
   const config = JSON.parse(key);
   let flag = await proceedLeave(optionIds, config, user);
   if (flag) {
-    await new MessageHelper([user]).disableButton(msgId.responseCode, "已完成");
-    await WechatMessage.disable(msgId.taskId);
+    await new MessageHelper([user]).disableButton(msgId, "已完成");
   }
 };
 const a = {
