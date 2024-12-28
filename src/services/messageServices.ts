@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
-import { messageApiClient } from "../api/wechat/message";
 import { WechatMessage } from "../entity/log/log_wx_message";
+import { messageApiClient } from "../api/wechat/message";
+
 interface Message {
   touser?: string;
   msgtype?: "text" | "textcard" | "template_card";
@@ -10,6 +11,7 @@ interface Message {
   enable_duplicate_check?: number;
   duplicate_check_interval?: number;
 }
+const responseCode: string[] = [];
 
 type templateCardType = {
   main_title: { title: string; desc: string };
@@ -30,7 +32,7 @@ type templateCardType = {
 };
 
 export type buttonCardType = templateCardType & {
-  event: { eventId: string; eventType: "jdy" | "xft" | "bestSign" };
+  event: { eventId: string; eventType: "jdy" | "xft" | "bestSign" | "traffic" };
   button_list: {
     text: string;
     type?: 0 | 1; //按钮点击事件类型，0 或不填代表回调点击事件，1 代表跳转url
@@ -53,7 +55,8 @@ export type voteInteractionCardType = {
     key: string;
   };
 };
-class MessageHelper {
+
+export class MessageService {
   request_body: Message = {
     agentid: process.env.CORP_AGENTID ? parseInt(process.env.CORP_AGENTID) : 0,
     enable_duplicate_check: 1,
@@ -71,7 +74,7 @@ class MessageHelper {
     this.request_body["text"] = {
       content: text,
     };
-    return await messageApiClient.sendMessage(this.request_body);
+    await this.sendMessage();
   }
 
   async send_text_card(
@@ -87,7 +90,7 @@ class MessageHelper {
       url: url,
       btntxt: btntxt,
     };
-    return await messageApiClient.sendMessage(this.request_body);
+    await this.sendMessage();
   }
 
   async sendButtonCard(config: buttonCardType) {
@@ -112,16 +115,9 @@ class MessageHelper {
       card_action,
       button_selection,
     };
-    const msg = await messageApiClient.sendMessage(this.request_body);
-    if (msg["errcode"] == 0)
-      await WechatMessage.addMsgId(
-        msg["msgid"],
-        msg["response_code"],
-        event.eventId,
-        event.eventType,
-        taskid
-      );
+    await this.sendMessage(event.eventId, event.eventType, taskid);
   }
+
   async sendTextNotice(config: templateCardType) {
     const {
       main_title,
@@ -141,7 +137,7 @@ class MessageHelper {
       card_action,
       quote_area,
     };
-    const msg = await messageApiClient.sendMessage(this.request_body);
+    await this.sendMessage();
   }
   async sendVoteInteraction(config: voteInteractionCardType) {
     const { main_title, checkbox, submit_button, event } = config;
@@ -154,21 +150,38 @@ class MessageHelper {
       checkbox,
       submit_button,
     };
-    const msg = await messageApiClient.sendMessage(this.request_body);
-    if (msg["errcode"] == 0)
-      await WechatMessage.addMsgId(
-        msg["msgid"],
-        msg["response_code"],
-        event.eventId,
-        event.eventType,
-        taskid
-      );
+    await this.sendMessage(event.eventId, event.eventType, taskid);
   }
-  async disableButton(response_code, replace_name) {
-    this.request_body["response_code"] = response_code;
+
+  async disableButton(_log: WechatMessage, replace_name) {
+    const log = await WechatMessage.findOne({ where: { msgId: _log.msgId } });
+    if (!log || log.disabled) return;
+    if (responseCode.includes(log.responseCode)) return;
+    responseCode.push(log.responseCode);
+
+    this.request_body["response_code"] = log.responseCode;
     this.request_body["button"] = {
       replace_name: replace_name,
     };
     await messageApiClient.updateMessage(this.request_body);
+    log.disabled = true;
+    await log.save();
   }
+
+  private sendMessage = async (
+    eventId = "",
+    eventType: "jdy" | "xft" | "bestSign" | "general" | "traffic" = "general",
+    taskid = ""
+  ) => {
+    const msg = await messageApiClient.sendMessage(this.request_body);
+    if (msg["errcode"] == 0)
+      await WechatMessage.addMsgId(
+        msg["msgid"],
+        msg?.["response_code"],
+        eventId,
+        eventType,
+        taskid,
+        JSON.stringify(this.request_body)
+      );
+  };
 }

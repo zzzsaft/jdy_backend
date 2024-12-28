@@ -17,7 +17,7 @@ import { EntryExistRecords } from "../parking/dh_entry_exit_record";
 @Entity("atd_xft_out")
 export class XftAtdOut extends BaseEntity {
   @PrimaryColumn()
-  serialNumber: number;
+  serialNumber: string;
 
   @Column({ nullable: true })
   staffSeq: string;
@@ -51,6 +51,10 @@ export class XftAtdOut extends BaseEntity {
   oldCteateTime: Date;
   @Column({ nullable: true })
   approveStatus: string;
+  @Column({ nullable: true })
+  location: string;
+  @Column({ nullable: true })
+  type: string;
 
   static async addRecord(record) {
     if (!record) return;

@@ -1,4 +1,3 @@
-import { MessageHelper } from "../api/wechat/message";
 import {
   endOfWeek,
   format,
@@ -21,6 +20,7 @@ import { XftAtdLeave } from "../entity/atd/xft_leave";
 import _ from "lodash";
 import { getWeekDayName } from "../utils/dateUtils";
 import { quotaServices } from "../services/xft/quotaServices";
+import { MessageService } from "../services/messageServices";
 
 export const getWeekendDates = () => {
   const today = new Date();
@@ -85,7 +85,7 @@ export const sendLeave = async (
   const { userid, stfName, stfSeq, orgSeq } = user;
   const isoWeekNumber = getISOWeek(new Date());
   const eventId = `${userid}-${isoWeekNumber}`;
-  new MessageHelper([userid]).sendVoteInteraction({
+  new MessageService([userid]).sendVoteInteraction({
     main_title: {
       title: "轮休假申请",
       desc: `本月轮休假剩余${quota}天，可在下方勾选想要请假的时间，提交后将自动生效。如果需要取消假期，请进入薪福通系统进行操作。`,
@@ -142,7 +142,7 @@ interface DateRange {
 export const proceedLeave = async (optionIds, config, user) => {
   let flag = false;
   if (optionIds.length / 2 > config["quota"]) {
-    new MessageHelper([user]).send_plain_text(
+    new MessageService([user]).send_plain_text(
       "您选择的日期范围超过了剩余的轮休假天数，请重新选择。"
     );
     return flag;
@@ -162,7 +162,7 @@ export const proceedLeave = async (optionIds, config, user) => {
             await XftAtdLeave.addRecord(rRecord);
           }
         }
-      new MessageHelper([user, ...leaders]).sendTextNotice({
+      new MessageService([user, ...leaders]).sendTextNotice({
         main_title: {
           title: `(已自动通过)${name}的轮休假申请`,
           desc: record["body"]?.["createTime"] ?? "",
@@ -193,7 +193,7 @@ export const proceedLeave = async (optionIds, config, user) => {
         ],
       });
     } else {
-      new MessageHelper([user]).send_plain_text(record["errorMsg"]);
+      new MessageService([user]).send_plain_text(record["errorMsg"]);
       flag = false;
     }
   }

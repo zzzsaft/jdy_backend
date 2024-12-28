@@ -64,13 +64,6 @@ export class WechatMessage extends AbstractContent {
       await msg.save();
     }
   }
-  static async disable(taskId: string) {
-    const msg = await WechatMessage.findOne({ where: { taskId: taskId } });
-    if (msg) {
-      msg.disabled = true;
-      await msg.save();
-    }
-  }
   static async test() {
     // await WechatMessage.addMsgId("q", "q", "q", "jdy", "q");
     // await WechatMessage.addMsgId("a", "a", "a", "jdy");

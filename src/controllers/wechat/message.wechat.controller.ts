@@ -1,8 +1,8 @@
 import { WechatMessage } from "../../entity/log/log_wx_message";
 import { proceedLeave } from "../../schedule/sendLeave";
-import { MessageHelper } from "../../api/wechat/message";
 import { xftOAApiClient } from "../../api/xft/xft_oa";
 import { trafficService } from "../../services/entryService";
+import { MessageService } from "../../services/messageServices";
 
 export const handleMessageEvent = async (msg: any) => {
   const eventKey = msg["EventKey"]["value"];
@@ -20,7 +20,7 @@ export const handleMessageEvent = async (msg: any) => {
   }
   if (msgId?.eventType == "traffic") {
     await trafficService.leaderConfirm(JSON.parse(eventKey));
-    await new MessageHelper([user]).disableButton(msgId, "已完成");
+    await new MessageService([user]).disableButton(msgId, "已完成");
   }
 };
 
@@ -48,7 +48,7 @@ const xftLeave = async (msg, key, user, msgId: WechatMessage) => {
   const config = JSON.parse(key);
   let flag = await proceedLeave(optionIds, config, user);
   if (flag) {
-    await new MessageHelper([user]).disableButton(msgId, "已完成");
+    await new MessageService([user]).disableButton(msgId, "已完成");
   }
 };
 const a = {

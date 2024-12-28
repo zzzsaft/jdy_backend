@@ -27,8 +27,8 @@ import {
 } from "typeorm";
 import { JdyTaskEvent } from "./event";
 import { formatDate } from "../../utils/dateUtils";
-import { MessageHelper } from "../../api/wechat/message";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
+import { MessageService } from "../messageServices";
 
 class BusinessTripCheckinServices {
   dataProcess = async (content) => {
@@ -469,12 +469,12 @@ const sendNotice = async (data) => {
   if (data?.type != "出差打卡" || !checkinDate) return;
   const tripId = await findBusinessTrip(data.userId, checkinDate);
   if (tripId) return tripId;
-  await new MessageHelper([data.userId]).send_plain_text(
+  await new MessageService([data.userId]).send_plain_text(
     `未找到${format(data.checkinDate, "yyyy-MM-dd")}拜访${
       data.customer
     }的差旅记录，请点击右下方选择分贝通或薪福通（进出口及精一）进行差旅申请，否则将影响您的考勤、报销、与差旅补贴。`
   );
-  await new MessageHelper(["ZhengJie", "LiangZhi"]).send_plain_text(
+  await new MessageService(["ZhengJie", "LiangZhi"]).send_plain_text(
     `未找到${data.name}${format(data.checkinDate, "yyyy-MM-dd")}拜访${
       data.customer
     }的差旅记录，请及时提醒进行申请办理。`

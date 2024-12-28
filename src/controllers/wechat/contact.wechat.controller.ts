@@ -5,9 +5,10 @@ import { xftOrgnizationApiClient } from "../../api/xft/xft_orgnization";
 import { contactApiClient } from "../../api/wechat/contact";
 import { logger } from "../../config/logger";
 import { User } from "../../entity/basic/employee";
+import { Department } from "../../entity/basic/department";
 
 export const handleContactEvent = async (msg: any) => {
-  const UserID = msg["UserID"]["value"];
+  const UserID = msg?.["UserID"]?.["value"];
   let data;
   switch (msg["ChangeType"]["value"]) {
     case "create_user":
@@ -20,27 +21,38 @@ export const handleContactEvent = async (msg: any) => {
       break;
     case "create_party":
       data = await contactApiClient.getDepartmentInfo(msg["Id"]["value"]);
-      await xftOrgnizationApiClient.addOrgnization({
-        id: msg["Id"]["value"],
-        name: data["department"]["name"] ?? "error",
+      await Department.create({
+        department_id: msg["Id"]["value"],
+        name: data?.["department"]?.["name"] ?? "error",
         parent_id: msg["ParentId"]["value"],
-        approverIds: [],
-      });
+        is_exist: true,
+      }).save();
       break;
     case "update_party":
       data = await contactApiClient.getDepartmentInfo(msg["Id"]["value"]);
-      let org = await xftOrgnizationApiClient.getOrgnization(
-        msg["Id"]["value"]
+      await Department.update(
+        { department_id: msg["Id"]["value"] },
+        {
+          name: data?.["department"]?.["name"] ?? "error",
+          parent_id: msg["ParentId"]["value"],
+        }
       );
-      let orgid = org["OPORGQRYZ"][0]["ORGSEQ"];
-      if (!orgid) logger.error(`orgid not found${org}`);
-      await xftOrgnizationApiClient.updateOrgnization({
-        id: msg["Id"]["value"],
-        name: data["department"]["name"] ?? "error",
-        parent_id: msg["ParentId"]["value"],
-      });
+      // let org = await xftOrgnizationApiClient.getOrgnization(
+      //   msg["Id"]["value"]
+      // );
+      // let orgid = org["OPORGQRYZ"][0]["ORGSEQ"];
+      // if (!orgid) logger.error(`orgid not found${org}`);
+      // await xftOrgnizationApiClient.updateOrgnization({
+      //   id: msg["Id"]["value"],
+      //   name: data["department"]["name"] ?? "error",
+      //   parent_id: msg["ParentId"]["value"],
+      // });
       break;
     case "delete_party":
+      await Department.update(
+        { department_id: msg["Id"]["value"] },
+        { is_exist: false }
+      );
       break;
     default:
       break;

@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import qs from "querystring";
-import { buttonCardType, MessageHelper } from "../../api/wechat/message";
 import { User } from "../../entity/basic/employee";
 import { WechatMessage } from "../../entity/log/log_wx_message";
 import { logger } from "../../config/logger";
@@ -13,6 +12,7 @@ import { OvertimeEvent } from "../../services/xft/atd/overtime.atd.xft.controlle
 import { LeaveEvent } from "../../services/xft/atd/leave.atd.xft.controller";
 import { OutGoingEvent } from "../../services/xft/atd/outgoing";
 import { XftTask } from "../../entity/util/xft_task";
+import { buttonCardType, MessageService } from "../../services/messageServices";
 
 export class XftTaskEvent {
   url: string;
@@ -66,7 +66,8 @@ export class XftTaskEvent {
   };
   getMsgId = async () => {
     let msgId = await WechatMessage.getMsgId(this.id, "xft");
-    if (!msgId) msgId = await WechatMessage.getMsgId(this.businessParam, "xft");
+    if (msgId?.length == 0)
+      msgId = await WechatMessage.getMsgId(this.businessParam, "xft");
     if (msgId) {
       this.msgIds = msgId;
     }
@@ -98,7 +99,7 @@ export class XftTaskEvent {
     if (this.horizontal_content_list) {
       config.horizontal_content_list = this.horizontal_content_list;
     }
-    await new MessageHelper([this.receiverId]).sendButtonCard(config);
+    await new MessageService([this.receiverId]).sendButtonCard(config);
   };
   sendButtonCard = async (
     sub_title_text: string = this.description,
@@ -130,14 +131,14 @@ export class XftTaskEvent {
     if (this.horizontal_content_list) {
       config.horizontal_content_list = this.horizontal_content_list;
     }
-    await new MessageHelper([this.receiverId]).sendButtonCard(config);
+    await new MessageService([this.receiverId]).sendButtonCard(config);
   };
   // sendNotice = async (
   //   userids: string[],
   //   title: string,
   //   description: string
   // ) => {
-  //   await new MessageHelper(userids).send_text_card(
+  //   await new MessageService(userids).send_text_card(
   //     title,
   //     description,
   //     this.url
@@ -158,16 +159,16 @@ export class XftTaskEvent {
     if (this.horizontal_content_list) {
       config.horizontal_content_list = this.horizontal_content_list;
     }
-    await new MessageHelper(userids).sendTextNotice(config);
+    await new MessageService(userids).sendTextNotice(config);
   };
   disableButton = async () => {
     if (this.msgIds && this.dealStatus != "0") {
       for (const msgId of this.msgIds) {
-        await new MessageHelper([this.receiverId]).disableButton(
+        await new MessageService([this.receiverId]).disableButton(
           msgId,
           this.status
         );
-        await WechatMessage.disable(msgId.taskId);
+        // await WechatMessage.disable(msgId.taskId);
       }
     }
   };

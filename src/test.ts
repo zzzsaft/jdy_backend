@@ -1,6 +1,7 @@
 import "./config/env";
 import "./config/logger";
 import { PgDataSource } from "./config/data-source";
+import { trafficService } from "./services/entryService";
 // import { testWechatWebhook } from "./controllers/wechat/wechat.controller";
 // import {
 //   endOfWeek,
@@ -41,7 +42,7 @@ import { xftatdApiClient } from "./api/xft/xft_atd";
 //   testaaaaa,
 // } from "./controllers/wechat/message.wechat.controller";
 // import { XftAtdLeave } from "./entity/atd/xft_leave";
-// import { MessageHelper } from "./api/wechat/message";
+// import { MessageService } from "./api/wechat/message";
 // import { LogAxios } from "./entity/log/log_axios";
 // import { Like } from "typeorm";
 import {
@@ -80,9 +81,15 @@ import { LogCheckin } from "./entity/log/log_checkin";
 import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
-await PgDataSource.initialize();
+// await PgDataSource.initialize();
+// const todo = await xftGeneralApiClient.getTodoList("V00JR");
+// await trafficService.addOut(
+//   83887,
+//   new Date("2024-12-23 11:36:36"),
+//   "JiangYeLong",
+//   "蒋业龙"
+// );
 // await 测试补卡记录();
-// await new Entry(1, new Date(), "LiangZhi").test();
 
 // console.log(await quotaServices.getSingleDayOffQuotaLeftByUserId("BaoMengYa"));
 // await 导入外出打卡记录();
@@ -196,7 +203,6 @@ import {
 } from "./services/xft/checkinServices";
 import { insertWidgets } from "./services/jdy/widgetServices";
 import { quotaServices } from "./services/xft/quotaServices";
-import { messageApiClient, MessageHelper } from "./api/wechat/message";
 import { xftGeneralApiClient } from "./api/xft/xft_general";
 import { sendXftTodoList } from "./schedule/sendXftTask";
 import { jctimesApiClient } from "./api/jctimes/app";
@@ -224,6 +230,19 @@ import {
 } from "./services/locationServices";
 import { handleContactEvent } from "./controllers/wechat/contact.wechat.controller";
 import { format } from "date-fns";
+// await handleContactEvent(
+//   {
+//     xml: {
+//       ToUserName: { value: "wwd56c5091f4258911" },
+//       FromUserName: { value: "sys" },
+//       CreateTime: { value: "1734505952" },
+//       MsgType: { value: "event" },
+//       Event: { value: "change_contact" },
+//       ChangeType: { value: "delete_party" },
+//       Id: { value: "260" },
+//     },
+//   }["xml"]
+// );
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
@@ -344,7 +363,7 @@ import { format } from "date-fns";
 
 // // const a = await fbtApplyApiClient.getApplyOrder("66d828482a985c6c1231f5be");console.log();
 // // await getTodayApply();
-// // const a1 = new MessageHelper(["LiangZhi", ""]);
+// // const a1 = new MessageService(["LiangZhi", ""]);
 // // // await 检查分贝通未导入id();
 // // // const a2 = await fbtOrderApiClient.getCustomFormList({
 // // //   approve_start_time: "2024-09-01",
@@ -378,7 +397,7 @@ import { format } from "date-fns";
 // //   const name = a["stfName"];
 // //   let leaders = await User.getLeaderId(user);
 // //   if (user == "LiangZhi") leaders = ["LiangZhi"];
-// //   // await new MessageHelper([user, ...leaders]).sendTextNotice({
+// //   // await new MessageService([user, ...leaders]).sendTextNotice({
 // //   //   main_title: {
 // //   //     title: `(已自动通过)${name}的轮休假申请`,
 // //   //     desc: "",
@@ -403,7 +422,7 @@ import { format } from "date-fns";
 // // }
 
 // // await handleMessageEvent(a);
-// // new MessageHelper(["LiangZhi"]).send_plain_text(
+// // new MessageService(["LiangZhi"]).send_plain_text(
 // //   '<a href="https://xft.cmbchina.com/mobile-atd/#/vacation-record">请假记录</a>'
 // // );
 

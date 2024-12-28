@@ -9,8 +9,8 @@ import { User } from "../entity/basic/employee";
 import { BusinessTrip } from "../entity/atd/businessTrip";
 import { logger } from "../config/logger";
 import { log } from "console";
-import { MessageHelper } from "../api/wechat/message";
 import { getHalfDay } from "../utils/dateUtils";
+import { MessageService } from "../services/messageServices";
 
 export class GetFbtApply {
   startTime: Date;
@@ -393,7 +393,7 @@ export class XftTripLog {
     )}`;
     const endTime = `${format(endTime1, "yyyy-MM-dd")} ${getHalfDay(endTime1)}`;
     // 发送消息
-    new MessageHelper([this.fbtApply.proposerUserId]).sendTextNotice({
+    new MessageService([this.fbtApply.proposerUserId]).sendTextNotice({
       main_title: {
         title: "分贝通差旅同步考勤成功",
         desc: format(new Date(this.fbtApply.create_time), "yyyy-MM-dd HH:mm"),

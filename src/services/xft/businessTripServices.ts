@@ -8,9 +8,9 @@ import {
 import { BusinessTrip } from "../../entity/atd/businessTrip";
 import { XftCity } from "../../entity/util/xft_city";
 import { FbtApply } from "../../entity/atd/fbt_trip_apply";
-import { MessageHelper } from "../../api/wechat/message";
 import { Between } from "typeorm";
 import _ from "lodash";
+import { MessageService } from "../messageServices";
 
 export class BusinessTripServices {
   static async scheduleCreate(date: Date = new Date()) {
@@ -309,7 +309,7 @@ const sendMessages = async (businessTrip: BusinessTrip, fbtApply: FbtApply) => {
   )}`;
   const endTime = `${format(endTime1, "yyyy-MM-dd")} ${getHalfDay(endTime1)}`;
   // 发送消息
-  await new MessageHelper([fbtApply.proposerUserId]).sendTextNotice({
+  await new MessageService([fbtApply.proposerUserId]).sendTextNotice({
     main_title: {
       title: "分贝通差旅同步考勤成功",
       desc: format(new Date(fbtApply.create_time), "yyyy-MM-dd HH:mm"),

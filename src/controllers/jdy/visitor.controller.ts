@@ -14,7 +14,7 @@ export const 来宾预约单 = async (data) => {
     visitorPurpose: (data["_widget_1557275291717"] ?? []).join(","),
     visitorReason: "",
     visitorTime: format(time, "yyyy-MM-dd HH:mm:ss"),
-    visitorLeaveTime: format(addHours(time, 4), "yyyy-MM-dd HH:mm:ss"),
+    visitorLeaveTime: format(addHours(time, 10), "yyyy-MM-dd HH:mm:ss"),
     area: "dream",
   };
   if (inviteStatus) {

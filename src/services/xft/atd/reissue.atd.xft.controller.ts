@@ -102,24 +102,24 @@ export class ReissueEvent {
       return true;
     }
 
-    if (this.supplementCardType == "下班补卡") {
-      if (!user) return false;
-      const org = await Department.findOne({
-        where: { department_id: user.main_department_id },
-      });
-      if (!org || !(org.level3 == "加工中心" || org.department_id == "70"))
-        return false;
-      const operate = await xftOAApiClient.operate(
-        this.task.operateConfig("reject")
-      );
-      this.task.status = "已驳回";
-      this.task.horizontal_content_list.push({
-        keyname: "驳回原因",
-        value: `如因生产结束原因提前下班，请在下班时打卡并提交请假【生产带薪假】，未打卡或未提交请假单将会被视为漏卡。`,
-      });
-      await this.sendNotice([this.staffNbr]);
-      return true;
-    }
+    // if (this.supplementCardType == "下班补卡") {
+    //   if (!user) return false;
+    //   const org = await Department.findOne({
+    //     where: { department_id: user.main_department_id },
+    //   });
+    //   if (!org || !(org.level3 == "加工中心" || org.department_id == "70"))
+    //     return false;
+    //   const operate = await xftOAApiClient.operate(
+    //     this.task.operateConfig("reject")
+    //   );
+    //   this.task.status = "已驳回";
+    //   this.task.horizontal_content_list.push({
+    //     keyname: "驳回原因",
+    //     value: `如因生产结束原因提前下班，请在下班时打卡并提交请假【生产带薪假】，未打卡或未提交请假单将会被视为漏卡。`,
+    //   });
+    //   await this.sendNotice([this.staffNbr]);
+    //   return true;
+    // }
     return false;
   };
 

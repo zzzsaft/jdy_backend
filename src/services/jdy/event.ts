@@ -1,10 +1,10 @@
 import { format } from "date-fns";
 import { WechatMessage } from "../../entity/log/log_wx_message";
 import { User } from "../../entity/basic/employee";
-import { buttonCardType, MessageHelper } from "../../api/wechat/message";
 import qs from "querystring";
 import { workflowApiClient } from "../../api/jdy/workflow";
 import { JdyUtil } from "../../utils/jdyUtils";
+import { buttonCardType, MessageService } from "../messageServices";
 
 export class JdyTaskEvent {
   url: string;
@@ -95,7 +95,7 @@ export class JdyTaskEvent {
     if (this.horizontal_content_list) {
       config.horizontal_content_list = this.horizontal_content_list;
     }
-    await new MessageHelper([this.assignee]).sendButtonCard(config);
+    await new MessageService([this.assignee]).sendButtonCard(config);
   };
   sendNotice = async (
     userids: string[],
@@ -112,12 +112,12 @@ export class JdyTaskEvent {
     if (this.horizontal_content_list) {
       config.horizontal_content_list = this.horizontal_content_list;
     }
-    await new MessageHelper(userids).sendTextNotice(config);
+    await new MessageService(userids).sendTextNotice(config);
   };
   disableButton = async () => {
     for (const msgId of this.msgIds) {
       if (msgId && this.status != 0 && this.status != 4) {
-        await new MessageHelper([this.assignee]).disableButton(
+        await new MessageService([this.assignee]).disableButton(
           msgId,
           this.finish_action
         );

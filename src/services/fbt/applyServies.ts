@@ -1,10 +1,9 @@
 import { format } from "date-fns";
-import { MessageHelper } from "../../api/wechat/message";
 import { BusinessTrip } from "../../entity/atd/businessTrip";
 import { FbtApply } from "../../entity/atd/fbt_trip_apply";
 import { adjustToTimeNode } from "../../utils/dateUtils";
 export class ApplyServies {}
-// await new MessageHelper(["LiangZhi"]).sendTextNotice({
+// await new MessageService(["LiangZhi"]).sendTextNotice({
 //   main_title: {
 //     title: "工资条已生成",
 //     desc: format(new Date(), "yyyy-MM-dd"),

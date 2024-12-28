@@ -1,15 +1,15 @@
-import { LessThanOrEqual } from "typeorm";
+import { Between, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
 import { logger } from "../config/logger";
 import { XftAtdLeave } from "../entity/atd/xft_leave";
 import { XftAtdOut } from "../entity/atd/xft_out";
 import { BusinessTrip } from "../entity/atd/businessTrip";
 import { xftatdApiClient } from "../api/xft/xft_atd";
-import { addDays, format } from "date-fns";
+import { addDays, addMinutes, format } from "date-fns";
 import { atdClassService } from "./fbt/atdClass.services";
 import { isBeforeTime } from "../utils/dateUtils";
-import { MessageHelper } from "../api/wechat/message";
 import { AbnomalTraffic } from "../entity/log/abnormal_traffic";
 import { User } from "../entity/basic/employee";
+import { MessageService } from "./messageServices";
 
 export class Traffic {
   traffic: AbnomalTraffic;
@@ -30,19 +30,21 @@ export class Traffic {
   load = async (traffic: AbnomalTraffic) => {
     this.traffic = traffic;
     if (!(await this.validWorkTime())) return;
-    if (!(await this.validApproval())) return;
+    if (await this.validApproval()) return;
     if (!traffic.userSent) this.startUserTimeout();
     if (!traffic.leaderSent) this.startLeaderTimeout();
     if (!traffic.hrSent) this.startHrTimeout();
   };
   startTimeout = async () => {
-    if (this.userTimeout) return;
-    if (!(await this.validWorkTime())) return;
-    if (!(await this.validApproval())) return;
+    if (await this.check()) return false;
+    if (this.userTimeout) return false;
+    if (!(await this.validWorkTime())) return false;
+    if (await this.validApproval()) return false;
     await this.addtoDb();
     this.startUserTimeout();
     this.startLeaderTimeout();
     this.startHrTimeout();
+    return true;
   };
   clearTimeout = () => {
     if (this.userTimeout) clearTimeout(this.userTimeout);
@@ -51,7 +53,8 @@ export class Traffic {
   };
   addInDate = async (date: Date) => {
     this.traffic.inDate = date;
-    this.traffic.interval = Math.abs(date.getTime() - this.date.getTime());
+    this.traffic.interval =
+      Math.abs(date.getTime() - this.date.getTime()) / 1000;
     await this.traffic.save();
     this.clearTimeout();
   };
@@ -65,16 +68,33 @@ export class Traffic {
     }, 5 * 1000);
   };
   private startUserTimeout = () => {
+    const time = Math.min(
+      addMinutes(this.date, 15).getTime() - this.date.getTime(),
+      60 * 1000 // 最小值为 1分钟
+    );
+
+    // 清除之前的定时器
+    if (this.userTimeout) {
+      clearTimeout(this.userTimeout);
+    }
+
     // 15分钟后发送消息给用户
     this.userTimeout = setTimeout(() => {
       try {
         this.sendMessagetoUser();
       } catch (error) {
-        logger.error(error);
+        logger.error(error); // 确保 logger 是有效的
       }
-    }, 15 * 60 * 1000);
+    }, time);
   };
   private startLeaderTimeout = () => {
+    const time = Math.min(
+      addMinutes(this.date, 25).getTime() - this.date.getTime(),
+      60 * 1000 // 最小值为 1分钟
+    );
+    if (this.leaderTimeout) {
+      clearTimeout(this.leaderTimeout);
+    }
     // 25分钟后发送消息给领导
     this.leaderTimeout = setTimeout(() => {
       try {
@@ -82,9 +102,16 @@ export class Traffic {
       } catch (error) {
         logger.error(error);
       }
-    }, 25 * 60 * 1000);
+    }, time);
   };
   private startHrTimeout = () => {
+    const time = Math.min(
+      addMinutes(this.date, 30).getTime() - this.date.getTime(),
+      60 * 1000 // 最小值为 1分钟
+    );
+    if (this.hrTimeout) {
+      clearTimeout(this.hrTimeout);
+    }
     // 30分钟后发送消息给HR
     this.hrTimeout = setTimeout(() => {
       try {
@@ -92,13 +119,13 @@ export class Traffic {
       } catch (error) {
         logger.error(error);
       }
-    }, 30 * 60 * 1000);
+    }, time);
   };
   private sendMessagetoUser = async () => {
     if (await this.validApproval()) return;
     this.traffic.userSent = true;
     await this.traffic.save();
-    new MessageHelper([this.userid]).send_plain_text(
+    new MessageService([this.userid]).send_plain_text(
       `温馨提示：\n` +
         `您于本日${format(
           this.date,
@@ -110,7 +137,7 @@ export class Traffic {
   private sendMessagetoLeader = async () => {
     if (await this.validApproval()) return;
     const leader = await User.getLeaderId(this.userid);
-    new MessageHelper(leader).sendButtonCard({
+    new MessageService(leader).sendButtonCard({
       event: {
         eventId: this.traffic.id.toString(),
         eventType: "traffic",
@@ -148,7 +175,7 @@ export class Traffic {
   private sendMessagetoHr = async () => {
     if (await this.validApproval()) return;
     if (this.traffic.approvalType) return;
-    new MessageHelper(["ZhengJie"]).send_plain_text(
+    new MessageService(["ZhengJie"]).send_plain_text(
       `${this.name}于本日${format(
         this.date,
         "yyyy-MM-dd HH:mm"
@@ -156,6 +183,19 @@ export class Traffic {
     );
     this.traffic.hrSent = true;
     await this.traffic.save();
+  };
+
+  private check = async () => {
+    const check = await AbnomalTraffic.findOne({
+      where: {
+        userid: this.userid,
+        outDate: Between(addMinutes(this.date, -5), addMinutes(this.date, 5)),
+      },
+    });
+    if (check) {
+      return true;
+    }
+    return false;
   };
 
   private addtoDb = async () => {
@@ -197,7 +237,7 @@ export class Traffic {
       where: {
         userId: this.userid,
         begDate: LessThanOrEqual(this.date),
-        endDate: LessThanOrEqual(this.date),
+        endDate: MoreThanOrEqual(this.date),
       },
     });
     if (flag) {
@@ -211,7 +251,7 @@ export class Traffic {
       where: {
         userId: this.userid,
         beginTime: LessThanOrEqual(this.date),
-        endTime: LessThanOrEqual(this.date),
+        endTime: MoreThanOrEqual(this.date),
       },
     });
     if (flag) {
@@ -225,7 +265,7 @@ export class Traffic {
       where: {
         userId: this.userid,
         start_time: LessThanOrEqual(this.date),
-        end_time: LessThanOrEqual(this.date),
+        end_time: MoreThanOrEqual(this.date),
       },
     });
     if (flag) {
@@ -250,14 +290,18 @@ class TrafficService {
   traffics: Map<string, Traffic> = new Map<string, Traffic>();
   async addOut(id: number, date: Date, userid: string, name: string) {
     const traffic = new Traffic(id, date, userid, name);
-    await traffic.startTimeout();
-    this.traffics.set(userid, traffic);
+    const result = await traffic.startTimeout();
+    if (result) this.traffics.set(userid, traffic);
   }
   async addIn(userid: string, date: Date) {
-    const traffic = this.traffics.get(userid);
-    if (traffic) {
-      await traffic.addInDate(date);
-      this.traffics.delete(userid);
+    try {
+      const traffic = this.traffics.get(userid);
+      if (traffic) {
+        await traffic.addInDate(date);
+        this.traffics.delete(userid);
+      }
+    } catch (error) {
+      logger.error(error);
     }
   }
   async leaderConfirm({ id, type }) {

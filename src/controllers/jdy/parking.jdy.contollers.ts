@@ -2,10 +2,10 @@ import { format } from "date-fns";
 import { parkingApiClient } from "../../api/parking/app";
 import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { isTaskFinished } from "./jdyUtil";
-import { MessageHelper } from "../../api/wechat/message";
 import { logger } from "../../config/logger";
 import { ParkingInfo } from "../../entity/parking/dh_car_info";
 import { carPlateServices } from "../../services/carPlateServices";
+import { MessageService } from "../../services/messageServices";
 
 export const addCar = async (data) => {
   const carNum = data["_widget_1720515048364"];
@@ -99,7 +99,7 @@ export const punishCar = async (data) => {
       userId: data["_widget_1720526149438"],
     });
   }
-  const msg = new MessageHelper([data["_widget_1720526149438"]]);
+  const msg = new MessageService([data["_widget_1720526149438"]]);
   await msg.send_plain_text(
     `您的车辆${plate_num}因${reason}已被停车场处罚，处罚结果为${punish}，下次可停车时间为${beginTime}`
   );

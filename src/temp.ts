@@ -72,15 +72,17 @@ export const 测试补卡记录 = async () => {
   const logs = await LogExpress.find({
     where: {
       path: "/xft/event",
-      id: In([386709, 386710]),
-      // content: And(Like("%【外出】申请%"), Like('%"dealStatus":"1"%')),
+      created_at: MoreThanOrEqual(new Date("2024-12-20 05:31:28")),
+      // id: In([397761]),
+      content: And(Like("%【外出】%")),
     },
   });
   for (const item of logs) {
     const task = new XftTaskEvent(item.content);
     await task.getWxUserId();
     await task.getMsgId();
-    await new LeaveEvent(task).process();
+    await task.disableButton();
+    await new OutGoingEvent(task).process();
   }
 };
 export const testXftEvent = async () => {

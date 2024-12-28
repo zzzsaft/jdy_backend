@@ -1,8 +1,8 @@
 import { User } from "../entity/basic/employee";
 import { Not, IsNull } from "typeorm";
 import { xftGeneralApiClient } from "../api/xft/xft_general";
-import { MessageHelper } from "../api/wechat/message";
 import { createWechatUrl } from "../utils/stringUtils";
+import { MessageService } from "../services/messageServices";
 
 export const sendXftTodoList = async () => {
   let userIds = (
@@ -24,13 +24,16 @@ export const sendXftTodoList = async () => {
   }
 };
 
-const sendToQywx = async (records: object[], userid) => {
+const sendToQywx = async (record: object[], userid) => {
+  let records = record.filter(
+    (record) => record["businessCode"] != "SALDATCOL"
+  );
   if (records.length == 0) {
     return;
   }
   let url = `http://hz.jc-times.com:2000/xft/sso?pageId=xftoahome`;
   url = createWechatUrl(url);
-  await new MessageHelper([userid]).sendTextNotice({
+  await new MessageService([userid]).sendTextNotice({
     main_title: {
       title: "薪福通待办提醒",
       desc: "",

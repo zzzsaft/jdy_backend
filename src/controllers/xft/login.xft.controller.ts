@@ -21,10 +21,11 @@ export const xftSSOLogin = async (request: Request, response: Response) => {
   if (typeof code !== "string") {
     return "no code";
   }
-  const userid = (await wechatUserApiClient.getUserInfo(code))["userid"].slice(
+  const userid = (await wechatUserApiClient.getUserInfo(code))["userid"]?.slice(
     0,
     20
   );
+  if (!userid) return "no userid";
   // const userid = "LiangZhi";
   const userInfo = {
     userid: userid,

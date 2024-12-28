@@ -8,8 +8,7 @@ import { User } from "../../../entity/basic/employee";
 import { quotaServices } from "../../../services/xft/quotaServices";
 import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
 import { getDifference, isAfterTime } from "../../../utils/dateUtils";
-import { MessageHelper } from "../../../api/wechat/message";
-
+import { MessageService } from "../../messageServices";
 export class LeaveEvent {
   task: XftTaskEvent;
   title: string;
@@ -195,7 +194,7 @@ export class LeaveEvent {
     let flag = getDifference(this.begTime, "7:30") ?? 0;
     let flag1 = getDifference(this.begTime, "12:40") ?? 0;
     if (flag > 0) {
-      await new MessageHelper([this.stfNumber]).send_plain_text(
+      await new MessageService([this.stfNumber]).send_plain_text(
         `请假时间开始时间为${this.begTime}，请在该时间点进行打卡签退，否则视为缺卡`
       );
     }
