@@ -54,7 +54,7 @@ const sendLeave = cron.schedule("0 16 * * 5", async () => {
 
 const sendTripCheckin = cron.schedule("0 */20 7-20 * * *", async () => {
   await businessTripCheckinServices.scheduleCreate();
-  logger.info("更新外出打卡");
+  // logger.info("更新外出打卡");
 });
 
 const sendXftTodoListEveryDay = cron.schedule("0 0 9,16 * * *", async () => {

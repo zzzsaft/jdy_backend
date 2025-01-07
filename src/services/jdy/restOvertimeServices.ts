@@ -1,4 +1,4 @@
-import { Between, Not } from "typeorm";
+import { Between, In, Not } from "typeorm";
 import ExcelJS from "exceljs";
 import { JdyRestOvertime } from "../../entity/atd/jdy_rest_overtime";
 import {
@@ -132,7 +132,7 @@ export const addExistRecord = async () => {
           {
             field: "_widget_1691147512529",
             method: "range",
-            value: ["2024-09-09", "2024-11-06"],
+            value: ["2024-12-01", "2024-12-31"],
           },
         ],
       },
@@ -145,7 +145,16 @@ export const addExistRecord = async () => {
     result.push(re);
     // await restOvertimeServices.add(record);
   }
-  await JdyRestOvertime.upsert(result, ["id"]);
+  const existingIds = await JdyRestOvertime.find({
+    select: ["id"],
+    where: { id: In(result.map((d) => d.id)) },
+  });
+  const existingIdSet = new Set(existingIds.map((e) => e.id));
+  const newData = result.filter((item) => !existingIdSet.has(item.id));
+  if (newData.length > 0) {
+    await JdyRestOvertime.insert(newData);
+  }
+  // await JdyRestOvertime.upsert(result, ["id"]);
 };
 
 export const addExistToXft = async () => {
@@ -153,7 +162,7 @@ export const addExistToXft = async () => {
     where: {
       result: "通过",
       type: "轮休假加班",
-      startTime: Between(new Date("2024-10-1"), new Date("2024-11-06")),
+      startTime: Between(new Date("2024-12-1"), new Date("2025-01-01")),
     },
   });
   for (const item of data) {

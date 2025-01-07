@@ -8,7 +8,7 @@ import {
 import { BusinessTrip } from "../../entity/atd/businessTrip";
 import { XftCity } from "../../entity/util/xft_city";
 import { FbtApply } from "../../entity/atd/fbt_trip_apply";
-import { Between } from "typeorm";
+import { Between, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
 import _ from "lodash";
 import { MessageService } from "../messageServices";
 
@@ -190,6 +190,18 @@ export class BusinessTripServices {
     const timeSlot = await BusinessTripServices.createNonConflictingTimeSlot(
       fbtApply
     );
+    if (timeSlot) {
+      const sameTimeBusinessTrip = await BusinessTrip.findOne({
+        where: {
+          userId: fbtApply.proposerUserId,
+          start_time: LessThanOrEqual(timeSlot.start_time),
+          end_time: MoreThanOrEqual(timeSlot.end_time),
+        },
+      });
+      if (sameTimeBusinessTrip) {
+        return null;
+      }
+    }
     let businessTrip = new BusinessTrip();
     businessTrip.city = fbtApply.city.map((city) => city.name);
     businessTrip.userId = fbtApply.proposerUserId;

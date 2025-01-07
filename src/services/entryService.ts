@@ -6,10 +6,11 @@ import { BusinessTrip } from "../entity/atd/businessTrip";
 import { xftatdApiClient } from "../api/xft/xft_atd";
 import { addDays, addMinutes, format } from "date-fns";
 import { atdClassService } from "./fbt/atdClass.services";
-import { isBeforeTime } from "../utils/dateUtils";
+import { isAfterTime, isBeforeTime } from "../utils/dateUtils";
 import { AbnomalTraffic } from "../entity/log/abnormal_traffic";
 import { User } from "../entity/basic/employee";
 import { MessageService } from "./messageServices";
+import { Department } from "../entity/basic/department";
 
 export class Traffic {
   traffic: AbnomalTraffic;
@@ -36,6 +37,7 @@ export class Traffic {
     if (!traffic.hrSent) this.startHrTimeout();
   };
   startTimeout = async () => {
+    if (await this.isWhiteList()) return false;
     if (await this.check()) return false;
     if (this.userTimeout) return false;
     if (!(await this.validWorkTime())) return false;
@@ -68,7 +70,7 @@ export class Traffic {
     }, 5 * 1000);
   };
   private startUserTimeout = () => {
-    const time = Math.min(
+    const time = Math.max(
       addMinutes(this.date, 15).getTime() - this.date.getTime(),
       60 * 1000 // 最小值为 1分钟
     );
@@ -88,7 +90,7 @@ export class Traffic {
     }, time);
   };
   private startLeaderTimeout = () => {
-    const time = Math.min(
+    const time = Math.max(
       addMinutes(this.date, 25).getTime() - this.date.getTime(),
       60 * 1000 // 最小值为 1分钟
     );
@@ -105,7 +107,7 @@ export class Traffic {
     }, time);
   };
   private startHrTimeout = () => {
-    const time = Math.min(
+    const time = Math.max(
       addMinutes(this.date, 30).getTime() - this.date.getTime(),
       60 * 1000 // 最小值为 1分钟
     );
@@ -126,18 +128,23 @@ export class Traffic {
     this.traffic.userSent = true;
     await this.traffic.save();
     new MessageService([this.userid]).send_plain_text(
+      // new MessageService(["LiangZhi"]).send_plain_text(
       `温馨提示：\n` +
         `您于本日${format(
           this.date,
           "yyyy-MM-dd HH:mm"
         )}离开公司，但系统未查询到您的请假或外出记录。\n` +
-        `如有相关申请，请在10分钟内提交或及时返回公司，否则该出门记录将会通知至您部门负责人，并可能导致旷工，请知悉并及时处理。`
+        `请及时提交相关流程，谢谢。`
     );
   };
   private sendMessagetoLeader = async () => {
     if (await this.validApproval()) return;
     const leader = await User.getLeaderId(this.userid);
+    if (!leader) return;
+    if (leader.includes("jc001")) return;
+
     new MessageService(leader).sendButtonCard({
+      // new MessageService(["LiangZHi"]).sendButtonCard({
       event: {
         eventId: this.traffic.id.toString(),
         eventType: "traffic",
@@ -175,7 +182,8 @@ export class Traffic {
   private sendMessagetoHr = async () => {
     if (await this.validApproval()) return;
     if (this.traffic.approvalType) return;
-    new MessageService(["ZhengJie"]).send_plain_text(
+    // new MessageService(["ZhengJie"]).send_plain_text(
+    new MessageService(["LiangZhi"]).send_plain_text(
       `${this.name}于本日${format(
         this.date,
         "yyyy-MM-dd HH:mm"
@@ -206,7 +214,21 @@ export class Traffic {
     this.traffic.name = this.name;
     this.traffic = await this.traffic.save();
   };
+  private isWhiteList = async () => {
+    const user = await User.findOne({ where: { user_id: this.userid } });
+    if (user) {
+      const org = await Department.findOne({
+        where: { department_id: user.main_department_id },
+      });
+      if (org?.department_leader?.includes(this.userid)) return true;
+      return user.attendance == "1";
+    }
+    return false;
+  };
   private validWorkTime = async () => {
+    if (isAfterTime(this.date, "11:30") && isBeforeTime(this.date, "12:40")) {
+      return false;
+    }
     const baseDate = isBeforeTime(this.date, "7:30")
       ? addDays(this.date, -1)
       : this.date;
@@ -219,6 +241,9 @@ export class Traffic {
     }
     const className =
       data["body"]["realTimeAttendanceDetailDtoList"][0]["className"];
+    if (!className) {
+      throw new Error(`获取实时考勤信息失败${this.userid} ${data}`);
+    }
     return await atdClassService.validWorkTime(className, this.date, baseDate);
   };
   private validApproval = async () => {
@@ -288,12 +313,12 @@ export class Traffic {
 
 class TrafficService {
   traffics: Map<string, Traffic> = new Map<string, Traffic>();
-  async addOut(id: number, date: Date, userid: string, name: string) {
+  addOut = async (id: number, date: Date, userid: string, name: string) => {
     const traffic = new Traffic(id, date, userid, name);
     const result = await traffic.startTimeout();
     if (result) this.traffics.set(userid, traffic);
-  }
-  async addIn(userid: string, date: Date) {
+  };
+  addIn = async (userid: string, date: Date) => {
     try {
       const traffic = this.traffics.get(userid);
       if (traffic) {
@@ -303,7 +328,7 @@ class TrafficService {
     } catch (error) {
       logger.error(error);
     }
-  }
+  };
   async leaderConfirm({ id, type }) {
     const traffic = this.traffics.get(id);
     if (traffic) await traffic.updateTrafficComment(type);

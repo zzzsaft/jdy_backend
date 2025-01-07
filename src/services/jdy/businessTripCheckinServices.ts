@@ -39,7 +39,7 @@ class BusinessTripCheckinServices {
     if (!existdata) {
       let newData = await this.dataCreate(data);
 
-      await businessTripCheckinServices.addCheckinRecord(newData);
+      await businessTripCheckinServices.addCheckinRecord([newData]);
     }
     // else{
 
@@ -57,6 +57,7 @@ class BusinessTripCheckinServices {
     let existdata = await XftTripCheckin.findOne({
       where: { jdyId: content["_id"] },
     });
+    if (existdata?.state != "未打卡") return;
     if (!existdata) return;
     if (data) {
       XftTripCheckin.merge(existdata, { ...data });
@@ -66,7 +67,7 @@ class BusinessTripCheckinServices {
         where: { jdyId: content["_id"] },
       });
       if (newExistdata)
-        await businessTripCheckinServices.addCheckinRecord(newExistdata);
+        await businessTripCheckinServices.addCheckinRecord([newExistdata]);
     }
     await sendMessage(data);
     return existdata;
@@ -116,10 +117,13 @@ class BusinessTripCheckinServices {
       sendMessage(await jdyDatetoDb(result["data"]));
     }
   }
-  addCheckinRecord = async (checkin: XftTripCheckin) => {
-    const record = await this.generateXftCheckinRecord(checkin);
-    if (!record) return;
-    await xftatdApiClient.addOutData([record]);
+  addCheckinRecord = async (checkins: XftTripCheckin[]) => {
+    let records: any[] = [];
+    for (const checkin of checkins) {
+      const record = await this.generateXftCheckinRecord(checkin);
+      if (record) records.push(record);
+    }
+    await xftatdApiClient.addOutData(records);
   };
   generateXftCheckinRecord = async (checkin: XftTripCheckin) => {
     const add = (value) => {
@@ -171,14 +175,12 @@ export const addCheckinToXFT = async (date = new Date("2024-10-1")) => {
   const data = await XftTripCheckin.find({
     where: {
       checkinDate: Between(
-        startOfMonth(new Date("2024-11-01")),
-        new Date("2024-11-10")
+        startOfMonth(new Date("2024-12-01")),
+        new Date("2025-01-01")
       ),
     },
   });
-  for (const item of data) {
-    await businessTripCheckinServices.addCheckinRecord(item);
-  }
+  await businessTripCheckinServices.addCheckinRecord(data);
 };
 
 const generateCheckinbyBusinessTrip = async ({

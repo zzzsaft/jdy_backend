@@ -1,7 +1,12 @@
 import _ from "lodash";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
 import { XftAtdClass } from "../../entity/atd/xft_class";
-import { getDifference, isTimeInRanges } from "../../utils/dateUtils";
+import {
+  getDifference,
+  isTimeInRanges,
+  parseTimeRange,
+} from "../../utils/dateUtils";
+import { dayResultServices } from "../xft/dayResultServices";
 
 class AtdClassService {
   async updateAtdClass() {
@@ -19,7 +24,7 @@ class AtdClassService {
     return result;
   }
   async getClosedTime(classesSeq: string, time: string) {
-    const workTimes = await this.getClassWorkTime(classesSeq);
+    // const workTimes = await this.getClassWorkTime(classesSeq);
     const atdClass = await XftAtdClass.findOne({
       where: { classSeq: classesSeq },
     });
@@ -34,6 +39,18 @@ class AtdClassService {
     if (!times) return false;
     const intervals = times.workTime.split(" ").filter((x) => x);
     return isTimeInRanges(intervals, time, baseDate);
+  };
+  getWorkStartTime = async (userid: string, time: Date) => {
+    const shift = await dayResultServices.getShift(time, userid);
+    const atdClass = await XftAtdClass.findOne({
+      where: { className: shift },
+    });
+    if (!atdClass) return null;
+    const workTimes = atdClass.workTime.split(" ").filter((x) => x);
+    for (const workTime of workTimes) {
+      const range = parseTimeRange(workTime, time);
+      return range.start;
+    }
   };
 }
 export const atdClassService = new AtdClassService();

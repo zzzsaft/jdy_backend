@@ -106,7 +106,7 @@ export class EntryExistRecords extends BaseEntity {
           ? (time.getTime() - existRecord.time.getTime()) / 1000
           : null;
     }
-    const dbRecord = await this.create({
+    let dbRecord = this.create({
       recordId: record.parkingRecordId,
       userId,
       name,
@@ -120,8 +120,9 @@ export class EntryExistRecords extends BaseEntity {
       isVisitor: false,
       image: fileName,
       url,
-    }).save();
-    if (userId) {
+    });
+    dbRecord = await dbRecord.save();
+    if (userId && dbRecord) {
       if (enterOrExit === 0) {
         await trafficService.addIn(userId, time);
       } else {
@@ -169,7 +170,7 @@ export class EntryExistRecords extends BaseEntity {
         }
       }
     }
-    const dbRecord = await this.create({
+    let dbRecord = this.create({
       recordId: record.id,
       userId,
       name,
@@ -182,8 +183,9 @@ export class EntryExistRecords extends BaseEntity {
       isVisitor: false,
       image: fileName,
       url,
-    }).save();
-    if (userId) {
+    });
+    dbRecord = await dbRecord.save();
+    if (userId && dbRecord) {
       if (enterOrExit === 0) {
         await trafficService.addIn(userId, time);
       } else {

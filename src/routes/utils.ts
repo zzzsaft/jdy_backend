@@ -6,6 +6,7 @@ import {
   createShiftExcel,
   restOvertimeServices,
 } from "../services/jdy/restOvertimeServices";
+import { atdClassService } from "../services/fbt/atdClass.services";
 const test = async (request: Request, response: Response) => {
   console.log("Test");
   response.send("Hello World!");
@@ -39,6 +40,12 @@ const sendSalaryList = async (request: Request, response: Response) => {
   const date = request.query.dateNumber as string;
   const result = await checkinServices.scheduleCheckinDaily(parseInt(date));
   response.send(date);
+};
+const getWorkStartTime = async (request: Request, response: Response) => {
+  const userid = request.query.userid as string;
+  const date = request.query.date as string;
+  const time = await atdClassService.getWorkStartTime(userid, new Date(date));
+  response.send({ start: time });
 };
 export const UtilsRoutes = [
   {
@@ -80,5 +87,10 @@ export const UtilsRoutes = [
     path: "/send_salary",
     method: "get",
     action: createShift,
+  },
+  {
+    path: "/getWorkStartTime",
+    method: "get",
+    action: getWorkStartTime,
   },
 ];

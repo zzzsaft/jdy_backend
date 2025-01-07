@@ -222,7 +222,7 @@ type TimeRange = {
   start: Date;
   end: Date;
 };
-function parseTimeRange(rangeStr: string, baseDate: Date): TimeRange {
+export function parseTimeRange(rangeStr: string, baseDate: Date): TimeRange {
   const [startStr, endStr] = rangeStr.split("-");
   const startTime = parse(startStr, "HH:mm", baseDate);
   let endTime: Date;

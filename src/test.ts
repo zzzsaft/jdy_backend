@@ -82,10 +82,14 @@ import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
 // await PgDataSource.initialize();
-// const todo = await xftGeneralApiClient.getTodoList("V00JR");
+// console.log(
+//   await atdClassService.getWorkStartTime("AiXiaoLin", new Date("2025-01-06"))
+// );
+// await addCheckinToXFT();
+// // const todo = await xftGeneralApiClient.getTodoList("V00JR");
 // await trafficService.addOut(
 //   83887,
-//   new Date("2024-12-23 11:36:36"),
+//   new Date("2024-12-30 11:36:36"),
 //   "JiangYeLong",
 //   "蒋业龙"
 // );
@@ -106,7 +110,7 @@ import { parkingApiClient } from "./api/parking/app";
 // console.log(await quotaServices.getSingleDayOffQuotaLeftByUserId("LuBin2"));
 // await createShiftExcel("202411");
 // await addExistToXft();
-// await addExistRecord();
+// await addExistToXft();
 // await 测试补卡记录();
 // await updateDahua();
 // await deleteDahuaId();
@@ -150,7 +154,7 @@ import { parkingApiClient } from "./api/parking/app";
 // await JdyForm.updateForm();
 // await testXftTrip();
 
-// testLoginUrl("YuYaSha");
+// testLoginUrl("ZhouYang");
 // await testJdyCreateTripCheckinSingle();
 // await BusinessTripCheckinServices.scheduleCreate();
 // await SendTripCheckin.createBatchTripCheckin();
@@ -230,6 +234,8 @@ import {
 } from "./services/locationServices";
 import { handleContactEvent } from "./controllers/wechat/contact.wechat.controller";
 import { format } from "date-fns";
+import { testLoginUrl } from "./controllers/xft/login.xft.controller";
+
 // await handleContactEvent(
 //   {
 //     xml: {
