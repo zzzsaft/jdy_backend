@@ -47,6 +47,18 @@ export class Department extends BaseEntity {
     }
   }
 
+  static async isLeader(userid: string): Promise<boolean> {
+    const departments = await Department.find({
+      select: ["department_leader"],
+    });
+    for (const department of departments) {
+      if (department.department_leader.includes(userid)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   static async handleLevelName(department: Department): Promise<void> {
     let levelName: string[] = [];
     let departmentTemp = department;

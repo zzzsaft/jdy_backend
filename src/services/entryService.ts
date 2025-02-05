@@ -217,11 +217,7 @@ export class Traffic {
   private isWhiteList = async () => {
     const user = await User.findOne({ where: { user_id: this.userid } });
     if (user) {
-      const org = await Department.findOne({
-        where: { department_id: user.main_department_id },
-      });
-      if (org?.department_leader?.includes(this.userid)) return true;
-      return user.attendance == "1";
+      return (await Department.isLeader(this.userid)) || user.attendance == "1";
     }
     return false;
   };

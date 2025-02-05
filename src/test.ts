@@ -82,6 +82,12 @@ import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
 // await PgDataSource.initialize();
+// console.log(await Department.isLeader("LiangZhi"));
+// const xftOrg = (await xftOrgnizationApiClient.getOrgnizationList())["body"][
+//   "records"
+// ];
+// const record = await Department.updateXftId();
+// console.log(record);
 // console.log(
 //   await atdClassService.getWorkStartTime("AiXiaoLin", new Date("2025-01-06"))
 // );
@@ -235,6 +241,8 @@ import {
 import { handleContactEvent } from "./controllers/wechat/contact.wechat.controller";
 import { format } from "date-fns";
 import { testLoginUrl } from "./controllers/xft/login.xft.controller";
+import { xftOrgnizationApiClient } from "./api/xft/xft_orgnization";
+import { processExcel } from "../test/dis";
 
 // await handleContactEvent(
 //   {
