@@ -81,7 +81,8 @@ import { LogCheckin } from "./entity/log/log_checkin";
 import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
-// await PgDataSource.initialize();
+await PgDataSource.initialize();
+await syncDepartment();
 // console.log(await Department.isLeader("LiangZhi"));
 // const xftOrg = (await xftOrgnizationApiClient.getOrgnizationList())["body"][
 //   "records"
@@ -242,7 +243,7 @@ import { handleContactEvent } from "./controllers/wechat/contact.wechat.controll
 import { format } from "date-fns";
 import { testLoginUrl } from "./controllers/xft/login.xft.controller";
 import { xftOrgnizationApiClient } from "./api/xft/xft_orgnization";
-import { processExcel } from "../test/dis";
+import { syncDepartment, syncUser } from "./schedule/syncXftData";
 
 // await handleContactEvent(
 //   {

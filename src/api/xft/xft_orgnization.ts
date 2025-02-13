@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { appApiClient, connectApiClient } from "./api_client";
 
 class XFTOrgnizationApiClient {
@@ -40,6 +41,24 @@ class XFTOrgnizationApiClient {
         remark: "api",
       },
     });
+  }
+  async stopOrgnization(ids: { ORGSEQ: string }[]) {
+    return await appApiClient.doRequest(
+      {
+        method: "POST",
+        path: "/ORG/orgqry/xft-service-organization/SYORGSTP",
+        payload: {
+          SYORGSTPX: ids,
+          SYOSTRSNX: [
+            {
+              STPDTA: format(new Date(), "yyyy-MM-dd"),
+              REASON: "",
+            },
+          ],
+        },
+      },
+      "U0000"
+    );
   }
   async updateOrgnization(data: {
     id: string;

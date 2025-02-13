@@ -5,6 +5,7 @@ import { User } from "../entity/basic/employee";
 import { xftOrgnizationApiClient } from "../api/xft/xft_orgnization";
 import { xftUserApiClient } from "../api/xft/xft_user";
 import cron from "node-cron";
+import { IsNull, Not } from "typeorm";
 
 function areArraysEqual(arr1: string[], arr2: string[]): boolean {
   if (arr1.length !== arr2.length) {
@@ -59,7 +60,9 @@ export const syncDepartment = async () => {
   const xftOrg = (await xftOrgnizationApiClient.getOrgnizationList())["body"][
     "records"
   ].filter((org: any) => org.status == "active");
-  const departments = await Department.find({ where: { is_exist: true } });
+  const departments = await Department.find({
+    where: { parent_id: Not(IsNull()), department_leader: Not(IsNull()) },
+  });
   const datas = (
     await Promise.all(
       departments.map(async (department) => {
@@ -79,12 +82,25 @@ export const syncDepartment = async () => {
           id: department.department_id,
           parent_id: parent_id,
           approverIds: leaders,
+          exist: department.is_exist,
+          xftid: department.xft_id,
         };
       })
     )
   ).filter((department) => department.id !== "1");
   const xftDepartmentIds = xftOrg.map((department) => department.code);
-  const add = datas.filter((data) => !xftDepartmentIds.includes(data.id));
+  const stop = datas
+    .filter(
+      (data) => xftDepartmentIds.includes(data.id) && !data.exist && data.xftid
+    )
+    .map((data) => {
+      return { ORGSEQ: data.xftid };
+    });
+  if (stop.length > 0) await xftOrgnizationApiClient.stopOrgnization(stop);
+
+  const add = datas.filter(
+    (data) => data.exist && !xftDepartmentIds.includes(data.id)
+  );
   for (let data of add) {
     await xftOrgnizationApiClient.addOrgnization(data);
   }
