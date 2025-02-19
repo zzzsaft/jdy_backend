@@ -4,13 +4,13 @@
    "description": "",
    "main": "index.js",
    "scripts": {
-      "test": "echo \"Error: no test specified\" && exit 1",
-      "start": "node build/src/index.js",
-      "dev": "npx nodemon --exec \"node --loader ts-node/esm --openssl-legacy-provider\" src/test.ts",
+      "test": "npx nodemon --exec \"node --loader ts-node/register --openssl-legacy-provider\" src/test.ts",
+      "start": "npm run build && node build/src/index.js",
+      "build": "tsc",
+      "dev": "npx nodemon --exec \"node -r dotenv/config -r ts-node/register --openssl-legacy-provider\" src/dev.ts",
       "typeorm": "typeorm-ts-node-commonjs"
    },
    "keywords": [],
-   "type": "module",
    "author": "",
    "license": "ISC",
    "dependencies": {

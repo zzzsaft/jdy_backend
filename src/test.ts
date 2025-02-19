@@ -81,8 +81,9 @@ import { LogCheckin } from "./entity/log/log_checkin";
 import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
-await PgDataSource.initialize();
-await syncDepartment();
+PgDataSource.initialize().then(async () => {
+  await syncDepartment();
+});
 // console.log(await Department.isLeader("LiangZhi"));
 // const xftOrg = (await xftOrgnizationApiClient.getOrgnizationList())["body"][
 //   "records"
