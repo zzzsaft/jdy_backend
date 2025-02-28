@@ -135,6 +135,6 @@ export class OutGoingEvent {
   };
 
   sendCard = async () => {
-    await this.task.sendButtonCard("");
+    await this.task.sendCard();
   };
 }

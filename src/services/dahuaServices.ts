@@ -95,6 +95,7 @@ export const updateDahua = async () => {
 };
 export const updateExistInfo = async (data) => {
   const userId = data["_widget_1691239227137"];
+  if (!userId) return;
   const photo: any[] = data["_widget_1704997861762"];
   if (photo.length == 0) return;
   const url = photo[0]["url"];

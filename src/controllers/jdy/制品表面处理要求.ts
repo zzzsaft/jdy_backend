@@ -43,9 +43,9 @@ const requirementsMap: Record<ProductType, Requirements> = {
   光学级: {
     name: "光学级制品要求",
     polishing: {
-      lipSurface: "0.015-0.025（um）",
-      otherSurfaces: "0.02-0.03（um）",
-      shape: "0.06—0.08（um）",
+      lipSurface: "Ra0.015-0.025μm",
+      otherSurfaces: "Ra0.02-0.03μm",
+      shape: "Ra0.06—0.08μm",
     },
     plating: {
       lipSurface: {
@@ -61,9 +61,9 @@ const requirementsMap: Record<ProductType, Requirements> = {
   流延膜: {
     name: "流延膜制品要求",
     polishing: {
-      lipSurface: "0.02-0.03（um）",
-      otherSurfaces: "0.03-0.04（um）",
-      shape: "0.06—0.08（um）",
+      lipSurface: "Ra0.02-0.03μm",
+      otherSurfaces: "Ra0.03-0.04μm",
+      shape: "Ra0.06—0.08μm",
     },
     plating: {
       lipSurface: {
@@ -79,9 +79,9 @@ const requirementsMap: Record<ProductType, Requirements> = {
   片材: {
     name: "片材制品要求",
     polishing: {
-      lipSurface: "0.02-0.04（um）",
-      otherSurfaces: "0.03-0.05（um）",
-      shape: "0.06—0.08（um）",
+      lipSurface: "Ra0.02-0.04μm",
+      otherSurfaces: "Ra0.03-0.05μm",
+      shape: "Ra0.06—0.08μm",
     },
     plating: {
       lipSurface: {
@@ -97,9 +97,9 @@ const requirementsMap: Record<ProductType, Requirements> = {
   板材: {
     name: "板材制品要求",
     polishing: {
-      lipSurface: "0.03-0.05（um）",
-      otherSurfaces: "0.035-0.05（um）",
-      shape: "0.06—0.08（um）",
+      lipSurface: "Ra0.03-0.05μm",
+      otherSurfaces: "Ra0.035-0.05μm",
+      shape: "Ra0.06—0.08μm",
     },
     plating: {
       lipSurface: {
@@ -115,9 +115,9 @@ const requirementsMap: Record<ProductType, Requirements> = {
   发泡板: {
     name: "发泡板、波浪板制品要求",
     polishing: {
-      lipSurface: "B级（0.04-0.05μm)",
-      otherSurfaces: "0.04-0.06（um）",
-      shape: "0.07—0.08（um）",
+      lipSurface: "Ra0.04-0.05μm",
+      otherSurfaces: "Ra0.04-0.06μm",
+      shape: "Ra0.07—0.08μm",
     },
     plating: {
       lipSurface: {
@@ -133,9 +133,9 @@ const requirementsMap: Record<ProductType, Requirements> = {
   波浪板: {
     name: "发泡板、波浪板制品要求",
     polishing: {
-      lipSurface: "B级（0.04-0.05μm)",
-      otherSurfaces: "0.04-0.06（um）",
-      shape: "0.07—0.08（um）",
+      lipSurface: "Ra0.04-0.05μm",
+      otherSurfaces: "Ra0.04-0.06μm",
+      shape: "Ra0.07—0.08μm",
     },
     plating: {
       lipSurface: {
@@ -151,9 +151,9 @@ const requirementsMap: Record<ProductType, Requirements> = {
   中空格子板: {
     name: "中空格子板制品要求",
     polishing: {
-      lipSurface: "A级（0.03-0.04μm)",
-      otherSurfaces: "0.035-0.05（um）",
-      shape: "0.06—0.08（um）",
+      lipSurface: "Ra0.03-0.04μm",
+      otherSurfaces: "Ra0.035-0.05μm",
+      shape: "Ra0.06—0.08μm",
     },
     plating: {
       lipSurface: {
@@ -169,9 +169,9 @@ const requirementsMap: Record<ProductType, Requirements> = {
   定型模: {
     name: "定型模制品要求",
     polishing: {
-      lipSurface: "C级（0.05-0.06μm)",
-      otherSurfaces: "0.06—0.08（um）",
-      shape: "0.06—0.08（um）",
+      lipSurface: "Ra0.05-0.06μm",
+      otherSurfaces: "Ra0.06—0.08μm",
+      shape: "Ra0.06—0.08μm",
     },
     plating: {
       lipSurface: {
@@ -224,18 +224,10 @@ export const 制品表面处理要求 = async (
   request: Request,
   response: Response
 ) => {
-  const { type, material } = request.body;
-  console.log(type, material);
+  const { type } = request.body;
+  // console.log(type, material);
   // 检查产品类型是否有效
   if (!requirementsMap[type]) {
-    return response.send({});
-  }
-  const materials = material.split(",");
-  const isValidMaterial = materials.some((material) =>
-    validMaterials[type].includes(material)
-  );
-  // 检查材料是否有效
-  if (!isValidMaterial) {
     return response.send({});
   }
   return response.send(requirementsMap[type]);

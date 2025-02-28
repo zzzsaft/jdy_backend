@@ -4,7 +4,7 @@
    "description": "",
    "main": "index.js",
    "scripts": {
-      "test": "npx nodemon --exec \"node --loader ts-node/register --openssl-legacy-provider\" src/test.ts",
+      "test": "npx nodemon --exec \"node -r dotenv/config -r ts-node/register --openssl-legacy-provider\" src/test.ts",
       "start": "npm run build && node build/src/index.js",
       "build": "tsc",
       "dev": "npx nodemon --exec \"node -r dotenv/config -r ts-node/register --openssl-legacy-provider\" src/dev.ts",

@@ -2,49 +2,7 @@ import "./config/env";
 import "./config/logger";
 import { PgDataSource } from "./config/data-source";
 import { trafficService } from "./services/entryService";
-// import { testWechatWebhook } from "./controllers/wechat/wechat.controller";
-// import {
-//   endOfWeek,
-//   format,
-//   getISOWeek,
-//   compareAsc,
-//   eachDayOfInterval,
-//   endOfMonth,
-//   subMonths,
-//   startOfMonth,
-//   isSaturday,
-// } from "date-fns";
-// import { xftOAApiClient } from "./api/xft/xft_oa";
 import { xftatdApiClient } from "./api/xft/xft_atd";
-// import { getCheckinData, importErrorAtd } from "./schedule/getCheckinData";
-// import { LogExpress } from "./entity/log/log_express";
-// import {
-//   xftTaskCallback,
-//   XftTaskEvent,
-// } from "./controllers/xft/todo.xft.controller";
-
-// import { testLoginUrl } from "./controllers/xft/login.xft.controller";
-// import { xftUserApiClient } from "./api/xft/xft_user";
-// import { testCron } from "./schedule/testCron";
-// import {
-//   getWeekendDates,
-//   sendLeave,
-//   sendtoUserwithLeaveChoice,
-//   sendtoUserwithLeaveChoiceTest,
-// } from "./schedule/sendLeave";
-// import { decryptMsg } from "./api/wechat/decrypt";
-// import { syncDepartment, syncUser } from "./schedule/syncXftData";
-// import { fengbeitong_token } from "./api/fenbeitong/token";
-// import { BusinessTripEvent } from "./controllers/xft/atd/businessTrip.atd.xft.controller";
-// import { User } from "./entity/basic/employee";
-// import {
-//   handleMessageEvent,
-//   testaaaaa,
-// } from "./controllers/wechat/message.wechat.controller";
-// import { XftAtdLeave } from "./entity/atd/xft_leave";
-// import { MessageService } from "./api/wechat/message";
-// import { LogAxios } from "./entity/log/log_axios";
-// import { Like } from "typeorm";
 import {
   createBTcheckin,
   processPrecisionIssueData,
@@ -63,14 +21,6 @@ import {
   测试补卡记录,
   // 测试补卡记录,
 } from "./temp";
-// import { fbtUserApiClient } from "./api/fenbeitong/user";
-// import { fbtApplyApiClient } from "./api/fenbeitong/apply";
-// import { FbtApply } from "./entity/atd/fbt_trip_apply";
-// import { GetFbtApply, XftTripLog } from "./schedule/getFbtApply";
-// import { xftItripApiClient } from "./api/xft/xft_itrip";
-// import { XftCity } from "./entity/util/xft_city";
-// import { LogCheckin } from "./entity/log/log_checkin";
-// import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { fbtUserApiClient } from "./api/fenbeitong/user";
 import { fbtApplyApiClient } from "./api/fenbeitong/apply";
 import { FbtApply } from "./entity/atd/fbt_trip_apply";
@@ -82,7 +32,9 @@ import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
 PgDataSource.initialize().then(async () => {
-  await syncDepartment();
+  // testLoginUrl("ZhangYu_1");
+  // await User.updateXftId();
+  // console.log(await searchServices.searchCompany("佳适"));
 });
 // console.log(await Department.isLeader("LiangZhi"));
 // const xftOrg = (await xftOrgnizationApiClient.getOrgnizationList())["body"][
@@ -220,7 +172,7 @@ import { sendXftTodoList } from "./schedule/sendXftTask";
 import { jctimesApiClient } from "./api/jctimes/app";
 import { personApiClient } from "./api/dahua/person";
 import { deleteDahuaId, updateDahua } from "./services/dahuaServices";
-import { atdClassService } from "./services/fbt/atdClass.services";
+import { atdClassService } from "./services/xft/atdClass.services";
 import { dayResultServices } from "./services/xft/dayResultServices";
 import { XftTaskEvent } from "./controllers/xft/todo.xft.controller";
 import {
@@ -229,10 +181,10 @@ import {
   createShiftExcel,
   restOvertimeServices,
 } from "./services/jdy/restOvertimeServices";
-import { User } from "./entity/basic/employee";
+
 import { addChengJiangCar } from "./services/carPlateServices";
 import { JdyRestOvertime } from "./entity/atd/jdy_rest_overtime";
-import { IsNull, MoreThan, Not } from "typeorm";
+import { BaseEntity, IsNull, MoreThan, Not } from "typeorm";
 import { testLocations } from "./controllers/wechat/wechat.controller";
 import { gaoDeApiClient } from "./api/gaode/app";
 import {
@@ -245,6 +197,10 @@ import { format } from "date-fns";
 import { testLoginUrl } from "./controllers/xft/login.xft.controller";
 import { xftOrgnizationApiClient } from "./api/xft/xft_orgnization";
 import { syncDepartment, syncUser } from "./schedule/syncXftData";
+import { xftOAApiClient } from "./api/xft/xft_oa";
+import { searchServices } from "./services/tyc/searchServices";
+import { TycSearch } from "./entity/tyc/tycSearch";
+import { User } from "./entity/basic/employee";
 
 // await handleContactEvent(
 //   {

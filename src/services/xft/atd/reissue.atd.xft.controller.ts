@@ -4,7 +4,7 @@ import { XftAtdReissue } from "../../../entity/atd/xft_reissue";
 import { User } from "../../../entity/basic/employee";
 import { Department } from "../../../entity/basic/department";
 import { xftOAApiClient } from "../../../api/xft/xft_oa";
-import { atdClassService } from "../../../services/fbt/atdClass.services";
+import { atdClassService } from "../atdClass.services";
 import { getDate } from "../../../utils/dateUtils";
 import { EntryExistRecords } from "../../../entity/parking/dh_entry_exit_record";
 import { Between } from "typeorm";

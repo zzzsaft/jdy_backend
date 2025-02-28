@@ -6,7 +6,7 @@ import {
   createShiftExcel,
   restOvertimeServices,
 } from "../services/jdy/restOvertimeServices";
-import { atdClassService } from "../services/fbt/atdClass.services";
+import { atdClassService } from "../services/xft/atdClass.services";
 const test = async (request: Request, response: Response) => {
   console.log("Test");
   response.send("Hello World!");

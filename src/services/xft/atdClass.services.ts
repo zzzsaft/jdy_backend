@@ -6,7 +6,7 @@ import {
   isTimeInRanges,
   parseTimeRange,
 } from "../../utils/dateUtils";
-import { dayResultServices } from "../xft/dayResultServices";
+import { dayResultServices } from "./dayResultServices";
 
 class AtdClassService {
   async updateAtdClass() {

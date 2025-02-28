@@ -9,8 +9,8 @@ import {
 } from "typeorm";
 import { logger } from "../../config/logger";
 import { ParkingInfo } from "./dh_car_info";
-import { User } from "../basic/employee";
 import { trafficService } from "../../services/entryService";
+import { User } from "../basic/employee";
 
 interface CarRecord {
   parkingLotCode: string;

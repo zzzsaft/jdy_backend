@@ -5,7 +5,7 @@ import { XftAtdOut } from "../entity/atd/xft_out";
 import { BusinessTrip } from "../entity/atd/businessTrip";
 import { xftatdApiClient } from "../api/xft/xft_atd";
 import { addDays, addMinutes, format } from "date-fns";
-import { atdClassService } from "./fbt/atdClass.services";
+import { atdClassService } from "./xft/atdClass.services";
 import { isAfterTime, isBeforeTime } from "../utils/dateUtils";
 import { AbnomalTraffic } from "../entity/log/abnormal_traffic";
 import { User } from "../entity/basic/employee";
@@ -183,12 +183,12 @@ export class Traffic {
     if (await this.validApproval()) return;
     if (this.traffic.approvalType) return;
     // new MessageService(["ZhengJie"]).send_plain_text(
-    new MessageService(["LiangZhi"]).send_plain_text(
-      `${this.name}于本日${format(
-        this.date,
-        "yyyy-MM-dd HH:mm"
-      )}离开公司，但系统未查询到请假或外出记录。\n` + `请确认该员工是否离岗`
-    );
+    // new MessageService(["LiangZhi"]).send_plain_text(
+    //   `${this.name}于本日${format(
+    //     this.date,
+    //     "yyyy-MM-dd HH:mm"
+    //   )}离开公司，但系统未查询到请假或外出记录。\n` + `请确认该员工是否离岗`
+    // );
     this.traffic.hrSent = true;
     await this.traffic.save();
   };

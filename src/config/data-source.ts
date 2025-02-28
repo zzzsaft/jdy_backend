@@ -22,7 +22,7 @@ export const PgDataSource = new DataSource({
   password: process.env.PgPassword,
   // database: "db",
   entities:
-    //  ["src/entity/log/abnormal_traffic.ts"],
+    // ["src/entity/tyc/tycSearch.ts"],
     process.env.NODE_ENV === "production"
       ? ["src/entity/*.js", "src/entity/*/*.js"]
       : ["src/entity/*.ts", "src/entity/*/*.ts"],
