@@ -32,8 +32,7 @@ import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
 PgDataSource.initialize().then(async () => {
-  // testLoginUrl("ZhangYu_1");
-  // await User.updateXftId();
+  // await infoServices.getCompanyInfo("宁德时代新能源科技股份有限公司");
   // console.log(await searchServices.searchCompany("佳适"));
 });
 // console.log(await Department.isLeader("LiangZhi"));
@@ -201,6 +200,8 @@ import { xftOAApiClient } from "./api/xft/xft_oa";
 import { searchServices } from "./services/tyc/searchServices";
 import { TycSearch } from "./entity/tyc/tycSearch";
 import { User } from "./entity/basic/employee";
+import { infoServices } from "./services/tyc/infoServices";
+import { Log } from "./entity/log/log";
 
 // await handleContactEvent(
 //   {

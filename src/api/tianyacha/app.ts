@@ -16,7 +16,7 @@ class TYCApiClient extends ApiClient {
       method: "GET",
       path: "/ic/baseinfoV3/2.0",
       query: {
-        word: keyword,
+        keyword,
       },
     });
   }
