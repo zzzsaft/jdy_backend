@@ -46,4 +46,17 @@ export const OpportunityRoutes = [
       response.send(category);
     },
   },
+  {
+    path: "/product/filter/get",
+    method: "get",
+    action: async (request: Request, response: Response) => {
+      const userid = (await authService.verifyToken(request))?.userId;
+      if (!userid) {
+        response.status(401).send("Unauthorized");
+        return;
+      }
+      const data = await productService.getFilter();
+      response.send(data);
+    },
+  },
 ];
