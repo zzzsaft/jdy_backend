@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import qs from "querystring";
 import { User } from "../../entity/basic/employee";
-import { WechatMessage } from "../../entity/log/log_wx_message";
+import { WechatMessage } from "../../entity/log/log_message";
 import { logger } from "../../config/logger";
 import { v4 as uuidv4 } from "uuid";
 
@@ -12,7 +12,7 @@ import { OvertimeEvent } from "../../services/xft/atd/overtime.atd.xft.controlle
 import { LeaveEvent } from "../../services/xft/atd/leave.atd.xft.controller";
 import { OutGoingEvent } from "../../services/xft/atd/outgoing";
 import { XftTask } from "../../entity/util/xft_task";
-import { buttonCardType, MessageService } from "../../services/messageServices";
+import { buttonCardType, MessageService } from "../../services/messageService";
 
 export class XftTaskEvent {
   url: string;
@@ -65,9 +65,9 @@ export class XftTaskEvent {
     this.sendUserId = await User.getUser_id(this.sendUser["xftUserId"]);
   };
   getMsgId = async () => {
-    let msgId = await WechatMessage.getMsgId(this.id, "xft");
+    let msgId = await MessageService.getMsgId(this.id, "xft");
     if (msgId?.length == 0)
-      msgId = await WechatMessage.getMsgId(this.businessParam, "xft");
+      msgId = await MessageService.getMsgId(this.businessParam, "xft");
     if (msgId) {
       this.msgIds = msgId;
     }
@@ -206,7 +206,7 @@ export const xftTaskCallback = async (content) => {
     await new OutGoingEvent(task).process();
     return;
   }
-  if (task.processStatus != "0") {
+  if (task.processStatus == "1") {
     const noticeUsers: string[] = [task.sendUserId];
     if (task.details.includes("【定调薪审批】"))
       noticeUsers.push(...["ZhangJiaLi", "GuanBingQian", "jcyxblxm"]);
@@ -218,7 +218,9 @@ export const xftTaskCallback = async (content) => {
       "",
       `${task.details}`
     );
+    return;
   }
+  await task.sendCard();
 };
 const noticeSend = {
   "【定调薪审批】": ["ZhangJiaLi", "GuanBingQian"],

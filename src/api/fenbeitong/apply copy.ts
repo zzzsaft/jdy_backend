@@ -1,13 +1,16 @@
 import { ApiClient } from "./api_client";
 
-class FBTApplyApiClient extends ApiClient {
+class FBTReimbApiClient extends ApiClient {
   async test() {
     return await this.doRequest({
       method: "POST",
-      path: "/openapi/org/department/v1/list",
+      path: "/openapi/reimb/v1/detail",
       payload: {
         page_index: 1,
-        page_size: 50,
+        page_size: 20,
+        start_time: "2025-05-27",
+        end_time: "2025-05-27",
+        payment_status: 1,
       },
     });
   }
@@ -67,4 +70,4 @@ class FBTApplyApiClient extends ApiClient {
     });
   }
 }
-export const fbtApplyApiClient = new FBTApplyApiClient();
+export const fbtReimbApiClient = new FBTReimbApiClient();

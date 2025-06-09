@@ -15,6 +15,13 @@ import { SendTripCheckin } from "../../schedule/sendTripCheckin";
 import { businessTripCheckinServices } from "../../services/jdy/businessTripCheckinServices";
 import { restOvertimeServices } from "../../services/jdy/restOvertimeServices";
 import { updateExistInfo } from "../../services/dahuaServices";
+import { customerServices } from "../../services/crm/customerService";
+import { opportunityServices } from "../../services/crm/opportunityService";
+import { productService } from "../../services/crm/productService";
+import { supplierGatherService } from "../../services/srm/supplierGatherService";
+import { followService } from "../../services/crm/followService";
+import { contactService } from "../../services/crm/contactService";
+import { quoteService } from "../../services/crm/quoteService";
 
 function getSignature(
   nonce: string,
@@ -34,10 +41,11 @@ export const JdyWebhook = async (request: Request, response: Response) => {
   const nonce = request.query.nonce as string;
   const timestamp = request.query.timestamp as string;
   const signature = request.headers["x-jdy-signature"] as string;
-  // if (signature !== getSignature(nonce, payload, webhook_token, timestamp)) {
-  //   response.status(401).send("fail");
-  //   return;
-  // }
+  if (signature !== getSignature(nonce, payload, webhook_token, timestamp)) {
+    // console.log(webhook_token, "不正确", payload);
+    // response.status(401).send("fail");
+    // return;
+  }
   response.send("success");
   // new 智能助手(request.body);
   await controllerMethod(request.body);
@@ -51,8 +59,27 @@ export const controllerMethod = async (body) => {
   if (controller) {
     await controller(body.data);
   }
+  await supplierGatherService.trigger(appId, entryId, op, body.data);
+  await followService.dataCreate(appId, entryId, op, body.data);
+  await contactService.trigger(appId, entryId, op, body.data);
+  await quoteService.trigger(appId, entryId, op, body.data);
+  await opportunityServices.trigger(appId, entryId, op, body.data);
 };
 
+const createCustomer = async (data) => {
+  if (!["设备厂家", "最终用户"].includes(data["_widget_1740442384783"])) return;
+  if (!data["account_name"]) return;
+  await customerServices.updateJdy(data["_id"], data["account_name"]);
+  await customerServices.upsertToDb(data);
+};
+
+const updateCustomer = async (data) => {
+  if (!["设备厂家", "最终用户"].includes(data["_widget_1740442384783"])) return;
+  if (!data["_widget_1740848672029"] && data["_widget_1740674945157"]) {
+    await customerServices.updateJdy(data["_id"], data["account_name"]);
+  }
+  await customerServices.upsertToDb(data);
+};
 const JdyControllers = {
   "5cd65fc5272c106bbc2bbc38": {
     "668cf9e8bb998350eae3bae6": {
@@ -89,6 +116,16 @@ const JdyControllers = {
   "5cd2228a0be7121e839d41bc": {
     "5dc4d7036ba9010006388e1d": {
       data_create: 来宾预约单,
+    },
+  },
+  "6191e49fc6c18500070f60ca": {
+    "020100200000000000000001": {
+      data_create: createCustomer,
+      data_update: updateCustomer,
+    },
+    "60458a6440c90e0008c75561": {
+      data_create: async (data) => await productService.saveToDb(data),
+      data_update: async (data) => await productService.saveToDb(data),
     },
   },
 };

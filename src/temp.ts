@@ -2,7 +2,10 @@ import _ from "lodash";
 import { XftAtdLeave } from "./entity/atd/xft_leave";
 import { xftatdApiClient } from "./api/xft/xft_atd";
 import { sleep } from "./config/limiter";
-import { XftTaskEvent } from "./controllers/xft/todo.xft.controller";
+import {
+  xftTaskCallback,
+  XftTaskEvent,
+} from "./controllers/xft/todo.xft.controller";
 import { fbtUserApiClient } from "./api/fenbeitong/user";
 import { User } from "./entity/basic/employee";
 import {
@@ -39,6 +42,9 @@ import { restOvertimeServices } from "./services/jdy/restOvertimeServices";
 import convert from "xml-js";
 import { OvertimeEvent } from "./services/xft/atd/overtime.atd.xft.controller";
 import { LeaveEvent } from "./services/xft/atd/leave.atd.xft.controller";
+import { handleContactEvent } from "./controllers/wechat/contact.wechat.controller";
+import { handleWechatMessage } from "./controllers/wechat/wechat.controller";
+import { checkinServices } from "./services/xft/checkinServices";
 export const 获取空缺请假记录 = async () => {
   // const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
   //   .select("leave.leaveRecSeq")
@@ -89,14 +95,16 @@ export const testXftEvent = async () => {
   const logs = await LogExpress.find({
     where: {
       path: "/xft/event",
-      content: Like("%hrm_COM_AAA00512_0000007349%"),
+      id: In([640628]),
+      // content: Like("%hrm_COM_AAA00512_0000007349%"),
     },
   });
   for (const item of logs) {
-    const task = new XftTaskEvent(item.content);
-    await task.getWxUserId();
-    await task.getMsgId();
-    await new OvertimeEvent(task).process();
+    await xftTaskCallback(item.content);
+    // const task = new XftTaskEvent(item.content);
+    // await task.getWxUserId();
+    // await task.getMsgId();
+    // await new OvertimeEvent(task).process();
   }
 };
 export const 导入分贝通人员id = async () => {
@@ -280,10 +288,22 @@ export const 导入外出打卡记录 = async () => {
   });
   const result: any = [];
   for (const i of a) {
-    const record = await businessTripCheckinServices.generateXftCheckinRecord(
-      i
-    );
-    if (record) result.push(record);
+    // const record = await checkinServices.generateXftCheckinRecord(
+    //   i
+    // );
+    // if (record) result.push(record);
   }
   await xftatdApiClient.addOutData(result);
+};
+
+export const handleWechat = async () => {
+  const logs = await LogExpress.find({
+    where: {
+      content: Like("%update_user%"),
+      created_at: MoreThanOrEqual(new Date("2025-3-1")),
+    },
+  });
+  for (const item of logs) {
+    await handleWechatMessage(JSON.parse(item.content));
+  }
 };

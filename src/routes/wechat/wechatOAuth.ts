@@ -8,21 +8,7 @@ import { xftSSOLogin } from "../../controllers/xft/login.xft.controller";
 import { wechatUserApiClient } from "../../api/wechat/user";
 import { fbtUserApiClient } from "../../api/fenbeitong/user";
 import { User } from "../../entity/basic/employee";
-
-const fbtSSOLogin = async (request: Request, response: Response) => {
-  const code = request.query.code;
-  if (typeof code !== "string") {
-    return "no code";
-  }
-  const userid = (await wechatUserApiClient.getUserInfo(code))["userid"];
-  const user = await User.findOne({
-    where: { user_id: userid },
-    select: ["fbtThirdId"],
-  });
-  const redirectUrl =
-    (await fbtUserApiClient.getSSOLink(user?.fbtThirdId ?? "", "home")) ?? "/";
-  response.redirect(redirectUrl);
-};
+import { jdySsoRequest } from "../../controllers/jdy/jdySso";
 
 export const WechatOAuthRoutes = [
   {
@@ -31,9 +17,9 @@ export const WechatOAuthRoutes = [
     action: xftSSOLogin,
   },
   {
-    path: "/fbt/sso",
+    path: "/jdy/sso",
     method: "get",
-    action: fbtSSOLogin,
+    action: jdySsoRequest,
   },
   {
     path: "/jdy/redirect",

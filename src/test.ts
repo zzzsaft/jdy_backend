@@ -1,10 +1,13 @@
 import "./config/env";
 import "./config/logger";
 import { PgDataSource } from "./config/data-source";
+import { customerServices } from "./services/crm/customerService";
 import { trafficService } from "./services/entryService";
 import { xftatdApiClient } from "./api/xft/xft_atd";
+import { testLoginUrl } from "./controllers/xft/login.xft.controller";
 import {
   createBTcheckin,
+  handleWechat,
   processPrecisionIssueData,
   processXftTripLog,
   testChangeShift,
@@ -31,10 +34,22 @@ import { LogCheckin } from "./entity/log/log_checkin";
 import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./api/parking/app";
-PgDataSource.initialize().then(async () => {
-  // await infoServices.getCompanyInfo("宁德时代新能源科技股份有限公司");
-  // console.log(await searchServices.searchCompany("佳适"));
-});
+// customerServices.reviseAllJdy().then(() => {});
+
+PgDataSource.initialize()
+  .then(async () => {
+    // console.log(await customerServices.findJdy("复合材料"));
+    // await handleWechat();
+    // await xftUserApiClient.getMapping("0000000290");
+    // testLoginUrl("ChenYan");
+    // console.log(await contactApiClient.getUser("LiangZhi"));
+    // await customerServices.addToDbfromLog(414);
+    // await customerServices.reviseAllJdy();
+    // await testXftEvent();
+  })
+  .catch((error) => {
+    console.error("初始化失败:", error);
+  });
 // console.log(await Department.isLeader("LiangZhi"));
 // const xftOrg = (await xftOrgnizationApiClient.getOrgnizationList())["body"][
 //   "records"
@@ -154,7 +169,6 @@ import { SendTripCheckin } from "./schedule/sendTripCheckin";
 import { JdyForm } from "./entity/util/jdy_form";
 import { workflowApiClient } from "./api/jdy/workflow";
 import {
-  addCheckinToXFT,
   sendMessage,
   updateNextBusinessTrip,
 } from "./services/jdy/businessTripCheckinServices";
@@ -190,18 +204,21 @@ import {
   locationService,
   testLocation,
   testLocation1,
-} from "./services/locationServices";
+} from "./services/locationService";
 import { handleContactEvent } from "./controllers/wechat/contact.wechat.controller";
 import { format } from "date-fns";
-import { testLoginUrl } from "./controllers/xft/login.xft.controller";
 import { xftOrgnizationApiClient } from "./api/xft/xft_orgnization";
 import { syncDepartment, syncUser } from "./schedule/syncXftData";
 import { xftOAApiClient } from "./api/xft/xft_oa";
-import { searchServices } from "./services/tyc/searchServices";
-import { TycSearch } from "./entity/tyc/tycSearch";
+import { searchServices } from "./services/crm/searchService";
+import { CustomerSearch } from "./entity/crm/customerSearch";
 import { User } from "./entity/basic/employee";
-import { infoServices } from "./services/tyc/infoServices";
+
 import { Log } from "./entity/log/log";
+import { importErrorAtd } from "./schedule/getCheckinData";
+import { contactApiClient } from "./api/wechat/contact";
+import { xftUserApiClient } from "./api/xft/xft_user";
+import { agentTicket, corpTicket } from "./api/wechat/ticket";
 
 // await handleContactEvent(
 //   {

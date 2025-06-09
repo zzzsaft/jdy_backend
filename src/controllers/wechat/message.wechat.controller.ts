@@ -1,18 +1,21 @@
-import { WechatMessage } from "../../entity/log/log_wx_message";
+import { WechatMessage } from "../../entity/log/log_message";
 import { proceedLeave } from "../../schedule/sendLeave";
 import { xftOAApiClient } from "../../api/xft/xft_oa";
 import { trafficService } from "../../services/entryService";
-import { MessageService } from "../../services/messageServices";
+import { MessageService } from "../../services/messageService";
 
 export const handleMessageEvent = async (msg: any) => {
   const eventKey = msg["EventKey"]["value"];
   const taskId = msg["TaskId"]["value"];
   const responseCode = msg["ResponseCode"]["value"];
   const user = msg["FromUserName"]["value"];
-  await WechatMessage.updateResponseCode(taskId, responseCode);
+  await MessageService.updateResponseCode(taskId, responseCode);
   const msgId = await WechatMessage.findOne({ where: { taskId: taskId } });
-  if (msgId?.disabled) return;
+  // if (msgId?.disabled) return;
   if (msgId?.eventType == "xft") {
+    await xftMsg(msgId, eventKey);
+  }
+  if (msgId?.eventType == "checkin") {
     await xftMsg(msgId, eventKey);
   }
   if (msgId?.eventType == "general") {
@@ -26,7 +29,7 @@ export const handleMessageEvent = async (msg: any) => {
 
 const xftMsg = async (msgId: WechatMessage, key) => {
   const result = await xftOAApiClient.operate(JSON.parse(key));
-  if (result["returnCode"] !== "SUC0000") {
+  if (result["returnCode"] == "SUC0000") {
     msgId.disabled = true;
     await msgId.save();
   }

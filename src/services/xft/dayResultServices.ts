@@ -54,6 +54,7 @@ class DayResultServices {
     }
   }
   async getShift(date: Date, userid: string) {
+    if (!date) date = new Date();
     const result = await AtdDayResult.find({
       where: {
         date: Between(addDays(date, -2), endOfDay(date)),

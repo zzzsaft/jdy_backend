@@ -1,10 +1,10 @@
 import { format } from "date-fns";
-import { WechatMessage } from "../../entity/log/log_wx_message";
+import { WechatMessage } from "../../entity/log/log_message";
 import { User } from "../../entity/basic/employee";
 import qs from "querystring";
 import { workflowApiClient } from "../../api/jdy/workflow";
 import { JdyUtil } from "../../utils/jdyUtils";
-import { buttonCardType, MessageService } from "../messageServices";
+import { buttonCardType, MessageService } from "../messageService";
 
 export class JdyTaskEvent {
   url: string;
@@ -69,7 +69,7 @@ export class JdyTaskEvent {
       }?.[this.finish_action] ?? "";
   }
   getMsgId = async () => {
-    const msgId = await WechatMessage.getMsgId(this.task_id, "jdy");
+    const msgId = await MessageService.getMsgId(this.task_id, "jdy");
     if (msgId) {
       this.msgIds = msgId;
     }

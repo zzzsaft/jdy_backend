@@ -10,7 +10,7 @@ import { XftCity } from "../../entity/util/xft_city";
 import { FbtApply } from "../../entity/atd/fbt_trip_apply";
 import { Between, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
 import _ from "lodash";
-import { MessageService } from "../messageServices";
+import { MessageService } from "../messageService";
 
 export class BusinessTripServices {
   static async scheduleCreate(date: Date = new Date()) {

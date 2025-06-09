@@ -1,7 +1,7 @@
 import { JdyWebhook } from "../controllers/jdy/data.jdy.controller";
 import { Request, Response } from "express";
 import { 制品表面处理要求 } from "../controllers/jdy/制品表面处理要求";
-import { searchServices } from "../services/tyc/searchServices";
+import { searchServices } from "../services/crm/searchService";
 
 const childList = async (request: Request, response: Response) => {
   const data = request.query.data as string;
@@ -15,9 +15,9 @@ const childList = async (request: Request, response: Response) => {
 
 const companySearch = async (request: Request, response: Response) => {
   const authHeader = request.headers["authorization"];
-  if (authHeader !== "Bearer 123456") {
-    return response.status(401).send({ error: "Unauthorized" });
-  }
+  // if (authHeader !== "Bearer 123456") {
+  //   return response.status(401).send({ error: "Unauthorized" });
+  // }
   const key = request.query.key as string;
   await searchServices.searchCompany(key);
   return response.send({ result: "success" });

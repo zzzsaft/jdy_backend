@@ -20,4 +20,9 @@ export const JdyRoutes = [
     method: "get",
     action: getFormWidgets,
   },
+  {
+    path: "/frontend/company",
+    method: "get",
+    action: getFormWidgets,
+  },
 ];

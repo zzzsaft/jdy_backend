@@ -1,6 +1,7 @@
 import { format, addHours } from "date-fns";
 import { parkingApiClient } from "../../api/parking/app";
 import { ParkingInfo } from "../../entity/parking/dh_car_info";
+import { getFutureTime } from "../../utils/dateUtils";
 
 export const 来宾预约单 = async (data) => {
   const inviteStatus = data["_widget_1623894460333"] == "派发" ? true : false;
@@ -14,7 +15,7 @@ export const 来宾预约单 = async (data) => {
     visitorPurpose: (data["_widget_1557275291717"] ?? []).join(","),
     visitorReason: "",
     visitorTime: format(time, "yyyy-MM-dd HH:mm:ss"),
-    visitorLeaveTime: format(addHours(time, 10), "yyyy-MM-dd HH:mm:ss"),
+    visitorLeaveTime: format(addHours(new Date(), 1), "yyyy-MM-dd HH:mm:ss"),
     area: "dream",
   };
   if (inviteStatus) {
@@ -29,7 +30,7 @@ export const 来宾预约单 = async (data) => {
         licensePlateColor: "",
         type: "访客车辆",
         beginTime: new Date(payload.visitorTime),
-        endTime: new Date(payload.visitorLeaveTime),
+        endTime: getFutureTime(payload.visitorLeaveTime),
       });
     }
     return msg;

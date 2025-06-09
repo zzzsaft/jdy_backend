@@ -105,6 +105,9 @@ export const updateExistInfo = async (data) => {
     logger.error(`user not found: ${userId}`);
     return;
   }
+  user.bank = data?.["_widget_1690873684141"];
+  user.bankAccount = data?.["_widget_1690873684080"];
+  await user.save();
   if (user.photoName == fileName) return;
   const fileStream = await downloadFileStream(url);
   await dahuaServices.updateDahua({

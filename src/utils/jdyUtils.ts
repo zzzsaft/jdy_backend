@@ -13,12 +13,15 @@ export class JdyUtil {
     return { value: data };
   }
   static setDate(data: Date) {
+    if (!data) {
+      return { value: "" };
+    }
     return { value: new Date(data).toISOString() };
   }
   static setAddress(data: {
-    province: string;
-    city: string;
-    district: string;
+    province?: string;
+    city?: string;
+    district?: string;
     detail: string;
   }) {
     return { value: data };
@@ -36,6 +39,9 @@ export class JdyUtil {
     return { phone: data };
   }
   static setSubForm(data: Array<{ [key: string]: any }>) {
+    if (!data) {
+      return { value: [] };
+    }
     return {
       value: data.map((record) => {
         const formattedRecord: { [key: string]: any } = {};
@@ -65,7 +71,14 @@ export class JdyUtil {
     district: string;
     detail: string;
   }) {
-    return data;
+    if (!data) return { full: "" };
+    const city = data?.province == data?.city ? "" : data.city;
+    return {
+      ...data,
+      full: `${data?.province ?? ""}${city}${data?.district ?? ""}${
+        data?.detail ?? ""
+      }`,
+    };
   }
   static getLocation(data: {
     province: string;
@@ -87,6 +100,7 @@ export class JdyUtil {
     departments: number[];
     integrate_id: string;
   }) {
+    if (!data) return null;
     return data;
   }
   static getUsers(
@@ -99,6 +113,7 @@ export class JdyUtil {
       integrate_id: string;
     }[]
   ) {
+    if (!data) return null;
     return data;
   }
   static getOrg(data: {
@@ -125,6 +140,16 @@ export class JdyUtil {
   }
   static getSubForm(data: Array<{ [key: string]: any }>) {
     return data;
+  }
+  static getState(data: number) {
+    const state = {
+      0: "进行中",
+      1: "已完成",
+      2: "手动结束",
+      4: "被激活",
+      5: "任务被暂停",
+    };
+    return state?.[data] ?? "";
   }
 }
 type user = {

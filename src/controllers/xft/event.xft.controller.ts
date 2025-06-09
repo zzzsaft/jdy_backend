@@ -19,6 +19,9 @@ export const xftEvent = async (request: Request, response: Response) => {
   if (eventId === "XFTSTFADD") {
     await XFTSTFADD(content);
   }
+  if (eventId === "XFTSTFUPT") {
+    await XFTSTFUPT(content);
+  }
 };
 const XFTSTFADD = async (content) => {
   const parsed = JSON.parse(content);
@@ -28,4 +31,16 @@ const XFTSTFADD = async (content) => {
     parsed["STFNBR"],
     salary?.probation
   );
+  await XFTSTFUPT(content);
+};
+const XFTSTFUPT = async (content) => {
+  const parsed = JSON.parse(content);
+  const userid = parsed["STFNBR"];
+  const user = await User.findOne({
+    where: { user_id: userid },
+  });
+  if (!user) return;
+  user.bank = parsed?.["BNKTYP"];
+  user.bankAccount = parsed?.["SALCAR"];
+  await user.save();
 };

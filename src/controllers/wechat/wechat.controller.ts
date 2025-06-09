@@ -9,11 +9,15 @@ import { decryptMsg } from "../../api/wechat/decrypt";
 import { LogLocation } from "../../entity/log/log_location";
 import path from "path";
 import { Between, Like, MoreThan } from "typeorm";
-import { locationService } from "../../services/locationServices";
+import { locationService } from "../../services/locationService";
 
 export async function wechatWebHookCheck(request: Request, response: Response) {
   const encodingAESKey = process.env.WECHAT_ENCODING_AES_KEY ?? "";
   const payload = request.query.echostr as string;
+  if (!payload) {
+    response.status(400).send("Bad Request");
+    return;
+  }
   const { message, id } = decrypt(encodingAESKey, payload);
 
   // return loaded posts
@@ -27,7 +31,7 @@ export async function wechatWebHook(request: Request, response: Response) {
   response.send("");
 }
 
-const handleWechatMessage = async (msg) => {
+export const handleWechatMessage = async (msg) => {
   let message = msg["xml"];
   let ApprovalInfo = message["ApprovalInfo"];
   try {

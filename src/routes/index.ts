@@ -7,6 +7,11 @@ import { WechatOAuthRoutes } from "./wechat/wechatOAuth";
 import { WechatRoutes } from "./wechat/wechat";
 import { xftRoute } from "./xft";
 import { fenbeitongRoutes } from "./fengbeitong";
+import { CustomerRoutes } from "./customer";
+import { AuthRoutes } from "./auth";
+import { OpportunityRoutes } from "./opportunity";
+import { QuoteRoutes } from "./quote";
+import { UserRoutes } from "./user";
 
 /**
  * All application routes.
@@ -21,4 +26,9 @@ export const AppRoutes = [
   ...JdyDataRoutes,
   ...parkingRoutes,
   ...fenbeitongRoutes,
+  ...CustomerRoutes,
+  ...AuthRoutes,
+  ...OpportunityRoutes,
+  ...QuoteRoutes,
+  ...UserRoutes,
 ];

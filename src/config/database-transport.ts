@@ -1,7 +1,6 @@
 import { TransportStreamOptions } from "winston-transport";
 import Transport from "winston-transport";
 // import { Log } from "../entity/utils/log";
-import { PgDataSource } from "./data-source";
 import { Trigger } from "../entity/trigger/trigger";
 
 export class DatabaseTransport extends Transport {

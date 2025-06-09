@@ -59,13 +59,18 @@ export class Department extends BaseEntity {
     return false;
   }
 
-  static async handleLevelName(department: Department): Promise<void> {
+  static async handleLevelName(
+    department: Department,
+    departments: Department[]
+  ) {
     let levelName: string[] = [];
     let departmentTemp = department;
     levelName.push(department.name);
     while (departmentTemp.parent_id != "1" && departmentTemp.parent_id != "0") {
-      let parentDepartment =
-        await departmentTemp.getParentDepartmentByParentId();
+      let parentDepartment = departments.find(
+        (d) => d.department_id == departmentTemp.parent_id
+      );
+      // await departmentTemp.getParentDepartmentByParentId();
       if (parentDepartment) {
         departmentTemp = parentDepartment;
       } else break;
@@ -79,14 +84,18 @@ export class Department extends BaseEntity {
     department.level5 = levelName.pop() ?? "";
     department.level6 = levelName.pop() ?? "";
     department.level7 = levelName.pop() ?? "";
-    department.save();
+    return department;
   }
 
   static async updateAllDepartmentLevel(): Promise<void> {
     const departments = await Department.find();
+    const updatedDepartments: Department[] = [];
     for (const department of departments) {
-      await Department.handleLevelName(department);
+      updatedDepartments.push(
+        await Department.handleLevelName(department, departments)
+      );
     }
+    await Department.save(updatedDepartments);
   }
 
   static async updateDepartment(): Promise<void> {

@@ -5,7 +5,7 @@ import { isTaskFinished } from "./jdyUtil";
 import { logger } from "../../config/logger";
 import { ParkingInfo } from "../../entity/parking/dh_car_info";
 import { carPlateServices } from "../../services/carPlateServices";
-import { MessageService } from "../../services/messageServices";
+import { MessageService } from "../../services/messageService";
 
 export const addCar = async (data) => {
   const carNum = data["_widget_1720515048364"];

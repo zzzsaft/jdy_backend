@@ -15,6 +15,8 @@ import {
   startOfDay,
   isAfter,
   addDays,
+  addMonths,
+  addHours,
 } from "date-fns";
 export const getWeekDayName = (date: string | Date) => {
   // 映射英文星期到中文
@@ -250,4 +252,48 @@ export function isTimeInRanges(
     }
   }
   return false;
+}
+
+export const addRandomMonths = (date: Date, level: string) => {
+  let days = 0;
+  switch (level) {
+    case "A":
+      days = getRandomInt(15, 30);
+      break;
+    case "B":
+      days = getRandomInt(30, 60);
+      break;
+    case "C":
+      days = getRandomInt(25, 40);
+      break;
+    case "D":
+      days = getRandomInt(60, 90);
+      break;
+  }
+  return addDays(date, days);
+};
+function getRandomInt(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+export function getFutureTime(
+  time,
+  timeformat: string = "yyyy-MM-dd HH:mm:ss"
+) {
+  const inputTime = new Date(time);
+  const now = new Date();
+  let result;
+  // 检查输入时间是否比现在晚
+  if (isAfter(inputTime, now)) {
+    result = inputTime;
+  } else {
+    // 返回现在时间加1小时
+    result = addHours(now, 1);
+  }
+  if (timeformat) {
+    return format(result, timeformat);
+  } else {
+    return result;
+  }
 }

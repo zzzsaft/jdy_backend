@@ -15,6 +15,13 @@ export const handleContactEvent = async (msg: any) => {
       await createUser(UserID);
       break;
     case "update_user":
+      const NewUserID = msg?.["NewUserID"]?.["value"];
+      if (NewUserID) {
+        await User.update({ user_id: UserID }, { user_id: NewUserID });
+        await createUser(NewUserID);
+      } else {
+        await createUser(UserID);
+      }
       break;
     case "delete_user":
       User.update({ user_id: UserID }, { is_employed: false });
@@ -25,6 +32,7 @@ export const handleContactEvent = async (msg: any) => {
         department_id: msg["Id"]["value"],
         name: data?.["department"]?.["name"] ?? "error",
         parent_id: msg["ParentId"]["value"],
+        department_leader: data?.["department"]?.["department_leader"],
         is_exist: true,
       }).save();
       break;
@@ -35,6 +43,7 @@ export const handleContactEvent = async (msg: any) => {
         {
           name: data?.["department"]?.["name"] ?? "error",
           parent_id: msg["ParentId"]["value"],
+          department_leader: data?.["department"]?.["department_leader"],
         }
       );
       // let org = await xftOrgnizationApiClient.getOrgnization(
@@ -60,17 +69,17 @@ export const handleContactEvent = async (msg: any) => {
 };
 
 export const createUser = async (UserID) => {
-  const info = await contactApiClient.getUser(UserID);
-  const name = info["name"];
-  const mobile = info["mobile"];
-  const department = info["department"];
-  const main_department = info["main_department"];
+  const user = await contactApiClient.getUser(UserID);
+  const name = user["name"] ?? user.name;
+  const mobile = user["mobile"] ?? user.mobile;
+  const department = user["department"] ?? user.department;
+  const main_department = user["main_department"] ?? user.main_department;
   await User.create({
     user_id: UserID,
-    name,
+    name: name,
     mobile,
     department_id: department,
     is_employed: true,
     main_department_id: main_department,
-  }).save();
+  }).save(user);
 };

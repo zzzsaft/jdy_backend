@@ -40,9 +40,9 @@ export class JdyRestOvertime extends BaseEntity {
 
   static async createRecord(record) {
     const jdyUser = JdyUtil.getUser(record["_widget_1691150876586"]);
-    const user = await User.findOne({ where: { user_id: jdyUser.username } });
+    const user = await User.findOne({ where: { user_id: jdyUser?.username } });
     if (!user) {
-      logger.error(`User not found at JdyRestOvertime: ${jdyUser.username}`);
+      logger.error(`User not found at JdyRestOvertime: ${jdyUser?.username}`);
       return;
     }
     const data = JdyRestOvertime.create();

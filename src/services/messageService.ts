@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import { WechatMessage } from "../entity/log/log_wx_message";
+import { WechatMessage } from "../entity/log/log_message";
 import { messageApiClient } from "../api/wechat/message";
 
 interface Message {
@@ -32,7 +32,10 @@ type templateCardType = {
 };
 
 export type buttonCardType = templateCardType & {
-  event: { eventId: string; eventType: "jdy" | "xft" | "bestSign" | "traffic" };
+  event: {
+    eventId: string;
+    eventType: "jdy" | "xft" | "bestSign" | "traffic" | "checkin";
+  };
   button_list: {
     text: string;
     type?: 0 | 1; //按钮点击事件类型，0 或不填代表回调点击事件，1 代表跳转url
@@ -62,20 +65,25 @@ export class MessageService {
     enable_duplicate_check: 1,
     duplicate_check_interval: 1800,
   };
+  source: "hr" | "jdy" = "hr";
 
-  constructor(userid: string[]) {
+  constructor(userid: string[], source: "hr" | "jdy" = "hr") {
     this.request_body["touser"] = userid.filter((id) => id).join("|");
-    this.request_body["userids"] = userid;
+    this.request_body["userids"] = userid.filter((id) => id);
+    this.source = source;
+    if (source == "jdy") {
+      this.request_body.agentid = parseInt(process.env.CORP_AGENTID_CRM ?? "");
+    }
   }
 
-  async send_plain_text(text: string, enable_id_trans = false) {
+  send_plain_text = async (text, enable_id_trans = false) => {
     this.request_body["msgtype"] = "text";
     this.request_body["enable_id_trans"] = enable_id_trans ? 1 : 0;
     this.request_body["text"] = {
       content: text,
     };
     await this.sendMessage();
-  }
+  };
 
   async send_text_card(
     title: string,
@@ -155,7 +163,13 @@ export class MessageService {
 
   async disableButton(_log: WechatMessage, replace_name) {
     const log = await WechatMessage.findOne({ where: { msgId: _log.msgId } });
-    if (!log || log.disabled) return;
+    if (!log) return;
+    if (
+      log.userid &&
+      log.userid?.length != 0 &&
+      !log.userid?.some((item) => this.request_body["userids"].includes(item))
+    )
+      return;
     if (responseCode.includes(log.responseCode)) return;
     responseCode.push(log.responseCode);
 
@@ -170,18 +184,71 @@ export class MessageService {
 
   private sendMessage = async (
     eventId = "",
-    eventType: "jdy" | "xft" | "bestSign" | "general" | "traffic" = "general",
+    eventType:
+      | "jdy"
+      | "xft"
+      | "bestSign"
+      | "general"
+      | "traffic"
+      | "checkin" = "general",
     taskid = ""
   ) => {
-    const msg = await messageApiClient.sendMessage(this.request_body);
+    const msg = await messageApiClient.sendMessage(
+      this.request_body,
+      this.source
+    );
     if (msg["errcode"] == 0)
-      await WechatMessage.addMsgId(
+      await MessageService.addMsgId(
         msg["msgid"],
         msg?.["response_code"],
         eventId,
         eventType,
         taskid,
-        JSON.stringify(this.request_body)
+        JSON.stringify(this.request_body),
+        this.request_body["userids"]
       );
+  };
+  static addMsgId = async (
+    msgId: string,
+    responseCode: string,
+    eventId: string,
+    eventType: string,
+    taskId: string,
+    content: string,
+    userid: string[]
+  ) => {
+    const msg = WechatMessage.create({
+      msgId,
+      responseCode,
+      eventId,
+      eventType,
+      taskId,
+      disabled: false,
+      content,
+      userid,
+    });
+    await msg.save();
+  };
+  static getMsgId = async (eventId, eventType) => {
+    const msg = await WechatMessage.createQueryBuilder("msg")
+      .where("msg.event_id = :eventId", {
+        eventId,
+      })
+      .andWhere("msg.event_type = :eventType", {
+        eventType,
+      })
+      .orderBy("msg.created_at", "DESC")
+      .getMany();
+    if (msg) {
+      return msg;
+    }
+    return null;
+  };
+  static updateResponseCode = async (taskId: string, responseCode: string) => {
+    const msg = await WechatMessage.findOne({ where: { taskId: taskId } });
+    if (msg) {
+      msg.responseCode = responseCode;
+      await msg.save();
+    }
   };
 }

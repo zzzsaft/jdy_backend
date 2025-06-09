@@ -25,6 +25,8 @@ import {
   streamToBase64,
 } from "../../utils/fileUtils";
 import { PassThrough } from "stream";
+import { XftTripCheckin } from "../../entity/atd/business_trip_checkin";
+import { businessTripService } from "../businessTripService";
 class CheckinServices {
   async scheduleCheckinMonthly() {
     const startTime = startOfMonth(new Date());
@@ -52,6 +54,57 @@ class CheckinServices {
   async getRealTimeAtd() {
     // return await xftatdApiClient.getRealTimeAtd();
   }
+
+  addCheckinRecord = async (checkins: XftTripCheckin[]) => {
+    let records: any[] = [];
+    for (const checkin of checkins) {
+      const record = await this.generateXftCheckinRecord(checkin);
+      if (record) records.push(record);
+    }
+    await xftatdApiClient.addOutData(records);
+  };
+  private generateXftCheckinRecord = async (checkin: XftTripCheckin) => {
+    const add = (value) => {
+      return {
+        staffName: checkin.name,
+        staffNumber: checkin.userId.slice(0, 20),
+        appModule: "D" as "D",
+        atdDate: checkin.checkinTime,
+        item: [
+          {
+            itemName: "出差打卡统计",
+            itemValue: value,
+          },
+        ],
+      };
+    };
+    if (!checkin.checkinTime || ["已回公司", "已请假"].includes(checkin.state))
+      return;
+    if (!checkin.fbtRootId && !checkin.xftFormId) {
+      const tripId = await businessTripService.findBusinessTrip(
+        checkin.userId,
+        checkin.checkinDate
+      );
+      if (tripId) {
+        if (tripId.startsWith("FORM")) {
+          checkin.xftFormId = tripId;
+        } else {
+          checkin.fbtRootId = tripId;
+        }
+        await checkin.save();
+      }
+    }
+    if (checkin.state == "次日补卡") {
+      return add("有效补卡");
+    }
+    if (checkin.area == "境外出差" || checkin.reason == "展会/会议") {
+      return add("展会打卡");
+    } else if (checkin.userId == "XuLai") {
+      return add("无补贴打卡");
+    }
+    checkin.isChecked = true;
+    return add("有效打卡");
+  };
 }
 
 export const checkinServices = new CheckinServices();
@@ -275,4 +328,16 @@ const 获取员工档案 = async () => {
     },
     limit: 100,
   });
+};
+
+export const addCheckinToXFT = async (date = new Date("2024-10-1")) => {
+  const data = await XftTripCheckin.find({
+    where: {
+      checkinDate: Between(
+        startOfMonth(new Date("2024-12-01")),
+        new Date("2025-01-01")
+      ),
+    },
+  });
+  await checkinServices.addCheckinRecord(data);
 };

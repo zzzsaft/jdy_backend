@@ -10,7 +10,8 @@ class LocationService {
     userid: string,
     time: Date,
     latitude: number,
-    longitude: number
+    longitude: number,
+    source = ""
   ) => {
     if (userid in this.existLocation) {
       if (differenceInMinutes(time, this.existLocation[userid]) < 5) {
@@ -35,6 +36,7 @@ class LocationService {
       time,
       longitude,
       latitude,
+      source,
     });
     await location.save();
     const exist = await this.checkLocation(location);

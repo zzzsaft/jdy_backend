@@ -66,6 +66,12 @@ export const 待离职 = async () => {
 };
 
 export const 离职 = async (data) => {
+  if (
+    !data["_widget_1702956727941"] ||
+    !data["createTime"] ||
+    !data["date_of_departure"]
+  )
+    return;
   const bool = await isTaskFinished(data["_id"]);
   if (!bool) return;
   const userid = data["_widget_1702956728221"]["username"];

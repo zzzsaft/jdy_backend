@@ -19,6 +19,7 @@ const syncWechat = async () => {
   await User.updateUser();
   await Department.updateXftId();
   await User.updateXftId();
+  await Department.updateAllDepartmentLevel();
 };
 
 //每过15分钟触发任务

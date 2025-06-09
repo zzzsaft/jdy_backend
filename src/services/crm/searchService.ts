@@ -1,7 +1,7 @@
 import { values } from "lodash";
 import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { tycApiClient } from "../../api/tianyacha/app";
-import { TycSearch } from "../../entity/tyc/tycSearch";
+import { CustomerSearch } from "../../entity/crm/customerSearch";
 import { JdyUtil } from "../../utils/jdyUtils";
 
 const companyType = {
@@ -21,6 +21,9 @@ class SearchServices {
   entryid = "67c08f7645dc14714c6440a0";
   keyWord: string;
   async searchCompany(keyword: string) {
+    if (!keyword) {
+      return;
+    }
     this.keyWord = keyword;
     const flag = await this.isExist(keyword);
     if (flag) {
@@ -28,31 +31,37 @@ class SearchServices {
     }
     const result = await tycApiClient.search(keyword);
     if (result?.error_code != 0) {
-      throw new Error(
-        `请求错误！Error Code: ${result.error_code}, Error Msg: ${result.reason}`
-      );
+      console.log(`请求错误！Error Code: ${result.error_code},${keyword}`);
+      return;
+      // throw new Error(
+      //   `请求错误！Error Code: ${result.error_code}, Error Msg: ${result.reason}`
+      // );
     }
     const dbData = await this.addToDb(result["result"]);
     await this.addToJdy(dbData);
   }
   private isExist = async (keyword: string) => {
-    return await TycSearch.exists({ where: { keyWord: keyword } });
+    return await CustomerSearch.exists({ where: { keyWord: keyword } });
   };
   private addToDb = async (items: any) => {
-    const data: TycSearch[] = [];
+    const data: CustomerSearch[] = [];
     for (const item of items.items) {
-      item.estiblishTime = new Date(item.estiblishTime);
-      item.type = item.type === 1 ? "公司" : "个体户";
-      item.companyType = companyType?.[item.companyType] ?? "";
-      item.company_id = item.id;
-      item.keyWord = this.keyWord;
+      let company: any = {};
+      company.estiblishTime =
+        item.estiblishTime && item.estiblishTime != "-"
+          ? new Date(item.estiblishTime)
+          : null;
+      company.type = item.type === 1 ? "公司" : "个体户";
+      company.companyType = companyType?.[item.companyType] ?? "";
+      company.company_id = item.id;
+      company.keyWord = this.keyWord;
       delete item.id;
-      const search = TycSearch.create(item);
+      const search = CustomerSearch.create({ ...item, ...company });
       data.push(search);
     }
-    return await TycSearch.save(data);
+    return await CustomerSearch.save(data);
   };
-  addToJdy = async (data: TycSearch[]) => {
+  addToJdy = async (data: CustomerSearch[]) => {
     if (await this.findJdy(this.keyWord)) {
       return;
     }
@@ -94,7 +103,7 @@ class SearchServices {
   };
   testAddToJdy = async (keyWord) => {
     this.keyWord = keyWord;
-    const data = await TycSearch.find({ where: { keyWord: keyWord } });
+    const data = await CustomerSearch.find({ where: { keyWord: keyWord } });
     const flag = await this.findJdy(keyWord);
     if (data && !flag) {
       await this.addToJdy(data);

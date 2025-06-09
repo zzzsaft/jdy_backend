@@ -6,8 +6,8 @@ import {
   PrimaryGeneratedColumn,
 } from "typeorm";
 
-@Entity({ name: "tyc_search" })
-export class TycSearch extends BaseEntity {
+@Entity({ name: "crm_search" })
+export class CustomerSearch extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
   @Column({ name: "key_word" })

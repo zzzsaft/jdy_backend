@@ -46,10 +46,7 @@ class ApiClient {
         const { status, data } = response;
         if ((status && status > 200) || !response.data["success"]) {
           logger.error(
-            `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg},body: ${options.payload}`
-          );
-          throw new Error(
-            `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg},body: ${options.payload}`
+            `请求错误！Error Code: ${data.code},body: ${data.message}`
           );
         }
       }
@@ -60,12 +57,12 @@ class ApiClient {
       if (response) {
         const { status, data } = response;
         if (status && status > 200 && data.code && data.msg) {
-          throw new Error(
-            `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg},body: ${options.payload}`
-          );
+          // throw new Error(
+          //   `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg},body: ${options.payload}`
+          // );
         }
       }
-      throw e;
+      // throw e;
     }
   }
 

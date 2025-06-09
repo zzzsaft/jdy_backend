@@ -28,18 +28,22 @@ import {
 import { JdyTaskEvent } from "./event";
 import { formatDate } from "../../utils/dateUtils";
 import { xftatdApiClient } from "../../api/xft/xft_atd";
-import { MessageService } from "../messageServices";
+import { MessageService } from "../messageService";
+import { businessTripService } from "../businessTripService";
+import { checkinServices } from "../xft/checkinServices";
 
 class BusinessTripCheckinServices {
+  appid = "5cfef4b5de0b2278b05c8380";
+  entryid = "65dc463c9b200f9b5e3b5851";
   dataProcess = async (content) => {
-    const data = await jdyDatetoDb(content);
+    const data = await jdyDatatoDb(content);
     let existdata = await XftTripCheckin.findOne({
       where: { jdyId: content["_id"] },
     });
     if (!existdata) {
       let newData = await this.dataCreate(data);
 
-      await businessTripCheckinServices.addCheckinRecord([newData]);
+      await checkinServices.addCheckinRecord([newData]);
     }
     // else{
 
@@ -53,7 +57,7 @@ class BusinessTripCheckinServices {
     return await checkin.save();
   };
   dataUpdate = async (content) => {
-    const data = await jdyDatetoDb(content);
+    const data = await jdyDatatoDb(content);
     let existdata = await XftTripCheckin.findOne({
       where: { jdyId: content["_id"] },
     });
@@ -66,8 +70,7 @@ class BusinessTripCheckinServices {
       let newExistdata = await XftTripCheckin.findOne({
         where: { jdyId: content["_id"] },
       });
-      if (newExistdata)
-        await businessTripCheckinServices.addCheckinRecord([newExistdata]);
+      if (newExistdata) await checkinServices.addCheckinRecord([newExistdata]);
     }
     await sendMessage(data);
     return existdata;
@@ -104,84 +107,33 @@ class BusinessTripCheckinServices {
       let result;
       if (checkin.company == "浙江精一新材料有限公司") {
         result = await startWorkFlowJ1(data);
-      } else if (
-        checkin.company == "浙江精诚模具机械有限公司" ||
-        checkin.company == "精诚时代（台州）进出口有限公司"
-      ) {
+      } else if (checkin.reason == "客户拜访") {
+        await sendButtonMsg(checkin);
+        // return;
+      } else {
         result = await startWorkFlow(data);
       }
       if (!result?.data?._id) return;
       checkin.state = "未打卡";
       checkin.jdyId = result?.data?._id;
       await checkin.save();
-      sendMessage(await jdyDatetoDb(result["data"]));
+      sendMessage(await jdyDatatoDb(result["data"]));
     }
   }
-  addCheckinRecord = async (checkins: XftTripCheckin[]) => {
-    let records: any[] = [];
-    for (const checkin of checkins) {
-      const record = await this.generateXftCheckinRecord(checkin);
-      if (record) records.push(record);
-    }
-    await xftatdApiClient.addOutData(records);
-  };
-  generateXftCheckinRecord = async (checkin: XftTripCheckin) => {
-    const add = (value) => {
-      return {
-        staffName: checkin.name,
-        staffNumber: checkin.userId.slice(0, 20),
-        appModule: "D" as "D",
-        atdDate: checkin.checkinTime,
-        item: [
-          {
-            itemName: "出差打卡统计",
-            itemValue: value,
-          },
-        ],
-      };
-    };
-    if (!checkin.checkinTime || ["已回公司", "已请假"].includes(checkin.state))
-      return;
-    if (!checkin.fbtRootId && !checkin.xftFormId) {
-      const tripId = await findBusinessTrip(
-        checkin.userId,
-        checkin.checkinDate
-      );
-      if (tripId) {
-        if (tripId.startsWith("FORM")) {
-          checkin.xftFormId = tripId;
-        } else {
-          checkin.fbtRootId = tripId;
-        }
-        await checkin.save();
+
+  updateJdyData = async (jdyid, state) => {
+    await jdyFormDataApiClient.singleDataUpdate(
+      this.appid,
+      this.entryid,
+      jdyid,
+      {
+        _widget_1728663996210: JdyUtil.setText(state),
       }
-    }
-    if (checkin.state == "次日补卡") {
-      return add("有效补卡");
-    }
-    if (checkin.area == "境外出差" || checkin.reason == "展会/会议") {
-      return add("展会打卡");
-    } else if (checkin.userId == "XuLai") {
-      return add("无补贴打卡");
-    }
-    checkin.isChecked = true;
-    return add("有效打卡");
+    );
   };
 }
 
 export const businessTripCheckinServices = new BusinessTripCheckinServices();
-
-export const addCheckinToXFT = async (date = new Date("2024-10-1")) => {
-  const data = await XftTripCheckin.find({
-    where: {
-      checkinDate: Between(
-        startOfMonth(new Date("2024-12-01")),
-        new Date("2025-01-01")
-      ),
-    },
-  });
-  await businessTripCheckinServices.addCheckinRecord(data);
-};
 
 const generateCheckinbyBusinessTrip = async ({
   businessTrip,
@@ -265,7 +217,7 @@ const dbtoJdyData = async (checkin: XftTripCheckin) => {
   };
 };
 
-const jdyDatetoDb = async (item) => {
+const jdyDatatoDb = async (item) => {
   // 获取userid
   let user: User | null;
   let userId = JdyUtil.getUser(item["_widget_1709084666146"])?.username;
@@ -275,7 +227,7 @@ const jdyDatetoDb = async (item) => {
   } else {
     user = await User.findOne({ where: { user_id: userId } });
   }
-  if (!user) throw new Error(`User not found ${userId} at jdyDatetoDb`);
+  if (!user) throw new Error(`User not found ${userId} at jdyDatatoDb`);
   const departmentId = user.main_department_id;
   name = user.name;
   // 获取地理位置
@@ -419,7 +371,7 @@ export const updateNextBusinessTrip = async (tripCheckin: XftTripCheckin) => {
 };
 
 export const sendMessage = async (data) => {
-  // const data = await jdyDatetoDb(content["data"]);
+  // const data = await jdyDatatoDb(content["data"]);
   const horizontal_content_list = [
     {
       keyname: "应打卡时间",
@@ -455,21 +407,13 @@ export const sendMessage = async (data) => {
   ]);
 };
 
-const findBusinessTrip = async (userId, checkinDate) => {
-  const exist = await BusinessTrip.findOne({
-    where: {
-      userId,
-      start_time: LessThanOrEqual(checkinDate),
-      end_time: MoreThanOrEqual(checkinDate),
-    },
-  });
-  return exist?.fbtRootId ?? exist?.xftFormId;
-};
-
 const sendNotice = async (data) => {
   const checkinDate = data?.checkinDate;
   if (data?.type != "出差打卡" || !checkinDate) return;
-  const tripId = await findBusinessTrip(data.userId, checkinDate);
+  const tripId = await businessTripService.findBusinessTrip(
+    data.userId,
+    checkinDate
+  );
   if (tripId) return tripId;
   await new MessageService([data.userId]).send_plain_text(
     `未找到${format(data.checkinDate, "yyyy-MM-dd")}拜访${
@@ -481,4 +425,45 @@ const sendNotice = async (data) => {
       data.customer
     }的差旅记录，请及时提醒进行申请办理。`
   );
+};
+
+export const sendButtonMsg = async (checkin: XftTripCheckin | null) => {
+  if (!checkin) return;
+  const horizontal_content_list = [
+    {
+      keyname: "应打卡时间",
+      value: format(checkin?.checkinDate, "yyyy-MM-dd"),
+    },
+    {
+      keyname: "客户名称",
+      value: checkin?.customer,
+    },
+  ];
+  await new MessageService([checkin.userId]).sendButtonCard({
+    main_title: {
+      title: "出差信息填报",
+      desc: format(new Date(), "yyyy-MM-dd HH:mm"),
+    },
+    sub_title_text: "填写客户跟进表将会生成打卡记录",
+    horizontal_content_list,
+    event: {
+      eventId: checkin.id.toString(),
+      eventType: "checkin",
+    },
+    button_list: [
+      {
+        text: "客户跟进",
+        url: "http://hz.jc-times.com:2006/jdy_redirect?redirect_uri=%2fdashboard%23%2fapp%2f6191e49fc6c18500070f60ca%2fdatacreate%2f020100400000000000000001%2f2",
+        type: 1,
+      },
+      // {
+      //   text: "路途中",
+      //   type: 0,
+      //   key: JSON.stringify({
+      //     id: checkin.id,
+      //     type: "路途中",
+      //   }),
+      // },
+    ],
+  });
 };

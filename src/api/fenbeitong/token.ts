@@ -38,7 +38,7 @@ class Token {
         throw new Error("未能成功获取 access_token 或过期时间。");
       }
     } catch (error) {
-      console.error("大华开放平台access_token获取失败！错误信息：", error);
+      console.error("fbtaccess_token获取失败！错误信息：", error);
       throw error;
     }
   }

@@ -36,22 +36,33 @@ export class LogExpress extends BaseEntity {
   @CreateDateColumn()
   created_at: Date;
   // 根据需要添加其他列
-  static async addToLog(ip, method, query, path, msg) {
+  static async addToLog(ip, method, query: string, path: string, msg) {
+    if (!ip || !method) return;
+    if (
+      path.includes("sso") ||
+      path == "/" ||
+      path.includes("customer") ||
+      path.includes("auth") ||
+      path.includes("category")
+    )
+      return;
     let content = "";
     if (path === "/xft/event") {
       const { eventId, eventRcdInf } = JSON.parse(msg);
       content = decryptXftEvent(eventRcdInf);
     } else if (path === "/wechat") {
       content = decryptMsg(JSON.parse(msg));
-      if (content["xml"]?.["Event"]?.["value"] === "view") {
+      if (
+        content["xml"]?.["Event"]?.["value"] === "view" ||
+        content["xml"]?.["Event"]?.["value"] === "LOCATION"
+      ) {
         return;
       }
     }
-
     const log = LogExpress.create({
       ip,
       method,
-      query,
+      query: JSON.stringify(query).slice(0, 200),
       path,
       msg,
       content,

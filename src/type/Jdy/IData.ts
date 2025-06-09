@@ -17,9 +17,9 @@ interface FormField {
 }
 
 interface Address {
-  province: string;
-  city: string;
-  district: string;
+  province?: string;
+  city?: string;
+  district?: string;
   detail: string;
 }
 

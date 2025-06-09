@@ -1,5 +1,4 @@
 import winston from "winston";
-import { DatabaseTransport } from "./database-transport";
 import { Logger as TypeORMLogger, QueryRunner } from "typeorm";
 
 // 自定义格式化函数

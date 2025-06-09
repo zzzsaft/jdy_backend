@@ -9,6 +9,7 @@ import {
   IsNull,
   CreateDateColumn,
   UpdateDateColumn,
+  JoinColumn,
 } from "typeorm";
 import { logger } from "../../config/logger";
 import { xftUserApiClient } from "../../api/xft/xft_user";
@@ -51,12 +52,25 @@ export class User extends BaseEntity {
   photoName: string;
   @Column({ nullable: true, name: "wx_face" })
   wxFace: boolean;
+  @Column({ nullable: true, name: "avatar" })
+  avatar: string;
+  @Column({ nullable: true, name: "thumb_avatar" })
+  thumb_avatar: string;
   @CreateDateColumn()
   created_at: Date;
   @UpdateDateColumn()
   updated_at: Date;
-  // @ManyToOne(() => Department, (department) => department.)
+  @ManyToOne(() => Department)
+  @JoinColumn({ name: "main_department_id" })
   department: Department;
+  @Column({ nullable: true })
+  position: string;
+  @Column({ nullable: true, type: "simple-array" })
+  is_leader_in_dept: string[];
+  @Column({ nullable: true })
+  bank: string;
+  @Column({ nullable: true, name: "bank_account" })
+  bankAccount: string;
 
   static async updateUser(): Promise<void> {
     const existDepartment = await Department.find({
@@ -75,10 +89,15 @@ export class User extends BaseEntity {
       const users = userList.userlist.map((user) => {
         return {
           user_id: user.userid,
-          // name: user.name,
+          name: user.name,
           is_employed: true,
           department_id: user.department,
           main_department_id: user.main_department,
+          position: user.position,
+          is_leader_in_dept: user.is_leader_in_dept,
+          mobile: user.mobile,
+          avatar: user.avatar,
+          thumb_avatar: user.thumb_avatar,
         };
       });
       result = result.concat(users);

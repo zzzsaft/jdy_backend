@@ -13,15 +13,15 @@ type staff = {
   type: string;
 };
 
-@Entity({ name: "tyc_info" })
-export class TycInfo extends BaseEntity {
+@Entity({ name: "crm_customer_info" })
+export class CustomerInfo extends BaseEntity {
   @PrimaryColumn({ type: "bigint" })
   id: number;
 
   @Column({ name: "staff_num_range", length: 200 })
   staffNumRange: string;
 
-  @Column({ name: "from_time", type: "timestamp" })
+  @Column({ name: "from_time", type: "timestamp", nullable: true })
   fromTime: Date;
 
   @Column({ name: "type" })
@@ -57,10 +57,10 @@ export class TycInfo extends BaseEntity {
   @Column({ name: "industry", length: 255 })
   industry: string;
 
-  @Column({ name: "approved_time", type: "timestamp" })
+  @Column({ name: "approved_time", type: "timestamp", nullable: true })
   approvedTime: Date;
 
-  @Column({ name: "update_times", type: "timestamp" })
+  @Column({ name: "update_times", type: "timestamp", nullable: true })
   updateTimes: Date;
 
   @Column({ name: "social_staff_num" })
@@ -87,7 +87,7 @@ export class TycInfo extends BaseEntity {
   @Column({ name: "reg_status", length: 31 })
   regStatus: string;
 
-  @Column({ name: "estiblish_time", type: "date" })
+  @Column({ name: "estiblish_time", type: "date", nullable: true })
   estiblishTime: Date;
 
   @Column({ name: "bond_type", length: 31 })
@@ -135,13 +135,13 @@ export class TycInfo extends BaseEntity {
   @Column({ name: "phone_number", length: 1024 })
   phoneNumber: string;
 
-  @Column({ name: "revoke_date", type: "date" })
+  @Column({ name: "revoke_date", type: "date", nullable: true })
   revokeDate: Date;
 
   @Column({ name: "revoke_reason", length: 500 })
   revokeReason: string;
 
-  @Column({ name: "cancel_date", type: "date" })
+  @Column({ name: "cancel_date", type: "date", nullable: true })
   cancelDate: Date;
 
   @Column({ name: "cancel_reason", length: 500 })

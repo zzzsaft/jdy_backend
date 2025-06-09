@@ -9,7 +9,7 @@ import { atdClassService } from "./xft/atdClass.services";
 import { isAfterTime, isBeforeTime } from "../utils/dateUtils";
 import { AbnomalTraffic } from "../entity/log/abnormal_traffic";
 import { User } from "../entity/basic/employee";
-import { MessageService } from "./messageServices";
+import { MessageService } from "./messageService";
 import { Department } from "../entity/basic/department";
 
 export class Traffic {
@@ -233,12 +233,12 @@ export class Traffic {
       staffNameOrNumber: this.userid,
     });
     if (data.returnCode != "SUC0000") {
-      throw new Error(`获取实时考勤信息失败${this.userid} ${data}`);
+      throw new Error(`获取实时考勤信息失败${this.userid}`);
     }
     const className =
-      data["body"]["realTimeAttendanceDetailDtoList"][0]["className"];
+      data["body"]["realTimeAttendanceDetailDtoList"]?.[0]?.["className"];
     if (!className) {
-      throw new Error(`获取实时考勤信息失败${this.userid} ${data}`);
+      // throw new Error(`获取实时考勤信息失败${this.userid} ${data}`);
     }
     return await atdClassService.validWorkTime(className, this.date, baseDate);
   };

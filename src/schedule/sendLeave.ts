@@ -20,7 +20,7 @@ import { XftAtdLeave } from "../entity/atd/xft_leave";
 import _ from "lodash";
 import { getWeekDayName } from "../utils/dateUtils";
 import { quotaServices } from "../services/xft/quotaServices";
-import { MessageService } from "../services/messageServices";
+import { MessageService } from "../services/messageService";
 
 export const getWeekendDates = () => {
   const today = new Date();

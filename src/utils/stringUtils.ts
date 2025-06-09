@@ -4,3 +4,11 @@ export const createWechatUrl = (redirectUrl: string) => {
     redirectUrl
   )}&response_type=code&scope=snsapi_base&state=STATE&agentid=1000061#wechat_redirect`;
 };
+
+export function removeUndefined(obj) {
+  return JSON.parse(
+    JSON.stringify(obj, (key, value) =>
+      value === undefined ? undefined : value
+    )
+  );
+}

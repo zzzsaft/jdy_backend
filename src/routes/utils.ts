@@ -44,6 +44,7 @@ const sendSalaryList = async (request: Request, response: Response) => {
 const getWorkStartTime = async (request: Request, response: Response) => {
   const userid = request.query.userid as string;
   const date = request.query.date as string;
+  if (!userid || !date) return response.status(400).send("参数错误");
   const time = await atdClassService.getWorkStartTime(userid, new Date(date));
   response.send({ start: time });
 };

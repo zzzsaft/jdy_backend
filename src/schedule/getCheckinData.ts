@@ -7,7 +7,7 @@ import {
 } from "../api/wechat/chekin";
 import { HardwareCheckinData } from "../entity/atd/wx_hardware_checkin_data";
 import { CheckinData } from "../entity/atd/checkin_data";
-import { Between, In } from "typeorm";
+import { Between, Equal, In, Not } from "typeorm";
 import { User } from "../entity/basic/employee";
 import { jctimesApiClient } from "../api/jctimes/app";
 import { LogCheckin } from "../entity/log/log_checkin";
@@ -312,7 +312,10 @@ const setCheckin = async () => {
 
 export const importErrorAtd = async () => {
   let err: any[] = [];
-  const checkins = await LogCheckin.find();
+  const checkins = await LogCheckin.find({
+    where: { errmsg: Not(Equal("[]")) },
+    take: 20,
+  });
   let result: any[] = [];
   for (const checkin of checkins) {
     const msgs = JSON.parse(checkin.errmsg);
@@ -334,6 +337,10 @@ export const importErrorAtd = async () => {
     if (res.staffNumber == "WangJian") res.staffName = "王剑";
     if (res.staffNumber == "WangJian01") res.staffName = "王剑";
     if (res.staffNumber == "HeJie2") res.staffName = "何杰";
+    if (res.staffNumber == "YangWei") res.staffName = "杨炜";
+    if (res.staffNumber == "YangYang2") res.staffName = "杨洋";
+    if (res.staffNumber == "HuangDong") res.staffName = "黄东";
+    if (res.staffNumber == "KouJunFeng") res.staffName = "寇俊峰";
   });
   const errs = await xftatdApiClient.importAtd(result);
   for (const temp of errs) {
@@ -343,7 +350,7 @@ export const importErrorAtd = async () => {
       body: body,
     });
   }
-  if (errs.length < 1) {
+  if (errs.length <= 1) {
     for (const checkin of checkins) {
       checkin.errmsg = "[]";
     }

@@ -2,6 +2,7 @@ import { decrypt } from "@wecom/crypto";
 import convert from "xml-js";
 
 export const decryptMsg = (payload) => {
+  if (!payload || !payload?.["xml"]) return "";
   const encodingAESKey = process.env.WECHAT_ENCODING_AES_KEY ?? "";
   let { message, id } = decrypt(
     encodingAESKey,

@@ -7,9 +7,9 @@ import nodeRSA from "node-rsa";
 
 export class ApiClient {
   host: string;
-
   constructor() {
-    this.host = "http://jcoa.jc-times.com:780";
+    this.host = "http://122.226.146.110:780";
+    // this.host = "http://localhost:780";
     // this.host = "http://192.168.0.216:780";
   }
 
@@ -26,12 +26,13 @@ export class ApiClient {
     const httpMethod = _.toUpper(options.method);
     const queryString = query ? `?${qs.stringify(query)}` : "";
     // console.log(JSON.stringify(options.payload));
-    options.payload = { ...options.payload, time: new Date().getTime() };
+    // options.payload = { ...options.payload, time: new Date().getTime() };
     const axiosRequestConfig = {
       method: httpMethod,
       url: `${this.host}${options.path}${queryString}`,
-      data: { data: options.payload, sigature: genSignature(options.payload) },
-      timeout: 10000,
+      // data: { data: options.payload, sigature: genSignature(options.payload) },
+      data: options.payload,
+      timeout: 15000,
       headers: { Authorization: "Bearer token" },
     };
     let response;

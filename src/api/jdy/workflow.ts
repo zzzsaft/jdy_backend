@@ -44,6 +44,26 @@ class WorkFlowApiClient extends ApiClient {
       }
     );
   }
+
+  /**
+   * 结束流程实例信息
+   */
+  async workflowInstanceClose(instance_id) {
+    return await this.doRequest(
+      {
+        method: "POST",
+        path: "workflow/instance/close",
+        payload: {
+          instance_id,
+        },
+      },
+      {
+        name: "workflowInstanceClose",
+        duration: 1000,
+        limit: 20,
+      }
+    );
+  }
 }
 
 export const workflowApiClient = new WorkFlowApiClient("v5");

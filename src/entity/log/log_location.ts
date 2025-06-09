@@ -66,6 +66,9 @@ export class LogLocation extends BaseEntity {
   @Column({ nullable: true })
   seaArea: string;
 
+  @Column({ nullable: true })
+  source: string;
+
   @Column({ nullable: true, type: "jsonb" })
   detail: any;
 

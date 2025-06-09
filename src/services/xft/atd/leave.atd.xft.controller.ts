@@ -8,7 +8,7 @@ import { User } from "../../../entity/basic/employee";
 import { quotaServices } from "../../../services/xft/quotaServices";
 import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
 import { getDifference, isAfterTime } from "../../../utils/dateUtils";
-import { MessageService } from "../../messageServices";
+import { MessageService } from "../../messageService";
 export class LeaveEvent {
   task: XftTaskEvent;
   title: string;

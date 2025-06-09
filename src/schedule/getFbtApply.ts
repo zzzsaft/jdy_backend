@@ -10,7 +10,7 @@ import { BusinessTrip } from "../entity/atd/businessTrip";
 import { logger } from "../config/logger";
 import { log } from "console";
 import { getHalfDay } from "../utils/dateUtils";
-import { MessageService } from "../services/messageServices";
+import { MessageService } from "../services/messageService";
 
 export class GetFbtApply {
   startTime: Date;
