@@ -145,7 +145,7 @@ export class Quote extends BaseEntity {
 }
 
 @Entity({ name: "crm_quote_item" })
-@Tree("materialized-path")
+@Tree("closure-table")
 export class QuoteItem extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
