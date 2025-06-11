@@ -11,7 +11,13 @@ const getQuotes = async (request: Request, response: Response) => {
     response.status(401).send("Unauthorized");
     return;
   }
-  const quotes = await quoteService.getQuotes();
+  const quotes = await quoteService.getQuotes({
+    page: parseInt(request.query.page as string),
+    pageSize: parseInt(request.query.pageSize as string),
+    type: request.query.type as string,
+    quoteName: request.query.quoteName as string,
+    customerName: request.query.customerName as string,
+  });
   response.send(quotes);
 };
 

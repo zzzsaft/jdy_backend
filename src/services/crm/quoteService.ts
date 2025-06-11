@@ -276,8 +276,37 @@ class QuoteService {
     return await QuoteItem.delete(quoteItemId);
   };
 
-  getQuotes = async () => {
-    return await Quote.find({ where: { type: "history" } });
+  getQuotes = async (params?: {
+    page?: number;
+    pageSize?: number;
+    type?: string;
+    quoteName?: string;
+    customerName?: string;
+  }) => {
+    const { page = 1, pageSize = 20, type, quoteName, customerName } =
+      params || {};
+
+    const query = Quote.createQueryBuilder("quote");
+    if (type) {
+      query.andWhere("quote.type = :type", { type });
+    }
+    if (quoteName) {
+      query.andWhere("quote.quoteName LIKE :quoteName", {
+        quoteName: `%${quoteName}%`,
+      });
+    }
+    if (customerName) {
+      query.andWhere("quote.customerName LIKE :customerName", {
+        customerName: `%${customerName}%`,
+      });
+    }
+
+    const [list, total] = await query
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getManyAndCount();
+
+    return { list, total };
   };
   getQuoteDetail = async (quoteId: number) => {
     const itemTreeRepository = PgDataSource.getTreeRepository(QuoteItem);
