@@ -12,6 +12,7 @@ import { AuthRoutes } from "./auth";
 import { OpportunityRoutes } from "./opportunity";
 import { QuoteRoutes } from "./quote";
 import { UserRoutes } from "./user";
+import { PriceRuleRoutes } from "./priceRule";
 
 /**
  * All application routes.
@@ -30,5 +31,6 @@ export const AppRoutes = [
   ...AuthRoutes,
   ...OpportunityRoutes,
   ...QuoteRoutes,
+  ...PriceRuleRoutes,
   ...UserRoutes,
 ];
