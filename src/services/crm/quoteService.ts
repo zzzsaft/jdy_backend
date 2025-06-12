@@ -79,7 +79,6 @@ class QuoteService {
         subtotal: item["_widget_1615187421495"],
         unit: item["_widget_1615858670974"],
         brand: item["_widget_1747559943553"],
-        children: [],
       });
     });
     // ["a"].map((value, index) => []);
@@ -265,10 +264,10 @@ class QuoteService {
       unitPrice: undefined,
       quote: { id: quoteId },
     });
-    if (parentId) {
-      const parent = await QuoteItem.findOne({ where: { id: parentId } });
-      if (parent) quoteItem.parent = parent;
-    }
+    // if (parentId) {
+    //   const parent = await QuoteItem.findOne({ where: { id: parentId } });
+    //   if (parent) quoteItem.parent = parent;
+    // }
     return await quoteItem.save();
   };
 
@@ -283,8 +282,13 @@ class QuoteService {
     quoteName?: string;
     customerName?: string;
   }) => {
-    const { page = 1, pageSize = 20, type, quoteName, customerName } =
-      params || {};
+    const {
+      page = 1,
+      pageSize = 20,
+      type,
+      quoteName,
+      customerName,
+    } = params || {};
 
     const query = Quote.createQueryBuilder("quote");
     if (type) {
@@ -309,20 +313,19 @@ class QuoteService {
     return { list, total };
   };
   getQuoteDetail = async (quoteId: number) => {
-    const itemTreeRepository = PgDataSource.getTreeRepository(QuoteItem);
     const quote = await Quote.findOne({
       where: { id: quoteId },
-      // relations: ["items"],
+      relations: ["items"],
     });
-    if (quote) {
-      // 直接查询属于这个 quote 的所有 items 并构建树
-      const roots = await itemTreeRepository.find({
-        where: { quote: { id: quoteId }, parentId: IsNull() },
-      });
-      quote.items = await Promise.all(
-        roots.map((root) => itemTreeRepository.findDescendantsTree(root))
-      );
-    }
+    // if (quote) {
+    //   // 直接查询属于这个 quote 的所有 items 并构建树
+    //   const roots = await itemTreeRepository.find({
+    //     where: { quote: { id: quoteId }, parentId: IsNull() },
+    //   });
+    //   quote.items = await Promise.all(
+    //     roots.map((root) => itemTreeRepository.findDescendantsTree(root))
+    //   );
+    // }
 
     return quote;
   };

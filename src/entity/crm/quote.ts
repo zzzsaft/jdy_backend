@@ -110,6 +110,12 @@ export class Quote extends BaseEntity {
   @Column("jsonb", { name: "address", nullable: true })
   address: any; // 地址
 
+  @Column("jsonb", { name: "quote_terms", nullable: true })
+  quoteTerms: any; // 地址
+
+  @Column("jsonb", { name: "contract_terms", nullable: true })
+  contractTerms: any; // 地址
+
   @Column({ name: "contact_name", nullable: true })
   contactName: string; // 联系人姓名
 
@@ -140,12 +146,18 @@ export class Quote extends BaseEntity {
   @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date; // 更新时间
 
+  @Column({ name: "fax_number", nullable: true })
+  faxNumber: string; // 产品名称
+
+  @Column({ name: "telephone", nullable: true })
+  telephone: string; // 产品名称
+
   @OneToMany(() => QuoteItem, (item) => item.quote, { cascade: true })
   items: QuoteItem[];
 }
 
 @Entity({ name: "crm_quote_item" })
-@Tree("closure-table")
+// @Tree("closure-table")
 export class QuoteItem extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
@@ -216,11 +228,11 @@ export class QuoteItem extends BaseEntity {
   @Column({ name: "parentId", nullable: true })
   parentId: number; // 父项ID
 
-  @TreeChildren()
-  children: QuoteItem[]; // 子项
+  // @TreeChildren()
+  // children: QuoteItem[]; // 子项
 
-  @TreeParent()
-  parent: QuoteItem; // 父项
+  // @TreeParent()
+  // parent: QuoteItem; // 父项
 
   @ManyToOne(() => Quote, (quote) => quote.items)
   quote: Quote; // 关联的报价单

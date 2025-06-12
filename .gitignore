@@ -135,3 +135,4 @@ dist
 *.dev
 .env.prod
 .env.dev
+*.xlsx
