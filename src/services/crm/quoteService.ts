@@ -234,10 +234,15 @@ class QuoteService {
       customerName: string;
       customerId: string;
       quoteId: string;
+      orderId?: string;
       date: string;
     },
     creatorId: string
   ) => {
+    if (params.orderId) {
+      const exist = await Quote.findOne({ where: { orderId: params.orderId } });
+      if (exist) return { message: "订单号重复" } as any;
+    }
     return await Quote.create({
       ...params,
       currencyType: "CNY",
