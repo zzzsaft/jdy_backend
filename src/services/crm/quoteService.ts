@@ -298,7 +298,9 @@ class QuoteService {
       customerName,
     } = params || {};
 
-    const query = Quote.createQueryBuilder("quote");
+    const query = Quote.createQueryBuilder("quote")
+      .leftJoinAndSelect("quote.items", "item")
+      .orderBy("item.index", "ASC");
     if (type) {
       query.andWhere("quote.type = :type", { type });
     }
@@ -312,7 +314,7 @@ class QuoteService {
         customerName: `%${customerName}%`,
       });
     }
-    if (userid) {
+    if (userid && userid !== "LiangZhi" && userid !== "LiaoGengCong") {
       query.andWhere(
         new Brackets((qb) => {
           qb.where("quote.creatorId = :userid", { userid })
