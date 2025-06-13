@@ -42,7 +42,7 @@ const getQuoteDetail = async (request: Request, response: Response) => {
     return;
   }
   const quoteId = request.query.quoteId as string;
-  const quotes = await quoteService.getQuoteDetail(parseInt(quoteId));
+  const quotes = await quoteService.getQuoteDetail(parseInt(quoteId), userid);
   response.send(quotes);
 };
 

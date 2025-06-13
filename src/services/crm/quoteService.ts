@@ -298,9 +298,7 @@ class QuoteService {
       customerName,
     } = params || {};
 
-    const query = Quote.createQueryBuilder("quote")
-      .leftJoinAndSelect("quote.items", "item")
-      .orderBy("item.index", "ASC");
+    const query = Quote.createQueryBuilder("quote");
     if (type) {
       query.andWhere("quote.type = :type", { type });
     }
@@ -332,11 +330,22 @@ class QuoteService {
 
     return { list, total };
   };
-  getQuoteDetail = async (quoteId: number) => {
-    const quote = await Quote.findOne({
-      where: { id: quoteId },
-      relations: ["items"],
-    });
+  getQuoteDetail = async (quoteId: number, userid?: string) => {
+    const query = Quote.createQueryBuilder("quote")
+      .leftJoinAndSelect("quote.items", "item")
+      .where("quote.id = :quoteId", { quoteId })
+      .orderBy("item.index", "ASC");
+    if (userid && userid !== "LiangZhi" && userid !== "LiaoGengCong") {
+      query.andWhere(
+        new Brackets((qb) => {
+          qb.where("quote.creatorId = :userid", { userid })
+            .orWhere("quote.chargerId = :userid", { userid })
+            .orWhere("quote.projectManagerId = :userid", { userid })
+            .orWhere("quote.salesSupportId = :userid", { userid });
+        })
+      );
+    }
+    const quote = await query.getOne();
     // if (quote) {
     //   // 直接查询属于这个 quote 的所有 items 并构建树
     //   const roots = await itemTreeRepository.find({
