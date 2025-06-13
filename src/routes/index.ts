@@ -14,6 +14,7 @@ import { QuoteRoutes } from "./quote";
 import { UserRoutes } from "./user";
 import { PriceRuleRoutes } from "./priceRule";
 import { ProductRoutes } from "./product";
+import { TemplateRoutes } from "./template";
 
 /**
  * All application routes.
@@ -32,6 +33,7 @@ export const AppRoutes = [
   ...AuthRoutes,
   ...OpportunityRoutes,
   ...QuoteRoutes,
+  ...TemplateRoutes,
   ...PriceRuleRoutes,
   ...ProductRoutes,
   ...UserRoutes,
