@@ -195,6 +195,12 @@ export class QuoteItem extends BaseEntity {
   @Column({ nullable: true })
   unit: string; //单位
 
+  @Column({ name: "product_code", nullable: true })
+  productCode: string; // 产品编码
+
+  @Column({ name: "form_type", nullable: true })
+  formType: string; // 表单类型
+
   @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
   quantity: number; // 数量
 

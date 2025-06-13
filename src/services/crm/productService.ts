@@ -3,6 +3,7 @@ import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { Product } from "../../entity/crm/product";
 import { Pump } from "../../entity/crm/productPump";
 import { Filter } from "../../entity/crm/productFilter";
+import { QuoteItem } from "../../entity/crm/quote";
 
 export class ProductService {
   appid = "6191e49fc6c18500070f60ca";
@@ -53,6 +54,53 @@ export class ProductService {
   getFilter = async () => {
     return await Filter.find();
   };
+
+  async searchProducts(
+    keyword: string,
+    field: "code" | "name",
+    formType: string
+  ): Promise<{
+    item: QuoteItem;
+    material: string[];
+    industry: string;
+    customer: string;
+    finalProduct: string;
+    orderDate: string;
+  }[]> {
+    if (!keyword || !field || !formType) {
+      return [];
+    }
+
+    try {
+      const query = QuoteItem.createQueryBuilder("item")
+        .leftJoinAndSelect("item.quote", "quote")
+        .where("item.formType = :formType", { formType });
+
+      if (field === "code") {
+        query.andWhere("item.productCode = :keyword", { keyword });
+      } else {
+        query.andWhere("item.productName LIKE :keyword", {
+          keyword: `%${keyword}%`,
+        });
+      }
+
+      const items = await query
+        .orderBy("quote.quoteTime", "DESC")
+        .getMany();
+
+      return items.map((i) => ({
+        item: i,
+        material: i.quote?.material ?? [],
+        industry: "",
+        customer: i.quote?.customerName ?? "",
+        finalProduct: i.quote?.finalProduct ?? "",
+        orderDate: i.quote?.quoteTime?.toISOString() ?? "",
+      }));
+    } catch (error) {
+      console.error("searchProducts error", error);
+      return [];
+    }
+  }
 }
 
 export const productService = new ProductService();
