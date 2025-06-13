@@ -5,6 +5,7 @@ import { authService } from "../services/authService";
 import { opportunityServices } from "../services/crm/opportunityService";
 import { productService } from "../services/crm/productService";
 import { quoteService } from "../services/crm/quoteService";
+import { jctimesContractApiClient } from "../api/jctimes/contract";
 const getQuotes = async (request: Request, response: Response) => {
   const userid = (await authService.verifyToken(request))?.userId;
   if (!userid) {
@@ -76,6 +77,21 @@ const deleteQuoteItem = async (request: Request, response: Response) => {
   response.send(quote);
 };
 
+const executeContract = async (request: Request, response: Response) => {
+  const userid = (await authService.verifyToken(request))?.userId;
+  if (!userid) {
+    response.status(401).send("Unauthorized");
+    return;
+  }
+  const { quote } = request.body;
+  if (!quote) {
+    response.status(400).send("Missing quote");
+    return;
+  }
+  const result = await jctimesContractApiClient.executeContract(quote);
+  response.send(result);
+};
+
 export const QuoteRoutes = [
   {
     path: "/quote/create",
@@ -114,5 +130,10 @@ export const QuoteRoutes = [
     path: "/quote/detail/get",
     method: "get",
     action: getQuoteDetail,
+  },
+  {
+    path: "/contract/execute",
+    method: "post",
+    action: executeContract,
   },
 ];
