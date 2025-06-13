@@ -13,8 +13,8 @@ class TemplateService {
     return await CrmTemplate.findOne({ where: { id: Number(id) } });
   }
 
-  async createTemplate(data: Partial<CrmTemplate>) {
-    const entity = CrmTemplate.create(data);
+  async createTemplate(data: Partial<CrmTemplate>, userid: string) {
+    const entity = CrmTemplate.create({ creatorId: userid, ...data });
     return await entity.save();
   }
 

@@ -18,10 +18,10 @@ export class CrmTemplate extends BaseEntity {
   @Column({ nullable: true })
   description: string;
 
-  @Column("simple-array", { nullable: true })
+  @Column("simple-array", { default: [] })
   materials: string[];
 
-  @Column("simple-array", { nullable: true })
+  @Column("simple-array", { default: [] })
   industries: string[];
 
   @Column({ name: "template_type", nullable: true })

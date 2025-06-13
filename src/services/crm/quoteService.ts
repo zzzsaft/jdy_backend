@@ -249,6 +249,8 @@ class QuoteService {
       quoteNumber: 1,
       quoteTime: new Date(params.date),
       creatorId,
+      contractTerms: [],
+      quoteTerms: [],
     }).save();
   };
 

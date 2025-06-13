@@ -18,7 +18,7 @@ const getTemplate = async (req: Request, res: Response) => {
 const createTemplate = async (req: Request, res: Response) => {
   const userid = (await authService.verifyToken(req))?.userId;
   if (!userid) return res.status(401).send("Unauthorized");
-  const result = await templateService.createTemplate(req.body);
+  const result = await templateService.createTemplate(req.body, userid);
   res.send(result);
 };
 
