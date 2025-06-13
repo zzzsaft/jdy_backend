@@ -8,7 +8,7 @@ import { JdyUtil } from "../../utils/jdyUtils";
 import { businessTripCheckinServices } from "../jdy/businessTripCheckinServices";
 import { MessageService } from "../messageService";
 import { checkinServices } from "../xft/checkinServices";
-import { getManager, In, IsNull } from "typeorm";
+import { getManager, In, IsNull, Brackets } from "typeorm";
 import { customerServices } from "./customerService";
 import { PgDataSource } from "../../config/data-source";
 
@@ -280,13 +280,16 @@ class QuoteService {
     return await QuoteItem.delete(quoteItemId);
   };
 
-  getQuotes = async (params?: {
-    page?: number;
-    pageSize?: number;
-    type?: string;
-    quoteName?: string;
-    customerName?: string;
-  }) => {
+  getQuotes = async (
+    params?: {
+      page?: number;
+      pageSize?: number;
+      type?: string;
+      quoteName?: string;
+      customerName?: string;
+    },
+    userid?: string
+  ) => {
     const {
       page = 1,
       pageSize = 20,
@@ -308,6 +311,16 @@ class QuoteService {
       query.andWhere("quote.customerName LIKE :customerName", {
         customerName: `%${customerName}%`,
       });
+    }
+    if (userid) {
+      query.andWhere(
+        new Brackets((qb) => {
+          qb.where("quote.creatorId = :userid", { userid })
+            .orWhere("quote.chargerId = :userid", { userid })
+            .orWhere("quote.projectManagerId = :userid", { userid })
+            .orWhere("quote.salesSupportId = :userid", { userid });
+        })
+      );
     }
 
     const [list, total] = await query
