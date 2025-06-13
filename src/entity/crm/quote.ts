@@ -47,11 +47,11 @@ export class Quote extends BaseEntity {
   @Column({ name: "material", type: "simple-array", nullable: true })
   material: string[]; // 适用原料
 
-  @Column({ name: "final_product", type: "simple-array", nullable: true })
-  finalProduct: string[]; // 最终产品
+  @Column({ name: "final_product", nullable: true })
+  finalProduct: string; // 最终产品
 
-  @Column({ name: "application_field", type: "simple-array", nullable: true })
-  applicationField: string[]; // 应用领域
+  @Column({ name: "application_field", nullable: true })
+  applicationField: string; // 应用领域
 
   @Column({ name: "currency_type", nullable: true })
   currencyType: string; // 货币类型
@@ -111,10 +111,19 @@ export class Quote extends BaseEntity {
   address: any; // 地址
 
   @Column("jsonb", { name: "quote_terms", nullable: true })
-  quoteTerms: any; // 地址
+  quoteTerms: any; //
 
   @Column("jsonb", { name: "contract_terms", nullable: true })
-  contractTerms: any; // 地址
+  contractTerms: any; //
+
+  @Column({ name: "quotation_pdf", nullable: true })
+  quotationPdf: string;
+
+  @Column({ name: "contract_pdf", nullable: true })
+  contractPdf: string;
+
+  @Column({ name: "config_pdf", nullable: true })
+  configPdf: string;
 
   @Column({ name: "contact_name", nullable: true })
   contactName: string; // 联系人姓名
