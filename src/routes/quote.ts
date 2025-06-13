@@ -17,6 +17,8 @@ const getQuotes = async (request: Request, response: Response) => {
     type: request.query.type as string,
     quoteName: request.query.quoteName as string,
     customerName: request.query.customerName as string,
+    sortField: request.query.sortField as string,
+    sortOrder: request.query.sortOrder as string as "ASC" | "DESC",
   });
   response.send(quotes);
 };

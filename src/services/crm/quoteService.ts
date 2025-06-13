@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { format } from "date-fns";
 import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { workflowApiClient } from "../../api/jdy/workflow";
 import { XftTripCheckin } from "../../entity/atd/business_trip_checkin";
@@ -286,6 +287,8 @@ class QuoteService {
     type?: string;
     quoteName?: string;
     customerName?: string;
+    sortField?: string;
+    sortOrder?: "ASC" | "DESC";
   }) => {
     const {
       page = 1,
@@ -293,6 +296,8 @@ class QuoteService {
       type,
       quoteName,
       customerName,
+      sortField,
+      sortOrder,
     } = params || {};
 
     const query = Quote.createQueryBuilder("quote");
@@ -310,12 +315,27 @@ class QuoteService {
       });
     }
 
+    if (sortField) {
+      const order: "ASC" | "DESC" = sortOrder && sortOrder.toUpperCase() === "ASC" ? "ASC" : "DESC";
+      const allowedFields = ["creatorId", "createdAt"];
+      if (allowedFields.includes(sortField)) {
+        query.orderBy(`quote.${sortField}`, order);
+      }
+    } else {
+      query.orderBy("quote.createdAt", "DESC");
+    }
+
     const [list, total] = await query
       .skip((page - 1) * pageSize)
       .take(pageSize)
       .getManyAndCount();
 
-    return { list, total };
+    const formattedList = list.map((q) => ({
+      ...q,
+      createdAt: q.createdAt ? format(q.createdAt, "yyyy-MM-dd HH:mm:ss") : q.createdAt,
+    }));
+
+    return { list: formattedList, total };
   };
   getQuoteDetail = async (quoteId: number) => {
     const quote = await Quote.findOne({
