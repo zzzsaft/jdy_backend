@@ -332,7 +332,9 @@ class QuoteService {
 
     return { list, total };
   };
+
   getQuoteDetail = async (quoteId: number, userid?: string) => {
+    if (!quoteId) return;
     const query = Quote.createQueryBuilder("quote")
       .leftJoinAndSelect("quote.items", "item")
       .where("quote.id = :quoteId", { quoteId })
@@ -348,15 +350,6 @@ class QuoteService {
       );
     }
     const quote = await query.getOne();
-    // if (quote) {
-    //   // 直接查询属于这个 quote 的所有 items 并构建树
-    //   const roots = await itemTreeRepository.find({
-    //     where: { quote: { id: quoteId }, parentId: IsNull() },
-    //   });
-    //   quote.items = await Promise.all(
-    //     roots.map((root) => itemTreeRepository.findDescendantsTree(root))
-    //   );
-    // }
 
     return quote;
   };
