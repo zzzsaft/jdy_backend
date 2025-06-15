@@ -291,6 +291,7 @@ class QuoteService {
       type?: string;
       quoteName?: string;
       customerName?: string;
+      sort?: string;
     },
     userid?: string
   ) => {
@@ -300,6 +301,7 @@ class QuoteService {
       type,
       quoteName,
       customerName,
+      sort,
     } = params || {};
 
     const query = Quote.createQueryBuilder("quote");
@@ -325,6 +327,21 @@ class QuoteService {
             .orWhere("quote.salesSupportId = :userid", { userid });
         })
       );
+    }
+
+    if (sort) {
+      const sorts = sort.split(',').filter((v) => v);
+      sorts.forEach((rule, idx) => {
+        const [field, order] = rule.split(':');
+        if (field) {
+          const direction = order && order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+          if (idx === 0) {
+            query.orderBy(`quote.${field}`, direction as any);
+          } else {
+            query.addOrderBy(`quote.${field}`, direction as any);
+          }
+        }
+      });
     }
 
     const [list, total] = await query
