@@ -35,6 +35,8 @@ class QuoteService {
     const quote = Quote.create({
       quoteId: data["_widget_1615190928573"],
       quoteNumber: data["_widget_1615191306812"],
+      type: "oa",
+      status: "draft",
       jdyId: data["_id"],
       flowState: JdyUtil.getState(data["flowState"]),
       opportunityId: data["_widget_1631004165106"]?.["id"],
