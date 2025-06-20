@@ -295,6 +295,7 @@ class QuoteService {
       sort?: string;
       status?: string;
       approvalNode?: string;
+      currentApprover?: string;
     },
     userid?: string
   ) => {
@@ -307,10 +308,14 @@ class QuoteService {
       sort,
       status,
       approvalNode,
+      currentApprover,
     } = params || {};
 
-    const query = Quote.createQueryBuilder("quote")
-      .leftJoin(Customer, "customer", "customer.erpId = quote.customerId");
+    const query = Quote.createQueryBuilder("quote").leftJoin(
+      Customer,
+      "customer",
+      "customer.erpId = quote.customerId"
+    );
     if (type) {
       query.andWhere("quote.type = :type", { type });
     }
@@ -327,6 +332,11 @@ class QuoteService {
     if (approvalNode) {
       query.andWhere("quote.approvalNode LIKE :approvalNode", {
         approvalNode: `%${approvalNode}%`,
+      });
+    }
+    if (currentApprover) {
+      query.andWhere("quote.currentApprover LIKE :currentApprover", {
+        currentApprover: `%${currentApprover}%`,
       });
     }
     if (customerName) {

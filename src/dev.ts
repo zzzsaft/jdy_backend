@@ -37,6 +37,7 @@ import { MessageService } from "./services/messageService";
 import { fbtApplyApiClient } from "./api/fenbeitong/apply";
 import { fbtReimbApiClient } from "./api/fenbeitong/apply copy";
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
+import { 修改config } from "./temp";
 
 PgDataSource.initialize()
   .then(async () => {

@@ -45,6 +45,7 @@ import { LeaveEvent } from "./services/xft/atd/leave.atd.xft.controller";
 import { handleContactEvent } from "./controllers/wechat/contact.wechat.controller";
 import { handleWechatMessage } from "./controllers/wechat/wechat.controller";
 import { checkinServices } from "./services/xft/checkinServices";
+import { QuoteItem } from "./entity/crm/quote";
 export const 获取空缺请假记录 = async () => {
   // const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
   //   .select("leave.leaveRecSeq")
@@ -305,5 +306,20 @@ export const handleWechat = async () => {
   });
   for (const item of logs) {
     await handleWechatMessage(JSON.parse(item.content));
+  }
+};
+
+export const 修改config = async () => {
+  const items = await QuoteItem.find({ where: { formType: "FeedblockForm" } });
+  for (const item of items) {
+    if (item.config.compositeStructure) {
+      item.config["compositeList"] = item.config.compositeStructure.map((s) => {
+        return {
+          structure: s,
+          ratio: item.config.compositeRatio,
+        };
+      });
+      await item.save();
+    }
   }
 };

@@ -14,6 +14,7 @@ const getQuotes = async (request: Request, response: Response) => {
   }
   const quotes = await quoteService.getQuotes(
     {
+      ...request.query,
       page: parseInt(request.query.page as string),
       pageSize: parseInt(request.query.pageSize as string),
       type: request.query.type as string,
