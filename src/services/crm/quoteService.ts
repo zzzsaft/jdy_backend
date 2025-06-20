@@ -11,6 +11,7 @@ import { checkinServices } from "../xft/checkinServices";
 import { getManager, In, IsNull, Brackets } from "typeorm";
 import { customerServices } from "./customerService";
 import { PgDataSource } from "../../config/data-source";
+import { Customer } from "../../entity/crm/customer";
 
 class QuoteService {
   appid = "6191e49fc6c18500070f60ca";
@@ -304,7 +305,8 @@ class QuoteService {
       sort,
     } = params || {};
 
-    const query = Quote.createQueryBuilder("quote");
+    const query = Quote.createQueryBuilder("quote")
+      .leftJoin(Customer, "customer", "customer.erpId = quote.customerId");
     if (type) {
       query.andWhere("quote.type = :type", { type });
     }
@@ -324,7 +326,12 @@ class QuoteService {
           qb.where("quote.creatorId = :userid", { userid })
             .orWhere("quote.chargerId = :userid", { userid })
             .orWhere("quote.projectManagerId = :userid", { userid })
-            .orWhere("quote.salesSupportId = :userid", { userid });
+            .orWhere("quote.salesSupportId = :userid", { userid })
+            .orWhere("customer.chargerId = :userid", { userid })
+            .orWhere("customer.supporterId = :userid", { userid })
+            .orWhere("customer.collaboratorId LIKE :search", {
+              search: `%${userid}%`,
+            });
         })
       );
     }
@@ -356,6 +363,7 @@ class QuoteService {
     if (!quoteId) return;
     const query = Quote.createQueryBuilder("quote")
       .leftJoinAndSelect("quote.items", "item")
+      .leftJoin(Customer, "customer", "customer.erpId = quote.customerId")
       .where("quote.id = :quoteId", { quoteId })
       .orderBy("item.index", "ASC");
     if (userid && userid !== "LiangZhi" && userid !== "LiaoGengCong") {
@@ -364,7 +372,12 @@ class QuoteService {
           qb.where("quote.creatorId = :userid", { userid })
             .orWhere("quote.chargerId = :userid", { userid })
             .orWhere("quote.projectManagerId = :userid", { userid })
-            .orWhere("quote.salesSupportId = :userid", { userid });
+            .orWhere("quote.salesSupportId = :userid", { userid })
+            .orWhere("customer.chargerId = :userid", { userid })
+            .orWhere("customer.supporterId = :userid", { userid })
+            .orWhere("customer.collaboratorId LIKE :search", {
+              search: `%${userid}%`,
+            });
         })
       );
     }
