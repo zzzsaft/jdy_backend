@@ -292,6 +292,8 @@ class QuoteService {
       quoteName?: string;
       customerName?: string;
       sort?: string;
+      status?: string;
+      approvalNode?: string;
     },
     userid?: string
   ) => {
@@ -302,6 +304,8 @@ class QuoteService {
       quoteName,
       customerName,
       sort,
+      status,
+      approvalNode,
     } = params || {};
 
     const query = Quote.createQueryBuilder("quote");
@@ -311,6 +315,16 @@ class QuoteService {
     if (quoteName) {
       query.andWhere("quote.quoteName LIKE :quoteName", {
         quoteName: `%${quoteName}%`,
+      });
+    }
+    if (status) {
+      query.andWhere("quote.status LIKE :status", {
+        status: `%${status}%`,
+      });
+    }
+    if (approvalNode) {
+      query.andWhere("quote.approvalNode LIKE :approvalNode", {
+        approvalNode: `%${approvalNode}%`,
       });
     }
     if (customerName) {
@@ -330,11 +344,12 @@ class QuoteService {
     }
 
     if (sort) {
-      const sorts = sort.split(',').filter((v) => v);
+      const sorts = sort.split(",").filter((v) => v);
       sorts.forEach((rule, idx) => {
-        const [field, order] = rule.split(':');
+        const [field, order] = rule.split(":");
         if (field) {
-          const direction = order && order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+          const direction =
+            order && order.toUpperCase() === "DESCEND" ? "DESC" : "ASC";
           if (idx === 0) {
             query.orderBy(`quote.${field}`, direction as any);
           } else {

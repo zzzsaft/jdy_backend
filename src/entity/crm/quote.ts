@@ -77,6 +77,12 @@ export class Quote extends BaseEntity {
   @Column({ name: "doc_creator_id", nullable: true })
   docCreatorId: string; // 文档创建人id
 
+  @Column({ name: "is_closed", nullable: true })
+  isClosed: boolean;
+
+  @Column({ name: "customer_production_id", nullable: true })
+  customerProductionId: string;
+
   @Column({
     name: "total_product_price",
     type: "decimal",
