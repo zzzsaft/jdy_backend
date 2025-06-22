@@ -8,7 +8,7 @@ import { JdyUtil } from "../../utils/jdyUtils";
 import { businessTripCheckinServices } from "../jdy/businessTripCheckinServices";
 import { MessageService } from "../messageService";
 import { checkinServices } from "../xft/checkinServices";
-import { getManager, In, IsNull, Brackets } from "typeorm";
+import { getManager, In, IsNull, Not, Brackets } from "typeorm";
 import { customerServices } from "./customerService";
 import { PgDataSource } from "../../config/data-source";
 import { Customer } from "../../entity/crm/customer";
@@ -30,7 +30,26 @@ class QuoteService {
       quote.currentApprover = flow.currentApprover ?? "";
       quote.docCreatorId = flow.docCreatorId ?? "";
     }
-    await this.bulkSaveQuotes([quote]);
+    if (op === "data_create") {
+      quote.items.forEach((item) => {
+        item.quote = quote;
+      });
+      const saved = await Quote.save(quote);
+      await jdyFormDataApiClient.singleDataUpdate(
+        this.appid,
+        this.entryid,
+        data._id,
+        {
+          _widget_1750573099706: JdyUtil.setText(
+            `http://hz.jc-times.com/quote/${saved.id}`
+          ),
+        }
+      );
+    } else if (op === "data_update") {
+      await this.updatePriceOnly(quote);
+    } else {
+      await this.bulkSaveQuotes([quote]);
+    }
   };
   mapping = (data) => {
     const quote = Quote.create({
@@ -232,6 +251,97 @@ class QuoteService {
     await Quote.save(quotes);
   };
 
+  updatePriceOnly = async (quote: Quote) => {
+    const existing = await Quote.findOne({
+      where: { jdyId: quote.jdyId },
+      relations: ["items"],
+    });
+    if (!existing) return;
+    existing.totalProductPrice = quote.totalProductPrice;
+    existing.discountAmount = quote.discountAmount;
+    existing.quoteAmount = quote.quoteAmount;
+    existing.items.forEach((item) => {
+      const updated = quote.items.find((i) => i.jdyId === item.jdyId);
+      if (updated) {
+        item.quantity = updated.quantity;
+        item.unitPrice = updated.unitPrice;
+        item.guidePrice = updated.guidePrice;
+        item.discountRate = updated.discountRate;
+        item.subtotal = updated.subtotal;
+      }
+    });
+    await existing.save();
+  };
+
+  quoteToJdyData = (quote: Quote) => {
+    return {
+      _widget_1615190928573: JdyUtil.setText(quote.quoteId),
+      _widget_1615191306812: JdyUtil.setNumber(quote.quoteNumber),
+      _widget_1631004165106: JdyUtil.setText(quote.opportunityId),
+      _widget_1631005820116: JdyUtil.setText(quote.opportunityName),
+      _widget_1747554783067: JdyUtil.setText(quote.currencyType),
+      _widget_1615858669714: JdyUtil.setText(quote.customerName),
+      _widget_1615858669716: JdyUtil.setText(quote.customerId),
+      _widget_1615187419548: JdyUtil.setNumber(quote.totalProductPrice),
+      _widget_1615187419925: JdyUtil.setNumber(quote.discountAmount),
+      _widget_1615187419587: JdyUtil.setNumber(quote.quoteAmount),
+      _widget_1746424952024: JdyUtil.setNumber(quote.deliveryDays),
+      _widget_1747554783125: JdyUtil.setAddress(quote.address),
+      _widget_1746269552377: JdyUtil.setText(quote.contactName),
+      _widget_1746269552378: JdyUtil.setText(quote.contactPhone),
+      _widget_1744875560210: JdyUtil.setText(quote.technicalLevel),
+      _widget_1747554783187: JdyUtil.setText(quote.material),
+      _widget_1747554783172: JdyUtil.setText(quote.finalProduct),
+      _widget_1747554783170: JdyUtil.setText(quote.applicationField),
+      _widget_1615187419450: JdyUtil.setDate(quote.quoteTime),
+      _widget_1615187420300: JdyUtil.setSubForm(
+        quote.items.map((item) => ({
+          _id: item.jdyId,
+          _widget_1743122083863: JdyUtil.setText(item.productCategory?.[0]),
+          _widget_1743122083868: JdyUtil.setText(item.productCategory?.[1]),
+          _widget_1743122083870: JdyUtil.setText(item.productCategory?.[2]),
+          _widget_1615858670970: JdyUtil.setText(item.productName),
+          _widget_1743122083872: JdyUtil.setText(item.config?.remark),
+          _widget_1615187421349: JdyUtil.setNumber(item.quantity),
+          _widget_1615858670973: JdyUtil.setNumber(item.unitPrice),
+          _widget_1744502974161: JdyUtil.setNumber(item.guidePrice),
+          _widget_1615187421408: JdyUtil.setNumber(item.discountRate / 100),
+          _widget_1615187421495: JdyUtil.setNumber(item.subtotal),
+          _widget_1615858670974: JdyUtil.setText(item.unit),
+          _widget_1747559943553: JdyUtil.setText(item.brand),
+        }))
+      ),
+      _widget_1750573099706: JdyUtil.setText(
+        `http://hz.jc-times.com/quote/${quote.id}`
+      ),
+    };
+  };
+
+  updateJdyFromQuote = async (quote: Quote) => {
+    await jdyFormDataApiClient.singleDataUpdate(
+      this.appid,
+      this.entryid,
+      quote.jdyId,
+      this.quoteToJdyData(quote)
+    );
+  };
+
+  updateAllQuoteLinks = async () => {
+    const quotes = await Quote.find({ where: { jdyId: Not(IsNull()) } });
+    for (const quote of quotes) {
+      await jdyFormDataApiClient.singleDataUpdate(
+        this.appid,
+        this.entryid,
+        quote.jdyId,
+        {
+          _widget_1750573099706: JdyUtil.setText(
+            `http://hz.jc-times.com/quote/${quote.id}`
+          ),
+        }
+      );
+    }
+  };
+
   createQuote = async (
     params: {
       customerName: string;
@@ -258,7 +368,11 @@ class QuoteService {
   };
 
   updateQuote = async (quote: Quote) => {
-    return await Quote.save(quote);
+    const saved = await Quote.save(quote);
+    if (quote.jdyId) {
+      await this.updateJdyFromQuote(saved);
+    }
+    return saved;
   };
 
   createQuoteItem = async (
