@@ -458,6 +458,18 @@ class QuoteService {
         customerName: `%${customerName}%`,
       });
     }
+    if (type === "oa") {
+      query.andWhere((qb) => {
+        const sub = qb
+          .subQuery()
+          .select("MAX(q2.quoteNumber)")
+          .from(Quote, "q2")
+          .where("q2.opportunityId = quote.opportunityId")
+          .andWhere("q2.type = :type", { type })
+          .getQuery();
+        return `quote.quoteNumber = ${sub}`;
+      });
+    }
     if (userid && userid !== "LiangZhi" && userid !== "LiaoGengCong") {
       query.andWhere(
         new Brackets((qb) => {
