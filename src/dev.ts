@@ -45,6 +45,7 @@ PgDataSource.initialize()
     if (process.env.NODE_ENV == "production") {
       logger.add(new DatabaseTransport({ handleExceptions: true }));
     }
+    // await 修改config();
     // const a = await quoteService.getQuoteDetail(572);
     // console.log(JSON.stringify(a));
     // const a = await Quote.findOne({

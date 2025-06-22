@@ -310,16 +310,26 @@ export const handleWechat = async () => {
 };
 
 export const 修改config = async () => {
-  const items = await QuoteItem.find({ where: { formType: "FeedblockForm" } });
+  const items = await QuoteItem.find({ where: { formType: "DieForm" } });
   for (const item of items) {
-    if (item.config.compositeStructure) {
-      item.config["compositeList"] = item.config.compositeStructure.map((s) => {
-        return {
-          structure: s,
-          ratio: item.config.compositeRatio,
-        };
-      });
-      await item.save();
-    }
+    console.log(item);
+    // if (item.config.compositeStructure) {
+    //   item.config["compositeList"] = item.config.compositeStructure.map((s) => {
+    //     return {
+    //       structure: s.structure,
+    //       ratio: item.config.compositeRatio,
+    //     };
+    //   });
+    //   await item.save();
+    // }
+    // if (item.config.production) {
+    //   item.config.production = {
+    //     rear: null,
+    //     front: item.config.production.value.toString(),
+    //     unit: "kg/h",
+    //     value: item.config.production.value.toString(),
+    //   };
+    await item.save();
+    // }
   }
 };
