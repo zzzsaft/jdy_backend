@@ -162,51 +162,6 @@ class QuoteService {
     }
   };
 
-  // bulkSaveQuotes = async (quoteList: Quote[]) => {
-  //   const quoteIds = quoteList.map((quote) => quote.jdyId);
-  //   const quoteItemIds = quoteList
-  //     .flatMap((quote) => quote.items)
-  //     .map((item) => item.jdyId);
-  //   const quotes = await Quote.find({
-  //     where: { jdyId: In(quoteIds) },
-  //     relations: ["items"],
-  //   });
-
-  //   const quoteIdMap = new Map<string, number>();
-  //   const quoteItemIdMap = new Map<string, number>();
-  //   quotes.forEach((quote) => {
-  //     const findQuote = quoteList.find(q=>q.jdyId == quote.jdyId)
-  //     if (findQuote){
-  //       const {id, items,...other} = findQuote
-  //       Object.assign(quote,other)
-  //       quote.items.forEach(item=>{
-  //     const finditem = findQuote.items.find(q=>q.jdyId == item.jdyId)
-  //     if (finditem){
-  //       item.config['remark'] = finditem.config?.['remark']
-  //       const {id, config,...other} = finditem
-  //       Object.assign(item,other)
-  //     }
-  //       })
-  //       quote.items.concat(findQuote.items.filter())
-  //     }
-  //     // quoteIdMap.set(quote.jdyId, quote.id);
-  //     // quote.items.forEach((quote) => {
-  //     //   quoteItemIdMap.set(quote.jdyId, quote.id);
-  //     // });
-  //   });
-
-  //   quoteList.forEach((quote) => {
-  //     quote.id = (quoteIdMap.get(quote.jdyId) ?? undefined) as number;
-  //     if (quote.id){
-
-  //     }
-  //     quote.items.forEach((item) => {
-  //       item.id = (quoteItemIdMap.get(item.jdyId) ?? undefined) as number;
-  //     });
-  //   });
-  //   await Quote.save(quoteList);
-  // };
-
   bulkSaveQuotes = async (quoteList: Quote[]) => {
     const quoteIds = quoteList.map((quote) => quote.jdyId);
     const quoteItemIds = quoteList
@@ -275,13 +230,6 @@ class QuoteService {
 
   quoteToJdyData = (quote: Quote) => {
     return {
-      _widget_1615190928573: JdyUtil.setText(quote.quoteId),
-      _widget_1615191306812: JdyUtil.setNumber(quote.quoteNumber),
-      _widget_1631004165106: JdyUtil.setText(quote.opportunityId),
-      _widget_1631005820116: JdyUtil.setText(quote.opportunityName),
-      _widget_1747554783067: JdyUtil.setText(quote.currencyType),
-      _widget_1615858669714: JdyUtil.setText(quote.customerName),
-      _widget_1615858669716: JdyUtil.setText(quote.customerId),
       _widget_1615187419548: JdyUtil.setNumber(quote.totalProductPrice),
       _widget_1615187419925: JdyUtil.setNumber(quote.discountAmount),
       _widget_1615187419587: JdyUtil.setNumber(quote.quoteAmount),
@@ -290,7 +238,7 @@ class QuoteService {
       _widget_1746269552377: JdyUtil.setText(quote.contactName),
       _widget_1746269552378: JdyUtil.setText(quote.contactPhone),
       _widget_1744875560210: JdyUtil.setText(quote.technicalLevel),
-      _widget_1747554783187: JdyUtil.setText(quote.material),
+      _widget_1747554783187: JdyUtil.setCombos(quote.material),
       _widget_1747554783172: JdyUtil.setText(quote.finalProduct),
       _widget_1747554783170: JdyUtil.setText(quote.applicationField),
       _widget_1615187419450: JdyUtil.setDate(quote.quoteTime),
