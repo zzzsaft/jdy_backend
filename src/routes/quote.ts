@@ -5,7 +5,7 @@ import { authService } from "../services/authService";
 import { opportunityServices } from "../services/crm/opportunityService";
 import { productService } from "../services/crm/productService";
 import { quoteService } from "../services/crm/quoteService";
-import { jctimesContractApiClient } from "../api/jctimes/contract";
+import { getLocalFilePath } from "../utils/fileUtils";
 const getQuotes = async (request: Request, response: Response) => {
   const userid = (await authService.verifyToken(request))?.userId;
   if (!userid) {
@@ -33,8 +33,8 @@ const updateQuote = async (request: Request, response: Response) => {
     response.status(401).send("Unauthorized");
     return;
   }
-  const { quote } = request.body;
-  const result = await quoteService.updateQuote(quote);
+  const { quote, submit } = request.body;
+  const result = await quoteService.updateQuote(quote, submit);
   response.send(result);
 };
 
@@ -88,13 +88,44 @@ const executeContract = async (request: Request, response: Response) => {
     response.status(401).send("Unauthorized");
     return;
   }
-  const { quote } = request.body;
-  if (!quote) {
-    response.status(400).send("Missing quote");
+  const { quoteId } = request.body;
+  if (!quoteId) {
+    response.status(400).send("Missing quoteId");
     return;
   }
-  const result = await jctimesContractApiClient.executeContract(quote);
+  const result = await quoteService.printQuote(quoteId);
   response.send(result);
+};
+
+const sendPrintFile = (key: "config" | "quotation" | "contract") => {
+  return async (request: Request, response: Response) => {
+    const userid = (await authService.verifyToken(request))?.userId;
+    if (!userid) {
+      response.status(401).send("Unauthorized");
+      return;
+    }
+    const id = parseInt(request.query.id as string);
+    if (!id) {
+      response.status(400).send("Missing id");
+      return;
+    }
+    const quote = await quoteService.getQuoteDetail(id);
+    if (!quote) {
+      response.status(404).send("Not Found");
+      return;
+    }
+    const file =
+      key === "config"
+        ? quote.configPdf
+        : key === "quotation"
+        ? quote.quotationPdf
+        : quote.contractPdf;
+    if (!file) {
+      response.status(404).send("Not Found");
+      return;
+    }
+    response.sendFile(getLocalFilePath(file));
+  };
 };
 
 export const QuoteRoutes = [
@@ -140,5 +171,20 @@ export const QuoteRoutes = [
     path: "/contract/execute",
     method: "post",
     action: executeContract,
+  },
+  {
+    path: "/quote/config/print",
+    method: "get",
+    action: sendPrintFile("config"),
+  },
+  {
+    path: "/quote/quotation/print",
+    method: "get",
+    action: sendPrintFile("quotation"),
+  },
+  {
+    path: "/quote/contract/print",
+    method: "get",
+    action: sendPrintFile("contract"),
   },
 ];
