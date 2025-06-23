@@ -386,28 +386,19 @@ class QuoteService {
   };
 
   printQuote = async (quoteId: number) => {
-    const quote = await Quote.findOne({
-      where: { id: quoteId },
-      relations: ["items"],
-    });
+
+    const quote = await Quote.findOne({ where: { id: quoteId }, relations: ["items"] });
     if (!quote) return null;
     if (!quote.needPrint) return quote;
 
     const result: any = await jctimesContractApiClient.executeContract(quote);
     if (result) {
       const base = `./public/files/quote/${quote.id}`;
-      quote.configPdf = await downloadFile(
-        result.configPdf,
-        `${base}/config.pdf`
-      );
-      quote.quotationPdf = await downloadFile(
-        result.quotationPdf,
-        `${base}/quotation.pdf`
-      );
-      quote.contractPdf = await downloadFile(
-        result.contractPdf,
-        `${base}/contract.pdf`
-      );
+
+      quote.configPdf = await downloadFile(result.configPdf, `${base}/config.pdf`);
+      quote.quotationPdf = await downloadFile(result.quotationPdf, `${base}/quotation.pdf`);
+      quote.contractPdf = await downloadFile(result.contractPdf, `${base}/contract.pdf`);
+
     }
     quote.needPrint = false;
     await quote.save();
