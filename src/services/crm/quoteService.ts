@@ -20,6 +20,8 @@ import {
 import { customerServices } from "./customerService";
 import { PgDataSource } from "../../config/data-source";
 import { Customer } from "../../entity/crm/customer";
+import { jctimesContractApiClient } from "../../api/jctimes/contract";
+import { downloadFile } from "../../utils/fileUtils";
 
 class QuoteService {
   appid = "6191e49fc6c18500070f60ca";
@@ -344,9 +346,10 @@ class QuoteService {
     }).save();
   };
 
-  updateQuote = async (quote: Quote) => {
+  updateQuote = async (quote: Quote, submit = false) => {
+    quote.needPrint = true;
     const saved = await Quote.save(quote);
-    if (quote.jdyId && quote.status == "complete") {
+    if (submit && quote.jdyId) {
       await this.updateJdyFromQuote(saved);
     }
     return saved;
@@ -369,11 +372,46 @@ class QuoteService {
     //   const parent = await QuoteItem.findOne({ where: { id: parentId } });
     //   if (parent) quoteItem.parent = parent;
     // }
-    return await quoteItem.save();
+    const saved = await quoteItem.save();
+    await Quote.update({ id: quoteId }, { needPrint: true });
+    return saved;
   };
 
   removeQuoteItem = async (quoteItemId) => {
+    const item = await QuoteItem.findOne({ where: { id: quoteItemId } });
+    if (item) {
+      await Quote.update({ id: item.quoteId }, { needPrint: true });
+    }
     return await QuoteItem.delete(quoteItemId);
+  };
+
+  printQuote = async (quoteId: number) => {
+    const quote = await Quote.findOne({
+      where: { id: quoteId },
+      relations: ["items"],
+    });
+    if (!quote) return null;
+    if (!quote.needPrint) return quote;
+
+    const result: any = await jctimesContractApiClient.executeContract(quote);
+    if (result) {
+      const base = `./public/files/quote/${quote.id}`;
+      quote.configPdf = await downloadFile(
+        result.configPdf,
+        `${base}/config.pdf`
+      );
+      quote.quotationPdf = await downloadFile(
+        result.quotationPdf,
+        `${base}/quotation.pdf`
+      );
+      quote.contractPdf = await downloadFile(
+        result.contractPdf,
+        `${base}/contract.pdf`
+      );
+    }
+    quote.needPrint = false;
+    await quote.save();
+    return quote;
   };
 
   getQuotes = async (

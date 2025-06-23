@@ -131,6 +131,9 @@ export class Quote extends BaseEntity {
   @Column({ name: "config_pdf", nullable: true })
   configPdf: string;
 
+  @Column({ name: "need_print", default: true })
+  needPrint: boolean;
+
   @Column({ name: "contact_name", nullable: true })
   contactName: string; // 联系人姓名
 
