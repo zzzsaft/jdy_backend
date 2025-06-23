@@ -8,7 +8,15 @@ import { JdyUtil } from "../../utils/jdyUtils";
 import { businessTripCheckinServices } from "../jdy/businessTripCheckinServices";
 import { MessageService } from "../messageService";
 import { checkinServices } from "../xft/checkinServices";
-import { getManager, In, IsNull, Not, Brackets } from "typeorm";
+import {
+  getManager,
+  In,
+  IsNull,
+  Not,
+  Brackets,
+  LessThan,
+  MoreThan,
+} from "typeorm";
 import { customerServices } from "./customerService";
 import { PgDataSource } from "../../config/data-source";
 import { Customer } from "../../entity/crm/customer";
@@ -41,7 +49,7 @@ class QuoteService {
         data._id,
         {
           _widget_1750573099706: JdyUtil.setText(
-            `http://hz.jc-times.com/quote/${saved.id}`
+            `http://hz.jc-times.com:2006/quote/${saved.id}`
           ),
         }
       );
@@ -78,8 +86,8 @@ class QuoteService {
       contactPhone: data["_widget_1746269552378"],
       technicalLevel: data["_widget_1744875560210"],
       material: data["_widget_1747554783187"],
-      finalProduct: data["_widget_1747554783172"],
-      applicationField: data["_widget_1747554783170"],
+      finalProduct: data["_widget_1747554783172"].join(","),
+      applicationField: data["_widget_1747554783170"].join(","),
     });
     if (data["_widget_1615187419450"])
       quote.quoteTime = JdyUtil.getDate(data["_widget_1615187419450"]);
@@ -126,6 +134,15 @@ class QuoteService {
       this.appid,
       this.entryid,
       {
+        filter: {
+          rel: "and",
+          cond: [
+            {
+              field: "_widget_1750573099706",
+              method: "empty",
+            },
+          ],
+        },
         limit: 100,
       }
     );
@@ -164,26 +181,26 @@ class QuoteService {
 
   bulkSaveQuotes = async (quoteList: Quote[]) => {
     const quoteIds = quoteList.map((quote) => quote.jdyId);
-    const quoteItemIds = quoteList
-      .flatMap((quote) => quote.items)
-      .map((item) => item.jdyId);
 
     // Fetch existing quotes with their items
-    const quotes = await Quote.find({
+    const existingQuotes = await Quote.find({
       where: { jdyId: In(quoteIds) },
       relations: ["items"],
     });
 
-    quotes.forEach((quote) => {
-      const findQuote = quoteList.find((q) => q.jdyId == quote.jdyId);
-      if (findQuote) {
+    const newQuotes: Quote[] = [];
+
+    // Update existing quotes and collect new ones
+    quoteList.forEach((incoming) => {
+      const exist = existingQuotes.find((q) => q.jdyId === incoming.jdyId);
+      if (exist) {
         // Update quote properties
-        const { id, items, ...other } = findQuote;
-        Object.assign(quote, other);
+        const { id, items, ...other } = incoming;
+        Object.assign(exist, other);
 
         // Update existing items
-        quote.items.forEach((item) => {
-          const findItem = findQuote.items.find((q) => q.jdyId == item.jdyId);
+        exist.items.forEach((item) => {
+          const findItem = incoming.items.find((q) => q.jdyId == item.jdyId);
           if (findItem) {
             item.config["remark"] = findItem.config?.["remark"];
             const { id, config, ...other } = findItem;
@@ -191,19 +208,24 @@ class QuoteService {
           }
         });
 
-        // Add new items that don't exist in quote.items
-        const newItems = findQuote.items.filter(
+        // Add new items that don't exist
+        const additionalItems = incoming.items.filter(
           (findItem) =>
-            !quote.items.some(
+            !exist.items.some(
               (existingItem) => existingItem.jdyId === findItem.jdyId
             )
         );
-        quote.items.push(...newItems);
+        additionalItems.forEach((i) => (i.quote = exist));
+        exist.items.push(...additionalItems);
+      } else {
+        // New quote
+        incoming.items.forEach((i) => (i.quote = incoming));
+        newQuotes.push(incoming);
       }
     });
 
     // You'll probably want to save the quotes here
-    await Quote.save(quotes);
+    await Quote.save([...existingQuotes, ...newQuotes]);
   };
 
   updatePriceOnly = async (quote: Quote) => {
@@ -229,7 +251,7 @@ class QuoteService {
   };
 
   quoteToJdyData = (quote: Quote) => {
-    return {
+    const result = {
       _widget_1615187419548: JdyUtil.setNumber(quote.totalProductPrice),
       _widget_1615187419925: JdyUtil.setNumber(quote.discountAmount),
       _widget_1615187419587: JdyUtil.setNumber(quote.quoteAmount),
@@ -239,12 +261,12 @@ class QuoteService {
       _widget_1746269552378: JdyUtil.setText(quote.contactPhone),
       _widget_1744875560210: JdyUtil.setText(quote.technicalLevel),
       _widget_1747554783187: JdyUtil.setCombos(quote.material),
-      _widget_1747554783172: JdyUtil.setText(quote.finalProduct),
-      _widget_1747554783170: JdyUtil.setText(quote.applicationField),
+      _widget_1747554783172: JdyUtil.setCombos([quote.finalProduct]),
+      _widget_1747554783170: JdyUtil.setCombos([quote.applicationField]),
       _widget_1615187419450: JdyUtil.setDate(quote.quoteTime),
       _widget_1615187420300: JdyUtil.setSubForm(
         quote.items.map((item) => ({
-          _id: item.jdyId,
+          _id: JdyUtil.setText(item.jdyId),
           _widget_1743122083863: JdyUtil.setText(item.productCategory?.[0]),
           _widget_1743122083868: JdyUtil.setText(item.productCategory?.[1]),
           _widget_1743122083870: JdyUtil.setText(item.productCategory?.[2]),
@@ -260,9 +282,10 @@ class QuoteService {
         }))
       ),
       _widget_1750573099706: JdyUtil.setText(
-        `http://hz.jc-times.com/quote/${quote.id}`
+        `http://hz.jc-times.com:2006/quote/${quote.id}`
       ),
     };
+    return result;
   };
 
   updateJdyFromQuote = async (quote: Quote) => {
@@ -275,7 +298,13 @@ class QuoteService {
   };
 
   updateAllQuoteLinks = async () => {
-    const quotes = await Quote.find({ where: { jdyId: Not(IsNull()) } });
+    const quotes = await Quote.find({
+      where: {
+        jdyId: Not(IsNull()),
+        quoteTime: MoreThan(new Date("2025/06/01")),
+      },
+      order: { quoteTime: "DESC" },
+    });
     for (const quote of quotes) {
       await jdyFormDataApiClient.singleDataUpdate(
         this.appid,
@@ -283,7 +312,7 @@ class QuoteService {
         quote.jdyId,
         {
           _widget_1750573099706: JdyUtil.setText(
-            `http://hz.jc-times.com/quote/${quote.id}`
+            `http://hz.jc-times.com:2006/quote/${quote.id}`
           ),
         }
       );
@@ -317,7 +346,7 @@ class QuoteService {
 
   updateQuote = async (quote: Quote) => {
     const saved = await Quote.save(quote);
-    if (quote.jdyId) {
+    if (quote.jdyId && quote.status == "complete") {
       await this.updateJdyFromQuote(saved);
     }
     return saved;

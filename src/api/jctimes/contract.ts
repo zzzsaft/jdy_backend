@@ -10,7 +10,7 @@ class JcContractApiClient extends ApiClient {
     return await this.doRequest({
       method: "POST",
       path: "/Contract/Execute",
-      payload: quote,
+      payload: { ...quote },
     });
   }
 }

@@ -65,9 +65,9 @@ export class ApiClient {
           logger.error(
             `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`
           );
-          throw new Error(
-            `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`
-          );
+          // throw new Error(
+          //   `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`
+          // );
         }
       }
       throw e;
