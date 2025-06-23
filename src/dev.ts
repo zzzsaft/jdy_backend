@@ -46,7 +46,9 @@ PgDataSource.initialize()
       logger.add(new DatabaseTransport({ handleExceptions: true }));
     }
     // await 修改config();
-    // const a = await quoteService.updateAllQuoteLinks();
+    // await quoteService.updateAllQuoteLinks();
+
+    // await controllerMethod(a);
     // console.log(JSON.stringify(a));
     // const a = await Quote.findOne({
     //   where: {

@@ -109,6 +109,7 @@ const sendPrintFile = (key: "config" | "quotation" | "contract") => {
       response.status(400).send("Missing id");
       return;
     }
+
     // 权限检测
     const permit = await quoteService.getQuoteDetail(id, userid);
     if (!permit) {
@@ -117,6 +118,7 @@ const sendPrintFile = (key: "config" | "quotation" | "contract") => {
     }
     // 判断是否需要重新打印
     const quote = await quoteService.printQuote(id);
+
     if (!quote) {
       response.status(404).send("Not Found");
       return;
