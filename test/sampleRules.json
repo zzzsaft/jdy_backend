@@ -1,0 +1,45 @@
+[
+  {
+    "ruleType": "price",
+    "priority": 1,
+    "active": true,
+    "productCategory": ["平模", "流延膜模头"],
+    "conditions": [
+      {"field": "config.dieWidth.front", "operator": ">", "value": "3500"},
+      {"field": "config.hasPlating", "operator": "=", "value": "true"}
+    ],
+    "relation": "and",
+    "addition": 10000
+  },
+  {
+    "ruleType": "price",
+    "priority": 2,
+    "active": true,
+    "conditions": [
+      {"field": "config.layers", "operator": "contains", "value": "四层"}
+    ],
+    "relation": "and",
+    "addition": 5000
+  },
+  {
+    "ruleType": "grade",
+    "priority": 1,
+    "active": true,
+    "conditions": [
+      {"field": "totalProductPrice", "operator": ">", "value": "600000"}
+    ],
+    "relation": "and",
+    "grade": "A"
+  },
+  {
+    "ruleType": "delivery",
+    "priority": 1,
+    "active": true,
+    "conditions": [
+      {"field": "config.hasPlating", "operator": "=", "value": "true"},
+      {"field": "config.heatingZones", "operator": ">", "value": "20"}
+    ],
+    "relation": "or",
+    "deliveryDays": 120
+  }
+]

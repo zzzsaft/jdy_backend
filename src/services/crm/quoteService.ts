@@ -22,6 +22,7 @@ import { PgDataSource } from "../../config/data-source";
 import { Customer } from "../../entity/crm/customer";
 import { jctimesContractApiClient } from "../../api/jctimes/contract";
 import { downloadFile } from "../../utils/fileUtils";
+import { ruleService } from "./ruleService";
 
 class QuoteService {
   appid = "6191e49fc6c18500070f60ca";
@@ -249,6 +250,7 @@ class QuoteService {
         item.subtotal = updated.subtotal;
       }
     });
+    await ruleService.applyRules(existing);
     await existing.save();
   };
 
@@ -335,7 +337,7 @@ class QuoteService {
       const exist = await Quote.findOne({ where: { orderId: params.orderId } });
       if (exist) return { message: "订单号重复" } as any;
     }
-    return await Quote.create({
+    const quote = await Quote.create({
       ...params,
       currencyType: "CNY",
       quoteNumber: 1,
@@ -344,10 +346,14 @@ class QuoteService {
       contractTerms: [],
       quoteTerms: [],
     }).save();
+    await ruleService.applyRules(quote);
+    await quote.save();
+    return quote;
   };
 
   updateQuote = async (quote: Quote, submit = false) => {
     quote.needPrint = true;
+    await ruleService.applyRules(quote);
     const saved = await Quote.save(quote);
     if (submit && quote.jdyId) {
       await this.updateJdyFromQuote(saved);
@@ -373,6 +379,11 @@ class QuoteService {
     //   if (parent) quoteItem.parent = parent;
     // }
     const saved = await quoteItem.save();
+    const quote = await Quote.findOne({ where: { id: quoteId }, relations: ["items"] });
+    if (quote) {
+      await ruleService.applyRules(quote);
+      await quote.save();
+    }
     await Quote.update({ id: quoteId }, { needPrint: true });
     return saved;
   };
