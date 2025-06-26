@@ -7,6 +7,7 @@ import { Contact } from "../../entity/crm/contact";
 import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { JdyUtil } from "../../utils/jdyUtils";
 import { Customer } from "../../entity/crm/customer";
+import { jctimesContractApiClient } from "../../api/jctimes/contract";
 
 const ADD_WAY_MAP = {
   0: "未知来源",
@@ -129,13 +130,27 @@ class ContactService {
   };
 
   getContactbyCompany = async (companyId: string) => {
-    const contacts = await Contact.find({
-      where: { companyId },
-      select: ["name", "address", "phone"],
-    });
-    const address =
-      (await Customer.findOne({ where: { erpId: companyId } }))?.address ?? "";
-    return { contacts, address };
+    try {
+      const rows: any[] =
+        (await jctimesContractApiClient.getCustomerContacts(companyId)) ?? [];
+      const contacts = rows.map((item) => {
+        return {
+          customerName: String(item["客户名称"] ?? "").trim(),
+          customerId: String(item["客户ID"] ?? "").trim(),
+          address: String(item["地址"] ?? "").trim(),
+          contact: String(item["联系人"] ?? "").trim(),
+          phone: String(item["电话"] ?? "").trim(),
+          fax: String(item["传真"] ?? "").trim(),
+        };
+      });
+      const fax = Array.from(new Set(contacts.map((c) => c.fax).filter(Boolean)));
+      const address = Array.from(
+        new Set(contacts.map((c) => c.address).filter(Boolean))
+      );
+      return { contact: contacts, general: { fax, address } };
+    } catch (error) {
+      return { contact: [], general: { fax: [], address: [] } };
+    }
   };
 
   addContact = async (data) => {

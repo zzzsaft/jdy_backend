@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { logger } from "../config/logger";
-import { appAxios } from "../utils/fileUtils";
+import { jctimesContractApiClient } from "../api/jctimes/contract";
 import { Quote } from "../entity/crm/quote";
 import { Customer } from "../entity/crm/customer";
 
@@ -14,13 +14,8 @@ export const getOrderInfo = async (request: Request, response: Response) => {
     return response.status(400).send("订单号已存在");
   }
   try {
-    const res = await appAxios({
-      method: "GET",
-      url: "http://122.226.146.110:777/api/GetOrder",
-      params: { ordernum: orderId },
-      timeout: 10000,
-    });
-    const data = res.data?.[0];
+    const res = await jctimesContractApiClient.getOrder(orderId);
+    const data = res?.[0];
     const cus = await Customer.findOne({
       where: { erpId: data.客户ID },
       select: ["name"],

@@ -13,6 +13,22 @@ class JcContractApiClient extends ApiClient {
       payload: { ...quote },
     });
   }
+
+  async getOrder(ordernum: string) {
+    return await this.doRequest({
+      method: "GET",
+      path: "/api/GetOrder",
+      query: { ordernum },
+    });
+  }
+
+  async getCustomerContacts(custid: string) {
+    return await this.doRequest({
+      method: "GET",
+      path: "/api/GetCust",
+      query: { custid },
+    });
+  }
 }
 
 export const jctimesContractApiClient = new JcContractApiClient();
