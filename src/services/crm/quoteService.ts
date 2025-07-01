@@ -23,6 +23,7 @@ import { Customer } from "../../entity/crm/customer";
 import { jctimesContractApiClient } from "../../api/jctimes/contract";
 import { downloadFile } from "../../utils/fileUtils";
 import { ruleService } from "./ruleService";
+import { User } from "../../entity/basic/employee";
 
 class QuoteService {
   appid = "6191e49fc6c18500070f60ca";
@@ -401,8 +402,39 @@ class QuoteService {
     const quote = await Quote.findOne({ where: { id: quoteId }, relations: ["items"] });
     if (!quote) return null;
     if (!quote.needPrint) return quote;
+    const userIds = [
+      quote.creatorId,
+      quote.chargerId,
+      quote.salesSupportId,
+      quote.projectManagerId,
+      quote.docCreatorId,
+      ...(quote.currentApprover ? quote.currentApprover.split(',') : []),
+    ].filter((v) => !!v);
 
-    const result: any = await jctimesContractApiClient.executeContract(quote);
+    const idNameMap: Record<string, string> = {};
+    if (userIds.length) {
+      const users = await User.find({ where: { user_id: In(userIds) } });
+      users.forEach((u) => {
+        idNameMap[u.user_id] = u.name;
+      });
+    }
+
+    const quoteForPrint: any = {
+      ...quote,
+      creatorId: idNameMap[quote.creatorId] ?? quote.creatorId,
+      chargerId: idNameMap[quote.chargerId] ?? quote.chargerId,
+      salesSupportId: idNameMap[quote.salesSupportId] ?? quote.salesSupportId,
+      projectManagerId: idNameMap[quote.projectManagerId] ?? quote.projectManagerId,
+      docCreatorId: idNameMap[quote.docCreatorId] ?? quote.docCreatorId,
+      currentApprover: quote.currentApprover
+        ? quote.currentApprover
+            .split(',')
+            .map((id) => idNameMap[id] ?? id)
+            .join(',')
+        : quote.currentApprover,
+    };
+
+    const result: any = await jctimesContractApiClient.executeContract(quoteForPrint);
     if (result) {
       const base = `./public/files/quote/${quote.id}`;
 
