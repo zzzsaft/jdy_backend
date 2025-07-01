@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { customerServices } from "../services/crm/customerService";
 import { contactService } from "../services/crm/contactService";
 import { authService } from "../services/authService";
+import { CustomerInfo } from "../entity/crm/customerInfo";
 const searchCustomer = async (request: Request, response: Response) => {
   const name = request.query.keyword as string;
   const company = await customerServices.findCompany(name);
@@ -65,6 +66,22 @@ const getContact = async (request: Request, response: Response) => {
   const data = await contactService.getContactbyCompany(companyid);
   return response.send(data);
 };
+
+const getCompanyInfo = async (request: Request, response: Response) => {
+  const name = request.query.name as string;
+  if (!name) return response.status(400).send("参数错误");
+  let info = await CustomerInfo.findOne({ where: { name } });
+  if (!info) {
+    info = await customerServices.getCompanyInfo(name);
+  }
+  if (!info) return response.status(404).send("获取失败");
+  const data = {
+    address: info.regLocation,
+    legalPersonName: info.legalPersonName,
+    postalCode: (info as any).postalCode ?? null,
+  };
+  return response.send(data);
+};
 export const CustomerRoutes = [
   {
     path: "/customer/search",
@@ -90,5 +107,10 @@ export const CustomerRoutes = [
     path: "/customer/contact/get",
     method: "get",
     action: getContact,
+  },
+  {
+    path: "/customer/company_info",
+    method: "get",
+    action: getCompanyInfo,
   },
 ];
