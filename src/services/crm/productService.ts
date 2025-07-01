@@ -58,17 +58,22 @@ export class ProductService {
   async searchProducts(
     keyword: string,
     field: "code" | "name",
-    formType: string
+    formType: string,
+    page = 1,
+    pageSize = 10
   ): Promise<{
-    item: QuoteItem;
-    material: string[];
-    industry: string;
-    customer: string;
-    finalProduct: string;
-    orderDate: string;
-  }[]> {
+    list: {
+      item: QuoteItem;
+      material: string[];
+      industry: string;
+      customer: string;
+      finalProduct: string;
+      orderDate: string;
+    }[];
+    total: number;
+  }> {
     if (!keyword || !field || !formType) {
-      return [];
+      return { list: [], total: 0 };
     }
 
     try {
@@ -84,21 +89,26 @@ export class ProductService {
         });
       }
 
-      const items = await query
+      const [items, total] = await query
         .orderBy("quote.quoteTime", "DESC")
-        .getMany();
+        .skip((page - 1) * pageSize)
+        .take(pageSize)
+        .getManyAndCount();
 
-      return items.map((i) => ({
-        item: i,
-        material: i.quote?.material ?? [],
-        industry: "",
-        customer: i.quote?.customerName ?? "",
-        finalProduct: i.quote?.finalProduct ?? "",
-        orderDate: i.quote?.quoteTime?.toISOString() ?? "",
-      }));
+      return {
+        list: items.map((i) => ({
+          item: i,
+          material: i.quote?.material ?? [],
+          industry: "",
+          customer: i.quote?.customerName ?? "",
+          finalProduct: i.quote?.finalProduct ?? "",
+          orderDate: i.quote?.quoteTime?.toISOString() ?? "",
+        })),
+        total,
+      };
     } catch (error) {
       console.error("searchProducts error", error);
-      return [];
+      return { list: [], total: 0 };
     }
   }
 }

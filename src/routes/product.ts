@@ -12,7 +12,15 @@ const searchProducts = async (request: Request, response: Response) => {
   const keyword = (request.query.keyword as string) ?? "";
   const field = (request.query.field as "code" | "name") ?? "name";
   const formType = (request.query.formType as string) ?? "";
-  const result = await productService.searchProducts(keyword, field, formType);
+  const page = parseInt(request.query.page as string) || 1;
+  const pageSize = parseInt(request.query.pageSize as string) || 10;
+  const result = await productService.searchProducts(
+    keyword,
+    field,
+    formType,
+    page,
+    pageSize
+  );
   response.send(result);
 };
 
