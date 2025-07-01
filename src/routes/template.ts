@@ -5,6 +5,8 @@ import { authService } from "../services/authService";
 const getTemplates = async (req: Request, res: Response) => {
   const templates = await templateService.getTemplates({
     formType: req.query.formType as string,
+    page: parseInt(req.query.page as string),
+    pageSize: parseInt(req.query.pageSize as string),
   });
   res.send(templates);
 };
