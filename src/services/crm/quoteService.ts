@@ -23,6 +23,7 @@ import { Customer } from "../../entity/crm/customer";
 import { jctimesContractApiClient } from "../../api/jctimes/contract";
 import { downloadFile } from "../../utils/fileUtils";
 import { ruleService } from "./ruleService";
+import { similarity } from "../../utils/stringUtils";
 
 class QuoteService {
   appid = "6191e49fc6c18500070f60ca";
@@ -552,6 +553,34 @@ class QuoteService {
     const quote = await query.getOne();
 
     return quote;
+  };
+
+  fillItemsFromOrders = async () => {
+    const quotes = await Quote.find({
+      where: { orderId: Not(IsNull()) },
+      relations: ["items"],
+    });
+    for (const quote of quotes) {
+      if (!quote.orderId) continue;
+      try {
+        const res = await jctimesContractApiClient.getOrder(quote.orderId);
+        const order = res?.[0];
+        const items: any[] = order?.items || [];
+        for (const item of quote.items) {
+          if (item.productCode) continue;
+          const matched = items.find((i) =>
+            similarity(i.name || "", item.productName || "") >= 0.5
+          );
+          if (matched) {
+            item.productCode = matched.productCode;
+            item.orderProductName = matched.name;
+            await item.save();
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
   };
 }
 
