@@ -147,7 +147,17 @@ class ContactService {
       const address = Array.from(
         new Set(contacts.map((c) => c.address).filter(Boolean))
       );
-      return { contact: contacts, general: { fax, address } };
+      const grouped = _.groupBy(contacts, "contact");
+      const contact = Object.keys(grouped).map((name) => {
+        const list = grouped[name];
+        return {
+          contact: name,
+          phone: Array.from(new Set(list.map((l) => l.phone).filter(Boolean))),
+          fax: Array.from(new Set(list.map((l) => l.fax).filter(Boolean))),
+          address: Array.from(new Set(list.map((l) => l.address).filter(Boolean))),
+        };
+      });
+      return { contact, general: { fax, address } };
     } catch (error) {
       return { contact: [], general: { fax: [], address: [] } };
     }
