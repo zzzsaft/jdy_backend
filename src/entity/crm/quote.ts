@@ -207,6 +207,9 @@ export class QuoteItem extends BaseEntity {
   @Column({ name: "product_code", nullable: true })
   productCode: string; // 产品编码
 
+  @Column({ name: "order_product_name", nullable: true })
+  orderProductName: string; // 订单中匹配到的产品名称
+
   @Column({ name: "form_type", nullable: true })
   formType: string; // 表单类型
 
