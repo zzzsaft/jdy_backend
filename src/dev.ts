@@ -46,6 +46,7 @@ PgDataSource.initialize()
     if (process.env.NODE_ENV == "production") {
       logger.add(new DatabaseTransport({ handleExceptions: true }));
     }
+    await quoteService.fillItemsFromOrders();
     // await checkinServices.scheduleCheckinMonthly();
     // await getCheckinData.getNextCheckinData();
     // await checkinServices.scheduleCheckin();

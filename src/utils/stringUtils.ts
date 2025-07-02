@@ -55,6 +55,7 @@ export function parseRatioString(input: string): LevelItem[] {
   }
 
   return result;
+}
 export function levenshtein(a: string, b: string): number {
   const matrix = Array.from({ length: a.length + 1 }, () =>
     new Array(b.length + 1).fill(0)
