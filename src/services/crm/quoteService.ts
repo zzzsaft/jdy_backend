@@ -379,7 +379,10 @@ class QuoteService {
     //   if (parent) quoteItem.parent = parent;
     // }
     const saved = await quoteItem.save();
-    const quote = await Quote.findOne({ where: { id: quoteId }, relations: ["items"] });
+    const quote = await Quote.findOne({
+      where: { id: quoteId },
+      relations: ["items"],
+    });
     if (quote) {
       await ruleService.applyRules(quote);
       await quote.save();
@@ -397,8 +400,10 @@ class QuoteService {
   };
 
   printQuote = async (quoteId: number) => {
-
-    const quote = await Quote.findOne({ where: { id: quoteId }, relations: ["items"] });
+    const quote = await Quote.findOne({
+      where: { id: quoteId },
+      relations: ["items"],
+    });
     if (!quote) return null;
     if (!quote.needPrint) return quote;
 
@@ -406,10 +411,18 @@ class QuoteService {
     if (result) {
       const base = `./public/files/quote/${quote.id}`;
 
-      quote.configPdf = await downloadFile(result.configPdf, `${base}/config.pdf`);
-      quote.quotationPdf = await downloadFile(result.quotationPdf, `${base}/quotation.pdf`);
-      quote.contractPdf = await downloadFile(result.contractPdf, `${base}/contract.pdf`);
-
+      quote.configPdf = await downloadFile(
+        result.productConfiguration,
+        `${base}/config.pdf`
+      );
+      quote.quotationPdf = await downloadFile(
+        result.productQuotation,
+        `${base}/quotation.pdf`
+      );
+      quote.contractPdf = await downloadFile(
+        result.productConfiguration,
+        `${base}/contract.pdf`
+      );
     }
     quote.needPrint = false;
     await quote.save();

@@ -6,6 +6,15 @@ import { opportunityServices } from "../services/crm/opportunityService";
 import { productService } from "../services/crm/productService";
 import { quoteService } from "../services/crm/quoteService";
 import { getLocalFilePath } from "../utils/fileUtils";
+import { Quote } from "../entity/crm/quote";
+const test = async (request: Request, response: Response) => {
+  const quotes = await Quote.find({
+    where: { type: "history" },
+    relations: ["items"],
+  });
+  response.send(quotes);
+};
+
 const getQuotes = async (request: Request, response: Response) => {
   const userid = (await authService.verifyToken(request))?.userId;
   if (!userid) {
@@ -195,5 +204,10 @@ export const QuoteRoutes = [
     path: "/quote/contract/print",
     method: "get",
     action: sendPrintFile("contract"),
+  },
+  {
+    path: "/quote/test",
+    method: "get",
+    action: test,
   },
 ];

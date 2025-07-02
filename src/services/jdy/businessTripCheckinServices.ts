@@ -105,6 +105,7 @@ class BusinessTripCheckinServices {
       const data = await dbtoJdyData(checkin);
       if (!data) return;
       let result;
+      if (["jc001", "jc002"].includes(checkin.userId)) return;
       if (checkin.company == "浙江精一新材料有限公司") {
         result = await startWorkFlowJ1(data);
       } else if (checkin.reason == "客户拜访") {

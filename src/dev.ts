@@ -16,7 +16,7 @@ import { xftatdApiClient } from "./api/xft/xft_atd";
 import { User } from "./entity/basic/employee";
 import { searchServices } from "./services/crm/searchService";
 import { opportunityServices } from "./services/crm/opportunityService";
-import { importErrorAtd } from "./schedule/getCheckinData";
+import { getCheckinData, importErrorAtd } from "./schedule/getCheckinData";
 import { productService } from "./services/crm/productService";
 import { handleWechatMessage } from "./controllers/wechat/wechat.controller";
 import { xftTaskCallback } from "./controllers/xft/todo.xft.controller";
@@ -37,7 +37,8 @@ import { MessageService } from "./services/messageService";
 import { fbtApplyApiClient } from "./api/fenbeitong/apply";
 import { fbtReimbApiClient } from "./api/fenbeitong/apply copy";
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
-import { 修改config } from "./temp";
+import { 修改config, 测试打印 } from "./temp";
+import { checkinServices } from "./services/xft/checkinServices";
 
 PgDataSource.initialize()
   .then(async () => {
@@ -45,6 +46,10 @@ PgDataSource.initialize()
     if (process.env.NODE_ENV == "production") {
       logger.add(new DatabaseTransport({ handleExceptions: true }));
     }
+    // await checkinServices.scheduleCheckinMonthly();
+    // await getCheckinData.getNextCheckinData();
+    // await checkinServices.scheduleCheckin();
+    // await 测试打印();
     // await 修改config();
     // await quoteService.updateAllQuoteLinks();
 

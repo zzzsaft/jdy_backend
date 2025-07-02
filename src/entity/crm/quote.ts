@@ -134,11 +134,20 @@ export class Quote extends BaseEntity {
   @Column({ name: "need_print", default: true })
   needPrint: boolean;
 
+  @Column({ name: "hide_item_price", default: true })
+  hideItemPrice: boolean;
+
   @Column({ name: "contact_name", nullable: true })
   contactName: string; // 联系人姓名
 
   @Column({ name: "contact_phone", nullable: true })
   contactPhone: string; // 联系人手机号
+
+  @Column({ name: "sender_id", nullable: true })
+  senderId: string; // 发送人id
+
+  @Column({ name: "sender_phone", nullable: true })
+  senderPhone: string; // 发送人电话
 
   @Column({ name: "technical_level", nullable: true })
   technicalLevel: string; // 技术等级
@@ -172,6 +181,10 @@ export class Quote extends BaseEntity {
 
   @OneToMany(() => QuoteItem, (item) => item.quote, { cascade: true })
   items: QuoteItem[];
+  @Column("jsonb", { name: "company_info", nullable: true })
+  companyInfo: any;
+  @Column("jsonb", { name: "import_info", nullable: true })
+  importInfo: any;
 }
 
 @Entity({ name: "crm_quote_item" })

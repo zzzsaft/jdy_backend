@@ -1,11 +1,14 @@
 import { QuoteRule } from "../../entity/crm/quoteRule";
 import { Quote, QuoteItem } from "../../entity/crm/quote";
 import _ from "lodash";
-
+// import * from '../../../test/sampleRules.json'
 class RuleService {
-  async getRules(type?: string) {
+  async getRules(type?: "price" | "grade" | "delivery") {
     const where = type ? { ruleType: type } : {};
-    return await QuoteRule.find({ where, order: { priority: "ASC" } });
+    return await QuoteRule.find({
+      where: { ruleType: type },
+      order: { priority: "ASC" },
+    });
   }
 
   async createRule(rule: Partial<QuoteRule>) {
@@ -33,13 +36,16 @@ class RuleService {
     const valNum = Number(value);
     const cmpNum = Number(compare);
     const bothNumber =
-      value !== null && value !== undefined &&
+      value !== null &&
+      value !== undefined &&
       compare !== undefined &&
       !Number.isNaN(valNum) &&
       !Number.isNaN(cmpNum);
     switch (cond.operator) {
       case "=":
-        return bothNumber ? valNum === cmpNum : String(value) == String(compare);
+        return bothNumber
+          ? valNum === cmpNum
+          : String(value) == String(compare);
       case ">":
         return bothNumber ? valNum > cmpNum : false;
       case "<":
@@ -64,7 +70,9 @@ class RuleService {
       if (!matched) return false;
     }
     if (rule.conditions && rule.conditions.length) {
-      const results = rule.conditions.map((c) => this.evalCondition(c, context));
+      const results = rule.conditions.map((c) =>
+        this.evalCondition(c, context)
+      );
       return rule.relation === "or"
         ? results.some(Boolean)
         : results.every(Boolean);
@@ -84,9 +92,11 @@ class RuleService {
           if (this.matchRule(rule, quote, item)) {
             if (rule.step) {
               const qty = Number(item.quantity) || 0;
-              item.unitPrice = Math.ceil(qty / rule.step.interval) * rule.step.amount;
+              item.unitPrice =
+                Math.ceil(qty / rule.step.interval) * rule.step.amount;
             } else if (rule.addition) {
-              item.unitPrice = (Number(item.unitPrice) || 0) + Number(rule.addition);
+              item.unitPrice =
+                (Number(item.unitPrice) || 0) + Number(rule.addition);
             }
           }
         }

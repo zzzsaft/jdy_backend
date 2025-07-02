@@ -3,7 +3,7 @@ import { ruleService } from "../services/crm/ruleService";
 import { authService } from "../services/authService";
 
 const getRules = async (req: Request, res: Response) => {
-  const type = req.query.type as string | undefined;
+  const type = req.query.type as "price" | "grade" | "delivery";
   const rules = await ruleService.getRules(type);
   res.send(rules);
 };

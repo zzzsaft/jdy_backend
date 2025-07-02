@@ -14,7 +14,6 @@ import {
   In,
   IsNull,
   Like,
-  MoreThan,
   MoreThanOrEqual,
   Not,
   Or,
@@ -45,7 +44,11 @@ import { LeaveEvent } from "./services/xft/atd/leave.atd.xft.controller";
 import { handleContactEvent } from "./controllers/wechat/contact.wechat.controller";
 import { handleWechatMessage } from "./controllers/wechat/wechat.controller";
 import { checkinServices } from "./services/xft/checkinServices";
-import { QuoteItem } from "./entity/crm/quote";
+import { Quote, QuoteItem } from "./entity/crm/quote";
+import { jctimesContractApiClient } from "./api/jctimes/contract";
+import { MoreThan } from "typeorm";
+import { level } from "winston";
+import { parseRatioString } from "./utils/stringUtils";
 export const 获取空缺请假记录 = async () => {
   // const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
   //   .select("leave.leaveRecSeq")
@@ -310,9 +313,33 @@ export const handleWechat = async () => {
 };
 
 export const 修改config = async () => {
-  const items = await QuoteItem.find({ where: { formType: "DieForm" } });
+  const items = await QuoteItem.find({
+    where: { formType: "DieForm" },
+  });
   for (const item of items) {
-    console.log(item);
+    // console.log(item);
+    let runnertype = item.config?.runnerType;
+    if (["模内共挤", "分配器共挤", "分配器+模内共挤"].includes(runnertype)) {
+      item.config.runnerType = "单腔流道";
+      item.config["extrudeType"] = runnertype;
+      if (item.config?.compositeRatio) {
+        if (item.config?.compositeRatio.includes(":")) {
+          item.config["runnerLayers"] = parseRatioString(
+            item.config?.compositeRatio
+          );
+        } else {
+          item.config["runnerLayers"] = item.config?.compositeRatio?.map(
+            (ratio) => {
+              return {
+                level: ratio?.level,
+                ratio: ratio?.value,
+              };
+            }
+          );
+        }
+      }
+      await item.save();
+    }
     // if (item.config.compositeStructure) {
     //   item.config["compositeList"] = item.config.compositeStructure.map((s) => {
     //     return {
@@ -329,7 +356,19 @@ export const 修改config = async () => {
     //     unit: "kg/h",
     //     value: item.config.production.value.toString(),
     //   };
-    await item.save();
+    // await item.save();
     // }
+  }
+};
+export const 测试打印 = async () => {
+  // const items = await QuoteItem.find({})
+  const quotes = await Quote.find({
+    where: { type: "history", id: MoreThan(714) },
+    order: { id: "ASC" },
+    relations: ["items"],
+  });
+  for (const quote of quotes) {
+    console.log(quote.id);
+    const i = await jctimesContractApiClient.executeContract(quote);
   }
 };
