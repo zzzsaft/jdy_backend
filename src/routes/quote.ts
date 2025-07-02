@@ -168,6 +168,19 @@ export const QuoteRoutes = [
     action: deleteQuoteItem,
   },
   {
+    path: "/quote/fillItemProduct",
+    method: "post",
+    action: async (request: Request, response: Response) => {
+      const userid = (await authService.verifyToken(request))?.userId;
+      if (!userid) {
+        response.status(401).send("Unauthorized");
+        return;
+      }
+      await quoteService.fillItemsFromOrders();
+      response.send("ok");
+    },
+  },
+  {
     path: "/category/get",
     method: "get",
     action: async (request: Request, response: Response) => {
