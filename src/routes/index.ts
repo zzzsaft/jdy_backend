@@ -11,6 +11,7 @@ import { CustomerRoutes } from "./customer";
 import { AuthRoutes } from "./auth";
 import { OpportunityRoutes } from "./opportunity";
 import { QuoteRoutes } from "./quote";
+import { QuoteItemShareRoutes } from "./quoteItemShare";
 import { UserRoutes } from "./user";
 import { QuoteRuleRoutes } from "./quoteRule";
 import { RuleRoutes } from "./rule";
@@ -35,6 +36,7 @@ export const AppRoutes = [
   ...AuthRoutes,
   ...OpportunityRoutes,
   ...QuoteRoutes,
+  ...QuoteItemShareRoutes,
   ...TemplateRoutes,
   ...QuoteRuleRoutes,
   ...RuleRoutes,
