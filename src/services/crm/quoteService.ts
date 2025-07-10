@@ -434,7 +434,7 @@ class QuoteService {
         result.productConfiguration,
         `${base}/contract.pdf`
       );
-      quote.file = { configPdf, quotationPdf, contractPdf };
+      quote.files = { configPdf, quotationPdf, contractPdf };
     }
     quote.needPrint = false;
     await quote.save();

@@ -134,10 +134,10 @@ const sendPrintFile = (key: "config" | "quotation" | "contract") => {
     }
     const file =
       key === "config"
-        ? quote.file?.configPdf
+        ? quote.files?.configPdf
         : key === "quotation"
-        ? quote.file?.quotationPdf
-        : quote.file?.contractPdf;
+        ? quote.files?.quotationPdf
+        : quote.files?.contractPdf;
     if (!file) {
       response.status(404).send("Not Found");
       return;

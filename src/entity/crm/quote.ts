@@ -146,8 +146,8 @@ export class Quote extends BaseEntity {
   @Column({ name: "telephone", nullable: true })
   telephone: string; // 产品名称
 
-  @Column("jsonb", { name: "file", nullable: true })
-  file: any; // 打印相关文件
+  @Column("jsonb", { name: "files", nullable: true })
+  files: any; // 打印相关文件
 
   @Column({ type: "text", nullable: true })
   remark: string; // 备注
