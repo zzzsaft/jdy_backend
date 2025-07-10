@@ -88,6 +88,7 @@ class QuoteService {
       address: JdyUtil.getAddress(data["_widget_1747554783125"]),
       contactName: data["_widget_1746269552377"],
       contactPhone: data["_widget_1746269552378"],
+      needPrint: true,
       technicalLevel: data["_widget_1744875560210"],
       material: data["_widget_1747554783187"],
       finalProduct: data["_widget_1747554783172"].join(","),
@@ -346,13 +347,14 @@ class QuoteService {
       creatorId,
       contractTerms: [],
       quoteTerms: [],
+      needPrint: true,
     }).save();
     await ruleService.applyRules(quote);
     await quote.save();
     return quote;
   };
 
-  updateQuote = async (quote: Quote, submit = false) => {
+    updateQuote = async (quote: Quote, submit = false) => {
     quote.needPrint = true;
     await ruleService.applyRules(quote);
     const saved = await Quote.save(quote);
@@ -388,14 +390,22 @@ class QuoteService {
       await ruleService.applyRules(quote);
       await quote.save();
     }
-    await Quote.update({ id: quoteId }, { needPrint: true });
+    const q = await Quote.findOne({ where: { id: quoteId } });
+    if (q) {
+      q.needPrint = true;
+      await q.save();
+    }
     return saved;
   };
 
   removeQuoteItem = async (quoteItemId) => {
     const item = await QuoteItem.findOne({ where: { id: quoteItemId } });
     if (item) {
-      await Quote.update({ id: item.quoteId }, { needPrint: true });
+      const q = await Quote.findOne({ where: { id: item.quoteId } });
+      if (q) {
+        q.needPrint = true;
+        await q.save();
+      }
     }
     return await QuoteItem.delete(quoteItemId);
   };
@@ -412,18 +422,19 @@ class QuoteService {
     if (result) {
       const base = `./public/files/quote/${quote.id}`;
 
-      quote.configPdf = await downloadFile(
+      const configPdf = await downloadFile(
         result.productConfiguration,
         `${base}/config.pdf`
       );
-      quote.quotationPdf = await downloadFile(
+      const quotationPdf = await downloadFile(
         result.productQuotation,
         `${base}/quotation.pdf`
       );
-      quote.contractPdf = await downloadFile(
+      const contractPdf = await downloadFile(
         result.productConfiguration,
         `${base}/contract.pdf`
       );
+      quote.file = { configPdf, quotationPdf, contractPdf };
     }
     quote.needPrint = false;
     await quote.save();
