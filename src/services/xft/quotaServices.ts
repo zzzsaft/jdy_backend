@@ -38,7 +38,7 @@ class QuotaServices {
       .filter((item) => item.stfNumber) // 过滤掉 stfNumber 为空的项
       .groupBy("stfNumber") // 按 stfNumber 分组
       .mapValues((items) => this.getSingleDayOffQuotaLeft(items)) // 获取每个分组的项目
-      .pickBy((value) => value.left !== null && value.left !== 0)
+      .pickBy((value) => value.left !== null)
       .value();
     return result;
   }
