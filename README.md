@@ -2,23 +2,35 @@
 
 ## 环境变量示例
 
-`WECHAT_CORP_CONFIGS` 支持同时配置多个企业微信的 `corpId`、`corpSecret`、`encodingAESKey`。在生产环境不要提交 `.env`，本地可参考下述格式：
+`WECHAT_CORP_CONFIGS` 支持同时配置多个企业微信的 `corpId`、`corpSecret`、`encodingAESKey`，并在同一企业下为不同应用提供独立的 `agentId` 与 `corpSecret`。在生产环境不要提交 `.env`，本地可参考下述格式：
 
 ```env
 # 多企业配置，数组字符串格式
 WECHAT_CORP_CONFIGS=[
-  {"corpId":"wx123","corpSecret":"secret1","encodingAESKey":"aesKey1","name":"集团总部"},
-  {"corpId":"wx456","corpSecret":"secret2","encodingAESKey":"aesKey2","name":"分公司A"},
-  {"corpId":"wx789","corpSecret":"secret3","encodingAESKey":"aesKey3","name":"分公司B"}
+  {
+    "corpId":"wx123",
+    "corpSecret":"corpDefaultSecret1",
+    "encodingAESKey":"aesKey1",
+    "name":"集团总部",
+    "apps":[
+      {"agentId":1000001,"corpSecret":"oaAppSecret","name":"OA"},
+      {"agentId":2000001,"corpSecret":"crmAppSecret","name":"CRM"}
+    ]
+  },
+  {"corpId":"wx456","corpSecret":"secret2","encodingAESKey":"aesKey2","name":"分公司A"}
 ]
 
 # 兼容旧版单企业配置（未提供 WECHAT_CORP_CONFIGS 时生效）
 CORP_ID=wx_single
 CORP_SECRET=legacy_secret
 WECHAT_ENCODING_AES_KEY=legacy_aes_key
+# 默认应用 agentId 与 secret（会作为 apps 的回退）
+CORP_AGENTID=1000002
+CORP_AGENTID_CRM=1000003
+CORP_SECRET_CRM=legacy_crm_secret
 ```
 
-> **说明**：`WECHAT_CORP_CONFIGS` 中的字段名需要和示例保持一致；`name` 为可选的备注，方便日志中识别企业。
+> **说明**：`WECHAT_CORP_CONFIGS` 中的字段名需要和示例保持一致；`name` 为可选的备注，方便日志中识别企业。`apps` 用于按 `agentId` 指定不同应用的 `corpSecret`，未匹配到时会回退到企业级 `corpSecret`。
 
 ## 验证配置（不连接生产数据库）
 
