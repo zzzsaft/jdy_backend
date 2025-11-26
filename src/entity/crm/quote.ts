@@ -179,12 +179,16 @@ export class Quote extends BaseEntity {
   @Column({ name: "telephone", nullable: true })
   telephone: string; // 产品名称
 
+  @Column({ name: "quote_valid_days", nullable: true })
+  quoteValidDays: number;
+
+  @Column({ name: "quote_deadline", nullable: true })
+  quoteDeadline: Date;
+
   @OneToMany(() => QuoteItem, (item) => item.quote, { cascade: true })
   items: QuoteItem[];
   @Column("jsonb", { name: "company_info", nullable: true })
   companyInfo: any;
-  @Column("jsonb", { name: "import_info", nullable: true })
-  importInfo: any;
 }
 
 @Entity({ name: "crm_quote_item" })
@@ -282,4 +286,7 @@ export class QuoteItem extends BaseEntity {
 
   @Column({ name: "is_category_locked", nullable: true })
   isCategoryLocked: boolean; // 配置是否完成
+
+  @Column("jsonb", { name: "import_info", nullable: true })
+  importInfo: any;
 }

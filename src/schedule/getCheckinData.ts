@@ -330,6 +330,7 @@ export const importErrorAtd = async () => {
   result.forEach((res, index) => {
     res.importNum = index + 1;
     if (res.staffNumber == "WangShunXin") res.staffName = "王顺心";
+    if (res.staffNumber == "TianAiLin") res.staffName = "田艾林";
     if (res.staffNumber == "KangXiangFeng") res.staffName = "亢翔锋";
     if (res.staffNumber == "KangYingXiang") res.staffName = "亢应祥";
     if (res.staffNumber == "XuLai") res.staffName = "孔令街";

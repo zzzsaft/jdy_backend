@@ -25,7 +25,7 @@ import { employeeService } from "./services/md/employeeService";
 import { supplierService } from "./services/srm/supplierService";
 import { supplierGatherService } from "./services/srm/supplierGatherService";
 import { receiveService } from "./services/crm/receiveService";
-import { token_crm } from "./api/wechat/token";
+import { token_crm, token_j1 } from "./api/wechat/token";
 import { wechatUserApiClient } from "./api/wechat/user";
 import { authService } from "./services/authService";
 import { sendButtonMsg } from "./services/jdy/businessTripCheckinServices";
@@ -46,7 +46,7 @@ PgDataSource.initialize()
     if (process.env.NODE_ENV == "production") {
       logger.add(new DatabaseTransport({ handleExceptions: true }));
     }
-    await quoteService.fillItemsFromOrders();
+    // await quoteService.fillItemsFromOrders();
     // await checkinServices.scheduleCheckinMonthly();
     // await getCheckinData.getNextCheckinData();
     // await checkinServices.scheduleCheckin();
@@ -81,7 +81,7 @@ PgDataSource.initialize()
     // await handleWechatMessage(a);
     // console.log(await productService.getProducts());
     // await productService.addAlltoDb();
-    // await importErrorAtd();
+    await importErrorAtd();
     // const a = await opportunityServices.getOpportunity(
     //   "ChenYing1",
     //   []

@@ -43,7 +43,8 @@ export class LogExpress extends BaseEntity {
       path == "/" ||
       path.includes("customer") ||
       path.includes("auth") ||
-      path.includes("category")
+      path.includes("category") ||
+      path.includes("quote")
     )
       return;
     let content = "";

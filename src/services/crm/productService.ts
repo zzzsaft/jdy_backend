@@ -14,6 +14,7 @@ export class ProductService {
       level1Category: apiData._widget_1742960278476,
       level2Category: apiData._widget_1742960278477,
       level3Category: apiData._widget_1742968828125,
+      name: apiData._widget_1756829133536,
       aliasName: apiData._widget_1742968828113,
       configuration: apiData._widget_1742960278481,
       unit: apiData._widget_1742968828129,

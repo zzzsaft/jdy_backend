@@ -9,6 +9,7 @@ import { logger } from "./config/logger";
 import { schedule } from "./schedule";
 import { autoParse, expressLog, requestLimiter } from "./config/autoParse";
 import { DatabaseTransport } from "./config/database-transport";
+import path from "path";
 
 PgDataSource.initialize()
   .then(async () => {
@@ -18,6 +19,7 @@ PgDataSource.initialize()
     }
     const app = express();
     const port = parseInt(process.env.PORT ?? "2002");
+    app.use(express.static(path.join(__dirname, "..", "public")));
     app.use(cors());
     app.use(autoParse);
     app.use(requestLimiter);

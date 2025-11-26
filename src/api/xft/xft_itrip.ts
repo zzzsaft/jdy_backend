@@ -82,7 +82,7 @@ class XFTItripApiClient {
     return await appApiClient.doRequest(
       {
         method: "POST",
-        path: "/itrip/xft-api/v1/bills/apply/travel/create",
+        path: "/itrip-gateway/xft-api/v1/bills/apply/travel/create",
         payload,
       },
       "U0000"
@@ -91,14 +91,14 @@ class XFTItripApiClient {
   async getAllCity() {
     return await appApiClient.doRequest({
       method: "GET",
-      path: "/itrip/xft-api/v1/common/city/getAllCity",
+      path: "/itrip-gateway/xft-api/v1/common/city/getAllCity",
       query: { OPAUID: "AAA00512" },
     });
   }
   async getApplyTravelDetail(billId) {
     return await appApiClient.doRequest({
       method: "GET",
-      path: "/itrip/xft-api/v1/bills/apply/travel/detail",
+      path: "/itrip-gateway/xft-api/v1/bills/apply/travel/detail",
       query: { billId },
     });
   }
@@ -127,7 +127,7 @@ class XFTItripApiClient {
   ) {
     return await appApiClient.doRequest({
       method: "POST",
-      path: "/itrip/xft-api/v1/bills/apply/travel/change",
+      path: "/itrip-gateway/xft-api/v1/bills/apply/travel/change",
       payload,
     });
   }

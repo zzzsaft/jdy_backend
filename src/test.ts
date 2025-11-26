@@ -299,7 +299,7 @@ import { agentTicket, corpTicket } from "./api/wechat/ticket";
 // //   visitorLeaveTime: "2024-09-12 13:08:00",
 // //   visitorReason: "",
 // // });
-// // console.log(await importErrorAtd());
+// console.log(await importErrorAtd());
 // // const a = await xftOAApiClient.getFormBussinesData();
 // // console.log(new Date().getTime().toString());
 // // console.log(await testLoginUrl("WuFeng"));

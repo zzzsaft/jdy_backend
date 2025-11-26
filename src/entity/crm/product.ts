@@ -23,6 +23,9 @@ export class Product extends BaseEntity {
   @Column({ name: "level3_category" })
   level3Category: string; // 三级产品族
 
+  @Column({ nullable: true })
+  name: string; // 一级产品族
+
   @Column({ name: "alias_name", nullable: true })
   aliasName?: string; // 别名
 

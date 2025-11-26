@@ -354,7 +354,7 @@ class QuoteService {
 
   updateQuote = async (quote: Quote, submit = false) => {
     quote.needPrint = true;
-    await ruleService.applyRules(quote);
+    // await ruleService.applyRules(quote);
     const saved = await Quote.save(quote);
     if (submit && quote.jdyId) {
       await this.updateJdyFromQuote(saved);
@@ -380,14 +380,14 @@ class QuoteService {
     //   if (parent) quoteItem.parent = parent;
     // }
     const saved = await quoteItem.save();
-    const quote = await Quote.findOne({
-      where: { id: quoteId },
-      relations: ["items"],
-    });
-    if (quote) {
-      await ruleService.applyRules(quote);
-      await quote.save();
-    }
+    // const quote = await Quote.findOne({
+    //   where: { id: quoteId },
+    //   relations: ["items"],
+    // });
+    // if (quote) {
+    //   await ruleService.applyRules(quote);
+    //   await quote.save();
+    // }
     await Quote.update({ id: quoteId }, { needPrint: true });
     return saved;
   };
@@ -575,18 +575,19 @@ class QuoteService {
     });
     for (const quote of quotes) {
       if (!quote.orderId) continue;
+      if (!quote.orderId.startsWith("2")) continue;
       try {
         const res = await jctimesContractApiClient.getOrder(quote.orderId);
         const order = res?.[0];
         const items: any[] = order?.items || [];
         for (const item of quote.items) {
-          if (item.productCode) continue;
-          const matched = items.find((i) =>
-            similarity(i.name || "", item.productName || "") >= 0.5
+          if (item.productCode || !item.productName) continue;
+          const matched = items.find(
+            (i) => similarity(i.产品名称 || "", item.productName || "") >= 0.5
           );
           if (matched) {
-            item.productCode = matched.productCode;
-            item.orderProductName = matched.name;
+            item.productCode = matched.产品编号;
+            item.orderProductName = matched.产品名称;
             await item.save();
           }
         }

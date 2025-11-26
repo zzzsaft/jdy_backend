@@ -319,27 +319,32 @@ export const 修改config = async () => {
   for (const item of items) {
     // console.log(item);
     let runnertype = item.config?.runnerType;
-    if (["模内共挤", "分配器共挤", "分配器+模内共挤"].includes(runnertype)) {
-      item.config.runnerType = "单腔流道";
-      item.config["extrudeType"] = runnertype;
-      if (item.config?.compositeRatio) {
-        if (item.config?.compositeRatio.includes(":")) {
-          item.config["runnerLayers"] = parseRatioString(
-            item.config?.compositeRatio
-          );
-        } else {
-          item.config["runnerLayers"] = item.config?.compositeRatio?.map(
-            (ratio) => {
-              return {
-                level: ratio?.level,
-                ratio: ratio?.value,
-              };
-            }
-          );
-        }
-      }
+    let widthAdjustment = item.config?.widthAdjustment;
+    if (widthAdjustment) {
+      item.config.widthAdjustment = [widthAdjustment];
       await item.save();
     }
+    // if (["模内共挤", "分配器共挤", "分配器+模内共挤"].includes(runnertype)) {
+    //   item.config.runnerType = "单腔流道";
+    //   item.config["extrudeType"] = runnertype;
+    //   if (item.config?.compositeRatio) {
+    //     if (item.config?.compositeRatio.includes(":")) {
+    //       item.config["runnerLayers"] = parseRatioString(
+    //         item.config?.compositeRatio
+    //       );
+    //     } else {
+    //       item.config["runnerLayers"] = item.config?.compositeRatio?.map(
+    //         (ratio) => {
+    //           return {
+    //             level: ratio?.level,
+    //             ratio: ratio?.value,
+    //           };
+    //         }
+    //       );
+    //     }
+    //   }
+    //   await item.save();
+    // }
     // if (item.config.compositeStructure) {
     //   item.config["compositeList"] = item.config.compositeStructure.map((s) => {
     //     return {

@@ -79,7 +79,12 @@ const configCrm: TokenConfig = {
   corp_id: process.env.CORP_ID ?? "",
   corp_secret: process.env.CORP_SECRET_CRM ?? "",
 };
+const configJ1: TokenConfig = {
+  corp_id: process.env.CORP_ID_J1 ?? "",
+  corp_secret: process.env.CORP_SECRET_J1 ?? "",
+};
 export const token = new Token(config);
 export const token_checkin = new Token(config2);
 export const token_address = new Token(config3);
 export const token_crm = new Token(configCrm);
+export const token_j1 = new Token(configJ1);

@@ -1,7 +1,7 @@
 import { WechatMessage } from "../../entity/log/log_message";
 import { ICheckinOption } from "../../type/wechat/IOption";
 import { ApiClient } from "./api_client";
-import { token, token_crm } from "./token";
+import { token, token_crm, token_j1 } from "./token";
 import { v4 as uuidv4 } from "uuid";
 
 interface Message {
@@ -60,6 +60,7 @@ export type voteInteractionCardType = {
 class MessageApiClient extends ApiClient {
   async sendMessage(options, source: "hr" | "jdy" = "hr") {
     const crm_token = await token_crm.get_token();
+    const j1_token = await token_j1.get_token();
     const hr_token = await token.get_token();
     return await this.doRequest(
       {
