@@ -1,4 +1,9 @@
 import axios from "axios";
+import {
+  defaultWechatCorpConfig,
+  getCorpConfig,
+  wechatCorpConfigs,
+} from "../../config/wechatCorps";
 interface TokenConfig {
   corp_id: string;
   corp_secret: string;
@@ -61,29 +66,47 @@ class Token {
     }
   }
 }
-// dotenv.config();
-// Example usage
-const config: TokenConfig = {
-  corp_id: process.env.CORP_ID ?? "",
-  corp_secret: process.env.CORP_SECRET ?? "",
+const tokenMap = new Map<string, Token>();
+wechatCorpConfigs.forEach((config) => {
+  tokenMap.set(
+    config.corpId,
+    new Token({ corp_id: config.corpId, corp_secret: config.corpSecret })
+  );
+});
+
+export const getCorpToken = (corpId?: string) => {
+  const corp = getCorpConfig(corpId);
+  const corpToken = tokenMap.get(corp.corpId);
+  if (!corpToken) {
+    const token = new Token({
+      corp_id: corp.corpId,
+      corp_secret: corp.corpSecret,
+    });
+    tokenMap.set(corp.corpId, token);
+    return token;
+  }
+  return corpToken;
 };
+
+// Keep legacy exports for other features that rely on the default corp credentials
 const config2: TokenConfig = {
-  corp_id: process.env.CORP_ID ?? "",
+  corp_id: defaultWechatCorpConfig.corpId,
   corp_secret: process.env.CORP_SECRET_CHECKIN ?? "",
 };
 const config3: TokenConfig = {
-  corp_id: process.env.CORP_ID ?? "",
+  corp_id: defaultWechatCorpConfig.corpId,
   corp_secret: process.env.CORP_SECRET_ADDRESS ?? "",
 };
 const configCrm: TokenConfig = {
-  corp_id: process.env.CORP_ID ?? "",
+  corp_id: defaultWechatCorpConfig.corpId,
   corp_secret: process.env.CORP_SECRET_CRM ?? "",
 };
 const configJ1: TokenConfig = {
   corp_id: process.env.CORP_ID_J1 ?? "",
   corp_secret: process.env.CORP_SECRET_J1 ?? "",
 };
-export const token = new Token(config);
+
+export const token = getCorpToken();
 export const token_checkin = new Token(config2);
 export const token_address = new Token(config3);
 export const token_crm = new Token(configCrm);

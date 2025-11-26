@@ -119,14 +119,20 @@ export const sendtoUserwithLeaveChoice = async () => {
   for (const key in allQuota) {
     const quota = allQuota[key];
     if (quota.total >= 5) {
-      if (isEqual(sunday, startOfMonth(sunday))) {
-        quota.left = quota.left + 1;
-      }
       const user = await getUser(key);
       if (user && user.userid.length < 19) {
-        // console.log(user, quota.left);
-        await sendLeave(user, quota.left);
-        await sleep(100);
+        if (quota.left === 0) {
+          await new MessageService([user.userid]).send_plain_text(
+            "轮休假已用完，本周末没有轮休假 如需请假，请走薪福通-请假流程"
+          );
+        } else {
+          if (isEqual(sunday, startOfMonth(sunday))) {
+            quota.left = quota.left + 1;
+          }
+          // console.log(user, quota.left);
+          await sendLeave(user, quota.left);
+          await sleep(100);
+        }
       }
     }
   }

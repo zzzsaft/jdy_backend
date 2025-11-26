@@ -122,15 +122,6 @@ export class Quote extends BaseEntity {
   @Column("jsonb", { name: "contract_terms", nullable: true })
   contractTerms: any; //
 
-  @Column({ name: "quotation_pdf", nullable: true })
-  quotationPdf: string;
-
-  @Column({ name: "contract_pdf", nullable: true })
-  contractPdf: string;
-
-  @Column({ name: "config_pdf", nullable: true })
-  configPdf: string;
-
   @Column({ name: "need_print", default: true })
   needPrint: boolean;
 
@@ -148,6 +139,18 @@ export class Quote extends BaseEntity {
 
   @Column({ name: "sender_phone", nullable: true })
   senderPhone: string; // 发送人电话
+
+  @Column({ name: "fax_number", nullable: true })
+  faxNumber: string; // 产品名称
+
+  @Column({ name: "telephone", nullable: true })
+  telephone: string; // 产品名称
+
+  @Column("jsonb", { name: "files", nullable: true })
+  files: any; // 打印相关文件
+
+  @Column({ type: "text", nullable: true })
+  remark: string; // 备注
 
   @Column({ name: "technical_level", nullable: true })
   technicalLevel: string; // 技术等级
@@ -173,11 +176,6 @@ export class Quote extends BaseEntity {
   @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date; // 更新时间
 
-  @Column({ name: "fax_number", nullable: true })
-  faxNumber: string; // 产品名称
-
-  @Column({ name: "telephone", nullable: true })
-  telephone: string; // 产品名称
 
   @Column({ name: "quote_valid_days", nullable: true })
   quoteValidDays: number;

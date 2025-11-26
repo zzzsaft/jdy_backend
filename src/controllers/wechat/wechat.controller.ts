@@ -10,9 +10,15 @@ import { LogLocation } from "../../entity/log/log_location";
 import path from "path";
 import { Between, Like, MoreThan } from "typeorm";
 import { locationService } from "../../services/locationService";
+import { getCorpConfig } from "../../config/wechatCorps";
+import { syncWechatData } from "../../services/wechatSyncService";
 
 export async function wechatWebHookCheck(request: Request, response: Response) {
-  const encodingAESKey = process.env.WECHAT_ENCODING_AES_KEY ?? "";
+  const corpId =
+    (request.query.corpid as string) ||
+    (request.query.corp_id as string) ||
+    (request.query.corpId as string);
+  const encodingAESKey = getCorpConfig(corpId).encodingAESKey ?? "";
   const payload = request.query.echostr as string;
   if (!payload) {
     response.status(400).send("Bad Request");
@@ -22,16 +28,24 @@ export async function wechatWebHookCheck(request: Request, response: Response) {
 
   // return loaded posts
   response.send(message);
+
+  syncWechatData(corpId).catch((error) =>
+    logger.error("sync wechat data failed", error)
+  );
 }
 
 export async function wechatWebHook(request: Request, response: Response) {
-  let message = decryptMsg(request.body);
-  await handleWechatMessage(message);
+  const corpId =
+    (request.query.corpid as string) ||
+    (request.query.corp_id as string) ||
+    (request.query.corpId as string);
+  let message = decryptMsg(request.body, corpId);
+  await handleWechatMessage(message, corpId);
   // return loaded posts
   response.send("");
 }
 
-export const handleWechatMessage = async (msg) => {
+export const handleWechatMessage = async (msg, corpId?: string) => {
   let message = msg["xml"];
   let ApprovalInfo = message["ApprovalInfo"];
   try {

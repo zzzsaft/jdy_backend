@@ -1,7 +1,5 @@
 import cron from "node-cron";
 import { syncXft } from "./syncXftData";
-import { Department } from "../entity/basic/department";
-import { User } from "../entity/basic/employee";
 import { logger } from "../config/logger";
 import { getCheckinData } from "./getCheckinData";
 import { sendtoUserwithLeaveChoice } from "./sendLeave";
@@ -13,14 +11,7 @@ import { BusinessTripServices } from "../services/xft/businessTripServices";
 import { checkinServices } from "../services/xft/checkinServices";
 import { dayResultServices } from "../services/xft/dayResultServices";
 import { addDays } from "date-fns";
-
-const syncWechat = async () => {
-  await Department.updateDepartment();
-  await User.updateUser();
-  await Department.updateXftId();
-  await User.updateXftId();
-  await Department.updateAllDepartmentLevel();
-};
+import { syncWechatData } from "../services/wechatSyncService";
 
 //每过15分钟触发任务
 const checkinDateSchedule = cron.schedule("0,15,30,45 * * * *", async () => {
@@ -40,7 +31,7 @@ const fbtApplySchedule = cron.schedule("5,20,35,50 * * * *", async () => {
 
 //每日1点触发任务
 const updateUserSchedule = cron.schedule("0 2 * * *", async () => {
-  await syncWechat();
+  await syncWechatData();
   await syncXft();
   await checkinServices.scheduleCheckinDaily();
   logger.info("1点更新部门人员数据");

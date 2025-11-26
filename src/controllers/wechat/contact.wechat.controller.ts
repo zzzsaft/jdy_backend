@@ -9,26 +9,34 @@ import { Department } from "../../entity/basic/department";
 
 export const handleContactEvent = async (msg: any) => {
   const UserID = msg?.["UserID"]?.["value"];
+  const corpId = msg?.["ToUserName"]?.["value"];
   let data;
   switch (msg["ChangeType"]["value"]) {
     case "create_user":
-      await createUser(UserID);
+      await createUser(UserID, corpId);
       break;
     case "update_user":
       const NewUserID = msg?.["NewUserID"]?.["value"];
       if (NewUserID) {
-        await User.update({ user_id: UserID }, { user_id: NewUserID });
-        await createUser(NewUserID);
+        await User.update(
+          { user_id: UserID, corp_id: corpId },
+          { user_id: NewUserID, corp_id: corpId }
+        );
+        await createUser(NewUserID, corpId);
       } else {
-        await createUser(UserID);
+        await createUser(UserID, corpId);
       }
       break;
     case "delete_user":
-      User.update({ user_id: UserID }, { is_employed: false });
+      User.update({ user_id: UserID, corp_id: corpId }, { is_employed: false });
       break;
     case "create_party":
-      data = await contactApiClient.getDepartmentInfo(msg["Id"]["value"]);
+      data = await contactApiClient.getDepartmentInfo(
+        msg["Id"]["value"],
+        corpId
+      );
       await Department.create({
+        corp_id: corpId,
         department_id: msg["Id"]["value"],
         name: data?.["department"]?.["name"] ?? "error",
         parent_id: msg["ParentId"]["value"],
@@ -37,9 +45,12 @@ export const handleContactEvent = async (msg: any) => {
       }).save();
       break;
     case "update_party":
-      data = await contactApiClient.getDepartmentInfo(msg["Id"]["value"]);
+      data = await contactApiClient.getDepartmentInfo(
+        msg["Id"]["value"],
+        corpId
+      );
       await Department.update(
-        { department_id: msg["Id"]["value"] },
+        { department_id: msg["Id"]["value"], corp_id: corpId },
         {
           name: data?.["department"]?.["name"] ?? "error",
           parent_id: msg["ParentId"]["value"],
@@ -59,7 +70,7 @@ export const handleContactEvent = async (msg: any) => {
       break;
     case "delete_party":
       await Department.update(
-        { department_id: msg["Id"]["value"] },
+        { department_id: msg["Id"]["value"], corp_id: corpId },
         { is_exist: false }
       );
       break;
@@ -68,18 +79,21 @@ export const handleContactEvent = async (msg: any) => {
   }
 };
 
-export const createUser = async (UserID) => {
-  const user = await contactApiClient.getUser(UserID);
+export const createUser = async (UserID, corpId: string) => {
+  const user = await contactApiClient.getUser(UserID, corpId);
   const name = user["name"] ?? user.name;
   const mobile = user["mobile"] ?? user.mobile;
   const department = user["department"] ?? user.department;
   const main_department = user["main_department"] ?? user.main_department;
-  await User.create({
+  const entity = User.create({
+    corp_id: corpId,
     user_id: UserID,
     name: name,
     mobile,
     department_id: department,
     is_employed: true,
     main_department_id: main_department,
-  }).save(user);
+  });
+
+  await entity.save();
 };
