@@ -7,6 +7,9 @@ interface Message {
   msgtype?: "text" | "textcard" | "template_card";
   agentid?: number;
   content?: string;
+  corpId?: string;
+  corpName?: string;
+  appName?: string;
   safe?: number;
   enable_duplicate_check?: number;
   duplicate_check_interval?: number;
@@ -66,13 +69,24 @@ export class MessageService {
     duplicate_check_interval: 1800,
   };
   source: "hr" | "jdy" = "hr";
+  private corpKey?: string;
+  private appName?: string;
 
-  constructor(userid: string[], source: "hr" | "jdy" = "hr") {
+  constructor(
+    userid: string[],
+    source: "hr" | "jdy" = "hr",
+    corpId?: string,
+    appName?: string
+  ) {
     this.request_body["touser"] = userid.filter((id) => id).join("|");
     this.request_body["userids"] = userid.filter((id) => id);
     this.source = source;
+    this.corpKey = corpId ?? process.env.CORP_ID ?? undefined;
+    this.appName = appName;
     if (source == "jdy") {
       this.request_body.agentid = parseInt(process.env.CORP_AGENTID_CRM ?? "");
+      this.corpKey = process.env.CORP_ID ?? corpId ?? this.corpKey;
+      this.appName = process.env.WECHAT_APP_CRM ?? this.appName;
     }
   }
 
@@ -177,7 +191,11 @@ export class MessageService {
     this.request_body["button"] = {
       replace_name: replace_name,
     };
-    await messageApiClient.updateMessage(this.request_body);
+    await messageApiClient.updateMessage({
+      ...this.request_body,
+      corpId: this.corpKey,
+      appName: this.appName,
+    });
     log.disabled = true;
     await log.save();
   }
@@ -193,10 +211,11 @@ export class MessageService {
       | "checkin" = "general",
     taskid = ""
   ) => {
-    const msg = await messageApiClient.sendMessage(
-      this.request_body,
-      this.source
-    );
+    const msg = await messageApiClient.sendMessage({
+      ...this.request_body,
+      corpId: this.corpKey,
+      appName: this.appName,
+    });
     if (msg["errcode"] == 0)
       await MessageService.addMsgId(
         msg["msgid"],

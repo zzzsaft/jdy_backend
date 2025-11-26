@@ -1,9 +1,6 @@
 import axios from "axios";
-import {
-  defaultWechatCorpConfig,
-  getCorpConfig,
-  wechatCorpConfigs,
-} from "../../config/wechatCorps";
+import { getCorpAppConfig, wechatCorpConfigs } from "../../config/wechatCorps";
+
 interface TokenConfig {
   corp_id: string;
   corp_secret: string;
@@ -55,7 +52,6 @@ class Token {
   }
 
   public async get_token(): Promise<string> {
-    // return "P4ay5RlD2sjHkPrZPigEOnm7iw8RJ4kPXIAlUuNDWUWJulezYs_-utmyQMSiguhyaEbV6q7vHDahdqd9VH5Q03UXFnEQoILVbf7Zkjt3OM_eY_x5FcqYgCZF4vCJX9GTaW5BkXXsdYi4HF-9PXKF18ZZy99FwKK9DtAX2W1sbGANGAMq_RWhWrAscxihotutCco7U3aehaTI2yUupauaSA";
     if (Date.now() < this.expire * 1000) {
       return this.accessToken;
     } else {
@@ -66,48 +62,71 @@ class Token {
     }
   }
 }
+
 const tokenMap = new Map<string, Token>();
+
+const getTokenMapKey = (corp_id: string, corp_secret: string) =>
+  `${corp_id}:${corp_secret}`;
+
+const ensureToken = (config: TokenConfig): Token => {
+  const key = getTokenMapKey(config.corp_id, config.corp_secret);
+  const existing = tokenMap.get(key);
+  if (existing) return existing;
+
+  const created = new Token(config);
+  tokenMap.set(key, created);
+  return created;
+};
+
 wechatCorpConfigs.forEach((config) => {
-  tokenMap.set(
-    config.corpId,
-    new Token({ corp_id: config.corpId, corp_secret: config.corpSecret })
-  );
+  ensureToken({ corp_id: config.corpId, corp_secret: config.corpSecret });
+  config.apps?.forEach((app) => {
+    ensureToken({ corp_id: config.corpId, corp_secret: app.corpSecret });
+  });
 });
 
-export const getCorpToken = (corpId?: string) => {
-  const corp = getCorpConfig(corpId);
-  const corpToken = tokenMap.get(corp.corpId);
-  if (!corpToken) {
-    const token = new Token({
-      corp_id: corp.corpId,
-      corp_secret: corp.corpSecret,
-    });
-    tokenMap.set(corp.corpId, token);
-    return token;
-  }
-  return corpToken;
+export const getCorpToken = (
+  corpIdOrName?: string,
+  agentId?: number,
+  appName?: string
+) => {
+  const { corpId: resolvedCorpId, corpSecret } = getCorpAppConfig(
+    corpIdOrName,
+    agentId,
+    appName
+  );
+  return ensureToken({ corp_id: resolvedCorpId, corp_secret: corpSecret });
 };
 
 // Keep legacy exports for other features that rely on the default corp credentials
-const config2: TokenConfig = {
-  corp_id: defaultWechatCorpConfig.corpId,
-  corp_secret: process.env.CORP_SECRET_CHECKIN ?? "",
-};
-const config3: TokenConfig = {
-  corp_id: defaultWechatCorpConfig.corpId,
-  corp_secret: process.env.CORP_SECRET_ADDRESS ?? "",
-};
-const configCrm: TokenConfig = {
-  corp_id: defaultWechatCorpConfig.corpId,
-  corp_secret: process.env.CORP_SECRET_CRM ?? "",
-};
-const configJ1: TokenConfig = {
-  corp_id: process.env.CORP_ID_J1 ?? "",
-  corp_secret: process.env.CORP_SECRET_J1 ?? "",
+const parseAgentId = (value?: string): number | undefined => {
+  const parsed = Number(value ?? "");
+  return Number.isNaN(parsed) ? undefined : parsed;
 };
 
+const checkinAppName = process.env.WECHAT_APP_CHECKIN ?? "checkin";
+const addressAppName = process.env.WECHAT_APP_ADDRESS ?? "address";
+const crmAppName = process.env.WECHAT_APP_CRM ?? "crm";
+const j1AppName = process.env.WECHAT_APP_J1 ?? "j1";
+
 export const token = getCorpToken();
-export const token_checkin = new Token(config2);
-export const token_address = new Token(config3);
-export const token_crm = new Token(configCrm);
-export const token_j1 = new Token(configJ1);
+export const token_checkin = getCorpToken(
+  process.env.WECHAT_CORP_CHECKIN,
+  parseAgentId(process.env.CORP_AGENTID_CHECKIN),
+  checkinAppName
+);
+export const token_address = getCorpToken(
+  process.env.WECHAT_CORP_ADDRESS,
+  parseAgentId(process.env.CORP_AGENTID_ADDRESS),
+  addressAppName
+);
+export const token_crm = getCorpToken(
+  process.env.WECHAT_CORP_CRM,
+  parseAgentId(process.env.CORP_AGENTID_CRM),
+  crmAppName
+);
+export const token_j1 = getCorpToken(
+  process.env.WECHAT_CORP_J1,
+  parseAgentId(process.env.CORP_AGENTID_J1),
+  j1AppName
+);
