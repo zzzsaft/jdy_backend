@@ -1,10 +1,13 @@
-import { Entity, Column, BaseEntity, PrimaryColumn } from "typeorm";
+import { Entity, Column, BaseEntity, PrimaryColumn, In } from "typeorm";
 import { logger } from "../../config/logger";
 import { contactApiClient } from "../../api/wechat/contact";
 import { xftOrgnizationApiClient } from "../../api/xft/xft_orgnization";
+import { defaultWechatCorpConfig, getCorpList } from "../../config/wechatCorps";
 
 @Entity({ name: "md_department" })
 export class Department extends BaseEntity {
+  @PrimaryColumn({ name: "corp_id" })
+  corp_id: string;
   @PrimaryColumn()
   department_id: string;
   @Column({ nullable: true })
@@ -68,7 +71,9 @@ export class Department extends BaseEntity {
     levelName.push(department.name);
     while (departmentTemp.parent_id != "1" && departmentTemp.parent_id != "0") {
       let parentDepartment = departments.find(
-        (d) => d.department_id == departmentTemp.parent_id
+        (d) =>
+          d.department_id == departmentTemp.parent_id &&
+          d.corp_id === department.corp_id
       );
       // await departmentTemp.getParentDepartmentByParentId();
       if (parentDepartment) {
@@ -87,39 +92,65 @@ export class Department extends BaseEntity {
     return department;
   }
 
-  static async updateAllDepartmentLevel(): Promise<void> {
-    const departments = await Department.find();
+  static async updateAllDepartmentLevel(corpId?: string): Promise<void> {
+    const corpConfigs = getCorpList(corpId);
     const updatedDepartments: Department[] = [];
-    for (const department of departments) {
-      updatedDepartments.push(
-        await Department.handleLevelName(department, departments)
-      );
+
+    for (const config of corpConfigs) {
+      const departments = await Department.find({
+        where: { corp_id: config.corpId },
+      });
+
+      for (const department of departments) {
+        updatedDepartments.push(
+          await Department.handleLevelName(department, departments)
+        );
+      }
     }
+
     await Department.save(updatedDepartments);
   }
 
-  static async updateDepartment(): Promise<void> {
+  static async updateDepartment(corpId?: string): Promise<void> {
+    const corpConfigs = getCorpList(corpId);
+    const corpIds = corpConfigs.map((config) => config.corpId);
     const existDepartments = await Department.find({
-      where: { is_exist: true },
+      where: { is_exist: true, corp_id: In(corpIds) },
     });
-    const departmentList = await contactApiClient.getDepartmentList();
-    const result = departmentList["department"].map((department: any) => {
-      return {
-        department_id: department.id.toString(),
-        parent_id: department.parentid.toString(),
-        name: department.name,
-        department_leader: department.department_leader,
-        is_exist: true,
-      };
-    });
-    await Department.upsert(result, {
-      conflictPaths: ["department_id"],
-      skipUpdateIfNoValuesChanged: true, // supported by postgres, skips update if it would not change row values
-    });
+    let result: Department[] = [];
+
+    for (const config of corpConfigs) {
+      const departmentList = await contactApiClient.getDepartmentList(
+        config.corpId
+      );
+      const corpDepartments = departmentList["department"].map(
+        (department: any) => {
+          return {
+            corp_id: config.corpId,
+            department_id: department.id.toString(),
+            parent_id: department.parentid.toString(),
+            name: department.name,
+            department_leader: department.department_leader,
+            is_exist: true,
+          } as Department;
+        }
+      );
+      result = result.concat(corpDepartments);
+
+      await Department.upsert(corpDepartments, {
+        conflictPaths: ["department_id", "corp_id"],
+        skipUpdateIfNoValuesChanged: true, // supported by postgres, skips update if it would not change row values
+      });
+    }
+
+    const activeIds = result.map(
+      (department) => `${department.corp_id}:${department.department_id}`
+    );
+
     existDepartments
       .filter(
         (department) =>
-          !result.map((d) => d.department_id).includes(department.department_id)
+          !activeIds.includes(`${department.corp_id}:${department.department_id}`)
       )
       .forEach(async (department) => {
         department.is_exist = false;
@@ -136,10 +167,11 @@ export class Department extends BaseEntity {
         return {
           xft_id: org["id"],
           department_id: org["code"],
+          corp_id: defaultWechatCorpConfig.corpId,
         };
       });
     await Department.upsert(xftOrg, {
-      conflictPaths: ["department_id"],
+      conflictPaths: ["department_id", "corp_id"],
       skipUpdateIfNoValuesChanged: true, // supported by postgres, skips update if it would not change row values
     });
   }

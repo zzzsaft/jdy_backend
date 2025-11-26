@@ -6,6 +6,7 @@ import { xftOrgnizationApiClient } from "../api/xft/xft_orgnization";
 import { xftUserApiClient } from "../api/xft/xft_user";
 import cron from "node-cron";
 import { IsNull, Not } from "typeorm";
+import { defaultWechatCorpConfig } from "../config/wechatCorps";
 
 function areArraysEqual(arr1: string[], arr2: string[]): boolean {
   if (arr1.length !== arr2.length) {
@@ -18,10 +19,11 @@ export const syncUser = async () => {
   const users = (
     await User.createQueryBuilder("user")
       .where("user.is_employed = true")
+      .andWhere("user.corp_id = :corpId", { corpId: defaultWechatCorpConfig.corpId })
       .innerJoinAndSelect(
         Department,
         "department",
-        "user.main_department_id = department.department_id"
+        "user.main_department_id = department.department_id AND user.corp_id = department.corp_id"
       )
       .getRawMany()
   )
@@ -61,7 +63,11 @@ export const syncDepartment = async () => {
     "records"
   ].filter((org: any) => org.status == "active");
   const departments = await Department.find({
-    where: { parent_id: Not(IsNull()), department_leader: Not(IsNull()) },
+    where: {
+      parent_id: Not(IsNull()),
+      department_leader: Not(IsNull()),
+      corp_id: defaultWechatCorpConfig.corpId,
+    },
   });
   const datas = (
     await Promise.all(

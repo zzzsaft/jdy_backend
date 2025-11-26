@@ -1,16 +1,19 @@
-import axios from "axios";
 import { ApiClient } from "./api_client";
-import { token, token_address } from "./token";
+import { getCorpToken } from "./token";
 
 class ContactApiClient extends ApiClient {
-  async getUser(userid: string) {
+  private async getAccessToken(corpId?: string) {
+    return await getCorpToken(corpId).get_token();
+  }
+
+  async getUser(userid: string, corpId?: string) {
     return await this.doRequest(
       {
         method: "POST",
         path: "/cgi-bin/user/get",
         payload: {},
         query: {
-          access_token: await token.get_token(),
+          access_token: await this.getAccessToken(corpId),
           userid: userid,
         },
       },
@@ -21,14 +24,14 @@ class ContactApiClient extends ApiClient {
       }
     );
   }
-  async getDepartmentList() {
+  async getDepartmentList(corpId?: string) {
     return await this.doRequest(
       {
         method: "POST",
         path: "/cgi-bin/department/list",
         payload: {},
         query: {
-          access_token: await token.get_token(),
+          access_token: await this.getAccessToken(corpId),
         },
       },
       {
@@ -38,14 +41,14 @@ class ContactApiClient extends ApiClient {
       }
     );
   }
-  async getUserList(department_id: string) {
+  async getUserList(department_id: string, corpId?: string) {
     return await this.doRequest(
       {
         method: "POST",
         path: "/cgi-bin/user/list",
         payload: {},
         query: {
-          access_token: await token.get_token(),
+          access_token: await this.getAccessToken(corpId),
           department_id: department_id,
         },
       },
@@ -56,14 +59,14 @@ class ContactApiClient extends ApiClient {
       }
     );
   }
-  async getDepartmentInfo(department_id: number) {
+  async getDepartmentInfo(department_id: number, corpId?: string) {
     return await this.doRequest(
       {
         method: "GET",
         path: "/cgi-bin/department/get",
         payload: {},
         query: {
-          access_token: await token.get_token(),
+          access_token: await this.getAccessToken(corpId),
           id: department_id,
         },
       },
