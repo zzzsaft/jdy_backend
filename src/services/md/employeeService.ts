@@ -1,13 +1,14 @@
 import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { User } from "../../entity/basic/employee";
 import { JdyUtil } from "../../utils/jdyUtils";
+import { defaultWechatCorpConfig } from "../../config/wechatCorps";
 
 class EmployeeService {
   appid = "5cfef4b5de0b2278b05c8380";
   entryid = "6414573264b9920007c82491";
   setBank = async (userid, bank, bankAccount) => {
     const user = await User.findOne({
-      where: { user_id: userid },
+      where: { user_id: userid, corp_id: defaultWechatCorpConfig.corpId },
     });
     if (!user) return;
     user.bank = bank;
@@ -47,19 +48,20 @@ class EmployeeService {
   addJdyAlltoDb = async () => {
     const data = await this.findJdy();
     const c: User[] = [];
-    for (const item of data) {
-      const cus = User.create({
-        user_id: JdyUtil.getUser(item["_widget_1690274843463"])?.username,
-        bank: item["_widget_1690873684141"],
-        bankAccount: item["_widget_1690873684080"],
-      });
-      c.push(cus);
-    }
-    await User.upsert(c, ["user_id"]);
+      for (const item of data) {
+        const cus = User.create({
+          corp_id: defaultWechatCorpConfig.corpId,
+          user_id: JdyUtil.getUser(item["_widget_1690274843463"])?.username,
+          bank: item["_widget_1690873684141"],
+          bankAccount: item["_widget_1690873684080"],
+        });
+        c.push(cus);
+      }
+    await User.upsert(c, ["user_id", "corp_id"]);
   };
   getEmployeeToWeb = async (userid) => {
     return await User.findOne({
-      where: { user_id: userid },
+      where: { user_id: userid, corp_id: defaultWechatCorpConfig.corpId },
       select: ["user_id", "name", "avatar"],
     });
   };
@@ -70,6 +72,9 @@ class EmployeeService {
         .where("mainDept.company = :companyName", {
           // 使用参数化查询防止SQL注入
           companyName: "浙江精诚模具机械有限公司",
+        })
+        .andWhere("user.corp_id = :corpId", {
+          corpId: defaultWechatCorpConfig.corpId,
         })
         .andWhere("user.name is not null")
         .select([

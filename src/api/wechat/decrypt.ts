@@ -1,9 +1,10 @@
 import { decrypt } from "@wecom/crypto";
 import convert from "xml-js";
+import { getCorpConfig } from "../../config/wechatCorps";
 
-export const decryptMsg = (payload) => {
+export const decryptMsg = (payload, corpId?: string) => {
   if (!payload || !payload?.["xml"]) return "";
-  const encodingAESKey = process.env.WECHAT_ENCODING_AES_KEY ?? "";
+  const encodingAESKey = getCorpConfig(corpId).encodingAESKey ?? "";
   let { message, id } = decrypt(
     encodingAESKey,
     payload?.["xml"]?.["Encrypt"]?.[0]
