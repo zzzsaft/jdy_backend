@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { authService } from "../services/authService";
-import { quoteItemShareService } from "../services/crm/quoteItemShareService";
-import { User } from "../entity/basic/employee";
+import { authService } from "../../services/authService";
+import { quoteItemShareService } from "../../services/crm/quoteItemShareService";
+import { User } from "../../entity/basic/employee";
 
 const createShare = async (req: Request, res: Response) => {
   const userid = (await authService.verifyToken(req))?.userId;

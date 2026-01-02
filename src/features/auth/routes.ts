@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { authService } from "../services/authService";
-import { locationService } from "../services/locationService";
+import { authService } from "../../services/authService";
+import { locationService } from "../../services/locationService";
 
 const setLocation = async (request: Request, response: Response) => {
   const userid = (await authService.verifyToken(request))?.userId;

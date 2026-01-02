@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { productService } from "../services/crm/productService";
-import { partService } from "../services/crm/partService";
-import { authService } from "../services/authService";
+import { productService } from "../../services/crm/productService";
+import { partService } from "../../services/crm/partService";
+import { authService } from "../../services/authService";
 
 const searchProducts = async (request: Request, response: Response) => {
   const userid = (await authService.verifyToken(request))?.userId;

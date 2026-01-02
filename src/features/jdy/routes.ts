@@ -1,7 +1,7 @@
-import { JdyWebhook } from "../controllers/jdy/data.jdy.controller";
+import { JdyWebhook } from "../../controllers/jdy/data.jdy.controller";
 import { Request, Response } from "express";
-import { 制品表面处理要求 } from "../controllers/jdy/制品表面处理要求";
-import { searchServices } from "../services/crm/searchService";
+import { 制品表面处理要求 } from "../../controllers/jdy/制品表面处理要求";
+import { searchServices } from "../../services/crm/searchService";
 
 const childList = async (request: Request, response: Response) => {
   const data = request.query.data as string;

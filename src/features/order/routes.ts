@@ -1,4 +1,4 @@
-import { getOrderInfo } from "../controllers/order.controller";
+import { getOrderInfo } from "../../controllers/order.controller";
 
 export const OrderRoutes = [
   {

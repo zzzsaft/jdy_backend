@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { templateService } from "../services/crm/templateService";
-import { authService } from "../services/authService";
+import { templateService } from "../../services/crm/templateService";
+import { authService } from "../../services/authService";
 
 const getTemplates = async (req: Request, res: Response) => {
   const templates = await templateService.getTemplates({

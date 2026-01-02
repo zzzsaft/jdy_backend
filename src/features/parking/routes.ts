@@ -4,7 +4,7 @@ import {
   inParking,
   outParking,
   parking,
-} from "../controllers/parking.controller";
+} from "../../controllers/parking.controller";
 
 export const parkingRoutes = [
   {

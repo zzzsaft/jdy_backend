@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
-import { customerServices } from "../services/crm/customerService";
-import { contactService } from "../services/crm/contactService";
-import { authService } from "../services/authService";
-import { opportunityServices } from "../services/crm/opportunityService";
-import { productService } from "../services/crm/productService";
-import { quoteService } from "../services/crm/quoteService";
-import { getLocalFilePath } from "../utils/fileUtils";
-import { Quote } from "../entity/crm/quote";
+import { customerServices } from "../../services/crm/customerService";
+import { contactService } from "../../services/crm/contactService";
+import { authService } from "../../services/authService";
+import { opportunityServices } from "../../services/crm/opportunityService";
+import { productService } from "../../services/crm/productService";
+import { quoteService } from "../../services/crm/quoteService";
+import { getLocalFilePath } from "../../utils/fileUtils";
+import { Quote } from "../../entity/crm/quote";
 const test = async (request: Request, response: Response) => {
   const quotes = await Quote.find({
     where: { type: "history" },

@@ -1,4 +1,4 @@
-import { handleFBT } from "../controllers/fengbeitong.controller";
+import { handleFBT } from "../../controllers/fengbeitong.controller";
 
 export const fenbeitongRoutes = [
   {

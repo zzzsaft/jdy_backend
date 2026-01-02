@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
-import { customerServices } from "../services/crm/customerService";
-import { contactService } from "../services/crm/contactService";
-import { authService } from "../services/authService";
-import { CustomerInfo } from "../entity/crm/customerInfo";
+import { customerServices } from "../../services/crm/customerService";
+import { contactService } from "../../services/crm/contactService";
+import { authService } from "../../services/authService";
+import { CustomerInfo } from "../../entity/crm/customerInfo";
 const searchCustomer = async (request: Request, response: Response) => {
   const name = request.query.keyword as string;
   const company = await customerServices.findCompany(name);

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { authService } from "../services/authService";
-import { employeeService } from "../services/md/employeeService";
+import { authService } from "../../services/authService";
+import { employeeService } from "../../services/md/employeeService";
 
 const getUsers = async (request: Request, response: Response) => {
   const userid = (await authService.verifyToken(request))?.userId;
