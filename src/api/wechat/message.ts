@@ -1,7 +1,6 @@
 import { WechatMessage } from "../../entity/log/log_message";
-import { ICheckinOption } from "../../type/wechat/IOption";
 import { ApiClient } from "./api_client";
-import { token, token_crm, token_j1 } from "./token";
+import { getCorpToken } from "./token";
 import { v4 as uuidv4 } from "uuid";
 
 interface Message {
@@ -9,6 +8,9 @@ interface Message {
   msgtype?: "text" | "textcard" | "template_card";
   agentid?: number;
   content?: string;
+  corpId?: string;
+  corpName?: string;
+  appName?: string;
   safe?: number;
   enable_duplicate_check?: number;
   duplicate_check_interval?: number;
@@ -58,19 +60,27 @@ export type voteInteractionCardType = {
 };
 
 class MessageApiClient extends ApiClient {
-  async sendMessage(options, source: "hr" | "jdy" = "hr") {
-    const crm_token = await token_crm.get_token();
-    const j1_token = await token_j1.get_token();
-    const hr_token = await token.get_token();
+  private async getAccessToken(options: Message) {
+    const token = getCorpToken(
+      options.corpId ?? options.corpName,
+      options.agentid,
+      options.appName
+    );
+    return token.get_token();
+  }
+
+  async sendMessage(options: Message) {
+    const accessToken = await this.getAccessToken(options);
+    const { corpId, corpName, appName, ...payload } = options;
     return await this.doRequest(
       {
         method: "POST",
         path: "/cgi-bin/message/send",
         payload: {
-          ...options,
+          ...payload,
         },
         query: {
-          access_token: source == "hr" ? hr_token : crm_token,
+          access_token: accessToken,
         },
       },
       {
@@ -80,16 +90,19 @@ class MessageApiClient extends ApiClient {
       }
     );
   }
-  async updateMessage(options) {
+
+  async updateMessage(options: Message) {
+    const accessToken = await this.getAccessToken(options);
+    const { corpId, corpName, appName, ...payload } = options;
     return await this.doRequest(
       {
         method: "POST",
         path: "/cgi-bin/message/update_template_card",
         payload: {
-          ...options,
+          ...payload,
         },
         query: {
-          access_token: await token.get_token(),
+          access_token: accessToken,
         },
       },
       {
@@ -99,7 +112,9 @@ class MessageApiClient extends ApiClient {
       }
     );
   }
-  async recall(msgid: string) {
+
+  async recall(msgid: string, corpId?: string, agentId?: number) {
+    const accessToken = await getCorpToken(corpId, agentId).get_token();
     return await this.doRequest(
       {
         method: "POST",
@@ -108,7 +123,7 @@ class MessageApiClient extends ApiClient {
           msgid,
         },
         query: {
-          access_token: await token.get_token(),
+          access_token: accessToken,
         },
       },
       {
