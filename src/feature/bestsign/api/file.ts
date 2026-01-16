@@ -1,7 +1,7 @@
 import axios, { AxiosRequestConfig } from "axios";
 import { ApiClient } from "./api_client";
 import FormData from "form-data";
-import { logger } from "../../config/logger";
+import { logger } from "../../../config/logger";
 
 type UploadInfo = {
   url: string;

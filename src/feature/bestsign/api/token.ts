@@ -33,7 +33,7 @@ class Token {
       return this.accessToken;
     } else {
       const { accessToken, expiration, tokenType } = await this._get_token();
-      this.accessToken = accessToken;
+      this.accessToken = `${tokenType} ${accessToken}`;
       this.expire = expiration;
       return `${tokenType} ${accessToken}`;
     }

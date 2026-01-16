@@ -39,6 +39,8 @@ import { fbtReimbApiClient } from "./api/fenbeitong/apply copy";
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
 import { 修改config, 测试打印 } from "./temp";
 import { checkinServices } from "./services/xft/checkinServices";
+import { templatesApiClient } from "./feature/bestsign/api/template";
+import { bestSignToken } from "./feature/bestsign/api/token";
 
 PgDataSource.initialize()
   .then(async () => {
@@ -81,7 +83,10 @@ PgDataSource.initialize()
     // await handleWechatMessage(a);
     // console.log(await productService.getProducts());
     // await productService.addAlltoDb();
-    await importErrorAtd();
+    // const a1 = await bestSignToken.get_token();
+    const a = await templatesApiClient.getTemplates();
+    console.log(a);
+    // await importErrorAtd();
     // const a = await opportunityServices.getOpportunity(
     //   "ChenYing1",
     //   []
