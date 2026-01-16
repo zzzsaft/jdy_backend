@@ -18,7 +18,7 @@ import { RuleRoutes } from "./rule";
 import { ProductRoutes } from "./product";
 import { TemplateRoutes } from "./template";
 import { OrderRoutes } from "./order";
-import { FeatureRoutes } from "../features";
+// import { FeatureRoutes } from "../features";
 
 /**
  * All application routes.
@@ -44,5 +44,5 @@ export const AppRoutes = [
   ...ProductRoutes,
   ...OrderRoutes,
   ...UserRoutes,
-  ...FeatureRoutes,
+  // ...FeatureRoutes,
 ];

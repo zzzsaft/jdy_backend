@@ -39,8 +39,8 @@ import { fbtReimbApiClient } from "./api/fenbeitong/apply copy";
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
 import { 修改config, 测试打印 } from "./temp";
 import { checkinServices } from "./services/xft/checkinServices";
-import { templatesApiClient } from "./feature/bestsign/api/template";
-import { bestSignToken } from "./feature/bestsign/api/token";
+import { templatesApiClient } from "./features/bestsign/api/template";
+import { bestSignToken } from "./features/bestsign/api/token";
 
 PgDataSource.initialize()
   .then(async () => {
