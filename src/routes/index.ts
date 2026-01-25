@@ -18,6 +18,7 @@ import { RuleRoutes } from "./rule";
 import { ProductRoutes } from "./product";
 import { TemplateRoutes } from "./template";
 import { OrderRoutes } from "./order";
+import { BestSignRoutes } from "../features/bestsign/routes/bestsign.routes";
 // import { FeatureRoutes } from "../features";
 
 /**
@@ -44,5 +45,6 @@ export const AppRoutes = [
   ...ProductRoutes,
   ...OrderRoutes,
   ...UserRoutes,
+  ...BestSignRoutes,
   // ...FeatureRoutes,
 ];
