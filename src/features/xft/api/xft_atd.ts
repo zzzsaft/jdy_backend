@@ -219,6 +219,7 @@ class XFTAttendanceApiClient {
     staffName: string;
     staffNumber: string;
     startPlace: string;
+    roundTrip?: string;
     businessTripLastDays: number;
     businessTripReason: string;
     remark?: string;
@@ -229,7 +230,7 @@ class XFTAttendanceApiClient {
       beginDateType: string;
       endDate: string;
       endDateType: string;
-    };
+    }[];
   }) {
     return await appApiClient.doRequest(
       {

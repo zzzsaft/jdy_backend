@@ -1,16 +1,23 @@
-import { endOfDay, format, isBefore, startOfDay, startOfMonth } from "date-fns";
+import {
+  differenceInCalendarDays,
+  endOfDay,
+  format,
+  isBefore,
+  startOfDay,
+  startOfMonth,
+} from "date-fns";
 import {
   adjustToTimeNode,
   formatDate,
   getHalfDay,
 } from "../../../utils/dateUtils";
+import { User } from "../../../entity/basic/employee";
 import { BusinessTrip } from "../../../entity/atd/businessTrip";
-import { XftCity } from "../../../entity/util/xft_city";
 import { FbtApply } from "../../../entity/atd/fbt_trip_apply";
 import { Between, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
 import _ from "lodash";
 import { MessageService } from "../../../services/messageService";
-import { xftItripApiClient } from "../api/xft_itrip";
+import { xftatdApiClient } from "../api/xft_atd";
 
 export class BusinessTripServices {
   static async scheduleCreate(date: Date = new Date()) {
@@ -26,7 +33,11 @@ export class BusinessTripServices {
     }
   }
 
-  static async 添加xft差旅记录(businessTrip: BusinessTrip, fbtApply: FbtApply) {
+  static async 添加xft差旅记录(
+    businessTrip: BusinessTrip,
+    fbtApply: FbtApply,
+    options: { skipMessage?: boolean } = {}
+  ) {
     if (!businessTrip || !fbtApply) return null;
     if (!businessTrip.start_time || !businessTrip.end_time) {
       await businessTrip.save();
@@ -42,34 +53,72 @@ export class BusinessTripServices {
       await businessTrip.save();
       return;
     }
-    let applier = businessTrip.userId.slice(0, 20);
-
-    const departCityCode = await getCityCode(fbtApply.city[0].name);
-    let destinationCityCode = departCityCode;
-    if (fbtApply.city.length > 1) {
-      destinationCityCode = await getCityCode(fbtApply.city[1].name);
+    const applierUser = await User.findOne({
+      where: { user_id: businessTrip.userId },
+    });
+    const applier = applierUser?.xft_id?.slice(0, 20);
+    if (!applier) {
+      businessTrip.err = `xft_id为空`;
+      await businessTrip.save();
+      return null;
     }
 
     const cities = fbtApply.city.map((city) => {
       return city.name;
     });
-    const result = await xftItripApiClient.createApplyTravel({
-      outRelId: fbtApply.root_id,
-      empNumber: applier,
-      reason: `${fbtApply.reason} ${fbtApply.remark} ${cities.join(",")}`,
-      departCityCode,
-      destinationCityCode,
-      start_time: adjustToTimeNode(businessTrip.start_time, true),
-      end_time: adjustToTimeNode(businessTrip.end_time, true),
-      peerEmpNumbers: fbtApply.user
-        .map((user) => user.userId.slice(0, 20))
-        .filter((user) => user != applier),
+    const startTime = adjustToTimeNode(businessTrip.start_time, true);
+    const endTime = adjustToTimeNode(businessTrip.end_time, true);
+    const businessTripLastDays =
+      differenceInCalendarDays(endTime, startTime) + 1;
+    const businessTripDetail = fbtApply.city.map((city) => ({
+      destination: city.name,
+      beginDate: format(startTime, "yyyy-MM-dd"),
+      beginDateType: getHalfDay(startTime),
+      endDate: format(endTime, "yyyy-MM-dd"),
+      endDateType: getHalfDay(endTime),
+    }));
+    const partners = await Promise.all(
+      fbtApply.user
+        .filter((user) => user.userId && user.userId !== businessTrip.userId)
+        .map(async (user) => {
+          const partnerUser = await User.findOne({
+            where: { user_id: user.userId },
+            select: ["xft_id"],
+          });
+          const partnerSeq = partnerUser?.xft_id?.slice(0, 20);
+          if (!partnerSeq) return null;
+          return {
+            partnerName: user.name,
+            partnerSeq,
+          };
+        })
+    );
+    const result = await xftatdApiClient.addBusinessTrip({
+      staffName: fbtApply.proposerUserName ?? fbtApply.proposer_name ?? "",
+      staffNumber: applier,
+      startPlace: fbtApply.city[0].name,
+      roundTrip: "A",
+      businessTripLastDays,
+      businessTripReason: `${fbtApply.reason ?? ""} ${
+        fbtApply.remark ?? ""
+      } ${cities.join(",")}`.trim(),
+      remark: fbtApply.remark ?? "",
+      businessTripPartner: partners.filter(
+        (partner): partner is { partnerName: string; partnerSeq: string } =>
+          partner != null
+      ),
+      businessTripDetail,
     });
     if (result["returnCode"] == "SUC0000") {
+      const businessTripSeq = getBusinessTripSeq(result);
       businessTrip.err = "";
-      businessTrip.xftBillId = result["body"];
+      if (businessTripSeq) {
+        businessTrip.xftBillId = businessTripSeq;
+      }
       await businessTrip.save();
-      await sendMessages(businessTrip, fbtApply);
+      if (!options.skipMessage) {
+        await sendMessages(businessTrip, fbtApply);
+      }
       return true;
     } else {
       businessTrip.err = result;
@@ -78,47 +127,57 @@ export class BusinessTripServices {
     }
   }
 
+  static async 测试添加xft差旅记录(
+    businessTrip: BusinessTrip,
+    fbtApply: FbtApply
+  ) {
+    return BusinessTripServices.添加xft差旅记录(businessTrip, fbtApply, {
+      skipMessage: true,
+    });
+  }
+
   static async 修改xft差旅记录(
     businessTrip: BusinessTrip,
     fbtApply: FbtApply,
     start_time: Date,
-    end_time: Date,
-    companion: string[] = []
+    end_time: Date
   ) {
     if (!businessTrip || !fbtApply) return null;
-    if (!businessTrip.xftBillId) return null;
     if (!fbtApply.city || fbtApply.city.length == 0) return null;
-    let applier = businessTrip.userId.slice(0, 20);
-    const departCityCode = await getCityCode(fbtApply.city[0].name);
-    let destinationCityCode = departCityCode;
-    if (fbtApply.city.length > 1) {
-      destinationCityCode = await getCityCode(fbtApply.city[1].name);
-    }
-    const result = await _修改xft差旅记录({
-      billId: businessTrip.xftBillId,
-      changerNumber: applier,
-      departCityCode,
-      destinationCityCode,
-      start_time: adjustToTimeNode(start_time, true),
-      end_time: adjustToTimeNode(end_time, true),
-      peerEmpNumbers: companion.map((user) => user.slice(0, 20)),
-    });
     if (!businessTrip.reviseLogs) businessTrip.reviseLogs = [];
     let log = `原始时间${formatDate(businessTrip.start_time)} ${formatDate(
       businessTrip.end_time
     )} 修改为${formatDate(start_time)} ${formatDate(end_time)}`;
-    if (result) {
-      businessTrip.reviseLogs.push(`修改差旅记录成功 ${log}`);
-      businessTrip.start_time = start_time;
-      businessTrip.end_time = end_time;
-      await businessTrip.save();
-      await sendMessages(businessTrip, fbtApply);
-      return true;
-    } else {
-      businessTrip.reviseLogs.push(`修改差旅记录失败 ${log}`);
+    const revokeResult = businessTrip.xftBillId
+      ? await xftatdApiClient.revokeBusinessTrip({
+          businessTripSeq: [businessTrip.xftBillId],
+        })
+      : null;
+    const revokeSuccess =
+      !businessTrip.xftBillId || revokeResult?.["returnCode"] == "SUC0000";
+    if (!revokeSuccess) {
+      businessTrip.reviseLogs.push(`撤回差旅记录失败 ${log}`);
+      businessTrip.err = revokeResult;
       await businessTrip.save();
       return false;
     }
+    businessTrip.reviseLogs.push(`撤回差旅记录成功 ${log}`);
+    businessTrip.start_time = start_time;
+    businessTrip.end_time = end_time;
+    businessTrip.xftBillId = null;
+    const createResult = await BusinessTripServices.添加xft差旅记录(
+      businessTrip,
+      fbtApply
+    );
+    if (createResult) {
+      businessTrip.reviseLogs.push(`重建差旅记录成功 ${log}`);
+      await businessTrip.save();
+      await sendMessages(businessTrip, fbtApply);
+      return true;
+    }
+    businessTrip.reviseLogs.push(`重建差旅记录失败 ${log}`);
+    await businessTrip.save();
+    return false;
   }
 
   static async createNonConflictingTimeSlot(fbtApply: FbtApply) {
@@ -258,58 +317,18 @@ export class BusinessTripServices {
   }
 }
 
-const _修改xft差旅记录 = async ({
-  billId,
-  changerNumber,
-  departCityCode,
-  destinationCityCode,
-  start_time,
-  end_time,
-  changeReason = "1",
-  peerEmpNumbers = [],
-}: {
-  billId: string;
-  changerNumber: string;
-  departCityCode: any;
-  destinationCityCode: any;
-  start_time: Date;
-  end_time: Date;
-  changeReason?: string;
-  peerEmpNumbers?: string[]; // 参数的类型标注为 string[]
-}) => {
-  const result = await xftItripApiClient.updateApplyTravel({
-    billId,
-    changerNumber,
-    peerEmpNumbers,
-    changeReason,
-    changeInfo: {
-      businessTrip: {
-        businessTripDetails: [
-          {
-            departCityCode,
-            destinationCityCode,
-            beginTime: format(start_time, "yyyy-MM-dd HH:mm"),
-            endTime: format(end_time, "yyyy-MM-dd HH:mm"),
-            beginTimePrecision: getHalfDay(start_time),
-            endTimePrecision: getHalfDay(end_time),
-            // timePrecisionType: "1",
-          },
-        ],
-      },
-    },
-  });
-  if (result["returnCode"] == "SUC0000") {
-    return true;
-  }
-  return false;
-};
-
-const getCityCode = async (cityName: string) => {
+const getBusinessTripSeq = (result: any) => {
+  if (!result) return null;
+  const body = result["body"];
+  if (!body) return null;
+  if (typeof body === "string") return body;
   return (
-    await XftCity.findOne({
-      where: { cityName: cityName.split("/")[0].split(",")[0] },
-    })
-  )?.cityCode;
+    body["businessTripSeq"] ??
+    body["businessSeq"] ??
+    body["body"]?.["businessTripSeq"] ??
+    body["body"]?.["businessSeq"] ??
+    null
+  );
 };
 
 const sendMessages = async (businessTrip: BusinessTrip, fbtApply: FbtApply) => {
