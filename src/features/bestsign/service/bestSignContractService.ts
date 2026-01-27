@@ -154,6 +154,10 @@ class BestSignContractService {
     await fs.promises.writeFile(zipPath, Buffer.from(data.content, "base64"));
 
     let extractDir: string | null = null;
+    let extractedData: Record<
+      string,
+      { name: string; content: Buffer }[]
+    > | null = null;
     if (options.unzip !== false && data.contentType.includes("zip")) {
       extractDir = path.join(
         outputDir,
@@ -161,9 +165,10 @@ class BestSignContractService {
       );
       await this.ensureDir(extractDir);
       await this.unzipFile(zipPath, extractDir);
+      extractedData = await this.collectExtractedFiles(extractDir);
     }
 
-    return { zipPath, extractDir };
+    return { zipPath, extractDir, extractedData };
   }
 
   private async handleSendResultNotification(
@@ -255,6 +260,36 @@ class BestSignContractService {
     } catch (error) {
       logger.error(error);
     }
+  }
+
+  private async collectExtractedFiles(extractDir: string) {
+    const extractedData: Record<string, { name: string; content: Buffer }[]> =
+      {};
+    const folderEntries = await fs.promises.readdir(extractDir, {
+      withFileTypes: true,
+    });
+    for (const folderEntry of folderEntries) {
+      if (!folderEntry.isDirectory()) continue;
+      const folderName = folderEntry.name;
+      const folderNumber = folderName.split("_").slice(-1)[0];
+      if (!folderNumber) continue;
+      const folderPath = path.join(extractDir, folderName);
+      const files = await fs.promises.readdir(folderPath, {
+        withFileTypes: true,
+      });
+      for (const fileEntry of files) {
+        if (!fileEntry.isFile()) continue;
+        const fileName = fileEntry.name;
+        const content = await fs.promises.readFile(
+          path.join(folderPath, fileName)
+        );
+        if (!extractedData[folderNumber]) {
+          extractedData[folderNumber] = [];
+        }
+        extractedData[folderNumber].push({ name: fileName, content });
+      }
+    }
+    return extractedData;
   }
 
   private normalizeId(id?: string | number | null) {
