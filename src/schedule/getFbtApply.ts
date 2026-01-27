@@ -57,7 +57,10 @@ export class GetFbtApply {
       where.start_time = Between(startDate, endDate);
     }
     const trips = await BusinessTrip.find({
-      where,
+      where: {
+        xftBillId: IsNull(),
+        xftFormId: IsNull(),
+      },
       order: { start_time: "ASC" },
     });
     for (const trip of trips) {
@@ -73,7 +76,9 @@ export class GetFbtApply {
         logger.warn(`FbtApply not found for ${trip.fbtCurrentId}`);
         continue;
       }
-      await BusinessTripServices.添加xft差旅记录(trip, apply);
+      await BusinessTripServices.添加xft差旅记录(trip, apply, {
+        skipMessage: true,
+      });
     }
   }
 

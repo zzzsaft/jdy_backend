@@ -1,8 +1,8 @@
 import { format } from "date-fns";
 import _ from "lodash";
-import { fbtApplyApiClient } from "../../../api/fenbeitong/apply";
 import { FbtApply } from "../entity/fbt_trip_apply";
 import { Between } from "typeorm";
+import { fbtApplyApiClient } from "../api/apply";
 
 export class FbtApplyService {
   static async syncFbtApplies(startTime: Date, endTime: Date) {

@@ -81,7 +81,7 @@ PgDataSource.initialize()
     // console.log(await productService.getProducts());
     // await productService.addAlltoDb();
     // const a1 = await bestSignToken.get_token();
-    // await logTripSyncByid("69784460f16f745b3b3a68df");
+    await logTripSyncByid("69784460f16f745b3b3a68df");
     // const a = await templatesApiClient.getTemplates();
     // console.log(a);
     // await importErrorAtd();

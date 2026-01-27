@@ -53,10 +53,7 @@ export class BusinessTripServices {
       await businessTrip.save();
       return;
     }
-    const applierUser = await User.findOne({
-      where: { user_id: businessTrip.userId },
-    });
-    const applier = applierUser?.xft_id?.slice(0, 20);
+    const applier = businessTrip.userId.slice(0, 20);
     if (!applier) {
       businessTrip.err = `xft_id为空`;
       await businessTrip.save();
