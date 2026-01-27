@@ -26,7 +26,7 @@ import {
 } from "./temp";
 import { fbtUserApiClient } from "./api/fenbeitong/user";
 import { fbtApplyApiClient } from "./api/fenbeitong/apply";
-import { FbtApply } from "./entity/atd/fbt_trip_apply";
+import { FbtApply } from "./features/fbt/entity/fbt_trip_apply";
 import { GetFbtApply, XftTripLog } from "./schedule/getFbtApply";
 import { xftItripApiClient } from "./api/xft/xft_itrip";
 import { XftCity } from "./entity/util/xft_city";

@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import _ from "lodash";
 import { fbtApplyApiClient } from "../../../api/fenbeitong/apply";
-import { FbtApply } from "../../../entity/atd/fbt_trip_apply";
+import { FbtApply } from "../entity/fbt_trip_apply";
 import { Between } from "typeorm";
 
 export class FbtApplyService {

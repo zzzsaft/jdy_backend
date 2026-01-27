@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { BusinessTrip } from "../../entity/atd/businessTrip";
-import { FbtApply } from "../../entity/atd/fbt_trip_apply";
+import { FbtApply } from "../../features/fbt/entity/fbt_trip_apply";
 import { adjustToTimeNode } from "../../utils/dateUtils";
 export class ApplyServies {}
 // await new MessageService(["LiangZhi"]).sendTextNotice({

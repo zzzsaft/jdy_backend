@@ -5,7 +5,6 @@ import {
   xftTaskCallback,
   XftTaskEvent,
 } from "./controllers/xft/todo.xft.controller";
-import { fbtUserApiClient } from "./api/fenbeitong/user";
 import { User } from "./entity/basic/employee";
 import {
   And,
@@ -18,7 +17,7 @@ import {
   Or,
 } from "typeorm";
 import { XftCity } from "./entity/util/xft_city";
-import { FbtApply } from "./entity/atd/fbt_trip_apply";
+import { FbtApply } from "./features/fbt/entity/fbt_trip_apply";
 import { XftTripLog } from "./schedule/getFbtApply";
 import { BusinessTrip } from "./entity/atd/businessTrip";
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
@@ -49,6 +48,7 @@ import { level } from "winston";
 import { parseRatioString } from "./utils/stringUtils";
 import { xftatdApiClient } from "./features/xft/api/xft_atd";
 import { xftOAApiClient } from "./features/xft/api/xft_oa";
+import { fbtUserApiClient } from "./features/fbt/api/user";
 export const 获取空缺请假记录 = async () => {
   // const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
   //   .select("leave.leaveRecSeq")

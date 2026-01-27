@@ -1,5 +1,11 @@
-import { addDays, endOfDay, endOfMonth, startOfDay, startOfMonth } from "date-fns";
-import { FbtApply } from "../entity/atd/fbt_trip_apply";
+import {
+  addDays,
+  endOfDay,
+  endOfMonth,
+  startOfDay,
+  startOfMonth,
+} from "date-fns";
+import { FbtApply } from "../features/fbt/entity/fbt_trip_apply";
 import { Between, IsNull } from "typeorm";
 import { BusinessTrip } from "../entity/atd/businessTrip";
 import { logger } from "../config/logger";

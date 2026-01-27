@@ -2,7 +2,7 @@ import { xftOAApiClient } from "../api/xft/xft_oa";
 import { BusinessTrip } from "../entity/atd/businessTrip";
 import { log } from "console";
 import { LessThan, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
-import { FbtApply } from "../entity/atd/fbt_trip_apply";
+import { FbtApply } from "../features/fbt/entity/fbt_trip_apply";
 import {
   addDays,
   differenceInBusinessDays,

@@ -11,9 +11,9 @@ import {
 import { wechatUserApiClient } from "../api/wechat/user";
 import nodeRSA from "node-rsa";
 import qs from "querystring";
-import { fbtUserApiClient } from "../api/fenbeitong/user";
 import { User } from "../entity/basic/employee";
 import { employeeService } from "./md/employeeService";
+import { fbtUserApiClient } from "../features/fbt/api/user";
 const RSA_PRIVATE_KEY = process.env.RSA_PRIVATE_KEY;
 const key = new nodeRSA(`-----BEGIN RSA PRIVATE KEY-----
     ${RSA_PRIVATE_KEY}

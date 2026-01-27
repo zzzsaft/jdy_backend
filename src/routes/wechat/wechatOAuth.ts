@@ -6,7 +6,6 @@ import {
 } from "../../controllers/wechat/wechat.controller";
 import { xftSSOLogin } from "../../controllers/xft/login.xft.controller";
 import { wechatUserApiClient } from "../../api/wechat/user";
-import { fbtUserApiClient } from "../../api/fenbeitong/user";
 import { User } from "../../entity/basic/employee";
 import { jdySsoRequest } from "../../controllers/jdy/jdySso";
 

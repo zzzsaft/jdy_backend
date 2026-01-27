@@ -32,11 +32,15 @@ export const PgDataSource = new DataSource({
           "src/entity/*.js",
           "src/entity/*/*.js",
           "src/features/bestsign/entity/*.js",
+          "src/features/fbt/entity/*.js",
+          "src/features/xft/entity/*.js",
         ]
       : [
           "src/entity/*.ts",
           "src/entity/*/*.ts",
           "src/features/bestsign/entity/*.ts",
+          "src/features/fbt/entity/*.ts",
+          "src/features/xft/entity/*.ts",
         ],
   logging: process.env.NODE_ENV === "production" ? ["error", "warn"] : true,
   synchronize: false,

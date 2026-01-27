@@ -15,8 +15,8 @@ import {
   Relation,
   UpdateDateColumn,
 } from "typeorm";
-import { User } from "../basic/employee";
-import { Department } from "../basic/department";
+import { User } from "../../../entity/basic/employee";
+import { Department } from "../../../entity/basic/department";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { endOfDay } from "date-fns";
 @Entity("fbt_apply")

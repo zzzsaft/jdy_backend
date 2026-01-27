@@ -9,7 +9,7 @@ import {
   startOfMonth,
 } from "date-fns";
 import { XftTripCheckin } from "../../../entity/atd/business_trip_checkin";
-import { FbtApply } from "../../../entity/atd/fbt_trip_apply";
+import { FbtApply } from "../../fbt/entity/fbt_trip_apply";
 import { Department } from "../../../entity/basic/department";
 import { User } from "../../../entity/basic/employee";
 import { JdyUtil } from "../../../utils/jdyUtils";

@@ -13,7 +13,7 @@ import {
 } from "../../../utils/dateUtils";
 import { User } from "../../../entity/basic/employee";
 import { BusinessTrip } from "../../../entity/atd/businessTrip";
-import { FbtApply } from "../../../entity/atd/fbt_trip_apply";
+import { FbtApply } from "../../fbt/entity/fbt_trip_apply";
 import { Between, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
 import _ from "lodash";
 import { MessageService } from "../../../services/messageService";

@@ -33,8 +33,6 @@ import { gaoDeApiClient } from "./api/gaode/app";
 import { quoteService } from "./services/crm/quoteService";
 import { Quote } from "./entity/crm/quote";
 import { MessageService } from "./services/messageService";
-import { fbtApplyApiClient } from "./api/fenbeitong/apply";
-import { fbtReimbApiClient } from "./api/fenbeitong/apply copy";
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
 import { logTripSyncByid, 修改config, 测试打印 } from "./temp";
 import { checkinServices } from "./services/xft/checkinServices";
