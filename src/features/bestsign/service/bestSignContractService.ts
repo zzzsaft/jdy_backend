@@ -1,7 +1,7 @@
 import { logger } from "../../../config/logger";
 import fs from "fs";
 import path from "path";
-import os from "os";
+import AdmZip from "adm-zip";
 import { exec } from "child_process";
 import { promisify } from "util";
 import {
@@ -144,9 +144,14 @@ class BestSignContractService {
     }
 
     const shouldSaveLocal = options?.saveLocal ?? false;
-    const outputDir = shouldSaveLocal
-      ? options.outputDir ?? "./public/bestsign"
-      : await this.createTempDir();
+    if (!shouldSaveLocal) {
+      const extractedData = this.collectExtractedFilesFromBuffer(
+        Buffer.from(data.content, "base64")
+      );
+      return { extractedData };
+    }
+
+    const outputDir = options.outputDir ?? "./public/bestsign";
     const zipFileName =
       options.zipFileName ?? `bestsign_contracts_${Date.now()}.zip`;
     const zipPath = path.join(outputDir, zipFileName);
@@ -166,11 +171,6 @@ class BestSignContractService {
       await this.ensureDir(extractDir);
       await this.unzipFile(zipPath, extractDir);
       extractedData = await this.collectExtractedFiles(extractDir);
-    }
-
-    if (!shouldSaveLocal) {
-      await this.removeDir(outputDir);
-      return { extractedData };
     }
 
     return { zipPath, extractDir, extractedData };
@@ -258,14 +258,6 @@ class BestSignContractService {
     await fs.promises.mkdir(directory, { recursive: true });
   }
 
-  private async createTempDir() {
-    return await fs.promises.mkdtemp(path.join(os.tmpdir(), "bestsign-"));
-  }
-
-  private async removeDir(directory: string) {
-    await fs.promises.rm(directory, { recursive: true, force: true });
-  }
-
   private async unzipFile(zipPath: string, outputDir: string) {
     const execAsync = promisify(exec);
     try {
@@ -301,6 +293,29 @@ class BestSignContractService {
         }
         extractedData[folderNumber].push({ name: fileName, content });
       }
+    }
+    return extractedData;
+  }
+
+  private collectExtractedFilesFromBuffer(zipBuffer: Buffer) {
+    const extractedData: Record<string, { name: string; content: Buffer }[]> =
+      {};
+    const zip = new AdmZip(zipBuffer);
+    const entries = zip.getEntries();
+    for (const entry of entries) {
+      if (entry.isDirectory) continue;
+      const entryName = entry.entryName;
+      const [folderName, fileName] = entryName.split("/", 2);
+      if (!folderName || !fileName) continue;
+      const folderNumber = folderName.split("_").slice(-1)[0];
+      if (!folderNumber) continue;
+      if (!extractedData[folderNumber]) {
+        extractedData[folderNumber] = [];
+      }
+      extractedData[folderNumber].push({
+        name: fileName,
+        content: entry.getData(),
+      });
     }
     return extractedData;
   }
