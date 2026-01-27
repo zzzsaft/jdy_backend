@@ -1,15 +1,14 @@
 import { addHours, format, isAfter, isBefore } from "date-fns";
-import { xftatdApiClient } from "../../../api/xft/xft_atd";
 import { XftAtdReissue } from "../../../entity/atd/xft_reissue";
 import { User } from "../../../entity/basic/employee";
-import { Department } from "../../../entity/basic/department";
-import { xftOAApiClient } from "../../../api/xft/xft_oa";
 import { atdClassService } from "../atdClass.services";
 import { getDate } from "../../../utils/dateUtils";
 import { EntryExistRecords } from "../../../entity/parking/dh_entry_exit_record";
 import { Between } from "typeorm";
 import _ from "lodash";
 import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
+import { xftatdApiClient } from "../../../features/xft/api/xft_atd";
+import { xftOAApiClient } from "../../../features/xft/api/xft_oa";
 
 export class ReissueEvent {
   task: XftTaskEvent;

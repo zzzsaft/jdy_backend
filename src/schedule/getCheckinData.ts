@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { IDataQueryOption } from "../type/jdy/IOptions";
+import { IDataQueryOption } from "../features/jdy/type/IOptions";
 import { jdyFormDataApiClient } from "../api/jdy/form_data";
 import {
   checkinApiClient,

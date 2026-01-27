@@ -1,9 +1,9 @@
 // src/services/ProductService.ts
-import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { Product } from "../../entity/crm/product";
 import { Pump } from "../../entity/crm/productPump";
 import { Filter } from "../../entity/crm/productFilter";
 import { QuoteItem } from "../../entity/crm/quote";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
 
 export class ProductService {
   appid = "6191e49fc6c18500070f60ca";

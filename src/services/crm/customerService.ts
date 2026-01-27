@@ -1,4 +1,3 @@
-import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { tycApiClient } from "../../api/tianyacha/app";
 import { Log } from "../../entity/log/log";
 import { CustomerInfo } from "../../entity/crm/customerInfo";
@@ -7,6 +6,7 @@ import { Customer } from "../../entity/crm/customer";
 import { Like } from "typeorm";
 import _ from "lodash";
 import { jsontoSheet } from "../../utils/excelUtils";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
 
 export const provinces = [
   "北京市",

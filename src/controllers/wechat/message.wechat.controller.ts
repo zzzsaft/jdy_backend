@@ -1,6 +1,6 @@
 import { WechatMessage } from "../../entity/log/log_message";
+import { xftOAApiClient } from "../../features/xft/api/xft_oa";
 import { proceedLeave } from "../../schedule/sendLeave";
-import { xftOAApiClient } from "../../api/xft/xft_oa";
 import { trafficService } from "../../services/entryService";
 import { MessageService } from "../../services/messageService";
 

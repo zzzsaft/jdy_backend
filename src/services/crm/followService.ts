@@ -1,11 +1,10 @@
-import { jdyFormDataApiClient } from "../../api/jdy/form_data";
-import { workflowApiClient } from "../../api/jdy/workflow";
 import { XftTripCheckin } from "../../entity/atd/business_trip_checkin";
 import { WechatMessage } from "../../entity/log/log_message";
 import { JdyUtil } from "../../utils/jdyUtils";
-import { businessTripCheckinServices } from "../jdy/businessTripCheckinServices";
+import { businessTripCheckinServices } from "../../features/jdy/service/businessTripCheckinServices";
 import { MessageService } from "../messageService";
 import { checkinServices } from "../xft/checkinServices";
+import { workflowApiClient } from "../../features/jdy/api/workflow";
 
 class FollowService {
   appid = "6191e49fc6c18500070f60ca";

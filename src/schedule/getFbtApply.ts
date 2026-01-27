@@ -3,7 +3,6 @@ import { fbtApplyApiClient } from "../api/fenbeitong/apply";
 import { FbtApply } from "../entity/atd/fbt_trip_apply";
 import { Between } from "typeorm";
 import _ from "lodash";
-import { xftItripApiClient } from "../api/xft/xft_itrip";
 import { XftCity } from "../entity/util/xft_city";
 import { User } from "../entity/basic/employee";
 import { BusinessTrip } from "../entity/atd/businessTrip";
@@ -11,6 +10,7 @@ import { logger } from "../config/logger";
 import { log } from "console";
 import { getHalfDay } from "../utils/dateUtils";
 import { MessageService } from "../services/messageService";
+import { xftItripApiClient } from "../features/xft/api/xft_itrip";
 
 export class GetFbtApply {
   startTime: Date;

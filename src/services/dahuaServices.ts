@@ -4,8 +4,8 @@ import { User } from "../entity/basic/employee";
 import { fileApiClient } from "../api/dahua/file";
 import { logger } from "../config/logger";
 import { compressImage, downloadFileStream } from "../utils/fileUtils";
-import { jdyFormDataApiClient } from "../api/jdy/form_data";
 import { sleep } from "../config/limiter";
+import { jdyFormDataApiClient } from "../features/jdy/api/form_data";
 
 class DahuaServices {
   async deleteDahuaId() {

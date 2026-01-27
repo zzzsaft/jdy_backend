@@ -10,7 +10,7 @@ import {
   endOfDay,
   format,
 } from "date-fns";
-import { IFormData } from "../type/jdy/IData";
+import { IFormData } from "../features/jdy/type/IData";
 import { JdyUtil } from "../utils/jdyUtils";
 import { User } from "../entity/basic/employee";
 import { jdyFormDataApiClient } from "../api/jdy/form_data";

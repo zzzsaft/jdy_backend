@@ -11,7 +11,6 @@ import {
   endOfMonth,
   startOfMonth,
 } from "date-fns";
-import { xftatdApiClient } from "../api/xft/xft_atd";
 import { XftTaskEvent } from "../controllers/xft/todo.xft.controller";
 import { User } from "../entity/basic/employee";
 import { Department } from "../entity/basic/department";
@@ -21,6 +20,7 @@ import _ from "lodash";
 import { getWeekDayName } from "../utils/dateUtils";
 import { quotaServices } from "../services/xft/quotaServices";
 import { MessageService } from "../services/messageService";
+import { xftatdApiClient } from "../features/xft/api/xft_atd";
 
 export const getWeekendDates = () => {
   const today = new Date();

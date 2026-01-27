@@ -12,7 +12,6 @@ import { DatabaseTransport } from "./config/database-transport";
 import { customerServices } from "./services/crm/customerService";
 import { jctimesApiClient } from "./api/jctimes/app";
 import { contactService } from "./services/crm/contactService";
-import { xftatdApiClient } from "./api/xft/xft_atd";
 import { User } from "./entity/basic/employee";
 import { searchServices } from "./services/crm/searchService";
 import { opportunityServices } from "./services/crm/opportunityService";
@@ -28,7 +27,7 @@ import { receiveService } from "./services/crm/receiveService";
 import { token_crm, token_j1 } from "./api/wechat/token";
 import { wechatUserApiClient } from "./api/wechat/user";
 import { authService } from "./services/authService";
-import { sendButtonMsg } from "./services/jdy/businessTripCheckinServices";
+import { sendButtonMsg } from "./features/jdy/service/businessTripCheckinServices";
 import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
 import { gaoDeApiClient } from "./api/gaode/app";
 import { quoteService } from "./services/crm/quoteService";
@@ -37,7 +36,7 @@ import { MessageService } from "./services/messageService";
 import { fbtApplyApiClient } from "./api/fenbeitong/apply";
 import { fbtReimbApiClient } from "./api/fenbeitong/apply copy";
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
-import { 修改config, 测试打印 } from "./temp";
+import { logTripSyncByid, 修改config, 测试打印 } from "./temp";
 import { checkinServices } from "./services/xft/checkinServices";
 import { templatesApiClient } from "./features/bestsign/api/template";
 import { bestSignToken } from "./features/bestsign/api/token";
@@ -84,8 +83,9 @@ PgDataSource.initialize()
     // console.log(await productService.getProducts());
     // await productService.addAlltoDb();
     // const a1 = await bestSignToken.get_token();
-    const a = await templatesApiClient.getTemplates();
-    console.log(a);
+    // await logTripSyncByid("69784460f16f745b3b3a68df");
+    // const a = await templatesApiClient.getTemplates();
+    // console.log(a);
     // await importErrorAtd();
     // const a = await opportunityServices.getOpportunity(
     //   "ChenYing1",

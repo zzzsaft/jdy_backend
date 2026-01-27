@@ -3,7 +3,6 @@ import { logger } from "../config/logger";
 import { XftAtdLeave } from "../entity/atd/xft_leave";
 import { XftAtdOut } from "../entity/atd/xft_out";
 import { BusinessTrip } from "../entity/atd/businessTrip";
-import { xftatdApiClient } from "../api/xft/xft_atd";
 import { addDays, addMinutes, format } from "date-fns";
 import { atdClassService } from "./xft/atdClass.services";
 import { isAfterTime, isBeforeTime } from "../utils/dateUtils";
@@ -11,6 +10,7 @@ import { AbnomalTraffic } from "../entity/log/abnormal_traffic";
 import { User } from "../entity/basic/employee";
 import { MessageService } from "./messageService";
 import { Department } from "../entity/basic/department";
+import { xftatdApiClient } from "../features/xft/api/xft_atd";
 
 export class Traffic {
   traffic: AbnomalTraffic;

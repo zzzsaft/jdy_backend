@@ -9,7 +9,7 @@ import {
   startOfMonth,
   subMonths,
 } from "date-fns";
-import { getHalfDay } from "../../utils/dateUtils";
+import { getHalfDay } from "../../../utils/dateUtils";
 
 export type importAtd = {
   staffName: string;

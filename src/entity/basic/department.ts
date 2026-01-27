@@ -1,8 +1,8 @@
 import { Entity, Column, BaseEntity, PrimaryColumn, In } from "typeorm";
 import { logger } from "../../config/logger";
 import { contactApiClient } from "../../api/wechat/contact";
-import { xftOrgnizationApiClient } from "../../api/xft/xft_orgnization";
 import { defaultWechatCorpConfig, getCorpList } from "../../config/wechatCorps";
+import { xftOrgnizationApiClient } from "../../features/xft/api/xft_orgnization";
 
 @Entity({ name: "md_department" })
 export class Department extends BaseEntity {
@@ -150,7 +150,9 @@ export class Department extends BaseEntity {
     existDepartments
       .filter(
         (department) =>
-          !activeIds.includes(`${department.corp_id}:${department.department_id}`)
+          !activeIds.includes(
+            `${department.corp_id}:${department.department_id}`
+          )
       )
       .forEach(async (department) => {
         department.is_exist = false;

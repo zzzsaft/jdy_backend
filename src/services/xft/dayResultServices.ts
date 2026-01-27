@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { User } from "../../entity/basic/employee";
-import { xftatdApiClient } from "../../api/xft/xft_atd";
 import {
   addDays,
   endOfDay,
@@ -13,6 +12,7 @@ import {
 import { AtdDayResult } from "../../entity/atd/day_result";
 import { logger } from "../../config/logger";
 import { Between } from "typeorm";
+import { xftatdApiClient } from "../../features/xft/api/xft_atd";
 
 class DayResultServices {
   getDayResult = async (date: Date = new Date()) => {

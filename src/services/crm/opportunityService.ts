@@ -1,4 +1,3 @@
-import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { tycApiClient } from "../../api/tianyacha/app";
 import { Log } from "../../entity/log/log";
 import { CustomerInfo } from "../../entity/crm/customerInfo";
@@ -9,6 +8,7 @@ import { Opportunity, OpportunityQuote } from "../../entity/crm/opportunity";
 import { removeUndefined } from "../../utils/stringUtils";
 import { customerServices } from "./customerService";
 import { MessageService } from "../messageService";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
 
 class OpportunityServices {
   appid = "6191e49fc6c18500070f60ca";

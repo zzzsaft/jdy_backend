@@ -1,5 +1,5 @@
-import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { CustomerInfo } from "../../entity/crm/customerInfo";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
 import { JdyUtil } from "../../utils/jdyUtils";
 import { customerServices, provinces } from "../crm/customerService";
 

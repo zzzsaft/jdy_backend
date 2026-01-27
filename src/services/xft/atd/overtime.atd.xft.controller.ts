@@ -1,9 +1,9 @@
 import { addDays, format, isBefore, parse } from "date-fns";
 import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
-import { xftatdApiClient } from "../../../api/xft/xft_atd";
-import { xftOAApiClient } from "../../../api/xft/xft_oa";
 import { getDifference } from "../../../utils/dateUtils";
 import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
+import { xftatdApiClient } from "../../../features/xft/api/xft_atd";
+import { xftOAApiClient } from "../../../features/xft/api/xft_oa";
 
 export class OvertimeEvent {
   task: XftTaskEvent;

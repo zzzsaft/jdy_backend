@@ -13,7 +13,6 @@ import {
   In,
 } from "typeorm";
 import { logger } from "../../config/logger";
-import { xftUserApiClient } from "../../api/xft/xft_user";
 import { Department } from "./department";
 import { contactApiClient } from "../../api/wechat/contact";
 import _ from "lodash";
@@ -23,6 +22,7 @@ import {
   getCorpConfig,
   getCorpList,
 } from "../../config/wechatCorps";
+import { xftUserApiClient } from "../../features/xft/api/xft_user";
 
 @Entity({ name: "md_employee" })
 export class User extends BaseEntity {
@@ -274,7 +274,10 @@ export class User extends BaseEntity {
     )?.main_department_id;
     if (orgid) {
       return await Department.findOne({
-        where: { department_id: orgid, corp_id: defaultWechatCorpConfig.corpId },
+        where: {
+          department_id: orgid,
+          corp_id: defaultWechatCorpConfig.corpId,
+        },
       });
     }
     return null;

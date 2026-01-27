@@ -1,12 +1,12 @@
 import { startOfMonth, subMonths, endOfMonth, format } from "date-fns";
 import _ from "lodash";
-import { xftatdApiClient } from "../../api/xft/xft_atd";
 import {
   getLast2MouthSaturday,
   getMouthSaturday,
   getSaturdaySunday,
 } from "../../utils/dateUtils";
-import { restOvertimeServices } from "../jdy/restOvertimeServices";
+import { restOvertimeServices } from "../../features/jdy/service/restOvertimeServices";
+import { xftatdApiClient } from "../../features/xft/api/xft_atd";
 
 class QuotaServices {
   private async getQuota(

@@ -1,11 +1,11 @@
-import { Department } from "../../entity/basic/department";
-import { IDataQueryOption } from "../../type/jdy/IOptions";
-import { jdyFormDataApiClient } from "../jdy/form_data";
 import { xftOrgnizationApiClient } from "./xft_orgnization";
 import crypto from "crypto";
 import nodeRSA from "node-rsa";
 import { xftUserApiClient } from "./xft_user";
 import _ from "lodash";
+import { Department } from "../../../entity/basic/department";
+import { jdyFormDataApiClient } from "../../jdy/api/form_data";
+import { IDataQueryOption } from "../../jdy/type/IOptions";
 
 export const importDepartmentToXft = async () => {
   const departments = await Department.find({ where: { is_exist: true } });

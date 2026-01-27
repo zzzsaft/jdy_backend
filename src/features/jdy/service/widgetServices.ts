@@ -1,5 +1,5 @@
-import { formApiClient } from "../../api/jdy/form";
-import { JdyWidget } from "../../entity/util/jdy_form_widget";
+import { JdyWidget } from "../../../entity/util/jdy_form_widget";
+import { formApiClient } from "../api/form";
 
 export const insertWidgets = async (appId: string, entryId: string) => {
   const widgets = await formApiClient.formWidgets(appId, entryId);

@@ -4,13 +4,12 @@ import { User } from "../../entity/basic/employee";
 import { fileApiClient } from "../../api/dahua/file";
 import { personApiClient } from "../../api/dahua/person";
 import { downloadFileStream } from "../../utils/fileUtils";
-import { jdyFormDataApiClient } from "../../api/jdy/form_data";
-import { xftUserApiClient } from "../../api/xft/xft_user";
-import { xftOrgnizationApiClient } from "../../api/xft/xft_orgnization";
 import { Department } from "../../entity/basic/department";
 import { EmployeeLifecycle } from "../../entity/basic/employee_lifecycle";
 import { SalaryRecord } from "../../entity/basic/salary-record";
 import { dahuaServices } from "../../services/dahuaServices";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
+import { xftUserApiClient } from "../../features/xft/api/xft_user";
 
 export const 入职申请表 = async (data) => {
   await saveNewInfotoDahua(data);

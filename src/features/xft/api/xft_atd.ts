@@ -10,7 +10,6 @@ import {
   startOfMonth,
   subMonths,
 } from "date-fns";
-import { getLast2MouthSaturday, getMouthSaturday } from "../../utils/dateUtils";
 
 export type importAtd = {
   staffName: string;
@@ -211,6 +210,46 @@ class XFTAttendanceApiClient {
         payload: {
           ...payload,
           compensationWay: "2",
+        },
+      },
+      "U0000"
+    );
+  }
+  async addBusinessTrip(payload: {
+    staffName: string;
+    staffNumber: string;
+    startPlace: string;
+    businessTripLastDays: number;
+    businessTripReason: string;
+    remark?: string;
+    businessTripPartner?: { partnerName: string; partnerSeq: string }[];
+    businessTripDetail: {
+      destination: string;
+      beginDate: string;
+      beginDateType: string;
+      endDate: string;
+      endDateType: string;
+    };
+  }) {
+    return await appApiClient.doRequest(
+      {
+        method: "POST",
+        path: "/atd/prd/xft-atn/business-trip/import-single",
+        payload: {
+          ...payload,
+          importNum: 1,
+        },
+      },
+      "U0000"
+    );
+  }
+  async revokeBusinessTrip(payload: { businessTripSeq: string[] }) {
+    return await appApiClient.doRequest(
+      {
+        method: "POST",
+        path: "/atd/prd/xft-attendance-bfe/business-trip/revoke",
+        payload: {
+          ...payload,
         },
       },
       "U0000"

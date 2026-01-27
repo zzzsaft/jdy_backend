@@ -1,10 +1,10 @@
 import axios from "axios";
-import { ILimitOpion } from "../../type/IType";
 import { ApiClient } from "./api_client";
 import { uniqueId } from "lodash";
-import { jdyLimiter } from "../../config/limiter";
 import { error } from "console";
-import { logger } from "../../config/logger";
+import { ILimitOpion } from "../../../type/IType";
+import { jdyLimiter } from "../../../config/limiter";
+import { logger } from "../../../config/logger";
 
 const FORM_BASE_PATH = "app/entry/";
 

@@ -1,4 +1,3 @@
-import { xftatdApiClient } from "../../api/xft/xft_atd";
 import {
   addDays,
   eachDayOfInterval,
@@ -18,7 +17,6 @@ import { LogCheckin } from "../../entity/log/log_checkin";
 import { jctimesApiClient } from "../../api/jctimes/app";
 import { Between } from "typeorm";
 import _ from "lodash";
-import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import {
   compressImage,
   downloadFileStream,
@@ -27,6 +25,8 @@ import {
 import { PassThrough } from "stream";
 import { XftTripCheckin } from "../../entity/atd/business_trip_checkin";
 import { businessTripService } from "../businessTripService";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
+import { xftatdApiClient } from "../../features/xft/api/xft_atd";
 class CheckinServices {
   async scheduleCheckinMonthly() {
     const startTime = startOfMonth(new Date());

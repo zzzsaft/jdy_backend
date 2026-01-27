@@ -1,8 +1,8 @@
 import { values } from "lodash";
-import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { tycApiClient } from "../../api/tianyacha/app";
 import { CustomerSearch } from "../../entity/crm/customerSearch";
 import { JdyUtil } from "../../utils/jdyUtils";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
 
 const companyType = {
   1: "公司",

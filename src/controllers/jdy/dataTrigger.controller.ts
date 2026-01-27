@@ -1,7 +1,7 @@
 import { Execute_Action } from "../../entity/trigger/execute_action";
 import { Execute_Action_Content } from "../../entity/trigger/execute_action_content";
 import { Trigger } from "../../entity/trigger/trigger";
-import { FilterCondition } from "../../type/jdy/IOptions";
+import { FilterCondition } from "../../features/jdy/type/IOptions";
 import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import _ from "lodash";
 interface Payload {

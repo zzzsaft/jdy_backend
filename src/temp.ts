@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { XftAtdLeave } from "./entity/atd/xft_leave";
-import { xftatdApiClient } from "./api/xft/xft_atd";
 import { sleep } from "./config/limiter";
 import {
   xftTaskCallback,
@@ -22,14 +21,13 @@ import { XftCity } from "./entity/util/xft_city";
 import { FbtApply } from "./entity/atd/fbt_trip_apply";
 import { XftTripLog } from "./schedule/getFbtApply";
 import { BusinessTrip } from "./entity/atd/businessTrip";
-import { xftOAApiClient } from "./api/xft/xft_oa";
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
 import { LogExpress } from "./entity/log/log_express";
 import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
 import {
   businessTripCheckinServices,
   updateNextBusinessTrip,
-} from "./services/jdy/businessTripCheckinServices";
+} from "./features/jdy/service/businessTripCheckinServices";
 import { XftAtdOvertime } from "./entity/atd/xft_overtime";
 import { personApiClient } from "./api/dahua/person";
 import { EntryExistRecords } from "./entity/parking/dh_entry_exit_record";
@@ -37,7 +35,7 @@ import { ReissueEvent } from "./services/xft/atd/reissue.atd.xft.controller";
 import { OutGoingEvent } from "./services/xft/atd/outgoing";
 import { XftAtdOut } from "./entity/atd/xft_out";
 import { JdyRestOvertime } from "./entity/atd/jdy_rest_overtime";
-import { restOvertimeServices } from "./services/jdy/restOvertimeServices";
+import { restOvertimeServices } from "./features/jdy/service/restOvertimeServices";
 import convert from "xml-js";
 import { OvertimeEvent } from "./services/xft/atd/overtime.atd.xft.controller";
 import { LeaveEvent } from "./services/xft/atd/leave.atd.xft.controller";
@@ -49,6 +47,8 @@ import { jctimesContractApiClient } from "./api/jctimes/contract";
 import { MoreThan } from "typeorm";
 import { level } from "winston";
 import { parseRatioString } from "./utils/stringUtils";
+import { xftatdApiClient } from "./features/xft/api/xft_atd";
+import { xftOAApiClient } from "./features/xft/api/xft_oa";
 export const 获取空缺请假记录 = async () => {
   // const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
   //   .select("leave.leaveRecSeq")

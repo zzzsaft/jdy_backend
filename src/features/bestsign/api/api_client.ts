@@ -81,7 +81,7 @@ export class ApiClient {
       // 组装headers对象
       const headers = await this.genHeaders(timestamp, signature);
       const requestOptions = {
-        url: uri,
+        url: `${this.host}${uri}`,
         method: httpMethod,
         headers,
         data: JSON.stringify(options.payload),

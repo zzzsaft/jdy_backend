@@ -1,4 +1,4 @@
-import { ILimitOpion } from "../../type/IType";
+import { ILimitOpion } from "../../../type/IType";
 import { ApiClient } from "./api_client";
 
 const FORM_BASE_PATH = "app/entry/";

@@ -171,14 +171,14 @@ import { workflowApiClient } from "./api/jdy/workflow";
 import {
   sendMessage,
   updateNextBusinessTrip,
-} from "./services/jdy/businessTripCheckinServices";
+} from "./features/jdy/service/businessTripCheckinServices";
 import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
-import { BusinessTripServices } from "./services/xft/businessTripServices";
+import { BusinessTripServices } from "./features/xft/service/businessTripServices";
 import {
   checkinServices,
   获取未排班人员,
 } from "./services/xft/checkinServices";
-import { insertWidgets } from "./services/jdy/widgetServices";
+import { insertWidgets } from "./features/jdy/service/widgetServices";
 import { quotaServices } from "./services/xft/quotaServices";
 import { xftGeneralApiClient } from "./api/xft/xft_general";
 import { sendXftTodoList } from "./schedule/sendXftTask";
@@ -193,7 +193,7 @@ import {
   addExistToXft,
   createShiftExcel,
   restOvertimeServices,
-} from "./services/jdy/restOvertimeServices";
+} from "./features/jdy/service/restOvertimeServices";
 
 import { addChengJiangCar } from "./services/carPlateServices";
 import { JdyRestOvertime } from "./entity/atd/jdy_rest_overtime";

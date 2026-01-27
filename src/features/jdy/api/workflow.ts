@@ -1,11 +1,9 @@
-import { ILimitOpion } from "../../type/IType";
-import { IAppList, IEntryList } from "../../type/jdy/IOptions";
+import { ILimitOpion } from "../../../type/IType";
 import { ApiClient } from "./api_client";
 
-const APP_BASE_PATH = "app/";
-const FORM_BASE_PATH = "app/entry/";
+const FORM_DATA_BASE_PATH = "app/entry/data/";
 
-class AppApiClient extends ApiClient {
+class WorkFlowApiClient extends ApiClient {
   validVersions = ["v5"];
   defaultVersion = "v5";
 
@@ -20,45 +18,45 @@ class AppApiClient extends ApiClient {
   }
 
   /**
-   * 用户应用查询接口
+   * 查询流程实例信息
    */
-  async appList(options: IAppList = {}) {
+  async workflowInstanceGet(instance_id) {
     return await this.doRequest(
       {
         method: "POST",
-        path: APP_BASE_PATH + "list",
+        path: "workflow/instance/get",
         payload: {
-          ...options,
+          instance_id,
+          tasks_type: 1,
         },
       },
       {
-        name: "appList",
+        name: "workflowInstanceGet",
         duration: 1000,
-        limit: 30,
+        limit: 20,
       }
     );
   }
 
   /**
-   * 用户表单查询接口
+   * 结束流程实例信息
    */
-  async entryList(app_id, options: IEntryList = {}) {
+  async workflowInstanceClose(instance_id) {
     return await this.doRequest(
       {
         method: "POST",
-        path: FORM_BASE_PATH + "list",
+        path: "workflow/instance/close",
         payload: {
-          app_id,
-          ...options,
+          instance_id,
         },
       },
       {
-        name: "entryList",
+        name: "workflowInstanceClose",
         duration: 1000,
-        limit: 30,
+        limit: 20,
       }
     );
   }
 }
 
-export const appApiClient = new AppApiClient("v5");
+export const workflowApiClient = new WorkFlowApiClient("v5");

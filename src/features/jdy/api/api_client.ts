@@ -1,11 +1,11 @@
 import _ from "lodash";
 import axios, { AxiosResponse } from "axios";
 import qs from "querystring";
-import { jdyLimiter } from "../../config/limiter";
-import { ILimitOpion, IRequestOptions } from "../../type/IType";
 import dotenv from "dotenv";
-import { logger } from "../../config/logger";
-import { appAxios } from "../../utils/fileUtils";
+import { ILimitOpion, IRequestOptions } from "../../../type/IType";
+import { jdyLimiter } from "../../../config/limiter";
+import { appAxios } from "../../../utils/fileUtils";
+import { logger } from "../../../config/logger";
 export class ApiClient {
   protected host: string;
   protected apiKey: string;

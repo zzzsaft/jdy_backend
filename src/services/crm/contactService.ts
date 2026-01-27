@@ -1,13 +1,12 @@
-import { DataSource, getRepository, IsNull, Repository } from "typeorm";
+import { Repository } from "typeorm";
 import _ from "lodash";
 import { ExternalContact, FollowUser } from "../../entity/crm/externalContact";
 import { PgDataSource } from "../../config/data-source";
 import { jctimesApiClient } from "../../api/jctimes/app";
 import { Contact } from "../../entity/crm/contact";
-import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { JdyUtil } from "../../utils/jdyUtils";
-import { Customer } from "../../entity/crm/customer";
 import { jctimesContractApiClient } from "../../api/jctimes/contract";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
 
 const ADD_WAY_MAP = {
   0: "未知来源",
@@ -143,7 +142,9 @@ class ContactService {
           fax: String(item["传真"] ?? "").trim(),
         };
       });
-      const fax = Array.from(new Set(contacts.map((c) => c.fax).filter(Boolean)));
+      const fax = Array.from(
+        new Set(contacts.map((c) => c.fax).filter(Boolean))
+      );
       const address = Array.from(
         new Set(contacts.map((c) => c.address).filter(Boolean))
       );
@@ -154,7 +155,9 @@ class ContactService {
           contact: name,
           phone: Array.from(new Set(list.map((l) => l.phone).filter(Boolean))),
           fax: Array.from(new Set(list.map((l) => l.fax).filter(Boolean))),
-          address: Array.from(new Set(list.map((l) => l.address).filter(Boolean))),
+          address: Array.from(
+            new Set(list.map((l) => l.address).filter(Boolean))
+          ),
         };
       });
       return { contact, general: { fax, address } };

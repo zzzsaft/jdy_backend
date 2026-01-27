@@ -2,13 +2,13 @@ import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 
 import _ from "lodash";
 import { XftAtdLeave } from "../../../entity/atd/xft_leave";
-import { xftatdApiClient } from "../../../api/xft/xft_atd";
-import { xftOAApiClient } from "../../../api/xft/xft_oa";
 import { User } from "../../../entity/basic/employee";
 import { quotaServices } from "../../../services/xft/quotaServices";
 import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
 import { getDifference, isAfterTime } from "../../../utils/dateUtils";
 import { MessageService } from "../../messageService";
+import { xftatdApiClient } from "../../../features/xft/api/xft_atd";
+import { xftOAApiClient } from "../../../features/xft/api/xft_oa";
 export class LeaveEvent {
   task: XftTaskEvent;
   title: string;

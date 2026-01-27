@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { xftatdApiClient } from "../../api/xft/xft_atd";
 import { XftAtdClass } from "../../entity/atd/xft_class";
 import {
   getDifference,
@@ -7,6 +6,7 @@ import {
   parseTimeRange,
 } from "../../utils/dateUtils";
 import { dayResultServices } from "./dayResultServices";
+import { xftatdApiClient } from "../../features/xft/api/xft_atd";
 
 class AtdClassService {
   async updateAtdClass() {

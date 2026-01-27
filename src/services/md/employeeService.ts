@@ -1,7 +1,7 @@
-import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { User } from "../../entity/basic/employee";
 import { JdyUtil } from "../../utils/jdyUtils";
 import { defaultWechatCorpConfig } from "../../config/wechatCorps";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
 
 class EmployeeService {
   appid = "5cfef4b5de0b2278b05c8380";
@@ -48,15 +48,15 @@ class EmployeeService {
   addJdyAlltoDb = async () => {
     const data = await this.findJdy();
     const c: User[] = [];
-      for (const item of data) {
-        const cus = User.create({
-          corp_id: defaultWechatCorpConfig.corpId,
-          user_id: JdyUtil.getUser(item["_widget_1690274843463"])?.username,
-          bank: item["_widget_1690873684141"],
-          bankAccount: item["_widget_1690873684080"],
-        });
-        c.push(cus);
-      }
+    for (const item of data) {
+      const cus = User.create({
+        corp_id: defaultWechatCorpConfig.corpId,
+        user_id: JdyUtil.getUser(item["_widget_1690274843463"])?.username,
+        bank: item["_widget_1690873684141"],
+        bankAccount: item["_widget_1690873684080"],
+      });
+      c.push(cus);
+    }
     await User.upsert(c, ["user_id", "corp_id"]);
   };
   getEmployeeToWeb = async (userid) => {
