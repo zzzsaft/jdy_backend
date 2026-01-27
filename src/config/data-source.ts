@@ -9,7 +9,11 @@ export const AppDataSource = new DataSource({
   username: process.env.mariaDBUser,
   password: process.env.mariaDBPassword,
   database: "jdy",
-  entities: ["src/entity/*.ts", "src/entity/*/*.ts"],
+  entities: [
+    "src/entity/*.ts",
+    "src/entity/*/*.ts",
+    "src/features/bestsign/entity/*.ts",
+  ],
   logging: true,
   synchronize: false,
 });
@@ -24,8 +28,16 @@ export const PgDataSource = new DataSource({
   entities:
     // ["src/entity/crm/quoteItemShare.ts"],
     process.env.NODE_ENV === "production"
-      ? ["src/entity/*.js", "src/entity/*/*.js"]
-      : ["src/entity/*.ts", "src/entity/*/*.ts"],
+      ? [
+          "src/entity/*.js",
+          "src/entity/*/*.js",
+          "src/features/bestsign/entity/*.js",
+        ]
+      : [
+          "src/entity/*.ts",
+          "src/entity/*/*.ts",
+          "src/features/bestsign/entity/*.ts",
+        ],
   logging: process.env.NODE_ENV === "production" ? ["error", "warn"] : true,
   synchronize: false,
 });

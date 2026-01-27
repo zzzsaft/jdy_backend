@@ -1,9 +1,36 @@
-import axios, { AxiosRequestConfig } from "axios";
 import { ApiClient } from "./api_client";
-import FormData from "form-data";
-import { logger } from "../../../config/logger";
 
 class ContractApiClient extends ApiClient {
+  async SendContractByTemplate(payload: {
+    templateId: string;
+    sender: { enterpriseName: string; account: string };
+    roles: {
+      roleId: string;
+      userInfo: {
+        enterpriseName?: string;
+        userName: string;
+        userAccount: string;
+      };
+    }[];
+    enabledDocumentIds: string[];
+    textLabels: { name: string; value: string }[];
+    bizNo: string;
+    signTextLabels: { name: string; defaultValue: string }[];
+    sendAction: "DRAFT" | "APPROVE" | "SEND";
+  }) {
+    return await this.doRequest({
+      method: "POST",
+      path: "/api/templates/send-contracts-sync-v2",
+      payload,
+    });
+  }
+  async downloadContractFiles(payload: { contractIds: string[] }) {
+    return await this.doRequest({
+      method: "POST",
+      path: "/api/contracts/download-file",
+      payload,
+    });
+  }
   async sign(contractIds, sealName?, signer?: { enterpriseName?: string }) {
     return await this.doRequest({
       method: "POST",
