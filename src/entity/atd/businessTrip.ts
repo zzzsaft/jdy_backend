@@ -22,8 +22,13 @@ export class BusinessTrip extends BaseEntity {
   @Column({ name: "fbt_root_id", unique: true, nullable: true })
   fbtRootId: string;
 
-  @Column({ name: "xft_bill_id", nullable: true, unique: true })
-  xftBillId: string;
+  @Column({
+    name: "xft_bill_id",
+    type: "varchar",
+    nullable: true,
+    unique: true,
+  })
+  xftBillId: string | null;
 
   @Column({ name: "fbt_current_id", nullable: true })
   fbtCurrentId: string;

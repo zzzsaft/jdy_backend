@@ -151,9 +151,9 @@ class BestSignContractService {
       return { extractedData };
     }
 
-    const outputDir = options.outputDir ?? "./public/bestsign";
+    const outputDir = options?.outputDir ?? "./public/bestsign";
     const zipFileName =
-      options.zipFileName ?? `bestsign_contracts_${Date.now()}.zip`;
+      options?.zipFileName ?? `bestsign_contracts_${Date.now()}.zip`;
     const zipPath = path.join(outputDir, zipFileName);
     await this.ensureDir(outputDir);
     await fs.promises.writeFile(zipPath, Buffer.from(data.content, "base64"));
@@ -163,7 +163,7 @@ class BestSignContractService {
       string,
       { name: string; content: Buffer }[]
     > | null = null;
-    if (options.unzip !== false && data.contentType.includes("zip")) {
+    if (options?.unzip !== false && data.contentType.includes("zip")) {
       extractDir = path.join(
         outputDir,
         path.basename(zipFileName, path.extname(zipFileName))
@@ -178,7 +178,7 @@ class BestSignContractService {
 
   private async handleSendResultNotification(
     payload: BestSignNotificationPayload,
-    responseData: Record<string, unknown>
+    responseData: Record<string, any>
   ) {
     const contractId = this.normalizeId(responseData.contractId);
     const bizNo = (responseData.bizNo as string) ?? undefined;
@@ -202,7 +202,7 @@ class BestSignContractService {
   }
 
   private async handleOperationCompleteNotification(
-    responseData: Record<string, unknown>
+    responseData: Record<string, any>
   ) {
     const contractId = this.normalizeId(responseData.contractId);
     const bizNo = (responseData.bizNo as string) ?? undefined;
@@ -228,8 +228,8 @@ class BestSignContractService {
   private async handleContractCompleteNotification(
     responseData: Record<string, unknown>
   ) {
-    const contractIds = (responseData.contractIds as Array<string | number>) ??
-      [];
+    const contractIds =
+      (responseData.contractIds as Array<string | number>) ?? [];
     const contractId = this.normalizeId(contractIds[0]);
     const bizNo = (responseData.bizNo as string) ?? undefined;
     if (!contractId && !bizNo) return;
