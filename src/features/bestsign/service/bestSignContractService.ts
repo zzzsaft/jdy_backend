@@ -1,6 +1,7 @@
 import { logger } from "../../../config/logger";
 import fs from "fs";
 import path from "path";
+import os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
 import {
@@ -142,11 +143,10 @@ class BestSignContractService {
       return normalized ?? result;
     }
 
-    if (!options?.saveLocal) {
-      return data;
-    }
-
-    const outputDir = options.outputDir ?? "./public/bestsign";
+    const shouldSaveLocal = options?.saveLocal ?? false;
+    const outputDir = shouldSaveLocal
+      ? options.outputDir ?? "./public/bestsign"
+      : await this.createTempDir();
     const zipFileName =
       options.zipFileName ?? `bestsign_contracts_${Date.now()}.zip`;
     const zipPath = path.join(outputDir, zipFileName);
@@ -166,6 +166,11 @@ class BestSignContractService {
       await this.ensureDir(extractDir);
       await this.unzipFile(zipPath, extractDir);
       extractedData = await this.collectExtractedFiles(extractDir);
+    }
+
+    if (!shouldSaveLocal) {
+      await this.removeDir(outputDir);
+      return { extractedData };
     }
 
     return { zipPath, extractDir, extractedData };
@@ -251,6 +256,14 @@ class BestSignContractService {
 
   private async ensureDir(directory: string) {
     await fs.promises.mkdir(directory, { recursive: true });
+  }
+
+  private async createTempDir() {
+    return await fs.promises.mkdtemp(path.join(os.tmpdir(), "bestsign-"));
+  }
+
+  private async removeDir(directory: string) {
+    await fs.promises.rm(directory, { recursive: true, force: true });
   }
 
   private async unzipFile(zipPath: string, outputDir: string) {
