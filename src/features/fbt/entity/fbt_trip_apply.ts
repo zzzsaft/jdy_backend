@@ -102,6 +102,14 @@ export class FbtApply extends BaseEntity {
 
   static async addApply(record) {
     const apply: FbtApply = await createRecord(record);
+    const existingApply = await FbtApply.findOne({
+      where: { id: apply.id },
+      select: ["id"],
+    });
+    if (existingApply) {
+      await FbtApply.upsert(apply, ["id"]);
+      return apply;
+    }
     await apply.save();
     return apply;
   }
