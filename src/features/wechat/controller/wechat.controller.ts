@@ -10,7 +10,7 @@ import path from "path";
 import { Between, Like, MoreThan } from "typeorm";
 import { locationService } from "../../../services/locationService";
 import { getCorpConfig } from "../../../config/wechatCorps";
-import { syncWechatData } from "../../../services/wechatSyncService";
+import { syncWechatData } from "../service/wechatSyncService";
 import { decryptMsg } from "../util";
 
 export async function wechatWebHookCheck(request: Request, response: Response) {
@@ -29,7 +29,7 @@ export async function wechatWebHookCheck(request: Request, response: Response) {
   // return loaded posts
   response.send(message);
 
-  syncWechatData(corpId).catch((error) =>
+  syncWechatData({ corpId }).catch((error) =>
     logger.error("sync wechat data failed", error)
   );
 }

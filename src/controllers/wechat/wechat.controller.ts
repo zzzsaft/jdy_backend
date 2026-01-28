@@ -11,7 +11,7 @@ import path from "path";
 import { Between, Like, MoreThan } from "typeorm";
 import { locationService } from "../../services/locationService";
 import { getCorpConfig } from "../../config/wechatCorps";
-import { syncWechatData } from "../../services/wechatSyncService";
+import { syncWechatData } from "../../features/wechat/service/wechatSyncService";
 
 export async function wechatWebHookCheck(request: Request, response: Response) {
   const corpId =
@@ -29,7 +29,7 @@ export async function wechatWebHookCheck(request: Request, response: Response) {
   // return loaded posts
   response.send(message);
 
-  syncWechatData(corpId).catch((error) =>
+  syncWechatData({ corpId }).catch((error) =>
     logger.error("sync wechat data failed", error)
   );
 }
