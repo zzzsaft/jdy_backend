@@ -14,11 +14,13 @@ import { getCorpConfig } from "../../config/wechatCorps";
 import { syncWechatData } from "../../features/wechat/service/wechatSyncService";
 
 export async function wechatWebHookCheck(request: Request, response: Response) {
-  const corpId =
+  const corpIdOrName =
     (request.query.corpid as string) ||
     (request.query.corp_id as string) ||
-    (request.query.corpId as string);
-  const encodingAESKey = getCorpConfig(corpId).encodingAESKey ?? "";
+    (request.query.corpId as string) ||
+    (request.query.corpName as string) ||
+    (request.query.corp_name as string);
+  const encodingAESKey = getCorpConfig(corpIdOrName).encodingAESKey ?? "";
   const payload = request.query.echostr as string;
   if (!payload) {
     response.status(400).send("Bad Request");
@@ -29,18 +31,20 @@ export async function wechatWebHookCheck(request: Request, response: Response) {
   // return loaded posts
   response.send(message);
 
-  syncWechatData({ corpId }).catch((error) =>
+  syncWechatData({ corpIdOrName }).catch((error) =>
     logger.error("sync wechat data failed", error)
   );
 }
 
 export async function wechatWebHook(request: Request, response: Response) {
-  const corpId =
+  const corpIdOrName =
     (request.query.corpid as string) ||
     (request.query.corp_id as string) ||
-    (request.query.corpId as string);
-  let message = decryptMsg(request.body, corpId);
-  await handleWechatMessage(message, corpId);
+    (request.query.corpId as string) ||
+    (request.query.corpName as string) ||
+    (request.query.corp_name as string);
+  let message = decryptMsg(request.body, corpIdOrName);
+  await handleWechatMessage(message, corpIdOrName);
   // return loaded posts
   response.send("");
 }

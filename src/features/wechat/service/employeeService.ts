@@ -32,6 +32,7 @@ export const syncUsers = async (corpId?: string): Promise<void> => {
       const users = userList.userlist.map((user) => {
         return {
           corp_id: config.corpId,
+          corp_name: config.name ?? config.corpId,
           user_id: user.userid,
           name: user.name,
           is_employed: true,

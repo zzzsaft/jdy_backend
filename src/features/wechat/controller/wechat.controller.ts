@@ -10,15 +10,21 @@ import path from "path";
 import { Between, Like, MoreThan } from "typeorm";
 import { locationService } from "../../../services/locationService";
 import { getCorpConfig } from "../../../config/wechatCorps";
-import { syncWechatData } from "../service/wechatSyncService";
+import {
+  syncAllDepartments,
+  syncAllUsers,
+  syncWechatData,
+} from "../service/wechatSyncService";
 import { decryptMsg } from "../util";
 
 export async function wechatWebHookCheck(request: Request, response: Response) {
-  const corpId =
+  const corpIdOrName =
     (request.query.corpid as string) ||
     (request.query.corp_id as string) ||
-    (request.query.corpId as string);
-  const encodingAESKey = getCorpConfig(corpId).encodingAESKey ?? "";
+    (request.query.corpId as string) ||
+    (request.query.corpName as string) ||
+    (request.query.corp_name as string);
+  const encodingAESKey = getCorpConfig(corpIdOrName).encodingAESKey ?? "";
   const payload = request.query.echostr as string;
   if (!payload) {
     response.status(400).send("Bad Request");
@@ -29,21 +35,49 @@ export async function wechatWebHookCheck(request: Request, response: Response) {
   // return loaded posts
   response.send(message);
 
-  syncWechatData({ corpId }).catch((error) =>
+  syncWechatData({ corpIdOrName }).catch((error) =>
     logger.error("sync wechat data failed", error)
   );
 }
 
 export async function wechatWebHook(request: Request, response: Response) {
-  const corpId =
+  const corpIdOrName =
     (request.query.corpid as string) ||
     (request.query.corp_id as string) ||
-    (request.query.corpId as string);
-  let message = decryptMsg(request.body, corpId);
-  await handleWechatMessage(message, corpId);
+    (request.query.corpId as string) ||
+    (request.query.corpName as string) ||
+    (request.query.corp_name as string);
+  let message = decryptMsg(request.body, corpIdOrName);
+  await handleWechatMessage(message, corpIdOrName);
   // return loaded posts
   response.send("");
 }
+
+export const syncAllWechatDepartments = async (
+  _request: Request,
+  response: Response
+) => {
+  try {
+    await syncAllDepartments();
+    response.send({ message: "sync all departments started" });
+  } catch (error) {
+    logger.error("sync all departments failed", error);
+    response.status(500).send({ error: "sync all departments failed" });
+  }
+};
+
+export const syncAllWechatUsers = async (
+  _request: Request,
+  response: Response
+) => {
+  try {
+    await syncAllUsers();
+    response.send({ message: "sync all users started" });
+  } catch (error) {
+    logger.error("sync all users failed", error);
+    response.status(500).send({ error: "sync all users failed" });
+  }
+};
 
 export const handleWechatMessage = async (msg, corpId?: string) => {
   let message = msg["xml"];

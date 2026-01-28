@@ -27,6 +27,8 @@ export class User extends BaseEntity {
   is_employed: boolean;
   @Column({ nullable: true })
   name: string;
+  @Column({ nullable: true, name: "corp_name" })
+  corp_name: string;
   @Column("simple-array", { nullable: true })
   department_id: string[];
   @Column({ nullable: true })
