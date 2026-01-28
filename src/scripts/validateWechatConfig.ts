@@ -3,11 +3,15 @@ import { logger } from "../config/logger";
 
 const validateConfigs = () => {
   if (!wechatCorpConfigs.length) {
-    throw new Error("No WeChat corp configuration found. Set WECHAT_CORP_CONFIGS or legacy CORP_ID/CORP_SECRET/WECHAT_ENCODING_AES_KEY.");
+    throw new Error("No WeChat corp configuration found. Set WECHAT_CORP_CONFIGS.");
   }
 
   const invalid = wechatCorpConfigs.filter(
-    (config) => !config.corpId || !config.corpSecret || !config.encodingAESKey
+    (config) =>
+      !config.corpId ||
+      !config.name ||
+      !config.apps.length ||
+      config.apps.some((app) => !app.agentId || !app.corpSecret || !app.name)
   );
 
   if (invalid.length > 0) {
