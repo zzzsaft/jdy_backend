@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { endOfDay, format, startOfDay } from "date-fns";
 import _ from "lodash";
 import { FbtApply } from "../entity/fbt_trip_apply";
 import { Between } from "typeorm";
@@ -22,9 +22,11 @@ export class FbtApplyService {
   }
 
   static async getApplyList(startTime: Date, endTime: Date) {
+    const normalizedStart = startOfDay(startTime);
+    const normalizedEnd = endOfDay(endTime);
     return await fbtApplyApiClient.getCustomFormList({
-      approve_start_time: format(startTime, "yyyy-MM-dd"),
-      approve_end_time: format(endTime, "yyyy-MM-dd"),
+      approve_start_time: format(normalizedStart, "yyyy-MM-dd"),
+      approve_end_time: format(normalizedEnd, "yyyy-MM-dd"),
     });
   }
 
@@ -33,9 +35,11 @@ export class FbtApplyService {
     startTime: Date,
     endTime: Date
   ) {
+    const normalizedStart = startOfDay(startTime);
+    const normalizedEnd = endOfDay(endTime);
     const existCode = (
       await FbtApply.find({
-        where: { complete_time: Between(startTime, endTime) },
+        where: { complete_time: Between(normalizedStart, normalizedEnd) },
         select: ["code"],
       })
     ).map((item) => item.code);
