@@ -45,3 +45,19 @@ WECHAT_CORP_CONFIGS='[{"corpId":"demo","corpSecret":"demo_secret","encodingAESKe
 ```
 
 脚本会检测是否存在有效的企业配置，并在日志中输出已加载的企业 ID 和名称，校验失败时会返回非 0 状态码方便在 CI 中阻断。
+
+## 一键同步所有公司部门/员工
+
+系统提供了用于手动触发“同步全部企业微信公司”的 HTTP 接口，便于一次性拉取所有企业的部门与员工数据：
+
+```bash
+# 同步所有企业的部门
+curl -X POST http://<host>:<port>/wechat/sync/departments/all
+
+# 同步所有企业的员工
+curl -X POST http://<host>:<port>/wechat/sync/users/all
+```
+
+> **权限限制**：以上接口当前未内置鉴权逻辑，会直接触发全量同步。请务必通过内网访问、网关白名单或反向代理鉴权进行保护，仅向管理员或可信任务开放。
+
+> **备注**：内部同步逻辑支持使用企业配置中的 `name` 作为公司标识（如通过 webhook/脚本传入 `corpName`），系统会自动解析为对应的 `corpId` 并写入数据库。

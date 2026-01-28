@@ -1,4 +1,5 @@
 import { logger } from "../../../config/logger";
+import { getCorpConfig } from "../../../config/wechatCorps";
 import {
   syncDepartmentLevels,
   syncDepartments,
@@ -10,22 +11,31 @@ import {
 } from "./employeeService";
 
 export type SyncContext = {
-  corpId?: string;
+  corpIdOrName?: string;
   downstreamSystem?: string;
 };
 
 export const syncWechatData = async (context: SyncContext = {}) => {
-  const { corpId } = context;
+  const { corpIdOrName } = context;
   try {
-    await syncDepartments(corpId);
-    await syncUsers(corpId);
-    if (corpId) {
-      await syncXftDepartmentIds(corpId);
-      await syncXftUserIds(corpId);
+    await syncDepartments(corpIdOrName);
+    await syncUsers(corpIdOrName);
+    if (corpIdOrName) {
+      const resolvedCorpId = getCorpConfig(corpIdOrName).corpId;
+      await syncXftDepartmentIds(resolvedCorpId);
+      await syncXftUserIds(resolvedCorpId);
     }
-    await syncDepartmentLevels(corpId);
+    await syncDepartmentLevels(corpIdOrName);
   } catch (error) {
     logger.error("syncWechatData error", error);
     throw error;
   }
+};
+
+export const syncAllDepartments = async (): Promise<void> => {
+  await syncDepartments();
+};
+
+export const syncAllUsers = async (): Promise<void> => {
+  await syncUsers();
 };
