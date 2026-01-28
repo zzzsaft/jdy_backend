@@ -4,7 +4,7 @@ import { Department } from "../entity/basic/department";
 import { User } from "../entity/basic/employee";
 import cron from "node-cron";
 import { IsNull, Not } from "typeorm";
-import { defaultWechatCorpConfig } from "../config/wechatCorps";
+import { defaultWechatCorpConfig } from "../features/wechat/wechatCorps";
 import { xftUserApiClient } from "../features/xft/api/xft_user";
 import { xftOrgnizationApiClient } from "../features/xft/api/xft_orgnization";
 

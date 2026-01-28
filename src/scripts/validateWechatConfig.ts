@@ -1,9 +1,11 @@
-import { wechatCorpConfigs } from "../config/wechatCorps";
+import { wechatCorpConfigs } from "../features/wechat/wechatCorps";
 import { logger } from "../config/logger";
 
 const validateConfigs = () => {
   if (!wechatCorpConfigs.length) {
-    throw new Error("No WeChat corp configuration found. Set WECHAT_CORP_CONFIGS.");
+    throw new Error(
+      "No WeChat corp configuration found. Set WECHAT_CORP_CONFIGS."
+    );
   }
 
   const invalid = wechatCorpConfigs.filter(

@@ -10,7 +10,7 @@ import { LogLocation } from "../../entity/log/log_location";
 import path from "path";
 import { Between, Like, MoreThan } from "typeorm";
 import { locationService } from "../../services/locationService";
-import { getCorpConfig } from "../../config/wechatCorps";
+import { getCorpConfig } from "../../features/wechat/wechatCorps";
 import { syncWechatData } from "../../features/wechat/service/wechatSyncService";
 
 export async function wechatWebHookCheck(request: Request, response: Response) {

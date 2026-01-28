@@ -1,8 +1,5 @@
 import axios from "axios";
-import {
-  getCorpAppConfig,
-  wechatCorpConfigs,
-} from "../../../config/wechatCorps";
+import { getCorpAppConfig, wechatCorpConfigs } from "../wechatCorps";
 
 interface TokenConfig {
   corp_id: string;

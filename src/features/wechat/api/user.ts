@@ -1,5 +1,5 @@
 import { ApiClient } from "./api_client";
-import { token, token_address, token_crm } from "./token";
+import { token, token_crm } from "./token";
 
 class UserApiClient extends ApiClient {
   async getUserInfo(code: string, setToken: "hr" | "crm" = "hr") {

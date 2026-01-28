@@ -1,4 +1,4 @@
-import { logger } from "./logger";
+import { logger } from "../../config/logger";
 
 type RawCorpAppConfig = {
   agentId?: number;
@@ -72,22 +72,20 @@ const parseCorpConfigs = (): WechatCorpConfig[] => {
 };
 
 export const wechatCorpConfigs: WechatCorpConfig[] = parseCorpConfigs();
-export const defaultWechatCorpConfig: WechatCorpConfig = (
-  wechatCorpConfigs.find((config) => config.name === defaultCorpName) ??
+export const defaultWechatCorpConfig: WechatCorpConfig = wechatCorpConfigs.find(
+  (config) => config.name === defaultCorpName
+) ??
   wechatCorpConfigs[0] ?? {
     corpId: "",
     name: defaultCorpName,
     apps: [],
-  }
-);
+  };
 
 export const getCorpConfig = (corpIdOrName?: string): WechatCorpConfig => {
   if (!corpIdOrName) return defaultWechatCorpConfig;
   return (
     wechatCorpConfigs.find(
-      (config) =>
-        config.corpId === corpIdOrName ||
-        config.name === corpIdOrName
+      (config) => config.corpId === corpIdOrName || config.name === corpIdOrName
     ) ?? defaultWechatCorpConfig
   );
 };

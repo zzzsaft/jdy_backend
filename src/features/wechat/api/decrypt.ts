@@ -1,6 +1,6 @@
 import { decrypt } from "@wecom/crypto";
 import convert from "xml-js";
-import { getCorpConfig } from "./wechatCorps";
+import { getCorpConfig } from "../wechatCorps";
 
 export const decryptMsg = (payload, corpId?: string) => {
   if (!payload || !payload?.["xml"]) return "";

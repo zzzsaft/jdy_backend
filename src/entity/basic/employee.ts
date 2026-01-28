@@ -12,7 +12,7 @@ import {
 } from "typeorm";
 import { logger } from "../../config/logger";
 import { Department } from "./department";
-import { defaultWechatCorpConfig } from "../../config/wechatCorps";
+import { defaultWechatCorpConfig } from "../../features/wechat/wechatCorps";
 import { xftUserApiClient } from "../../features/xft/api/xft_user";
 
 @Entity({ name: "md_employee" })

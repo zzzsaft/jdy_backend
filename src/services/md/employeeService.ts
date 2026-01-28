@@ -1,6 +1,6 @@
 import { User } from "../../entity/basic/employee";
 import { JdyUtil } from "../../utils/jdyUtils";
-import { defaultWechatCorpConfig } from "../../config/wechatCorps";
+import { defaultWechatCorpConfig } from "../../features/wechat/wechatCorps";
 import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
 
 class EmployeeService {

@@ -9,7 +9,7 @@ import { LogLocation } from "../../../entity/log/log_location";
 import path from "path";
 import { Between, Like, MoreThan } from "typeorm";
 import { locationService } from "../../../services/locationService";
-import { getCorpConfig } from "../../../config/wechatCorps";
+import { getCorpConfig } from "../wechatCorps";
 import {
   syncAllDepartments,
   syncAllUsers,

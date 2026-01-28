@@ -1,5 +1,5 @@
 import { In, IsNull } from "typeorm";
-import { getCorpList } from "../../../config/wechatCorps";
+import { getCorpList } from "../wechatCorps";
 import { Department } from "../../../entity/basic/department";
 import { User } from "../../../entity/basic/employee";
 import { xftUserApiClient } from "../../xft/api/xft_user";
@@ -79,8 +79,8 @@ export const syncXftUserIds = async (corpId: string): Promise<void> => {
   const users = Array.from(
     new Map(xftUsers.map((user) => [user.user_id, user])).values()
   );
-  await User.upsert(users, {
-    conflictPaths: ["user_id", "corp_id"],
-    skipUpdateIfNoValuesChanged: true, // supported by postgres, skips update if it would not change row values
-  });
+  // await User.upsert(users, {
+  //   conflictPaths: ["user_id", "corp_id"],
+  //   skipUpdateIfNoValuesChanged: true, // supported by postgres, skips update if it would not change row values
+  // });
 };

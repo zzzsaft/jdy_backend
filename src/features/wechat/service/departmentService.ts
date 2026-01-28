@@ -1,5 +1,5 @@
 import { In } from "typeorm";
-import { getCorpList } from "../../../config/wechatCorps";
+import { getCorpList } from "../wechatCorps";
 import { Department } from "../../../entity/basic/department";
 import { xftOrgnizationApiClient } from "../../xft/api/xft_orgnization";
 import { contactApiClient } from "../api/contact";
