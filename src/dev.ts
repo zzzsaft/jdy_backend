@@ -38,6 +38,7 @@ import { logTripSyncByid, 修改config, 测试打印 } from "./temp";
 import { checkinServices } from "./services/xft/checkinServices";
 import { templatesApiClient } from "./features/bestsign/api/template";
 import { bestSignToken } from "./features/bestsign/api/token";
+import { GetFbtApply } from "./schedule/getFbtApply";
 
 PgDataSource.initialize()
   .then(async () => {
@@ -81,6 +82,7 @@ PgDataSource.initialize()
     // console.log(await productService.getProducts());
     // await productService.addAlltoDb();
     // const a1 = await bestSignToken.get_token();
+    await GetFbtApply.syncMissingXftTrips({ month: new Date("2026/1/1") });
     await logTripSyncByid("69784460f16f745b3b3a68df");
     // const a = await templatesApiClient.getTemplates();
     // console.log(a);

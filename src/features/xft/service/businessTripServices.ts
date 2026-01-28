@@ -39,14 +39,14 @@ export class BusinessTripServices {
   }) {
     const applies = await BusinessTripServices.getFbtAppliesForSync(options);
     for (const apply of applies) {
-      const result = await BusinessTripServices.upsertBusinessTripFromFbt(apply);
+      const result = await BusinessTripServices.upsertBusinessTripFromFbt(
+        apply
+      );
       if (!result) continue;
       if (!result.businessTrip.xftBillId) {
-        await BusinessTripServices.添加xft差旅记录(
-          result.businessTrip,
-          apply,
-          { skipMessage: true }
-        );
+        await BusinessTripServices.添加xft差旅记录(result.businessTrip, apply, {
+          skipMessage: true,
+        });
       }
     }
   }
@@ -55,10 +55,7 @@ export class BusinessTripServices {
     const existBusinessTrip = await BusinessTrip.findOne({
       where: { fbtRootId: fbtApply.root_id },
     });
-    if (
-      existBusinessTrip &&
-      existBusinessTrip.fbtCurrentId == fbtApply.id
-    ) {
+    if (existBusinessTrip && existBusinessTrip.fbtCurrentId == fbtApply.id) {
       return { businessTrip: existBusinessTrip, action: "noop" };
     }
     const timeSlot = await BusinessTripServices.createNonConflictingTimeSlot(
@@ -259,8 +256,8 @@ export class BusinessTripServices {
       await BusinessTrip.getConflict(
         fbtApply.proposerUserId,
         start_time,
-        end_time,
-        create_time
+        end_time
+        // create_time
       )
     ).filter((conflict) => conflict.fbtRootId != fbtApply.root_id);
     if (conflicts.length > 0) {
@@ -310,10 +307,7 @@ export class BusinessTripServices {
     );
     if (!result) return null;
     if (result.action === "create") {
-      await BusinessTripServices.添加xft差旅记录(
-        result.businessTrip,
-        fbtApply
-      );
+      await BusinessTripServices.添加xft差旅记录(result.businessTrip, fbtApply);
     } else if (
       result.action === "update" &&
       result.startTime &&
@@ -368,9 +362,7 @@ export class BusinessTripServices {
     nextStart: Date | null | undefined
   ) {
     if (existingStart && nextStart) {
-      return new Date(
-        Math.min(existingStart.getTime(), nextStart.getTime())
-      );
+      return new Date(Math.min(existingStart.getTime(), nextStart.getTime()));
     }
     return nextStart ?? existingStart ?? null;
   }
@@ -392,7 +384,10 @@ export class BusinessTripServices {
     if (options.date) {
       return FbtApply.find({
         where: {
-          complete_time: Between(startOfDay(options.date), endOfDay(options.date)),
+          complete_time: Between(
+            startOfDay(options.date),
+            endOfDay(options.date)
+          ),
           state: 4,
         },
         relations: ["city", "user"],

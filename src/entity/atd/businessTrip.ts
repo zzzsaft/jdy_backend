@@ -112,8 +112,8 @@ export class BusinessTrip extends BaseEntity {
   static async getConflict(
     userId: string,
     start_time: Date,
-    end_time: Date,
-    create_time: Date
+    end_time: Date
+    // create_time: Date
   ) {
     const conflicts = await BusinessTrip.find({
       where: [
@@ -121,7 +121,7 @@ export class BusinessTrip extends BaseEntity {
           userId,
           start_time: LessThanOrEqual(end_time),
           end_time: MoreThanOrEqual(start_time),
-          create_time: LessThanOrEqual(create_time),
+          // create_time: LessThanOrEqual(create_time),
         },
       ],
       select: ["start_time", "end_time", "fbtRootId"],

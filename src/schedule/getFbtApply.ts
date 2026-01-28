@@ -45,11 +45,7 @@ export class GetFbtApply {
     endDate?: Date;
   }) {
     const { startDate, endDate } = GetFbtApply.resolveSyncRange(options);
-    const where: {
-      xftBillId: ReturnType<typeof IsNull>;
-      xftFormId: ReturnType<typeof IsNull>;
-      start_time?: ReturnType<typeof Between>;
-    } = {
+    const where: any = {
       xftBillId: IsNull(),
       xftFormId: IsNull(),
     };
