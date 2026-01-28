@@ -13,7 +13,7 @@ import {
 } from "../../../utils/dateUtils";
 import { BusinessTrip } from "../../../entity/atd/businessTrip";
 import { FbtApply } from "../../fbt/entity/fbt_trip_apply";
-import { Between, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
+import { Between, LessThanOrEqual, Like, MoreThanOrEqual } from "typeorm";
 import _ from "lodash";
 import { MessageService } from "../../../services/messageService";
 import { xftatdApiClient } from "../api/xft_atd";
@@ -117,7 +117,7 @@ export class BusinessTripServices {
   static async 添加xft差旅记录(
     businessTrip: BusinessTrip,
     fbtApply: FbtApply,
-    options: { skipMessage?: boolean } = {}
+    options: { skipMessage?: boolean; allowRepair?: boolean } = {}
   ) {
     if (!businessTrip || !fbtApply) return null;
     if (!businessTrip.start_time || !businessTrip.end_time) {
@@ -194,6 +194,15 @@ export class BusinessTripServices {
     } else {
       businessTrip.err = result;
       await businessTrip.save();
+      if (options.allowRepair !== false) {
+        const repaired = await BusinessTripServices.修正冲突时间(
+          businessTrip,
+          fbtApply
+        );
+        if (repaired) {
+          return repaired;
+        }
+      }
       return null;
     }
   }
@@ -285,23 +294,89 @@ export class BusinessTripServices {
           // 如果输入的时间段和数据库记录有重叠
           if (conflict.end_time < newEndTime) {
             // 调整开始时间，避免与冲突记录重叠
-            newStartTime = adjustToTimeNode(
-              new Date(conflict.end_time.getTime() + 1 * 1000)
-            ); // 冲突的结束时间 + 1秒
+            newStartTime = BusinessTripServices.getNextHalfDayStart(
+              conflict.end_time
+            );
           }
           if (conflict.start_time > newStartTime) {
             // 调整结束时间，避免与冲突记录重叠
-            newEndTime = adjustToTimeNode(
-              new Date(conflict.start_time.getTime() - 1 * 1000),
-              true
-            ); // 冲突的开始时间 - 1秒
+            newEndTime = BusinessTripServices.getPreviousHalfDayEnd(
+              conflict.start_time
+            );
           }
         }
+      }
+      if (newStartTime > newEndTime) {
+        return null;
       }
       return { start_time: newStartTime, end_time: newEndTime };
     }
     // 如果没有冲突，则直接返回原始的时间段
     return { start_time: adjustToTimeNode(start_time), end_time };
+  }
+
+  static async 修正冲突时间(
+    businessTrip: BusinessTrip,
+    fbtApply: FbtApply
+  ) {
+    if (!BusinessTripServices.isXftTimeConflictError(businessTrip.err)) {
+      return null;
+    }
+    const timeSlot = await BusinessTripServices.createNonConflictingTimeSlot(
+      fbtApply
+    );
+    if (!timeSlot) return null;
+    const hasChange =
+      businessTrip.start_time?.getTime() !== timeSlot.start_time.getTime() ||
+      businessTrip.end_time?.getTime() !== timeSlot.end_time.getTime();
+    if (!hasChange) return null;
+    if (!businessTrip.reviseLogs) businessTrip.reviseLogs = [];
+    businessTrip.reviseLogs.push(
+      `冲突修正时间为${formatDate(timeSlot.start_time)} ${formatDate(
+        timeSlot.end_time
+      )}`
+    );
+    businessTrip.start_time = timeSlot.start_time;
+    businessTrip.end_time = timeSlot.end_time;
+    businessTrip.xftBillId = null;
+    businessTrip.err = "";
+    await businessTrip.save();
+    return BusinessTripServices.添加xft差旅记录(businessTrip, fbtApply, {
+      allowRepair: false,
+    });
+  }
+
+  static async 修正冲突时间并上传xft() {
+    const businessTrips = await BusinessTrip.find({
+      where: {
+        err: Like("%系统存在相同时间段出差数据%"),
+      },
+    });
+    const results: Array<{
+      businessTripId: number;
+      repaired: boolean;
+    }> = [];
+    for (const businessTrip of businessTrips) {
+      if (!businessTrip.fbtRootId) {
+        results.push({ businessTripId: businessTrip.id, repaired: false });
+        continue;
+      }
+      const fbtApply = await FbtApply.findOne({
+        where: { root_id: businessTrip.fbtRootId },
+        relations: ["city", "user"],
+        order: { update_time: "DESC", create_time: "DESC" },
+      });
+      if (!fbtApply) {
+        results.push({ businessTripId: businessTrip.id, repaired: false });
+        continue;
+      }
+      const repaired = await BusinessTripServices.修正冲突时间(
+        businessTrip,
+        fbtApply
+      );
+      results.push({ businessTripId: businessTrip.id, repaired: !!repaired });
+    }
+    return results;
   }
 
   static async createBusinessTrip(fbtApply: FbtApply) {
@@ -373,6 +448,51 @@ export class BusinessTripServices {
       );
     }
     return nextStart ?? existingStart ?? null;
+  }
+
+  private static getNextHalfDayStart(date: Date) {
+    const adjustedDate = new Date(date);
+    const hours = adjustedDate.getHours();
+    if (hours < 12) {
+      adjustedDate.setHours(12, 0, 0, 0);
+    } else {
+      adjustedDate.setDate(adjustedDate.getDate() + 1);
+      adjustedDate.setHours(0, 0, 0, 0);
+    }
+    return adjustedDate;
+  }
+
+  private static getPreviousHalfDayEnd(date: Date) {
+    const adjustedDate = new Date(date);
+    const hours = adjustedDate.getHours();
+    if (hours < 12) {
+      adjustedDate.setDate(adjustedDate.getDate() - 1);
+      adjustedDate.setHours(23, 59, 59, 999);
+    } else {
+      adjustedDate.setHours(11, 59, 59, 999);
+    }
+    return adjustedDate;
+  }
+
+  private static isXftTimeConflictError(err: unknown) {
+    if (!err) return false;
+    if (typeof err === "string") {
+      if (err.includes("XFTOPN9999")) return true;
+      try {
+        const parsed = JSON.parse(err);
+        return BusinessTripServices.isXftTimeConflictError(parsed);
+      } catch {
+        return false;
+      }
+    }
+    if (typeof err === "object") {
+      const errorObj = err as { returnCode?: string; errorMsg?: string };
+      return (
+        errorObj.returnCode === "XFTOPN9999" &&
+        errorObj.errorMsg?.includes("系统存在相同时间段出差数据")
+      );
+    }
+    return false;
   }
 
   private static async getFbtAppliesForSync(options?: {
