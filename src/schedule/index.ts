@@ -19,13 +19,23 @@ const checkinDateSchedule = cron.schedule("0,15,30,45 * * * *", async () => {
   if (hours > 7 && hours < 23) await checkinServices.scheduleCheckin();
 });
 
+let fbtApplyRunning = false;
 //每过15分钟触发任务
 const fbtApplySchedule = cron.schedule("5,20,35,50 * * * *", async () => {
-  await new GetFbtApply().getApply();
-  await BusinessTripServices.scheduleCreate();
-  const hour = new Date().getHours();
-  if (hour >= 8 && hour < 23) {
-    await businessTripCheckinServices.scheduleCreate();
+  if (fbtApplyRunning) {
+    logger.warn("fbtApplySchedule skipped: previous run still in progress");
+    return;
+  }
+  fbtApplyRunning = true;
+  try {
+    await new GetFbtApply().getApply();
+    await BusinessTripServices.scheduleCreate();
+    const hour = new Date().getHours();
+    if (hour >= 8 && hour < 23) {
+      await businessTripCheckinServices.scheduleCreate();
+    }
+  } finally {
+    fbtApplyRunning = false;
   }
 });
 
