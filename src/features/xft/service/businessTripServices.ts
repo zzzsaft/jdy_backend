@@ -1,8 +1,8 @@
 import {
   differenceInCalendarDays,
   endOfDay,
+  endOfMonth,
   format,
-  isBefore,
   startOfDay,
   startOfMonth,
 } from "date-fns";
@@ -11,7 +11,6 @@ import {
   formatDate,
   getHalfDay,
 } from "../../../utils/dateUtils";
-import { User } from "../../../entity/basic/employee";
 import { BusinessTrip } from "../../../entity/atd/businessTrip";
 import { FbtApply } from "../../fbt/entity/fbt_trip_apply";
 import { Between, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
@@ -31,6 +30,88 @@ export class BusinessTripServices {
     for (const item of fbtApplies) {
       await BusinessTripServices.createBusinessTrip(item);
     }
+  }
+
+  static async syncFbtAppliesToBusinessTrip(options?: {
+    date?: Date;
+    month?: Date;
+    fbtRootId?: string;
+  }) {
+    const applies = await BusinessTripServices.getFbtAppliesForSync(options);
+    for (const apply of applies) {
+      const result = await BusinessTripServices.upsertBusinessTripFromFbt(apply);
+      if (!result) continue;
+      if (!result.businessTrip.xftBillId) {
+        await BusinessTripServices.添加xft差旅记录(
+          result.businessTrip,
+          apply,
+          { skipMessage: true }
+        );
+      }
+    }
+  }
+
+  static async upsertBusinessTripFromFbt(fbtApply: FbtApply) {
+    const existBusinessTrip = await BusinessTrip.findOne({
+      where: { fbtRootId: fbtApply.root_id },
+    });
+    if (
+      existBusinessTrip &&
+      existBusinessTrip.fbtCurrentId == fbtApply.id
+    ) {
+      return { businessTrip: existBusinessTrip, action: "noop" };
+    }
+    const timeSlot = await BusinessTripServices.createNonConflictingTimeSlot(
+      fbtApply
+    );
+    if (timeSlot) {
+      const sameTimeBusinessTrip = await BusinessTrip.findOne({
+        where: {
+          userId: fbtApply.proposerUserId,
+          start_time: LessThanOrEqual(timeSlot.start_time),
+          end_time: MoreThanOrEqual(timeSlot.end_time),
+        },
+      });
+      if (sameTimeBusinessTrip) {
+        return null;
+      }
+    }
+    const businessTrip = BusinessTripServices.buildBusinessTripFromFbt(
+      fbtApply,
+      timeSlot,
+      existBusinessTrip
+    );
+
+    if (!existBusinessTrip) {
+      await businessTrip.save();
+      return { businessTrip, action: "create" as const };
+    }
+
+    const hasChanges =
+      businessTrip.start_time?.getTime() <
+        existBusinessTrip.start_time?.getTime() ||
+      businessTrip.end_time?.getTime() !=
+        existBusinessTrip.end_time?.getTime() ||
+      !_.isEqual(businessTrip.companion, existBusinessTrip.companion);
+
+    if (hasChanges) {
+      const startTime = BusinessTripServices.resolveSyncStartTime(
+        existBusinessTrip.start_time,
+        businessTrip.start_time
+      );
+      BusinessTrip.merge(existBusinessTrip, businessTrip);
+      await existBusinessTrip.save();
+      return {
+        businessTrip: existBusinessTrip,
+        action: "update" as const,
+        startTime,
+        endTime: businessTrip.end_time,
+      };
+    }
+
+    BusinessTrip.merge(existBusinessTrip, businessTrip);
+    await existBusinessTrip.save();
+    return { businessTrip: existBusinessTrip, action: "refresh" as const };
   }
 
   static async 添加xft差旅记录(
@@ -55,7 +136,7 @@ export class BusinessTripServices {
     }
     const applier = businessTrip.userId.slice(0, 20);
     if (!applier) {
-      businessTrip.err = `xft_id为空`;
+      businessTrip.err = `userId为空`;
       await businessTrip.save();
       return null;
     }
@@ -77,17 +158,10 @@ export class BusinessTripServices {
     const partners = await Promise.all(
       fbtApply.user
         .filter((user) => user.userId && user.userId !== businessTrip.userId)
-        .map(async (user) => {
-          const partnerUser = await User.findOne({
-            where: { user_id: user.userId },
-            select: ["xft_id"],
-          });
-          const partnerSeq = partnerUser?.xft_id?.slice(0, 20);
+        .map((user) => {
+          const partnerSeq = user.userId?.slice(0, 20);
           if (!partnerSeq) return null;
-          return {
-            partnerName: user.name,
-            partnerSeq,
-          };
+          return { partnerName: user.name, partnerSeq };
         })
     );
     const result = await xftatdApiClient.addBusinessTrip({
@@ -231,34 +305,36 @@ export class BusinessTripServices {
   }
 
   static async createBusinessTrip(fbtApply: FbtApply) {
-    const existBusinessTrip = await BusinessTrip.findOne({
-      where: { fbtRootId: fbtApply.root_id },
-    });
-    if (
-      existBusinessTrip &&
-      existBusinessTrip.fbtCurrentId == fbtApply.id
-      // ||
-      // existBusinessTrip.create_time.getTime() <=
-      //   fbtApply.create_time.getTime()
-    ) {
-      return null;
-    }
-    const timeSlot = await BusinessTripServices.createNonConflictingTimeSlot(
+    const result = await BusinessTripServices.upsertBusinessTripFromFbt(
       fbtApply
     );
-    if (timeSlot) {
-      const sameTimeBusinessTrip = await BusinessTrip.findOne({
-        where: {
-          userId: fbtApply.proposerUserId,
-          start_time: LessThanOrEqual(timeSlot.start_time),
-          end_time: MoreThanOrEqual(timeSlot.end_time),
-        },
-      });
-      if (sameTimeBusinessTrip) {
-        return null;
-      }
+    if (!result) return null;
+    if (result.action === "create") {
+      await BusinessTripServices.添加xft差旅记录(
+        result.businessTrip,
+        fbtApply
+      );
+    } else if (
+      result.action === "update" &&
+      result.startTime &&
+      result.endTime
+    ) {
+      await BusinessTripServices.修改xft差旅记录(
+        result.businessTrip,
+        fbtApply,
+        result.startTime,
+        result.endTime
+      );
     }
-    let businessTrip = new BusinessTrip();
+    return result.businessTrip;
+  }
+
+  private static buildBusinessTripFromFbt(
+    fbtApply: FbtApply,
+    timeSlot: { start_time: Date; end_time: Date } | null,
+    existBusinessTrip: BusinessTrip | null
+  ) {
+    const businessTrip = new BusinessTrip();
     businessTrip.city = fbtApply.city.map((city) => city.name);
     businessTrip.userId = fbtApply.proposerUserId;
     businessTrip.fbtRootId = fbtApply.root_id;
@@ -276,41 +352,67 @@ export class BusinessTripServices {
     if (
       existBusinessTrip &&
       existBusinessTrip.reviseLogs?.some((str) => str.includes("已回公司"))
-    )
+    ) {
       businessTrip.end_time = existBusinessTrip.end_time;
+    }
     if (!businessTrip.start_time || !businessTrip.end_time) {
       businessTrip.err = `时间段为空${formatDate(
         fbtApply.start_time
       )} ${formatDate(fbtApply.end_time)}`;
     }
-    // await BusinessTrip.upsert(businessTrip, {
-    //   conflictPaths: ["fbtRootId"],
-    //   skipUpdateIfNoValuesChanged: true,
-    // });
-    if (!existBusinessTrip) {
-      await BusinessTripServices.添加xft差旅记录(businessTrip, fbtApply);
-    } else if (
-      businessTrip.start_time?.getTime() <
-        existBusinessTrip.start_time?.getTime() ||
-      businessTrip.end_time?.getTime() !=
-        existBusinessTrip.end_time?.getTime() ||
-      !_.isEqual(businessTrip.companion, existBusinessTrip.companion)
-    ) {
-      const startTime = Math.min(
-        existBusinessTrip.start_time?.getTime(),
-        businessTrip.start_time?.getTime()
+    return businessTrip;
+  }
+
+  private static resolveSyncStartTime(
+    existingStart: Date | null | undefined,
+    nextStart: Date | null | undefined
+  ) {
+    if (existingStart && nextStart) {
+      return new Date(
+        Math.min(existingStart.getTime(), nextStart.getTime())
       );
-      BusinessTrip.merge(existBusinessTrip, businessTrip);
-      await BusinessTripServices.修改xft差旅记录(
-        existBusinessTrip,
-        fbtApply,
-        new Date(startTime),
-        businessTrip.end_time
-      );
-    } else {
-      BusinessTrip.merge(existBusinessTrip, businessTrip);
-      await existBusinessTrip.save();
     }
+    return nextStart ?? existingStart ?? null;
+  }
+
+  private static async getFbtAppliesForSync(options?: {
+    date?: Date;
+    month?: Date;
+    fbtRootId?: string;
+  }) {
+    if (!options) return [];
+    if (options.fbtRootId) {
+      const apply = await FbtApply.findOne({
+        where: { root_id: options.fbtRootId },
+        relations: ["city", "user"],
+        order: { update_time: "DESC", create_time: "DESC" },
+      });
+      return apply ? [apply] : [];
+    }
+    if (options.date) {
+      return FbtApply.find({
+        where: {
+          complete_time: Between(startOfDay(options.date), endOfDay(options.date)),
+          state: 4,
+        },
+        relations: ["city", "user"],
+        order: { complete_time: "ASC" },
+      });
+    }
+    if (options.month) {
+      return FbtApply.find({
+        where: {
+          complete_time: Between(
+            startOfMonth(options.month),
+            endOfMonth(options.month)
+          ),
+          state: 4,
+        },
+        relations: ["city", "user"],
+        order: { complete_time: "ASC" },
+      });
+    }
+    return [];
   }
 }
 

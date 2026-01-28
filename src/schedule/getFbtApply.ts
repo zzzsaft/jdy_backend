@@ -57,10 +57,7 @@ export class GetFbtApply {
       where.start_time = Between(startDate, endDate);
     }
     const trips = await BusinessTrip.find({
-      where: {
-        xftBillId: IsNull(),
-        xftFormId: IsNull(),
-      },
+      where,
       order: { start_time: "ASC" },
     });
     for (const trip of trips) {
