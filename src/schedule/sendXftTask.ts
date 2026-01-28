@@ -1,8 +1,8 @@
 import { User } from "../entity/basic/employee";
 import { Not, IsNull } from "typeorm";
-import { xftGeneralApiClient } from "../api/xft/xft_general";
 import { createWechatUrl } from "../utils/stringUtils";
-import { MessageService } from "../services/messageService";
+import { MessageService } from "../features/wechat/service/messageService";
+import { xftGeneralApiClient } from "../features/xft/api/xft_general";
 
 export const sendXftTodoList = async () => {
   let userIds = (

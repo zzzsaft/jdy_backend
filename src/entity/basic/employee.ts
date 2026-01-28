@@ -14,7 +14,6 @@ import {
 } from "typeorm";
 import { logger } from "../../config/logger";
 import { Department } from "./department";
-import { contactApiClient } from "../../api/wechat/contact";
 import _ from "lodash";
 import { jctimesApiClient } from "../../api/jctimes/app";
 import {
@@ -23,6 +22,7 @@ import {
   getCorpList,
 } from "../../config/wechatCorps";
 import { xftUserApiClient } from "../../features/xft/api/xft_user";
+import { contactApiClient } from "../../features/wechat/api/contact";
 
 @Entity({ name: "md_employee" })
 export class User extends BaseEntity {

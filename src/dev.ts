@@ -17,28 +17,27 @@ import { searchServices } from "./services/crm/searchService";
 import { opportunityServices } from "./services/crm/opportunityService";
 import { getCheckinData, importErrorAtd } from "./schedule/getCheckinData";
 import { productService } from "./services/crm/productService";
-import { handleWechatMessage } from "./controllers/wechat/wechat.controller";
+import { handleWechatMessage } from "./features/wechat/controller/wechat.controller";
 import { xftTaskCallback } from "./controllers/xft/todo.xft.controller";
 import { Department } from "./entity/basic/department";
 import { employeeService } from "./services/md/employeeService";
 import { supplierService } from "./services/srm/supplierService";
 import { supplierGatherService } from "./services/srm/supplierGatherService";
 import { receiveService } from "./services/crm/receiveService";
-import { token_crm, token_j1 } from "./api/wechat/token";
-import { wechatUserApiClient } from "./api/wechat/user";
 import { authService } from "./services/authService";
 import { sendButtonMsg } from "./features/jdy/service/businessTripCheckinServices";
 import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
 import { gaoDeApiClient } from "./api/gaode/app";
 import { quoteService } from "./services/crm/quoteService";
 import { Quote } from "./entity/crm/quote";
-import { MessageService } from "./services/messageService";
+import { MessageService } from "./features/wechat/service/messageService";
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
 import { logTripSyncByid, 修改config, 测试打印 } from "./temp";
 import { checkinServices } from "./services/xft/checkinServices";
 import { templatesApiClient } from "./features/bestsign/api/template";
 import { bestSignToken } from "./features/bestsign/api/token";
 import { GetFbtApply } from "./schedule/getFbtApply";
+import { BusinessTripServices } from "./features/xft/service/businessTripServices";
 
 PgDataSource.initialize()
   .then(async () => {
@@ -82,8 +81,9 @@ PgDataSource.initialize()
     // console.log(await productService.getProducts());
     // await productService.addAlltoDb();
     // const a1 = await bestSignToken.get_token();
-    await GetFbtApply.syncMissingXftTrips({ month: new Date("2026/1/1") });
-    await logTripSyncByid("69784460f16f745b3b3a68df");
+    // await BusinessTripServices.修正冲突时间并上传xft();
+    // await GetFbtApply.syncMissingXftTrips({ month: new Date("2026/1/1") });
+    // await logTripSyncByid("69784460f16f745b3b3a68df");
     // const a = await templatesApiClient.getTemplates();
     // console.log(a);
     // await importErrorAtd();

@@ -4,7 +4,7 @@ import { Quote, QuoteItem } from "../../entity/crm/quote";
 import { WechatMessage } from "../../entity/log/log_message";
 import { JdyUtil } from "../../utils/jdyUtils";
 import { businessTripCheckinServices } from "../../features/jdy/service/businessTripCheckinServices";
-import { MessageService } from "../messageService";
+import { MessageService } from "../../features/wechat/service/messageService";
 import { checkinServices } from "../xft/checkinServices";
 import {
   getManager,

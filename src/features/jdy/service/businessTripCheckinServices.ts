@@ -25,7 +25,7 @@ import {
   Or,
 } from "typeorm";
 import { formatDate } from "../../../utils/dateUtils";
-import { MessageService } from "../../../services/messageService";
+import { MessageService } from "../../wechat/service/messageService";
 import { businessTripService } from "../../../services/businessTripService";
 import { checkinServices } from "../../../services/xft/checkinServices";
 import { jdyFormDataApiClient } from "../api/form_data";

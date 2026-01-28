@@ -8,7 +8,7 @@ import { atdClassService } from "./xft/atdClass.services";
 import { isAfterTime, isBeforeTime } from "../utils/dateUtils";
 import { AbnomalTraffic } from "../entity/log/abnormal_traffic";
 import { User } from "../entity/basic/employee";
-import { MessageService } from "./messageService";
+import { MessageService } from "../features/wechat/service/messageService";
 import { Department } from "../entity/basic/department";
 import { xftatdApiClient } from "../features/xft/api/xft_atd";
 

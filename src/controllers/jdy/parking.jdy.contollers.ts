@@ -4,7 +4,7 @@ import { isTaskFinished } from "./jdyUtil";
 import { logger } from "../../config/logger";
 import { ParkingInfo } from "../../entity/parking/dh_car_info";
 import { carPlateServices } from "../../services/carPlateServices";
-import { MessageService } from "../../services/messageService";
+import { MessageService } from "../../features/wechat/service/messageService";
 import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
 
 export const addCar = async (data) => {

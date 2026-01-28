@@ -19,7 +19,7 @@ import { XftAtdLeave } from "../entity/atd/xft_leave";
 import _ from "lodash";
 import { getWeekDayName } from "../utils/dateUtils";
 import { quotaServices } from "../services/xft/quotaServices";
-import { MessageService } from "../services/messageService";
+import { MessageService } from "../features/wechat/service/messageService";
 import { xftatdApiClient } from "../features/xft/api/xft_atd";
 
 export const getWeekendDates = () => {

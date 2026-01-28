@@ -1,8 +1,8 @@
 import crypto from "crypto";
 import { Request, Response } from "express";
 import nodeRSA from "node-rsa";
-import { wechatUserApiClient } from "../../api/wechat/user";
 import qs from "querystring";
+import { wechatUserApiClient } from "../../features/wechat/api/user";
 const RSA_PRIVATE_KEY = process.env.RSA_PRIVATE_KEY;
 const key = new nodeRSA(`-----BEGIN RSA PRIVATE KEY-----
     ${RSA_PRIVATE_KEY}

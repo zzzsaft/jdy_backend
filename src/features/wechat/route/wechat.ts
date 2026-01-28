@@ -1,7 +1,7 @@
 import {
   wechatWebHook,
   wechatWebHookCheck,
-} from "../../controllers/wechat/wechat.controller";
+} from "../controller/wechat.controller";
 
 export const WechatRoutes = [
   {

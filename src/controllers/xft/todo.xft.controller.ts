@@ -12,7 +12,10 @@ import { OvertimeEvent } from "../../services/xft/atd/overtime.atd.xft.controlle
 import { LeaveEvent } from "../../services/xft/atd/leave.atd.xft.controller";
 import { OutGoingEvent } from "../../services/xft/atd/outgoing";
 import { XftTask } from "../../entity/util/xft_task";
-import { buttonCardType, MessageService } from "../../services/messageService";
+import {
+  buttonCardType,
+  MessageService,
+} from "../../features/wechat/service/messageService";
 
 export class XftTaskEvent {
   url: string;

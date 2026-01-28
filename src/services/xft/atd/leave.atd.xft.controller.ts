@@ -6,7 +6,7 @@ import { User } from "../../../entity/basic/employee";
 import { quotaServices } from "../../../services/xft/quotaServices";
 import { XftTaskEvent } from "../../../controllers/xft/todo.xft.controller";
 import { getDifference, isAfterTime } from "../../../utils/dateUtils";
-import { MessageService } from "../../messageService";
+import { MessageService } from "../../../features/wechat/service/messageService";
 import { xftatdApiClient } from "../../../features/xft/api/xft_atd";
 import { xftOAApiClient } from "../../../features/xft/api/xft_oa";
 export class LeaveEvent {

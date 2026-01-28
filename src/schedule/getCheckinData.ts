@@ -1,19 +1,18 @@
 import _ from "lodash";
 import { IDataQueryOption } from "../features/jdy/type/IOptions";
-import { jdyFormDataApiClient } from "../api/jdy/form_data";
 import {
   checkinApiClient,
   HardwareCheckinData as HardwareCheckin,
-} from "../api/wechat/chekin";
+} from "../features/wechat/api/chekin";
 import { HardwareCheckinData } from "../entity/atd/wx_hardware_checkin_data";
 import { CheckinData } from "../entity/atd/checkin_data";
 import { Between, Equal, In, Not } from "typeorm";
 import { User } from "../entity/basic/employee";
 import { jctimesApiClient } from "../api/jctimes/app";
 import { LogCheckin } from "../entity/log/log_checkin";
-import { xftatdApiClient, importAtd } from "../api/xft/xft_atd";
 import { format } from "date-fns";
 import { Checkin } from "../entity/atd/checkin";
+import { xftatdApiClient } from "../features/xft/api/xft_atd";
 
 class GetCheckinData {
   twoDaysInSeconds = 2 * 24 * 60 * 60;
@@ -230,29 +229,6 @@ class GetCheckinData {
 
 export const getUserList = async () => {
   return (await User.find()).map((user) => user.user_id);
-  const { appid, entryid } = jdyFormDataApiClient.getFormId("员工档案");
-  const option: IDataQueryOption = {
-    limit: 100,
-    filter: {
-      rel: "and",
-      cond: [
-        {
-          field: "_widget_1701399332764",
-          method: "ne",
-          value: ["离职"],
-        },
-        {
-          field: "_widget_1705252329045",
-          method: "ne",
-          value: ["不参与考勤"],
-        },
-      ],
-    },
-    fields: ["_widget_1690274843463"],
-  };
-  return (await jdyFormDataApiClient.batchDataQuery(appid, entryid, option))
-    .map((content) => content?.["_widget_1690274843463"]?.username)
-    .filter((username) => !!username);
 };
 
 // export const initCheckinTable = async () => {

@@ -15,7 +15,7 @@ import { BusinessTrip } from "../../../entity/atd/businessTrip";
 import { FbtApply } from "../../fbt/entity/fbt_trip_apply";
 import { Between, LessThanOrEqual, Like, MoreThanOrEqual } from "typeorm";
 import _ from "lodash";
-import { MessageService } from "../../../services/messageService";
+import { MessageService } from "../../wechat/service/messageService";
 import { xftatdApiClient } from "../api/xft_atd";
 
 export class BusinessTripServices {
@@ -312,10 +312,7 @@ export class BusinessTripServices {
     return { start_time: adjustToTimeNode(start_time), end_time };
   }
 
-  static async 修正冲突时间(
-    businessTrip: BusinessTrip,
-    fbtApply: FbtApply
-  ) {
+  static async 修正冲突时间(businessTrip: BusinessTrip, fbtApply: FbtApply) {
     if (!BusinessTripServices.isXftTimeConflictError(businessTrip.err)) {
       return null;
     }

@@ -1,6 +1,6 @@
-import { Approval } from "../../entity/atd/wx_approval";
-import { approvalApiClient } from "../../api/wechat/approval";
-import { ApplyData } from "../../type/wechat/IApproval";
+import { Approval } from "../../../entity/atd/wx_approval";
+import { ApplyData } from "../../../type/wechat/IApproval";
+import { approvalApiClient } from "../api/approval";
 
 export const handleApprovalEvent = async (id, sp_status) => {
   if (Approval.hasId(id)) {

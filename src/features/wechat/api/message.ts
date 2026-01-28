@@ -1,4 +1,3 @@
-import { WechatMessage } from "../../entity/log/log_message";
 import { ApiClient } from "./api_client";
 import { getCorpToken } from "./token";
 import { v4 as uuidv4 } from "uuid";

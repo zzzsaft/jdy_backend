@@ -2,11 +2,11 @@ import _ from "lodash";
 import { logger } from "../config/logger";
 import { Department } from "../entity/basic/department";
 import { User } from "../entity/basic/employee";
-import { xftOrgnizationApiClient } from "../api/xft/xft_orgnization";
-import { xftUserApiClient } from "../api/xft/xft_user";
 import cron from "node-cron";
 import { IsNull, Not } from "typeorm";
 import { defaultWechatCorpConfig } from "../config/wechatCorps";
+import { xftUserApiClient } from "../features/xft/api/xft_user";
+import { xftOrgnizationApiClient } from "../features/xft/api/xft_orgnization";
 
 function areArraysEqual(arr1: string[], arr2: string[]): boolean {
   if (arr1.length !== arr2.length) {
@@ -19,7 +19,9 @@ export const syncUser = async () => {
   const users = (
     await User.createQueryBuilder("user")
       .where("user.is_employed = true")
-      .andWhere("user.corp_id = :corpId", { corpId: defaultWechatCorpConfig.corpId })
+      .andWhere("user.corp_id = :corpId", {
+        corpId: defaultWechatCorpConfig.corpId,
+      })
       .innerJoinAndSelect(
         Department,
         "department",

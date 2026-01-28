@@ -1,4 +1,3 @@
-import { xftOAApiClient } from "../api/xft/xft_oa";
 import { BusinessTrip } from "../entity/atd/businessTrip";
 import { log } from "console";
 import { LessThan, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
@@ -13,10 +12,10 @@ import {
 import { IFormData } from "../features/jdy/type/IData";
 import { JdyUtil } from "../utils/jdyUtils";
 import { User } from "../entity/basic/employee";
-import { jdyFormDataApiClient } from "../api/jdy/form_data";
 import { GetFbtApply, XftTripLog } from "./getFbtApply";
 import { Department } from "../entity/basic/department";
 import { XftTripCheckin } from "../entity/atd/business_trip_checkin";
+import { jdyFormDataApiClient } from "../features/jdy/api/form_data";
 
 type busData = {
   // value: {

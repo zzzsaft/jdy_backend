@@ -6,7 +6,7 @@ import { JdyUtil } from "../../../utils/jdyUtils";
 import {
   buttonCardType,
   MessageService,
-} from "../../../services/messageService";
+} from "../../wechat/service/messageService";
 import { workflowApiClient } from "../api/workflow";
 
 export class JdyTaskEvent {

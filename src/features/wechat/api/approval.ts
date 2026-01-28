@@ -1,4 +1,3 @@
-import { ICheckinOption } from "../../type/wechat/IOption";
 import { ApiClient } from "./api_client";
 import { token } from "./token";
 

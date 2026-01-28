@@ -2,7 +2,7 @@ import { XftTripCheckin } from "../../entity/atd/business_trip_checkin";
 import { WechatMessage } from "../../entity/log/log_message";
 import { JdyUtil } from "../../utils/jdyUtils";
 import { businessTripCheckinServices } from "../../features/jdy/service/businessTripCheckinServices";
-import { MessageService } from "../messageService";
+import { MessageService } from "../../features/wechat/service/messageService";
 import { checkinServices } from "../xft/checkinServices";
 import { workflowApiClient } from "../../features/jdy/api/workflow";
 

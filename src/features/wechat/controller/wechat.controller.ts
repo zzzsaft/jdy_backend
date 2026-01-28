@@ -1,17 +1,17 @@
 import { decrypt } from "@wecom/crypto";
 import { Request, Response } from "express";
-import { logger } from "../../config/logger";
-import { handleApprovalEvent } from "../../features/wechat/controller/approval.wechat.controller";
-import { handleContactEvent } from "../../features/wechat/controller/contact.wechat.controller";
-import { handleMessageEvent } from "../../features/wechat/controller/message.wechat.controller";
-import { LogExpress } from "../../entity/log/log_express";
-import { decryptMsg } from "../../api/wechat/decrypt";
-import { LogLocation } from "../../entity/log/log_location";
+import { logger } from "../../../config/logger";
+import { handleApprovalEvent } from "./approval.wechat.controller";
+import { handleContactEvent } from "./contact.wechat.controller";
+import { handleMessageEvent } from "./message.wechat.controller";
+import { LogExpress } from "../../../entity/log/log_express";
+import { LogLocation } from "../../../entity/log/log_location";
 import path from "path";
 import { Between, Like, MoreThan } from "typeorm";
-import { locationService } from "../../services/locationService";
-import { getCorpConfig } from "../../config/wechatCorps";
-import { syncWechatData } from "../../services/wechatSyncService";
+import { locationService } from "../../../services/locationService";
+import { getCorpConfig } from "../../../config/wechatCorps";
+import { syncWechatData } from "../../../services/wechatSyncService";
+import { decryptMsg } from "../util";
 
 export async function wechatWebHookCheck(request: Request, response: Response) {
   const corpId =

@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
-import { WechatMessage } from "../entity/log/log_message";
-import { messageApiClient } from "../api/wechat/message";
+import { WechatMessage } from "../../../entity/log/log_message";
+import { messageApiClient } from "../api/message";
 
 interface Message {
   touser?: string;

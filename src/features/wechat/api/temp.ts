@@ -1,4 +1,4 @@
-import { getApprovalDetail } from "../../controllers/wechat/approval.wechat.controller";
+import { getApprovalDetail } from "../controller/approval.wechat.controller";
 import { approvalApiClient } from "./approval";
 import _ from "lodash";
 

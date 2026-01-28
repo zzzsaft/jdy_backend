@@ -198,14 +198,14 @@ import {
 import { addChengJiangCar } from "./services/carPlateServices";
 import { JdyRestOvertime } from "./entity/atd/jdy_rest_overtime";
 import { BaseEntity, IsNull, MoreThan, Not } from "typeorm";
-import { testLocations } from "./controllers/wechat/wechat.controller";
+import { testLocations } from "./features/wechat/controller/wechat.controller";
 import { gaoDeApiClient } from "./api/gaode/app";
 import {
   locationService,
   testLocation,
   testLocation1,
 } from "./services/locationService";
-import { handleContactEvent } from "./controllers/wechat/contact.wechat.controller";
+import { handleContactEvent } from "./features/wechat/controller/contact.wechat.controller";
 import { format } from "date-fns";
 import { xftOrgnizationApiClient } from "./api/xft/xft_orgnization";
 import { syncDepartment, syncUser } from "./schedule/syncXftData";

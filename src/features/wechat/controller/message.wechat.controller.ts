@@ -1,8 +1,8 @@
-import { WechatMessage } from "../../entity/log/log_message";
-import { xftOAApiClient } from "../../features/xft/api/xft_oa";
-import { proceedLeave } from "../../schedule/sendLeave";
-import { trafficService } from "../../services/entryService";
-import { MessageService } from "../../services/messageService";
+import { WechatMessage } from "../../../entity/log/log_message";
+import { xftOAApiClient } from "../../xft/api/xft_oa";
+import { proceedLeave } from "../../../schedule/sendLeave";
+import { trafficService } from "../../../services/entryService";
+import { MessageService } from "../service/messageService";
 
 export const handleMessageEvent = async (msg: any) => {
   const eventKey = msg["EventKey"]["value"];

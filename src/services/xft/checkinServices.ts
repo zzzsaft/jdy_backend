@@ -11,7 +11,7 @@ import { User } from "../../entity/basic/employee";
 import {
   checkinApiClient,
   HardwareCheckinData as HardwareCheckin,
-} from "../../api/wechat/chekin";
+} from "../../features/wechat/api/chekin";
 import { HardwareCheckinData } from "../../entity/atd/wx_hardware_checkin_data";
 import { LogCheckin } from "../../entity/log/log_checkin";
 import { jctimesApiClient } from "../../api/jctimes/app";

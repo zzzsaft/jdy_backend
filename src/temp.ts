@@ -38,8 +38,8 @@ import { restOvertimeServices } from "./features/jdy/service/restOvertimeService
 import convert from "xml-js";
 import { OvertimeEvent } from "./services/xft/atd/overtime.atd.xft.controller";
 import { LeaveEvent } from "./services/xft/atd/leave.atd.xft.controller";
-import { handleContactEvent } from "./controllers/wechat/contact.wechat.controller";
-import { handleWechatMessage } from "./controllers/wechat/wechat.controller";
+import { handleContactEvent } from "./features/wechat/controller/contact.wechat.controller";
+import { handleWechatMessage } from "./features/wechat/controller/wechat.controller";
 import { checkinServices } from "./services/xft/checkinServices";
 import { Quote, QuoteItem } from "./entity/crm/quote";
 import { jctimesContractApiClient } from "./api/jctimes/contract";

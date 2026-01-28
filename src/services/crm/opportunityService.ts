@@ -7,7 +7,7 @@ import { Any, Brackets, In, Like } from "typeorm";
 import { Opportunity, OpportunityQuote } from "../../entity/crm/opportunity";
 import { removeUndefined } from "../../utils/stringUtils";
 import { customerServices } from "./customerService";
-import { MessageService } from "../messageService";
+import { MessageService } from "../../features/wechat/service/messageService";
 import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
 
 class OpportunityServices {
