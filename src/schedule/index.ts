@@ -11,7 +11,7 @@ import { BusinessTripServices } from "../features/xft/service/businessTripServic
 import { checkinServices } from "../services/xft/checkinServices";
 import { dayResultServices } from "../services/xft/dayResultServices";
 import { addDays } from "date-fns";
-import { syncWechatData } from "../services/wechatSyncService";
+import { syncWechatData } from "../features/wechat/service/wechatSyncService";
 
 //每过15分钟触发任务
 const checkinDateSchedule = cron.schedule("0,15,30,45 * * * *", async () => {
