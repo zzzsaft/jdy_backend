@@ -82,8 +82,7 @@ const ensureToken = (config: TokenConfig): Token => {
 };
 
 wechatCorpConfigs.forEach((config) => {
-  ensureToken({ corp_id: config.corpId, corp_secret: config.corpSecret });
-  config.apps?.forEach((app) => {
+  config.apps.forEach((app) => {
     ensureToken({ corp_id: config.corpId, corp_secret: app.corpSecret });
   });
 });
