@@ -49,10 +49,10 @@ export async function downloadFile(url, relativeFilePath) {
 
     response.data.pipe(writer);
 
-    new Promise((resolve, reject) => {
-      writer.on("finish", resolve);
-      writer.on("error", reject);
-    });
+    // new Promise((resolve, reject) => {
+    //   writer.on("finish", resolve);
+    //   writer.on("error", reject);
+    // });
     return relativeFilePath;
   } catch (error) {
     logger.error(error);

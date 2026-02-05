@@ -1,4 +1,7 @@
 import { logger } from "../../config/logger";
+import fs from "fs";
+import path from "path";
+
 type RawCorpAppConfig = {
   agentId?: number;
   corpSecret?: string;
@@ -41,14 +44,15 @@ const parseApps = (apps?: RawCorpAppConfig[]): WechatCorpAppConfig[] => {
 };
 
 const parseCorpConfigs = (): WechatCorpConfig[] => {
-  const rawConfig = process.env.WECHAT_CORP_CONFIGS;
+  const configPath = path.resolve(process.cwd(), "wechat.json");
 
-  if (!rawConfig) {
-    logger.error("WECHAT_CORP_CONFIGS is missing");
+  if (!fs.existsSync(configPath)) {
+    logger.error(`wechat.json is missing at ${configPath}`);
     return [];
   }
 
   try {
+    const rawConfig = fs.readFileSync(configPath, "utf-8");
     const parsed = JSON.parse(rawConfig) as RawCorpConfig[];
     const sanitized = parsed
       .filter((item) => item?.corpId && item?.name)
