@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { logger } from "./logger";
 
 type RawCorpAppConfig = {
@@ -8,85 +10,56 @@ type RawCorpAppConfig = {
 
 type RawCorpConfig = {
   corpId?: string;
-  corpSecret?: string;
-  encodingAESKey?: string;
   name?: string;
   apps?: RawCorpAppConfig[];
+  encodingAESKey?: string;
 };
 
 export interface WechatCorpAppConfig {
   agentId: number;
   corpSecret: string;
-  name?: string;
+  name: string;
 }
 
 export interface WechatCorpConfig {
   corpId: string;
-  corpSecret: string;
-  encodingAESKey: string;
-  name?: string;
-  apps?: WechatCorpAppConfig[];
+  name: string;
+  encodingAESKey?: string;
+  apps: WechatCorpAppConfig[];
 }
 
-const fallbackCorpId = process.env.CORP_ID ?? "";
-const fallbackCorpSecret = process.env.CORP_SECRET ?? "";
-const fallbackEncodingKey = process.env.WECHAT_ENCODING_AES_KEY ?? "";
+const defaultCorpName = "jctimes";
+const defaultAppName = "OA";
 
 const parseApps = (apps?: RawCorpAppConfig[]): WechatCorpAppConfig[] => {
   if (!apps) return [];
 
   return apps
-    .filter((item) => item?.agentId && item?.corpSecret)
+    .filter((item) => item?.agentId && item?.corpSecret && item?.name)
     .map((item) => ({
       agentId: item.agentId ?? 0,
       corpSecret: item.corpSecret ?? "",
-      name: item.name,
+      name: item.name ?? "",
     }));
 };
 
 const parseCorpConfigs = (): WechatCorpConfig[] => {
-  const rawConfig = process.env.WECHAT_CORP_CONFIGS;
-  const fallbackApps: WechatCorpAppConfig[] = [];
+  const configPath = path.resolve(process.cwd(), "wechat.json");
 
-  const defaultAgentId = Number(process.env.CORP_AGENTID ?? "");
-  if (!Number.isNaN(defaultAgentId) && fallbackCorpSecret) {
-    fallbackApps.push({
-      agentId: defaultAgentId,
-      corpSecret: fallbackCorpSecret,
-      name: "default",
-    });
-  }
-
-  const crmAgentId = Number(process.env.CORP_AGENTID_CRM ?? "");
-  if (!Number.isNaN(crmAgentId) && process.env.CORP_SECRET_CRM) {
-    fallbackApps.push({
-      agentId: crmAgentId,
-      corpSecret: process.env.CORP_SECRET_CRM,
-      name: "crm",
-    });
-  }
-
-  if (!rawConfig) {
-    return [
-      {
-        corpId: fallbackCorpId,
-        corpSecret: fallbackCorpSecret,
-        encodingAESKey: fallbackEncodingKey,
-        name: "default",
-        apps: fallbackApps,
-      },
-    ];
+  if (!fs.existsSync(configPath)) {
+    logger.error(`wechat.json is missing at ${configPath}`);
+    return [];
   }
 
   try {
+    const rawConfig = fs.readFileSync(configPath, "utf-8");
     const parsed = JSON.parse(rawConfig) as RawCorpConfig[];
     const sanitized = parsed
-      .filter((item) => item?.corpId && item?.corpSecret && item?.encodingAESKey)
+      .filter((item) => item?.corpId && item?.name)
       .map((item) => ({
         corpId: item.corpId ?? "",
-        corpSecret: item.corpSecret ?? "",
-        encodingAESKey: item.encodingAESKey ?? "",
-        name: item.name,
+        name: item.name ?? "",
+        encodingAESKey: item.encodingAESKey,
         apps: parseApps(item.apps),
       }));
 
@@ -96,21 +69,20 @@ const parseCorpConfigs = (): WechatCorpConfig[] => {
 
     return sanitized;
   } catch (error) {
-    logger.error("Failed to parse WECHAT_CORP_CONFIGS", error);
-    return [
-      {
-        corpId: fallbackCorpId,
-        corpSecret: fallbackCorpSecret,
-        encodingAESKey: fallbackEncodingKey,
-        name: "default",
-        apps: fallbackApps,
-      },
-    ];
+    logger.error("Failed to parse wechat.json", error);
+    return [];
   }
 };
 
 export const wechatCorpConfigs: WechatCorpConfig[] = parseCorpConfigs();
-export const defaultWechatCorpConfig: WechatCorpConfig = wechatCorpConfigs[0];
+export const defaultWechatCorpConfig: WechatCorpConfig = (
+  wechatCorpConfigs.find((config) => config.name === defaultCorpName) ??
+  wechatCorpConfigs[0] ?? {
+    corpId: "",
+    name: defaultCorpName,
+    apps: [],
+  }
+);
 
 export const getCorpConfig = (corpIdOrName?: string): WechatCorpConfig => {
   if (!corpIdOrName) return defaultWechatCorpConfig;
@@ -118,7 +90,7 @@ export const getCorpConfig = (corpIdOrName?: string): WechatCorpConfig => {
     wechatCorpConfigs.find(
       (config) =>
         config.corpId === corpIdOrName ||
-        (config.name && config.name === corpIdOrName)
+        config.name === corpIdOrName
     ) ?? defaultWechatCorpConfig
   );
 };
@@ -128,9 +100,10 @@ export const getCorpAppConfig = (
   agentId?: number,
   appName?: string
 ): { corpId: string; corpSecret: string; agentId?: number } => {
-  const corp = getCorpConfig(corpIdOrName);
-  const app = corp.apps?.find((item) => {
-    if (appName && item.name === appName) return true;
+  const corp = getCorpConfig(corpIdOrName ?? defaultCorpName);
+  const resolvedAppName = appName ?? defaultAppName;
+  const app = corp.apps.find((item) => {
+    if (resolvedAppName && item.name === resolvedAppName) return true;
     if (agentId && item.agentId === agentId) return true;
     return false;
   });
@@ -143,7 +116,7 @@ export const getCorpAppConfig = (
     };
   }
 
-  return { corpId: corp.corpId, corpSecret: corp.corpSecret, agentId };
+  return { corpId: corp.corpId, corpSecret: "", agentId };
 };
 
 export const getCorpList = (corpId?: string): WechatCorpConfig[] => {
