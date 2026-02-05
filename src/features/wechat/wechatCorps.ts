@@ -1,5 +1,4 @@
 import { logger } from "../../config/logger";
-
 type RawCorpAppConfig = {
   agentId?: number;
   corpSecret?: string;

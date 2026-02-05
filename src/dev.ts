@@ -38,6 +38,7 @@ import { templatesApiClient } from "./features/bestsign/api/template";
 import { bestSignToken } from "./features/bestsign/api/token";
 import { GetFbtApply } from "./schedule/getFbtApply";
 import { BusinessTripServices } from "./features/xft/service/businessTripServices";
+import { syncDepartments } from "./features/wechat/service/departmentService";
 
 PgDataSource.initialize()
   .then(async () => {
@@ -82,6 +83,7 @@ PgDataSource.initialize()
     // await productService.addAlltoDb();
     // const a1 = await bestSignToken.get_token();
     // await BusinessTripServices.修正冲突时间并上传xft();
+    await syncDepartments();
     // await GetFbtApply.syncMissingXftTrips({ month: new Date("2026/1/1") });
     // await logTripSyncByid("69784460f16f745b3b3a68df");
     // const a = await templatesApiClient.getTemplates();

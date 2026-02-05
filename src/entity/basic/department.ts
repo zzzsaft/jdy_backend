@@ -58,5 +58,4 @@ export class Department extends BaseEntity {
     }
     return false;
   }
-
 }
