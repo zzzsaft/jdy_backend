@@ -4,7 +4,7 @@ import { sleep } from "./config/limiter";
 import {
   xftTaskCallback,
   XftTaskEvent,
-} from "./controllers/xft/todo.xft.controller";
+} from "./features/xft/controller/todo.xft.controller";
 import { User } from "./entity/basic/employee";
 import {
   And,
@@ -28,19 +28,19 @@ import {
   updateNextBusinessTrip,
 } from "./features/jdy/service/businessTripCheckinServices";
 import { XftAtdOvertime } from "./entity/atd/xft_overtime";
-import { personApiClient } from "./api/dahua/person";
-import { EntryExistRecords } from "./entity/parking/dh_entry_exit_record";
-import { ReissueEvent } from "./services/xft/atd/reissue.atd.xft.controller";
-import { OutGoingEvent } from "./services/xft/atd/outgoing";
+import { personApiClient } from "./features/dahua/api/person";
+import { EntryExistRecords } from "./features/vehicle/entity/dh_entry_exit_record";
+import { ReissueEvent } from "./features/xft/service/atd/reissue.atd.xft.controller";
+import { OutGoingEvent } from "./features/xft/service/atd/outgoing";
 import { XftAtdOut } from "./entity/atd/xft_out";
 import { JdyRestOvertime } from "./entity/atd/jdy_rest_overtime";
 import { restOvertimeServices } from "./features/jdy/service/restOvertimeServices";
 import convert from "xml-js";
-import { OvertimeEvent } from "./services/xft/atd/overtime.atd.xft.controller";
-import { LeaveEvent } from "./services/xft/atd/leave.atd.xft.controller";
+import { OvertimeEvent } from "./features/xft/service/atd/overtime.atd.xft.controller";
+import { LeaveEvent } from "./features/xft/service/atd/leave.atd.xft.controller";
 import { handleContactEvent } from "./features/wechat/controller/contact.wechat.controller";
 import { handleWechatMessage } from "./features/wechat/controller/wechat.controller";
-import { checkinServices } from "./services/xft/checkinServices";
+import { checkinServices } from "./features/xft/service/checkinServices";
 import { Quote, QuoteItem } from "./entity/crm/quote";
 import { jctimesContractApiClient } from "./api/jctimes/contract";
 import { MoreThan } from "typeorm";

@@ -61,18 +61,6 @@ export class BusinessTripServices {
     const timeSlot = await BusinessTripServices.createNonConflictingTimeSlot(
       fbtApply
     );
-    if (timeSlot) {
-      const sameTimeBusinessTrip = await BusinessTrip.findOne({
-        where: {
-          userId: fbtApply.proposerUserId,
-          start_time: LessThanOrEqual(timeSlot.start_time),
-          end_time: MoreThanOrEqual(timeSlot.end_time),
-        },
-      });
-      if (sameTimeBusinessTrip) {
-        return null;
-      }
-    }
     const businessTrip = BusinessTripServices.buildBusinessTripFromFbt(
       fbtApply,
       timeSlot,

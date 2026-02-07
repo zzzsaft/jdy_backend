@@ -1,7 +1,9 @@
 import "./config/env";
 import "./config/logger";
+import "./features";
 
 import express, { Request, Response } from "express";
+import { BaseEntity } from "typeorm";
 import { AppDataSource, PgDataSource } from "./config/data-source";
 import { AppRoutes } from "./routes";
 import cors from "cors";
@@ -14,7 +16,12 @@ import path from "path";
 PgDataSource.initialize()
   .then(async () => {
     logger.info("Data Source has been initialized!");
-    if (process.env.NODE_ENV == "production") {
+    BaseEntity.useDataSource(PgDataSource);
+    if (
+      process.env.NODE_ENV == "production" &&
+      !logger.transports.some((t) => t instanceof DatabaseTransport)
+    ) {
+      logger.info("DatabaseTransport added to logger");
       logger.add(new DatabaseTransport({ handleExceptions: true }));
     }
     const app = express();

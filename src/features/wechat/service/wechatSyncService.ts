@@ -17,11 +17,11 @@ export const syncWechatData = async (context: SyncContext = {}) => {
   try {
     await syncDepartments(corpIdOrName);
     await syncUsers(corpIdOrName);
-    if (corpIdOrName) {
-      const resolvedCorpId = getCorpConfig(corpIdOrName).corpId;
-      await syncXftDepartmentIds(resolvedCorpId);
-      await syncXftUserIds(resolvedCorpId);
-    }
+    // if (corpIdOrName) {
+    //   const resolvedCorpId = getCorpConfig(corpIdOrName).corpId;
+    //   await syncXftDepartmentIds(resolvedCorpId);
+    //   await syncXftUserIds(resolvedCorpId);
+    // }
     await syncDepartmentLevels(corpIdOrName);
   } catch (error) {
     logger.error("syncWechatData error", error);

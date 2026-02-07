@@ -3,9 +3,7 @@ import {
   Column,
   BaseEntity,
   PrimaryColumn,
-  Like,
   ManyToOne,
-  Not,
   CreateDateColumn,
   UpdateDateColumn,
   JoinColumn,
@@ -13,7 +11,6 @@ import {
 import { logger } from "../../config/logger";
 import { Department } from "./department";
 import { defaultWechatCorpConfig } from "../../features/wechat/wechatCorps";
-import { xftUserApiClient } from "../../features/xft/api/xft_user";
 
 @Entity({ name: "md_employee" })
 export class User extends BaseEntity {
@@ -75,49 +72,6 @@ export class User extends BaseEntity {
   bank: string;
   @Column({ nullable: true, name: "bank_account" })
   bankAccount: string;
-
-  static async getUser_id(xft_enterprise_id: string): Promise<string> {
-    const user = await User.findOne({
-      where: {
-        xft_enterprise_id,
-        is_employed: true,
-        corp_id: defaultWechatCorpConfig.corpId,
-      },
-    });
-    if (user) {
-      return user.user_id;
-    } else {
-      const userid = (
-        await xftUserApiClient.getEmployeeDetail(xft_enterprise_id)
-      )["body"]?.["number"];
-      if (!userid) {
-        throw new Error(`User not found.${xft_enterprise_id}`);
-      }
-      const user = await User.findOne({
-        where: {
-          user_id: Like(`%${userid}%`),
-          corp_id: defaultWechatCorpConfig.corpId,
-        },
-      });
-      if (user) {
-        user.xft_enterprise_id = xft_enterprise_id;
-        await user.save();
-      }
-      return userid;
-    }
-  }
-  static async getXftEnterpriseId(userid: string): Promise<string> {
-    const user = await User.findOne({
-      where: { user_id: userid, corp_id: defaultWechatCorpConfig.corpId },
-    });
-    return user?.xft_enterprise_id ?? "";
-  }
-  static async getXftId(userid: string): Promise<string> {
-    const user = await User.findOne({
-      where: { user_id: userid, corp_id: defaultWechatCorpConfig.corpId },
-    });
-    return user?.xft_id ?? "";
-  }
 
   static async addDahuaId(userId: string, dahuaId: string) {
     const user = await User.findOne({

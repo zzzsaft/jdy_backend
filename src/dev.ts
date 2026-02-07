@@ -2,6 +2,7 @@ import "./config/env";
 import "./config/logger";
 
 import express, { Request, Response } from "express";
+import { BaseEntity } from "typeorm";
 import { AppDataSource, PgDataSource } from "./config/data-source";
 import { AppRoutes } from "./routes";
 import cors from "cors";
@@ -18,7 +19,7 @@ import { opportunityServices } from "./services/crm/opportunityService";
 import { getCheckinData, importErrorAtd } from "./schedule/getCheckinData";
 import { productService } from "./services/crm/productService";
 import { handleWechatMessage } from "./features/wechat/controller/wechat.controller";
-import { xftTaskCallback } from "./controllers/xft/todo.xft.controller";
+import { xftTaskCallback } from "./features/xft/controller/todo.xft.controller";
 import { Department } from "./entity/basic/department";
 import { employeeService } from "./services/md/employeeService";
 import { supplierService } from "./services/srm/supplierService";
@@ -33,17 +34,25 @@ import { Quote } from "./entity/crm/quote";
 import { MessageService } from "./features/wechat/service/messageService";
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
 import { logTripSyncByid, 修改config, 测试打印 } from "./temp";
-import { checkinServices } from "./services/xft/checkinServices";
+import { checkinServices } from "./features/xft/service/checkinServices";
 import { templatesApiClient } from "./features/bestsign/api/template";
 import { bestSignToken } from "./features/bestsign/api/token";
 import { GetFbtApply } from "./schedule/getFbtApply";
 import { BusinessTripServices } from "./features/xft/service/businessTripServices";
 import { syncDepartments } from "./features/wechat/service/departmentService";
+import { OrgnizationService } from "./features/xft/service/orgnizationService";
+import { LogAxios } from "./entity/log/log_axios";
+import { vehicleService } from "./features/vehicle/services/vehicleService";
 
 PgDataSource.initialize()
   .then(async () => {
     logger.info("Data Source has been initialized!");
-    if (process.env.NODE_ENV == "production") {
+    BaseEntity.useDataSource(PgDataSource);
+    if (
+      process.env.NODE_ENV == "production" &&
+      !logger.transports.some((t) => t instanceof DatabaseTransport)
+    ) {
+      logger.info("DatabaseTransport added to logger");
       logger.add(new DatabaseTransport({ handleExceptions: true }));
     }
     // await quoteService.fillItemsFromOrders();
@@ -82,13 +91,22 @@ PgDataSource.initialize()
     // console.log(await productService.getProducts());
     // await productService.addAlltoDb();
     // const a1 = await bestSignToken.get_token();
+
+    // await vehicleService.disableCarIfUserLeft();
+
     // await BusinessTripServices.修正冲突时间并上传xft();
-    await syncDepartments();
+    // await BusinessTripServices.syncFbtAppliesToBusinessTrip({
+    //   month: new Date("2026/2/1"),
+    //   // fbtRootId: "69801bf3c459d642890896c4",
+    // });
+
+    // await syncDepartments();
     // await GetFbtApply.syncMissingXftTrips({ month: new Date("2026/1/1") });
     // await logTripSyncByid("69784460f16f745b3b3a68df");
     // const a = await templatesApiClient.getTemplates();
     // console.log(a);
     // await importErrorAtd();
+    // await OrgnizationService.syncDepartment();
     // const a = await opportunityServices.getOpportunity(
     //   "ChenYing1",
     //   []
@@ -102,6 +120,7 @@ PgDataSource.initialize()
     // ]);
     // const a = await contactService.bulkImportContactsData();
     // await searchServices.searchCompany("运城塑业（昆山）");
+
     const app = express();
     const port = parseInt(process.env.PORT ?? "2002");
     // app.use((err, req, res, next) => {

@@ -4,7 +4,7 @@ import { XftAtdLeave } from "../entity/atd/xft_leave";
 import { XftAtdOut } from "../entity/atd/xft_out";
 import { BusinessTrip } from "../entity/atd/businessTrip";
 import { addDays, addMinutes, format } from "date-fns";
-import { atdClassService } from "./xft/atdClass.services";
+import { atdClassService } from "../features/xft/service/atdClass.services";
 import { isAfterTime, isBeforeTime } from "../utils/dateUtils";
 import { AbnomalTraffic } from "../entity/log/abnormal_traffic";
 import { User } from "../entity/basic/employee";
@@ -222,7 +222,14 @@ export class Traffic {
     return false;
   };
   private validWorkTime = async () => {
-    if (isAfterTime(this.date, "11:30") && isBeforeTime(this.date, "12:40")) {
+    const month = this.date.getMonth() + 1;
+    const day = this.date.getDate();
+    const isSummerTime =
+      (month > 5 && month < 10) ||
+      (month === 5 && day >= 1) ||
+      (month === 10 && day <= 1);
+    const lunchEnd = isSummerTime ? "13:20" : "12:40";
+    if (isAfterTime(this.date, "11:30") && isBeforeTime(this.date, lunchEnd)) {
       return false;
     }
     const baseDate = isBeforeTime(this.date, "7:30")

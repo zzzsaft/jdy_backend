@@ -4,7 +4,7 @@ import {
   wechatWebHook,
   wechatWebHookCheck,
 } from "../controller/wechat.controller";
-import { xftSSOLogin } from "../../../controllers/xft/login.xft.controller";
+import { xftSSOLogin } from "../../xft/controller/login.xft.controller";
 import { User } from "../../../entity/basic/employee";
 import { jdySsoRequest } from "../../../controllers/jdy/jdySso";
 

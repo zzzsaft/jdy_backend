@@ -1,6 +1,26 @@
 import { DataSource } from "typeorm";
+import path from "path";
 import dotenv from "dotenv";
 dotenv.config();
+
+const isProd = process.env.NODE_ENV === "production";
+const entitiesGlob = isProd
+  ? [
+      path.join(__dirname, "..", "entity", "*.js"),
+      path.join(__dirname, "..", "entity", "*", "*.js"),
+      path.join(__dirname, "..", "features", "bestsign", "entity", "*.js"),
+      path.join(__dirname, "..", "features", "fbt", "entity", "*.js"),
+      path.join(__dirname, "..", "features", "xft", "entity", "*.js"),
+      path.join(__dirname, "..", "features", "vehicle", "entity", "*.js"),
+    ]
+  : [
+      "src/entity/*.ts",
+      "src/entity/*/*.ts",
+      "src/features/bestsign/entity/*.ts",
+      "src/features/fbt/entity/*.ts",
+      "src/features/xft/entity/*.ts",
+      "src/features/vehicle/entity/*.ts",
+    ];
 
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -9,11 +29,8 @@ export const AppDataSource = new DataSource({
   username: process.env.mariaDBUser,
   password: process.env.mariaDBPassword,
   database: "jdy",
-  entities: [
-    "src/entity/*.ts",
-    "src/entity/*/*.ts",
-    "src/features/bestsign/entity/*.ts",
-  ],
+  entities: entitiesGlob,
+  migrations: isProd ? ["build/src/migrations/*.js"] : ["src/migrations/*.ts"],
   logging: true,
   synchronize: false,
 });
@@ -25,23 +42,8 @@ export const PgDataSource = new DataSource({
   username: process.env.PgUser,
   password: process.env.PgPassword,
   // database: "db",
-  entities:
-    // ["src/entity/crm/quoteItemShare.ts"],
-    process.env.NODE_ENV === "production"
-      ? [
-          "src/entity/*.js",
-          "src/entity/*/*.js",
-          "src/features/bestsign/entity/*.js",
-          "src/features/fbt/entity/*.js",
-          "src/features/xft/entity/*.js",
-        ]
-      : [
-          "src/entity/*.ts",
-          "src/entity/*/*.ts",
-          "src/features/bestsign/entity/*.ts",
-          "src/features/fbt/entity/*.ts",
-          "src/features/xft/entity/*.ts",
-        ],
-  logging: process.env.NODE_ENV === "production" ? ["error", "warn"] : true,
+  entities: entitiesGlob,
+  migrations: isProd ? ["build/src/migrations/*.js"] : ["src/migrations/*.ts"],
+  logging: isProd ? ["error", "warn"] : true,
   synchronize: false,
 });

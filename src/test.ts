@@ -3,8 +3,7 @@ import "./config/logger";
 import { PgDataSource } from "./config/data-source";
 import { customerServices } from "./services/crm/customerService";
 import { trafficService } from "./services/entryService";
-import { xftatdApiClient } from "./api/xft/xft_atd";
-import { testLoginUrl } from "./controllers/xft/login.xft.controller";
+import { testLoginUrl } from "./features/xft/controller/login.xft.controller";
 import {
   createBTcheckin,
   handleWechat,
@@ -24,20 +23,17 @@ import {
   测试补卡记录,
   // 测试补卡记录,
 } from "./temp";
-import { fbtUserApiClient } from "./api/fenbeitong/user";
-import { fbtApplyApiClient } from "./api/fenbeitong/apply";
 import { FbtApply } from "./features/fbt/entity/fbt_trip_apply";
 import { GetFbtApply, XftTripLog } from "./schedule/getFbtApply";
-import { xftItripApiClient } from "./api/xft/xft_itrip";
 import { XftCity } from "./entity/util/xft_city";
 import { LogCheckin } from "./entity/log/log_checkin";
-import { xftSalaryApiClient } from "./api/xft/xft_salary";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-import { parkingApiClient } from "./api/parking/app";
+import { parkingApiClient } from "./features/vehicle/api/app";
 // customerServices.reviseAllJdy().then(() => {});
 
 PgDataSource.initialize()
   .then(async () => {
+    BaseEntity.useDataSource(PgDataSource);
     // console.log(await customerServices.findJdy("复合材料"));
     // await handleWechat();
     // await xftUserApiClient.getMapping("0000000290");
@@ -167,7 +163,6 @@ PgDataSource.initialize()
 import { Department } from "./entity/basic/department";
 import { SendTripCheckin } from "./schedule/sendTripCheckin";
 import { JdyForm } from "./entity/util/jdy_form";
-import { workflowApiClient } from "./api/jdy/workflow";
 import {
   sendMessage,
   updateNextBusinessTrip,
@@ -177,17 +172,16 @@ import { BusinessTripServices } from "./features/xft/service/businessTripService
 import {
   checkinServices,
   获取未排班人员,
-} from "./services/xft/checkinServices";
+} from "./features/xft/service/checkinServices";
 import { insertWidgets } from "./features/jdy/service/widgetServices";
-import { quotaServices } from "./services/xft/quotaServices";
-import { xftGeneralApiClient } from "./api/xft/xft_general";
+import { quotaServices } from "./features/xft/service/quotaServices";
 import { sendXftTodoList } from "./schedule/sendXftTask";
 import { jctimesApiClient } from "./api/jctimes/app";
-import { personApiClient } from "./api/dahua/person";
-import { deleteDahuaId, updateDahua } from "./services/dahuaServices";
-import { atdClassService } from "./services/xft/atdClass.services";
-import { dayResultServices } from "./services/xft/dayResultServices";
-import { XftTaskEvent } from "./controllers/xft/todo.xft.controller";
+import { personApiClient } from "./features/dahua/api/person";
+import { deleteDahuaId, updateDahua } from "./features/dahua/service/dahuaServices";
+import { atdClassService } from "./features/xft/service/atdClass.services";
+import { dayResultServices } from "./features/xft/service/dayResultServices";
+import { XftTaskEvent } from "./features/xft/controller/todo.xft.controller";
 import {
   addExistRecord,
   addExistToXft,
@@ -195,7 +189,7 @@ import {
   restOvertimeServices,
 } from "./features/jdy/service/restOvertimeServices";
 
-import { addChengJiangCar } from "./services/carPlateServices";
+import { addChengJiangCar } from "./features/vehicle/services/vehicleService";
 import { JdyRestOvertime } from "./entity/atd/jdy_rest_overtime";
 import { BaseEntity, IsNull, MoreThan, Not } from "typeorm";
 import { testLocations } from "./features/wechat/controller/wechat.controller";
@@ -207,18 +201,12 @@ import {
 } from "./services/locationService";
 import { handleContactEvent } from "./features/wechat/controller/contact.wechat.controller";
 import { format } from "date-fns";
-import { xftOrgnizationApiClient } from "./api/xft/xft_orgnization";
-import { syncDepartment, syncUser } from "./schedule/syncXftData";
-import { xftOAApiClient } from "./api/xft/xft_oa";
 import { searchServices } from "./services/crm/searchService";
 import { CustomerSearch } from "./entity/crm/customerSearch";
 import { User } from "./entity/basic/employee";
 
 import { Log } from "./entity/log/log";
 import { importErrorAtd } from "./schedule/getCheckinData";
-import { contactApiClient } from "./api/wechat/contact";
-import { xftUserApiClient } from "./api/xft/xft_user";
-import { agentTicket, corpTicket } from "./api/wechat/ticket";
 
 // await handleContactEvent(
 //   {
@@ -237,7 +225,7 @@ import { agentTicket, corpTicket } from "./api/wechat/ticket";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
 // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-// import { parkingApiClient } from "./api/parking/app";
+// import { parkingApiClient } from "./features/vehicle/api/app";
 // // const a = await workflowApiClient.workflowInstanceGet(
 // //   "670c27ca3f18ccc122114ddb"
 // // );

@@ -8,10 +8,11 @@ import { SendTripCheckin } from "./sendTripCheckin";
 import { sendXftTodoList } from "./sendXftTask";
 import { businessTripCheckinServices } from "../features/jdy/service/businessTripCheckinServices";
 import { BusinessTripServices } from "../features/xft/service/businessTripServices";
-import { checkinServices } from "../services/xft/checkinServices";
-import { dayResultServices } from "../services/xft/dayResultServices";
+import { checkinServices } from "../features/xft/service/checkinServices";
+import { dayResultServices } from "../features/xft/service/dayResultServices";
 import { addDays } from "date-fns";
 import { syncWechatData } from "../features/wechat/service/wechatSyncService";
+import { vehicleService } from "../features/vehicle/services/vehicleService";
 
 //每过15分钟触发任务
 const checkinDateSchedule = cron.schedule("0,15,30,45 * * * *", async () => {
@@ -64,6 +65,12 @@ const sendXftTodoListEveryDay = cron.schedule("0 0 9,16 * * *", async () => {
   logger.info("发送待办");
 });
 
+// 每天晚上10点执行离职人员车辆禁用
+const disableLeftUserCars = cron.schedule("0 0 22 * * *", async () => {
+  await vehicleService.disableCarIfUserLeft();
+  logger.info("离职人员车辆禁用完成");
+});
+
 export const schedule = [
   checkinDateSchedule,
   updateUserSchedule,
@@ -71,4 +78,5 @@ export const schedule = [
   fbtApplySchedule,
   sendTripCheckin,
   sendXftTodoListEveryDay,
+  disableLeftUserCars,
 ];

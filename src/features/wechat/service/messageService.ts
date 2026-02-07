@@ -1,6 +1,9 @@
 import { v4 as uuidv4 } from "uuid";
 import { WechatMessage } from "../../../entity/log/log_message";
 import { messageApiClient } from "../api/message";
+import { logger } from "../../../config/logger";
+import { User } from "../../../entity/basic/employee";
+import { defaultWechatCorpConfig } from "../wechatCorps";
 
 interface Message {
   touser?: string;
@@ -178,6 +181,16 @@ export class MessageService {
   async disableButton(_log: WechatMessage, replace_name) {
     const log = await WechatMessage.findOne({ where: { msgId: _log.msgId } });
     if (!log) return;
+    const baseTime = log.updated_at ?? log.created_at;
+    if (baseTime) {
+      const expired = Date.now() - baseTime.getTime() > 24 * 60 * 60 * 1000;
+      if (expired) {
+        logger.info(
+          `Response code expired (>1 day), skip disableButton. msgId=${log.msgId}`
+        );
+        return;
+      }
+    }
     if (
       log.userid &&
       log.userid?.length != 0 &&
@@ -211,6 +224,12 @@ export class MessageService {
       | "checkin" = "general",
     taskid = ""
   ) => {
+    const activeUserIds = await this.filterEmployedUsers(
+      this.request_body["userids"] ?? []
+    );
+    if (activeUserIds.length === 0) return;
+    this.request_body["userids"] = activeUserIds;
+    this.request_body["touser"] = activeUserIds.join("|");
     const msg = await messageApiClient.sendMessage({
       ...this.request_body,
       corpId: this.corpKey,
@@ -226,6 +245,26 @@ export class MessageService {
         JSON.stringify(this.request_body),
         this.request_body["userids"]
       );
+  };
+
+  private filterEmployedUsers = async (userids: string[]) => {
+    const filteredIds = userids.filter((id) => id);
+    if (filteredIds.length === 0) return [];
+
+    const corpId = this.corpKey ?? defaultWechatCorpConfig.corpId ?? "";
+    const query = User.createQueryBuilder("user")
+      .where("user.user_id IN (:...userids)", { userids: filteredIds })
+      .select(["user.user_id", "user.is_employed"]);
+
+    if (corpId) {
+      query.andWhere("user.corp_id = :corpId", { corpId });
+    }
+
+    const users = await query.getMany();
+    const employedMap = new Map(
+      users.map((item) => [item.user_id, item.is_employed])
+    );
+    return filteredIds.filter((id) => employedMap.get(id) !== false);
   };
   static addMsgId = async (
     msgId: string,

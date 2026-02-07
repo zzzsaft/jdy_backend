@@ -1,9 +1,9 @@
 import * as XLSX from "xlsx";
-import { jdyFormDataApiClient } from "../../api/jdy/form_data";
 import { JdyUtil } from "../../utils/jdyUtils";
 import { addRandomMonths } from "../../utils/dateUtils";
 import _ from "lodash";
 import { Customer } from "../../entity/crm/customer";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
 class ReceiveService {
   appid = "5d7068edcdb5256f8f50978e";
   entryid = "680c8935b057f11fdbe51a5d";

@@ -77,6 +77,23 @@ class XFTOrgnizationApiClient {
       },
     });
   }
+  async updateOrgnizationCode(data: {
+    id: string;
+    code: string;
+    name?: string;
+    parent_id?: string | number;
+  }) {
+    return await appApiClient.doRequest({
+      method: "POST",
+      path: "/ORG/orgqry/xft-service-organization/org/v1/update",
+      payload: {
+        id: data.id,
+        code: data.code,
+        name: data.name,
+        parentOrgCode: data.parent_id,
+      },
+    });
+  }
   async importOrgnization(
     data: {
       id: string;

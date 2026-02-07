@@ -19,7 +19,7 @@ import {
 } from "../../../utils/dateUtils";
 import { AtdDayResult } from "../../../entity/atd/day_result";
 import _ from "lodash";
-import { dayResultServices } from "../../../services/xft/dayResultServices";
+import { dayResultServices } from "../../xft/service/dayResultServices";
 import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
 import { jdyFormDataApiClient } from "../api/form_data";
 import { xftatdApiClient } from "../../xft/api/xft_atd";

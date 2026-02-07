@@ -27,7 +27,7 @@ import {
 import { formatDate } from "../../../utils/dateUtils";
 import { MessageService } from "../../wechat/service/messageService";
 import { businessTripService } from "../../../services/businessTripService";
-import { checkinServices } from "../../../services/xft/checkinServices";
+import { checkinServices } from "../../xft/service/checkinServices";
 import { jdyFormDataApiClient } from "../api/form_data";
 import { JdyTaskEvent } from "./event";
 
@@ -72,7 +72,7 @@ class BusinessTripCheckinServices {
       if (newExistdata) await checkinServices.addCheckinRecord([newExistdata]);
     }
     await sendMessage(data);
-    return existdata;
+    // return existdata;
   };
   async scheduleCreate(date: Date = new Date()) {
     const businessTrip = await BusinessTrip.find({

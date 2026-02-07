@@ -1,4 +1,5 @@
 import { User } from "../../entity/basic/employee";
+import { EmployeeService } from "../../features/xft/service/employeeService";
 import { format } from "date-fns";
 import { isTaskFinished } from "./jdyUtil";
 import { EmployeeLifecycle } from "../../entity/basic/employee_lifecycle";
@@ -9,7 +10,7 @@ export const 转正 = async (data) => {
   const bool = await isTaskFinished(data["_id"]);
   if (!bool) return;
   const userid = data["_widget_1695743055634"]["username"];
-  const xft_id = await User.getXftId(userid);
+  const xft_id = await EmployeeService.getXftId(userid);
   const 申请转正 = format(data["createTime"], "yyyy-MM-dd");
   const 计划转正 = format(data["execution_date"], "yyyy-MM-dd");
   const 实际转正 = format(data["_widget_1695743055643"], "yyyy-MM-dd");
@@ -54,7 +55,7 @@ export const 转正 = async (data) => {
 };
 
 export const 待离职 = async () => {
-  const xft_id = await User.getXftId("");
+  const xft_id = await EmployeeService.getXftId("");
   await xftUserApiClient.updateEmployee([
     {
       staffBasicInfo: {
@@ -75,7 +76,7 @@ export const 离职 = async (data) => {
   const bool = await isTaskFinished(data["_id"]);
   if (!bool) return;
   const userid = data["_widget_1702956728221"]["username"];
-  const xft_id = await User.getXftId(userid);
+  const xft_id = await EmployeeService.getXftId(userid);
   const 实际离职 = format(data["_widget_1702956727941"], "yyyy-MM-dd");
   const 申请离职 = format(data["createTime"], "yyyy-MM-dd");
   const 计划离职 = format(data["date_of_departure"], "yyyy-MM-dd");

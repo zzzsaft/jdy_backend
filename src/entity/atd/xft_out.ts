@@ -12,7 +12,7 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 import { User } from "../basic/employee";
-import { EntryExistRecords } from "../parking/dh_entry_exit_record";
+import { EntryExistRecords } from "../../features/vehicle/entity/dh_entry_exit_record";
 
 @Entity("atd_xft_out")
 export class XftAtdOut extends BaseEntity {
