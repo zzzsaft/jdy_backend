@@ -13,7 +13,8 @@ import {
   HardwareCheckinData as HardwareCheckin,
 } from "../../wechat/api/chekin";
 import { HardwareCheckinData } from "../../../entity/atd/wx_hardware_checkin_data";
-import { LogCheckin } from "../../../entity/log/log_checkin";
+import { LogCheckin } from "../../log/entity/log_checkin";
+import { getLastDate } from "../../log/service/logCheckinService";
 import { jctimesApiClient } from "../../../api/jctimes/app";
 import { Between } from "typeorm";
 import _ from "lodash";
@@ -46,7 +47,7 @@ class CheckinServices {
     return true;
   }
   async scheduleCheckin() {
-    const startTime = await LogCheckin.getLastDate();
+    const startTime = await getLastDate();
     const endTime = new Date();
     await updateCheckin(startTime, endTime);
   }

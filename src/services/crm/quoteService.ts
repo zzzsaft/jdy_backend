@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { XftTripCheckin } from "../../entity/atd/business_trip_checkin";
 import { Quote, QuoteItem } from "../../entity/crm/quote";
-import { WechatMessage } from "../../entity/log/log_message";
+import { WechatMessage } from "../../features/log/entity/log_message";
 import { JdyUtil } from "../../utils/jdyUtils";
 import { businessTripCheckinServices } from "../../features/jdy/service/businessTripCheckinServices";
 import { MessageService } from "../../features/wechat/service/messageService";

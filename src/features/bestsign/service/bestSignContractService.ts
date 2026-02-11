@@ -9,6 +9,7 @@ import {
   BestSignSignerStatus,
 } from "../entity/contractRecord";
 import { contractApiClient } from "../api/contract";
+import { bestSignTemplateTextLabelService } from "./bestSignTemplateTextLabelService";
 
 type SendContractByTemplatePayload = {
   templateId: string;
@@ -22,6 +23,7 @@ type SendContractByTemplatePayload = {
     };
   }[];
   enabledDocumentIds: string[];
+  documents?: { documentId: string; disabled: boolean }[];
   textLabels: { name: string; value: string }[];
   bizNo: string;
   signTextLabels: { name: string; defaultValue: string }[];
@@ -31,6 +33,7 @@ type SendContractByTemplatePayload = {
 type SendContractByTemplateMeta = {
   senderName?: string;
   senderPhone?: string;
+  jdyId?: string;
 };
 
 type BestSignNotificationPayload = {
@@ -45,6 +48,23 @@ class BestSignContractService {
     payload: SendContractByTemplatePayload,
     meta?: SendContractByTemplateMeta
   ) {
+    const params = await bestSignTemplateTextLabelService.getParamsByTemplateId(
+      payload.templateId
+    );
+    if (params?.textLabels?.length) {
+      const merged = new Map<string, string>();
+      for (const item of params.textLabels) {
+        if (!item?.name) continue;
+        merged.set(item.name, item.value ?? "");
+      }
+      for (const item of payload.textLabels ?? []) {
+        if (!item?.name) continue;
+        merged.set(item.name, item.value ?? "");
+      }
+      payload.textLabels = Array.from(merged.entries()).map(
+        ([name, value]) => ({ name, value })
+      );
+    }
     const result = await contractApiClient.SendContractByTemplate(payload);
     const normalized = this.normalizeResponse(result);
 
@@ -67,6 +87,7 @@ class BestSignContractService {
       record.sendTime = new Date();
       record.senderName = meta?.senderName ?? record.senderName;
       record.senderPhone = meta?.senderPhone ?? record.senderPhone;
+      record.jdyId = meta?.jdyId ?? record.jdyId;
       record.senderEnterpriseName =
         payload.sender?.enterpriseName ?? record.senderEnterpriseName;
       record.enabledDocumentIds = payload.enabledDocumentIds;
@@ -112,12 +133,53 @@ class BestSignContractService {
     entName?: string,
     userAccount?: string
   ) {
+    const normalizedId = this.normalizeId(contractId);
+    if (normalizedId) {
+      const record = await this.findRecord({ contractId: normalizedId });
+      if (record?.status && /REJECT|RESIGN/i.test(record.status)) {
+        logger.warn("Reject skipped: contract already rejected", {
+          contractId: normalizedId,
+          status: record.status,
+        });
+        return {
+          code: "ALREADY_REJECTED",
+          message: "Contract already rejected",
+          contractId: normalizedId,
+        };
+      }
+    }
     return await contractApiClient.rejectContract(
       contractId,
       resignMark,
       entName,
       userAccount
     );
+  }
+
+  async approveContract(result: string, contractId: string) {
+    const normalizedResult =
+      String(result).toLowerCase() === "true" ? "true" : "false";
+    return await contractApiClient.sendApprovedContract(
+      normalizedResult as "true" | "false",
+      String(contractId)
+    );
+  }
+
+  async signContract(payload: { bizNo: string; account: string }) {
+    const record = await this.findRecord({ bizNo: payload.bizNo });
+    if (!record?.contractId) {
+      return {
+        code: "NOT_FOUND",
+        message: "Contract not found for bizNo",
+        bizNo: payload.bizNo,
+      };
+    }
+    // const { getSealNameByEnterprise } = await import("../../../config/bestsign\");
+    // const sealName = getSealNameByEnterprise(record.senderEnterpriseName);
+    return await contractApiClient.sign([record.contractId], "sealName", {
+      enterpriseName: record.senderEnterpriseName,
+      account: payload.account,
+    });
   }
 
   async downloadContractFiles(
@@ -339,11 +401,17 @@ class BestSignContractService {
     contractId?: string;
     bizNo?: string;
   }) {
-    const conditions = [] as Array<{ contractId?: string; bizNo?: string }>;
-    if (contractId) conditions.push({ contractId });
-    if (bizNo) conditions.push({ bizNo });
-    if (!conditions.length) return null;
-    return BestSignContractRecord.findOne({ where: conditions });
+    if (contractId) {
+      const record = await BestSignContractRecord.findOne({
+        where: { contractId },
+      });
+      if (record) return record;
+    }
+    if (bizNo) {
+      const record = await BestSignContractRecord.findOne({ where: { bizNo } });
+      if (record) return record;
+    }
+    return null;
   }
 }
 

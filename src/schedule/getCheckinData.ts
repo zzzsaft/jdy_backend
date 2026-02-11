@@ -9,7 +9,8 @@ import { CheckinData } from "../entity/atd/checkin_data";
 import { Between, Equal, In, Not } from "typeorm";
 import { User } from "../entity/basic/employee";
 import { jctimesApiClient } from "../api/jctimes/app";
-import { LogCheckin } from "../entity/log/log_checkin";
+import { LogCheckin } from "../features/log/entity/log_checkin";
+import { getLastDate } from "../features/log/service/logCheckinService";
 import { format } from "date-fns";
 import { Checkin } from "../entity/atd/checkin";
 import { xftatdApiClient } from "../features/xft/api/xft_atd";
@@ -30,7 +31,7 @@ class GetCheckinData {
     const userList = (await jctimesApiClient.getUserLists()).map(
       (user) => user.userid
     );
-    const startTime = await LogCheckin.getLastDate();
+    const startTime = await getLastDate();
     const endTime = new Date();
     const raw_checkin_data = await checkinApiClient.getHardwareCheckinData(
       userList,

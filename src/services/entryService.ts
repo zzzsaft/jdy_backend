@@ -6,7 +6,7 @@ import { BusinessTrip } from "../entity/atd/businessTrip";
 import { addDays, addMinutes, format } from "date-fns";
 import { atdClassService } from "../features/xft/service/atdClass.services";
 import { isAfterTime, isBeforeTime } from "../utils/dateUtils";
-import { AbnomalTraffic } from "../entity/log/abnormal_traffic";
+import { AbnomalTraffic } from "../features/log/entity/abnormal_traffic";
 import { User } from "../entity/basic/employee";
 import { MessageService } from "../features/wechat/service/messageService";
 import { Department } from "../entity/basic/department";

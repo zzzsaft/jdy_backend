@@ -1,7 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
-import { WechatMessage } from "../../../entity/log/log_message";
+import { WechatMessage } from "../../log/entity/log_message";
 import { messageApiClient } from "../api/message";
-import { logger } from "../../../config/logger";
 import { User } from "../../../entity/basic/employee";
 import { defaultWechatCorpConfig } from "../wechatCorps";
 
@@ -185,9 +184,9 @@ export class MessageService {
     if (baseTime) {
       const expired = Date.now() - baseTime.getTime() > 24 * 60 * 60 * 1000;
       if (expired) {
-        logger.info(
-          `Response code expired (>1 day), skip disableButton. msgId=${log.msgId}`
-        );
+        log.responseCodeExpired = true;
+        log.replaceName = replace_name;
+        await log.save();
         return;
       }
     }
@@ -210,6 +209,7 @@ export class MessageService {
       appName: this.appName,
     });
     log.disabled = true;
+    log.responseCodeExpired = false;
     await log.save();
   }
 
@@ -307,6 +307,12 @@ export class MessageService {
     if (msg) {
       msg.responseCode = responseCode;
       await msg.save();
+      if (msg.responseCodeExpired && msg.replaceName) {
+        await new MessageService(msg.userid ?? []).disableButton(
+          msg,
+          msg.replaceName
+        );
+      }
     }
   };
 }

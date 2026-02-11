@@ -1,4 +1,41 @@
 export class JdyUtil {
+  static getValue(data: any) {
+    if (data == null) return data;
+    if (typeof data === "object" && "value" in data) {
+      return (data as { value?: unknown }).value;
+    }
+    return data;
+  }
+
+  static getText(data: any) {
+    const resolved = JdyUtil.getValue(data);
+    if (resolved == null) return "";
+    if (Array.isArray(resolved)) return resolved.join("，");
+    if (typeof resolved === "object") return JSON.stringify(resolved);
+    return String(resolved);
+  }
+
+  static getDateText(data: any) {
+    const resolved = JdyUtil.getValue(data);
+    if (!resolved) return "";
+    const date = JdyUtil.getDate(String(resolved));
+    if (!date || Number.isNaN(date.getTime())) return String(resolved);
+    return date.toISOString().split("T")[0];
+  }
+
+  static getAddressText(data: any) {
+    const resolved = JdyUtil.getValue(data);
+    if (!resolved) return "";
+    const addr = JdyUtil.getAddress(resolved as any);
+    return addr?.full ?? "";
+  }
+
+  static getStringArray(data: any) {
+    const resolved = JdyUtil.getValue(data);
+    if (Array.isArray(resolved)) return resolved.map((item) => String(item));
+    if (!resolved) return [];
+    return [String(resolved)];
+  }
   static setText(data: string) {
     return { value: data ?? "" };
   }

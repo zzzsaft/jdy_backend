@@ -33,6 +33,9 @@ export class BestSignContractRecord extends AbstractContent {
   @Column({ nullable: true })
   senderEnterpriseName: string;
 
+  @Column({ name: "jdy_id", nullable: true })
+  jdyId: string;
+
   @Column("simple-json", { nullable: true })
   enabledDocumentIds: string[];
 

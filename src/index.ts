@@ -35,11 +35,13 @@ PgDataSource.initialize()
     AppRoutes.forEach((route) => {
       app[route.method](
         route.path,
-        (request: Request, response: Response, next: Function) => {
-          route
-            .action(request, response)
-            .then(() => next)
-            .catch((err) => next(err));
+        async (request: Request, response: Response, next: Function) => {
+          try {
+            await route.action(request, response);
+            next();
+          } catch (err) {
+            next(err);
+          }
         }
       );
     });

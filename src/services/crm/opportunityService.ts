@@ -1,5 +1,5 @@
 import { tycApiClient } from "../../api/tianyacha/app";
-import { Log } from "../../entity/log/log";
+import { Log } from "../../features/log/entity/log";
 import { CustomerInfo } from "../../entity/crm/customerInfo";
 import { JdyUtil } from "../../utils/jdyUtils";
 import { Customer } from "../../entity/crm/customer";

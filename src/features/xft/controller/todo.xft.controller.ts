@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import qs from "querystring";
 import { EmployeeService } from "../service/employeeService";
-import { WechatMessage } from "../../../entity/log/log_message";
+import { WechatMessage } from "../../log/entity/log_message";
 import { logger } from "../../../config/logger";
 import { v4 as uuidv4 } from "uuid";
 

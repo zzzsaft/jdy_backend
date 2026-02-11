@@ -1,4 +1,5 @@
 import axios from "axios";
+import FormData from "form-data";
 import { ApiClient } from "./api_client";
 import { uniqueId } from "lodash";
 import { error } from "console";
@@ -87,6 +88,32 @@ class FileApiClient extends ApiClient {
       uploadResultList.push(uploadResult);
     });
     return uploadResultList;
+  }
+
+  async uploadBuffer(
+    app_id: string,
+    entry_id: string,
+    fileName: string,
+    buffer: Buffer
+  ) {
+    await this.uploadToken(app_id, entry_id);
+    const uploadInfo = this.UploadInfoList.pop();
+    if (!uploadInfo) {
+      logger.error("uploadBuffer: missing upload token info");
+      return null;
+    }
+    const formData = new FormData();
+    formData.append("token", uploadInfo.token);
+    formData.append("file", buffer, { filename: fileName });
+    await jdyLimiter.tryBeforeRun({
+      name: "uploadFile",
+      duration: 1000,
+      limit: 20,
+    });
+    const response = await axios.post(uploadInfo.url, formData, {
+      headers: formData.getHeaders(),
+    });
+    return response.data;
   }
 }
 export default new FileApiClient("v5");

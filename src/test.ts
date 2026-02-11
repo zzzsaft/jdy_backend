@@ -26,7 +26,7 @@ import {
 import { FbtApply } from "./features/fbt/entity/fbt_trip_apply";
 import { GetFbtApply, XftTripLog } from "./schedule/getFbtApply";
 import { XftCity } from "./entity/util/xft_city";
-import { LogCheckin } from "./entity/log/log_checkin";
+import { LogCheckin } from "./features/log/entity/log_checkin";
 import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
 import { parkingApiClient } from "./features/vehicle/api/app";
 // customerServices.reviseAllJdy().then(() => {});
@@ -205,7 +205,7 @@ import { searchServices } from "./services/crm/searchService";
 import { CustomerSearch } from "./entity/crm/customerSearch";
 import { User } from "./entity/basic/employee";
 
-import { Log } from "./entity/log/log";
+import { Log } from "./features/log/entity/log";
 import { importErrorAtd } from "./schedule/getCheckinData";
 
 // await handleContactEvent(

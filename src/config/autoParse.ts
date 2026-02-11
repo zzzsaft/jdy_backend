@@ -1,6 +1,6 @@
 import bodyParser from "body-parser";
 import xmlparser from "body-parser-xml";
-import { LogExpress } from "../entity/log/log_express";
+import { addToLog } from "../features/log/service/logExpressService";
 import rateLimit from "express-rate-limit";
 import { Request, Response, NextFunction } from "express";
 // 自定义中间件来根据请求主体的Content-Type自动选择解析器
@@ -17,7 +17,7 @@ export const autoParse = (req, res, next) => {
 
 export const expressLog = async (req, res, next) => {
   const clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-  await LogExpress.addToLog(
+  await addToLog(
     clientIp,
     req.method,
     req.query,

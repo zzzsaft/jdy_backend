@@ -3,6 +3,8 @@ import {
   downloadContractFiles,
   rejectContract,
   sendContractByTemplate,
+  approveContract,
+  signContract,
 } from "../controller/bestsign.controller";
 
 export const BestSignRoutes = [
@@ -25,5 +27,15 @@ export const BestSignRoutes = [
     path: "/bestsign/contract/download",
     method: "post",
     action: downloadContractFiles,
+  },
+  {
+    path: "/bestsign/contract/approve",
+    method: "post",
+    action: approveContract,
+  },
+  {
+    path: "/bestsign/contract/sign",
+    method: "post",
+    action: signContract,
   },
 ];

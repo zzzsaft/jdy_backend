@@ -79,3 +79,39 @@ export const downloadContractFiles = async (
   );
   return response.send(result);
 };
+
+export const approveContract = async (
+  request: Request,
+  response: Response
+) => {
+  if (!request.body) {
+    return response.status(400).send({ message: "Missing payload" });
+  }
+  const { result, contractId } = request.body;
+  if (!contractId) {
+    return response.status(400).send({ message: "Missing contractId" });
+  }
+  const apiResult = await bestSignContractService.approveContract(
+    String(result),
+    String(contractId)
+  );
+  return response.send(apiResult);
+};
+
+export const signContract = async (request: Request, response: Response) => {
+  if (!request.body) {
+    return response.status(400).send({ message: "Missing payload" });
+  }
+  const { bizNo, account } = request.body;
+  if (!bizNo) {
+    return response.status(400).send({ message: "Missing bizNo" });
+  }
+  if (!account) {
+    return response.status(400).send({ message: "Missing account" });
+  }
+  const result = await bestSignContractService.signContract({
+    bizNo: String(bizNo),
+    account: String(account),
+  });
+  return response.send(result);
+};

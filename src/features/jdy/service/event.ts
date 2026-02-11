@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { WechatMessage } from "../../../entity/log/log_message";
+import { WechatMessage } from "../../log/entity/log_message";
 import { User } from "../../../entity/basic/employee";
 import qs from "querystring";
 import { JdyUtil } from "../../../utils/jdyUtils";

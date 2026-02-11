@@ -9,6 +9,7 @@ import "./jdy/jdy.register";
 import "./dahua/jdy.register";
 import "./crm/jdy.register";
 import "./xft/controller/jdy.register";
+import "./bestsign/jdy.register";
 
 import { BestSignRoutes } from "./bestsign/routes/bestsign.routes";
 import { fenbeitongRoutes } from "./fbt/routes/fengbeitong";

@@ -5,8 +5,7 @@ import {
   PrimaryColumn,
   CreateDateColumn,
 } from "typeorm";
-import { logger } from "../../config/logger";
-import AbstractContent from "../AbstractContent";
+import AbstractContent from "../../../entity/AbstractContent";
 @Entity({ name: "log_message" })
 export class WechatMessage extends AbstractContent {
   @Column({ name: "msg_id" })
@@ -25,4 +24,8 @@ export class WechatMessage extends AbstractContent {
   content: string;
   @Column({ name: "userid", nullable: true, type: "simple-array" })
   userid: string[];
+  @Column({ name: "response_code_expired", nullable: true })
+  responseCodeExpired: boolean;
+  @Column({ name: "replace_name", nullable: true })
+  replaceName: string;
 }

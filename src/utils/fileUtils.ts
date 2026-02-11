@@ -4,7 +4,7 @@ import fs from "fs";
 import stream from "stream";
 import path from "path";
 import { logger } from "../config/logger";
-import { LogAxios } from "../entity/log/log_axios";
+import { LogAxios } from "../features/log/entity/log_axios";
 import { ValueTransformer } from "typeorm";
 import sharp from "sharp";
 const bool = process.env.NODE_ENV === "production";

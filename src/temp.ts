@@ -21,7 +21,7 @@ import { FbtApply } from "./features/fbt/entity/fbt_trip_apply";
 import { XftTripLog } from "./schedule/getFbtApply";
 import { BusinessTrip } from "./entity/atd/businessTrip";
 import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
-import { LogExpress } from "./entity/log/log_express";
+import { LogExpress } from "./features/log/entity/log_express";
 import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
 import {
   businessTripCheckinServices,

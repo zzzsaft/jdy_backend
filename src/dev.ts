@@ -41,7 +41,7 @@ import { GetFbtApply } from "./schedule/getFbtApply";
 import { BusinessTripServices } from "./features/xft/service/businessTripServices";
 import { syncDepartments } from "./features/wechat/service/departmentService";
 import { OrgnizationService } from "./features/xft/service/orgnizationService";
-import { LogAxios } from "./entity/log/log_axios";
+import { LogAxios } from "./features/log/entity/log_axios";
 import { vehicleService } from "./features/vehicle/services/vehicleService";
 
 PgDataSource.initialize()

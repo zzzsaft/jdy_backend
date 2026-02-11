@@ -13,6 +13,7 @@ class ContractApiClient extends ApiClient {
       };
     }[];
     enabledDocumentIds: string[];
+    documents?: { documentId: string; disabled: boolean }[];
     textLabels: { name: string; value: string }[];
     bizNo: string;
     signTextLabels: { name: string; defaultValue: string }[];
@@ -31,7 +32,11 @@ class ContractApiClient extends ApiClient {
       payload,
     });
   }
-  async sign(contractIds, sealName?, signer?: { enterpriseName?: string }) {
+  async sign(
+    contractIds,
+    sealName?,
+    signer?: { enterpriseName?: string; account?: string }
+  ) {
     return await this.doRequest({
       method: "POST",
       path: "/api/contracts/sign",
