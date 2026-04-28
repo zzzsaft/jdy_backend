@@ -34,3 +34,11 @@ registerJdy(
   "data_create",
   async (data) => await hrContractService.handleCreate(data)
 );
+
+registerJdy(
+  // 表单名: 电子合同签订
+  "5cfef4b5de0b2278b05c8380",
+  "64b915fe3b3b7c0008316594",
+  "data_update",
+  async (data) => await hrContractService.handleUpdate(data)
+);

@@ -72,6 +72,8 @@ export class User extends BaseEntity {
   bank: string;
   @Column({ nullable: true, name: "bank_account" })
   bankAccount: string;
+  @Column({ nullable: true, name: "jdy_id" })
+  jdyId: string;
 
   static async addDahuaId(userId: string, dahuaId: string) {
     const user = await User.findOne({

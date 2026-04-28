@@ -5,7 +5,6 @@ import qs from "querystring";
 import { IRequestOptions } from "../../../type/IType";
 import { appAxios } from "../../../utils/fileUtils";
 import { bestSignToken } from "./token";
-import axios from "axios";
 interface Params {
   [key: string]: any;
 }
@@ -29,6 +28,64 @@ export class ApiClient {
     options.query = _.isEmpty(options.query) ? null : options.query;
     let uri = options.path;
     let signature;
+    const doAuthedRequest = async (forceRefreshToken = false) => {
+      const auth = await bestSignToken.get_token(forceRefreshToken);
+      // `genHeaders` already calls get_token; but we want forceRefresh capability.
+      // So we override Authorization header after generating.
+      const signature = this.getSignature(uri, httpMethod === "GET" ? null : options.payload, timestamp, httpMethod);
+      const headers = await this.genHeaders(timestamp, signature);
+      headers["Authorization"] = auth;
+
+      if (httpMethod === "GET") {
+        return await appAxios({
+          url: `${this.host}${uri}`,
+          method: httpMethod,
+          headers,
+          responseType: "arraybuffer",
+        });
+      }
+
+      return await appAxios({
+        url: `${this.host}${uri}`,
+        method: httpMethod,
+        headers,
+        data: JSON.stringify(options.payload),
+        responseType: "arraybuffer",
+      });
+    };
+
+    const shouldRefreshTokenFromError = (err: any) => {
+      const status = err?.response?.status;
+      if (status !== 401) return false;
+      const data = err?.response?.data;
+
+      // With `responseType: "arraybuffer"`, axios error responses may be Buffer/ArrayBuffer.
+      // Normalize to { code, message } if possible.
+      const tryParseJson = (raw: any): any => {
+        if (!raw) return null;
+        if (typeof raw === "object" && !Buffer.isBuffer(raw) && !(raw instanceof ArrayBuffer)) {
+          return raw;
+        }
+        try {
+          let text = "";
+          if (typeof raw === "string") text = raw;
+          else if (Buffer.isBuffer(raw)) text = raw.toString("utf8");
+          else if (raw instanceof ArrayBuffer) text = Buffer.from(raw).toString("utf8");
+          // DataView / TypedArray
+          else if (ArrayBuffer.isView(raw)) text = Buffer.from(raw.buffer).toString("utf8");
+          if (!text) return null;
+          return JSON.parse(text);
+        } catch {
+          return null;
+        }
+      };
+
+      const parsed = tryParseJson(data);
+      const code = parsed ? String(parsed.code ?? "") : "";
+      const message = parsed ? String(parsed.message ?? "") : "";
+      return code === "1001" || message.includes("登录状态已过期");
+    };
+
     if (httpMethod == "GET") {
       const headerParams = options.query;
       // 生成base64格式的签名
@@ -40,36 +97,29 @@ export class ApiClient {
         }
       }
 
-      signature = this.getSignature(uri, null, timestamp, httpMethod);
-      // 对签名进行encode
-      // const encodedSignature = encodeURIComponent(signature);
-      // 组装headers对象
-      const headers = await this.genHeaders(timestamp, signature);
-      const requestOptions = {
-        // url: uri,
-        url: `${this.host}${uri}`,
-        method: httpMethod,
-        headers,
-      };
-      //requestOptions.params = params;
-      let result = {};
-
-      await axios(requestOptions)
-        .then(async (res) => {
-          if (res.status === 200) {
-            result = await this.handleResponse(res);
-            return result;
-          } else {
-            console.log(JSON.stringify(res));
-            console.log("请求失败");
-            return JSON.stringify(res);
-          }
-        })
-        .catch((err) => {
-          console.log("请求异常");
-          console.log(JSON.stringify(err));
+      try {
+        signature = this.getSignature(uri, null, timestamp, httpMethod);
+        const headers = await this.genHeaders(timestamp, signature);
+        const res = await appAxios({
+          url: `${this.host}${uri}`,
+          method: httpMethod,
+          headers,
+          responseType: "arraybuffer",
         });
-      return result;
+        if (res.status === 200) return await this.handleResponse(res);
+        console.log("请求失败");
+        return JSON.stringify(res.data ?? res);
+      } catch (err: any) {
+        if (shouldRefreshTokenFromError(err)) {
+          // refresh token and retry once
+          try {
+            bestSignToken.invalidateToken();
+            const res = await doAuthedRequest(true);
+            if (res.status === 200) return await this.handleResponse(res);
+          } catch {}
+        }
+        throw err;
+      }
     } else if (httpMethod == "POST") {
       const signature = this.getSignature(
         uri,
@@ -80,31 +130,29 @@ export class ApiClient {
 
       // 组装headers对象
       const headers = await this.genHeaders(timestamp, signature);
-      const requestOptions = {
-        url: `${this.host}${uri}`,
-        method: httpMethod,
-        headers,
-        data: JSON.stringify(options.payload),
-      };
+
       // console.log(requestOptions);
-      let result = {};
-      await axios(requestOptions)
-        .then(async (res) => {
-          if (res.status === 200) {
-            result = await this.handleResponse(res);
-            console.log(JSON.stringify(result));
-            return result;
-          } else {
-            console.log(JSON.stringify(res));
-            console.log("请求失败");
-            return JSON.stringify(res);
-          }
-        })
-        .catch((err) => {
-          console.log("请求异常");
-          console.log(JSON.stringify(err));
+      try {
+        const res = await appAxios({
+          url: `${this.host}${uri}`,
+          method: httpMethod,
+          headers,
+          data: JSON.stringify(options.payload),
+          responseType: "arraybuffer",
         });
-      return result;
+        if (res.status === 200) return await this.handleResponse(res);
+        console.log("请求失败");
+        return JSON.stringify(res.data ?? res);
+      } catch (err: any) {
+        if (shouldRefreshTokenFromError(err)) {
+          try {
+            bestSignToken.invalidateToken();
+            const res = await doAuthedRequest(true);
+            if (res.status === 200) return await this.handleResponse(res);
+          } catch {}
+        }
+        throw err;
+      }
     }
 
     options.payload =
@@ -120,7 +168,7 @@ export class ApiClient {
       headers: await this.genHeaders(timestamp, signature),
     };
     // console.log(axiosRequestConfig.url);
-    return await axios(axiosRequestConfig);
+    return await appAxios(axiosRequestConfig);
   }
 
   private getSignature(uri, requestBody, timestamp, method) {
@@ -139,7 +187,6 @@ export class ApiClient {
   }
 
   private async handleResponse(res) {
-    var fs = require("fs");
     // zip或pdf格式
     const _contentType = res.headers["content-type"];
     if (
@@ -148,18 +195,40 @@ export class ApiClient {
         _contentType.includes("application/pdf") ||
         _contentType.includes("application/zip"))
     ) {
-      console.log("请求成功");
       const result = {
         contentType: res.headers["content-type"],
-        content: Buffer.from(res.data, "binary").toString("base64"),
+        content: Buffer.from(res.data).toString("base64"),
       };
       return result;
     } else {
-      if (res.data["code"] === "0") {
+      const asString = Buffer.from(res.data).toString("utf8");
+      try {
+        // BestSign may return 19-digit IDs (contractId/receiverId/...) that exceed JS MAX_SAFE_INTEGER.
+        // If we JSON.parse directly, they will be rounded and we will persist wrong IDs.
+        const safeJsonText = this.quoteLargeIntegers(asString);
+        return JSON.parse(safeJsonText);
+      } catch {
+        return asString;
       }
-      console.log("请求成功");
-      return JSON.stringify(res.data);
     }
+  }
+
+  /**
+   * JSON.parse cannot safely represent integers > Number.MAX_SAFE_INTEGER.
+   * This helper turns long integer literals into strings before parsing, preserving exact IDs.
+   */
+  private quoteLargeIntegers(jsonText: string) {
+    // Object values:  "key": 1234567890123456789
+    let out = jsonText.replace(
+      /(:\s*)(-?\d{16,})(\s*[,\}])/g,
+      '$1"$2"$3'
+    );
+    // Array values: [1234567890123456789, ...]
+    out = out.replace(
+      /([\[,]\s*)(-?\d{16,})(\s*[,\]])/g,
+      '$1"$2"$3'
+    );
+    return out;
   }
   private async genHeaders(timestamp: number, encodedSignature: string) {
     const auth = await bestSignToken.get_token();

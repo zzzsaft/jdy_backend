@@ -211,9 +211,9 @@ export class OrgnizationService {
         (data) => data.exist && !xftDepartmentIds.includes(data.id)
       );
 
-      // for (let data of add) {
-      //   await xftOrgnizationApiClient.addOrgnization(data);
-      // }
+      for (let data of add) {
+        await xftOrgnizationApiClient.addOrgnization(data);
+      }
 
       const update = xftOrg
         .map((org) => {

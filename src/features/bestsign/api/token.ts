@@ -2,7 +2,7 @@ import axios from "axios";
 
 class Token {
   private accessToken: string = "";
-  private expire: number = 0;
+  private expireAtMs: number = 0;
 
   constructor() {}
 
@@ -28,15 +28,42 @@ class Token {
     return result["data"];
   }
 
-  public async get_token(): Promise<any> {
-    if (Date.now() < this.expire * 1000) {
+  public invalidateToken() {
+    this.accessToken = "";
+    this.expireAtMs = 0;
+  }
+
+  public async get_token(forceRefresh = false): Promise<any> {
+    // Refresh a bit early to avoid edge-of-expiry requests.
+    const now = Date.now();
+    const refreshSkewMs = 60 * 1000;
+    if (!forceRefresh && this.accessToken && now < this.expireAtMs - refreshSkewMs) {
       return this.accessToken;
-    } else {
-      const { accessToken, expiration, tokenType } = await this._get_token();
-      this.accessToken = `${tokenType} ${accessToken}`;
-      this.expire = expiration;
-      return `${tokenType} ${accessToken}`;
     }
+
+    const { accessToken, expiration, tokenType } = await this._get_token();
+    this.accessToken = `${tokenType} ${accessToken}`;
+
+    // BestSign may return `expiration` as:
+    // - unix seconds timestamp, or
+    // - unix ms timestamp, or
+    // - TTL seconds.
+    const exp = Number(expiration);
+    if (!Number.isFinite(exp) || exp <= 0) {
+      // Conservative fallback: 10 minutes
+      this.expireAtMs = now + 10 * 60 * 1000;
+    } else if (exp > 1e12) {
+      // likely ms timestamp
+      this.expireAtMs = exp;
+    } else if (exp > 1e9) {
+      // likely seconds timestamp
+      this.expireAtMs = exp * 1000;
+    } else {
+      // likely TTL seconds
+      this.expireAtMs = now + exp * 1000;
+    }
+
+    return this.accessToken;
   }
 }
 export const bestSignToken = new Token();

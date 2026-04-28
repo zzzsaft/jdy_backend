@@ -293,8 +293,6 @@ class ContactService {
 
     for (const batch of batches) {
       await this.externalContactRepo.manager.transaction(async (manager) => {
-        const contactRepo = manager.getRepository(ExternalContact);
-
         // 准备所有 ExternalContact 和关联的 FollowUser
         const externalContacts = batch.map((data) => {
           const contact = this.prepareExternalContact(data.external_contact);
@@ -313,7 +311,7 @@ class ContactService {
         });
 
         // 批量保存（自动级联）
-        const result = await contactRepo.save(groupBy(externalContacts));
+        const result = await ExternalContact.save(groupBy(externalContacts));
         // await FollowUser.delete({ external_userid: IsNull() });
         return result;
       });

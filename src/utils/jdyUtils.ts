@@ -1,3 +1,5 @@
+import { format } from "date-fns";
+
 export class JdyUtil {
   static getValue(data: any) {
     if (data == null) return data;
@@ -18,9 +20,10 @@ export class JdyUtil {
   static getDateText(data: any) {
     const resolved = JdyUtil.getValue(data);
     if (!resolved) return "";
-    const date = JdyUtil.getDate(String(resolved));
+    const date =
+      resolved instanceof Date ? resolved : JdyUtil.getDate(String(resolved));
     if (!date || Number.isNaN(date.getTime())) return String(resolved);
-    return date.toISOString().split("T")[0];
+    return format(date, "yyyy-MM-dd");
   }
 
   static getAddressText(data: any) {

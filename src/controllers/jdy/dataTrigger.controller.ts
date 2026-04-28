@@ -164,7 +164,7 @@ export class 智能助手 {
               action.app_id,
               action.entry_id,
               dataList,
-              { isStartWorkflow: action.is_start_workflow }
+              { is_start_workflow: action.is_start_workflow }
             );
           }
           break;

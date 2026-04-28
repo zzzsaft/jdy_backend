@@ -143,7 +143,7 @@ PgDataSource.initialize()
 // const a = await fbtApplyApiClient.getApplyOrder("6703ab09ec07c26f03933818");
 // console.log(a);
 // const a1 =
-//   '[{"nodeId":"d2c459cca2bd4861bfab1f879764fe19","nodeName":"开始","type":"START","subType":"bpm.start","assignType":null,"actionType":null,"approverUserList":[{"userId":"U0000","userName":"梁之","userPhone":"18869965222"}],"reason":null,"starterSelfSelectRequired":null},{"nodeId":"31863550864111efbb2be9be85076fbe","nodeName":"审批人","type":"APPROVE","subType":"trip.approve","assignType":"trip.user","actionType":"oneByOne","approverUserList":[{"userId":"U0000","userName":"梁之","userPhone":"18869965222"}],"reason":null,"starterSelfSelectRequired":null}]';
+//   '[{"nodeId":"d2c459cca2bd4861bfab1f879764fe19","nodeName":"开始","type":"START","subType":"bpm.start","assignType":null,"actionType":null,"approverUserList":[{"userId":"U0000","userName":"梁之","userPhone":"<redacted>"}],"reason":null,"starterSelfSelectRequired":null},{"nodeId":"31863550864111efbb2be9be85076fbe","nodeName":"审批人","type":"APPROVE","subType":"trip.approve","assignType":"trip.user","actionType":"oneByOne","approverUserList":[{"userId":"U0000","userName":"梁之","userPhone":"<redacted>"}],"reason":null,"starterSelfSelectRequired":null}]';
 // const a3 = JSON.parse(a1);
 // const msg = await parkingApiClient.visitorAppoint({
 //   guestCompany: "合肥长阳",
@@ -274,7 +274,7 @@ import { importErrorAtd } from "./schedule/getCheckinData";
 // // const a = await fbtApplyApiClient.getApplyOrder("6703ab09ec07c26f03933818");
 // // console.log(a);
 // // const a1 =
-// //   '[{"nodeId":"d2c459cca2bd4861bfab1f879764fe19","nodeName":"开始","type":"START","subType":"bpm.start","assignType":null,"actionType":null,"approverUserList":[{"userId":"U0000","userName":"梁之","userPhone":"18869965222"}],"reason":null,"starterSelfSelectRequired":null},{"nodeId":"31863550864111efbb2be9be85076fbe","nodeName":"审批人","type":"APPROVE","subType":"trip.approve","assignType":"trip.user","actionType":"oneByOne","approverUserList":[{"userId":"U0000","userName":"梁之","userPhone":"18869965222"}],"reason":null,"starterSelfSelectRequired":null}]';
+// //   '[{"nodeId":"d2c459cca2bd4861bfab1f879764fe19","nodeName":"开始","type":"START","subType":"bpm.start","assignType":null,"actionType":null,"approverUserList":[{"userId":"U0000","userName":"梁之","userPhone":"<redacted>"}],"reason":null,"starterSelfSelectRequired":null},{"nodeId":"31863550864111efbb2be9be85076fbe","nodeName":"审批人","type":"APPROVE","subType":"trip.approve","assignType":"trip.user","actionType":"oneByOne","approverUserList":[{"userId":"U0000","userName":"梁之","userPhone":"<redacted>"}],"reason":null,"starterSelfSelectRequired":null}]';
 // // const a3 = JSON.parse(a1);
 // // const msg = await parkingApiClient.visitorAppoint({
 // //   guestCompany: "合肥长阳",
@@ -353,7 +353,7 @@ import { importErrorAtd } from "./schedule/getCheckinData";
 // // // const a4 = await fbtApplyApiClient.getTripDetail("66da3dea9870730ff375d6b5");
 // // console.log();
 // // await 导入分贝通人员id();
-// // console.log(await fbtUserApiClient.getSSOLink("18869965222", "home"));
+// // console.log(await fbtUserApiClient.getSSOLink("<redacted>", "home"));
 // // await 获取空缺请假记录();
 // // // XftAtdLeave.maxLeaveRecSeq().then((a) => {
 // // //   console.log(a);

@@ -8,6 +8,50 @@ import { LogAxios } from "../features/log/entity/log_axios";
 import { ValueTransformer } from "typeorm";
 import sharp from "sharp";
 const bool = process.env.NODE_ENV === "production";
+
+function stringifyForLog(value: unknown, maxLen: number) {
+  if (value == null) return "";
+  if (typeof value === "string") return value.slice(0, maxLen);
+  if (Buffer.isBuffer(value)) return value.toString("utf8").slice(0, maxLen);
+  if (value instanceof ArrayBuffer)
+    return Buffer.from(value).toString("utf8").slice(0, maxLen);
+  // Axios in Node usually gives Buffer for arraybuffer; keep this for safety.
+  const asAny = value as any;
+  if (asAny?.type === "Buffer" && Array.isArray(asAny?.data)) {
+    try {
+      return Buffer.from(asAny.data).toString("utf8").slice(0, maxLen);
+    } catch {
+      // fall through
+    }
+  }
+  try {
+    return JSON.stringify(value).slice(0, maxLen);
+  } catch {
+    return String(value).slice(0, maxLen);
+  }
+}
+
+function isBinaryContentType(contentType?: string) {
+  if (!contentType) return false;
+  const ct = contentType.toLowerCase();
+  return (
+    ct.includes("application/octet-stream") ||
+    ct.includes("application/pdf") ||
+    ct.includes("application/zip")
+  );
+}
+
+function byteLength(value: unknown) {
+  if (value == null) return 0;
+  if (typeof value === "string") return Buffer.byteLength(value, "utf8");
+  if (Buffer.isBuffer(value)) return value.length;
+  if (value instanceof ArrayBuffer) return value.byteLength;
+  const asAny = value as any;
+  if (asAny?.type === "Buffer" && Array.isArray(asAny?.data)) {
+    return asAny.data.length;
+  }
+  return 0;
+}
 export async function downloadFileStream(url) {
   try {
     const response = await axios({
@@ -75,10 +119,22 @@ async function saveToDb(
   response: AxiosResponse,
   err?: any
 ) {
+  const contentType = (response.headers?.["content-type"] ??
+    response.headers?.["Content-Type"]) as string | undefined;
+  const omitBinaryBody =
+    isBinaryContentType(contentType) ||
+    (config as any)?.responseType === "stream";
+
   if (!bool) {
     console.log({
-      payload: JSON.stringify(config.data) ?? "".slice(0, 2000),
-      res_data: JSON.stringify(response.data) ?? "".slice(0, 200),
+      // If config.data is already a JSON string, avoid double-stringifying.
+      payload: stringifyForLog(config.data, 2000),
+      // When responseType is "arraybuffer", axios returns a Buffer in Node.
+      res_data: omitBinaryBody
+        ? `[binary omitted] content-type=${contentType ?? "unknown"} bytes=${byteLength(
+            response.data
+          )}`
+        : stringifyForLog(response.data, 2000),
     });
     return;
   }
@@ -88,12 +144,16 @@ async function saveToDb(
     host,
     url: url,
     method: method,
-    payload: JSON.stringify(config.data) ?? "".slice(0, 2000),
+    payload: stringifyForLog(config.data, 2000),
     res_status: response.status,
-    res_data: JSON.stringify(response.data) ?? "".slice(0, 200),
+    res_data: omitBinaryBody
+      ? `[binary omitted] content-type=${contentType ?? "unknown"} bytes=${byteLength(
+          response.data
+        )}`
+      : stringifyForLog(response.data, 2000),
   };
   if (err) {
-    log["err"] = JSON.stringify(err);
+    log["err"] = stringifyForLog(err, 2000);
   }
   await LogAxios.create({ ...log }).save();
 }

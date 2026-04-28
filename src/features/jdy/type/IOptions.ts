@@ -10,19 +10,19 @@ export interface IEntryList {
 
 export interface IDataCreateOption {
   is_start_workflow?: boolean;
-  isStartTrigger?: boolean;
-  transactionId?: string;
+  is_start_trigger?: boolean;
+  transaction_id?: string;
   data_creator?: string;
 }
 
 export interface IDatasCreateOption {
-  isStartWorkflow?: boolean;
+  is_start_workflow?: boolean;
   data_creator?: string;
-  transactionId?: string;
+  transaction_id?: string;
 }
 export interface IDataUpdateOption {
-  isStartTrigger?: boolean;
-  transactionId?: string;
+  is_start_trigger?: boolean;
+  transaction_id?: string;
 }
 
 export interface IDataQueryOption {

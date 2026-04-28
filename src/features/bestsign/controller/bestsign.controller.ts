@@ -1,6 +1,15 @@
 import { Request, Response } from "express";
 import { logger } from "../../../config/logger";
 import { bestSignContractService } from "../service/bestSignContractService";
+import { bestSignContractNotifyService } from "../service/bestSignContractNotifyService";
+
+const quoteLargeIntegers = (jsonText: string) => {
+  // Object values:  "key": 1234567890123456789
+  let out = jsonText.replace(/(:\s*)(-?\d{16,})(\s*[,\}])/g, '$1"$2"$3');
+  // Array values: [1234567890123456789, ...]
+  out = out.replace(/([\[,]\s*)(-?\d{16,})(\s*[,\]])/g, '$1"$2"$3');
+  return out;
+};
 
 export const sendContractByTemplate = async (
   request: Request,
@@ -22,12 +31,27 @@ export const bestSignNotification = async (
   request: Request,
   response: Response
 ) => {
-  if (!request.body) {
+  // BestSign may send 19-digit IDs in JSON payload. If the JSON is parsed normally,
+  // JS will round those numbers and we will persist wrong IDs. Prefer re-parsing rawBody.
+  const rawBody = (request as any).rawBody as string | undefined;
+  const payload =
+    rawBody && rawBody.trim().length
+      ? (() => {
+          try {
+            return JSON.parse(quoteLargeIntegers(rawBody));
+          } catch (error) {
+            logger.warn("BestSign notify: failed to parse rawBody", { error });
+            return request.body;
+          }
+        })()
+      : request.body;
+
+  if (!payload) {
     return response.status(400).send({ message: "Missing payload" });
   }
 
   try {
-    await bestSignContractService.handleNotification(request.body);
+    await bestSignContractNotifyService.handleNotification(payload);
   } catch (error) {
     logger.error(error);
     return response.status(500).send({ message: "Notification failed" });
@@ -36,15 +60,12 @@ export const bestSignNotification = async (
   return response.send({ success: true });
 };
 
-export const rejectContract = async (
-  request: Request,
-  response: Response
-) => {
+export const rejectContract = async (request: Request, response: Response) => {
   if (!request.body) {
     return response.status(400).send({ message: "Missing payload" });
   }
   const { contractId, resignMark, entName, userAccount } = request.body;
-  const resolvedContractId = Number(contractId);
+  const resolvedContractId = String(contractId ?? "");
   if (!resolvedContractId) {
     return response.status(400).send({ message: "Invalid contractId" });
   }
@@ -64,7 +85,8 @@ export const downloadContractFiles = async (
   if (!request.body) {
     return response.status(400).send({ message: "Missing payload" });
   }
-  const { contractIds, saveLocal, outputDir, zipFileName, unzip } = request.body;
+  const { contractIds, saveLocal, outputDir, zipFileName, unzip } =
+    request.body;
   if (!Array.isArray(contractIds) || contractIds.length === 0) {
     return response.status(400).send({ message: "Invalid contractIds" });
   }
@@ -74,16 +96,13 @@ export const downloadContractFiles = async (
       saveLocal,
       outputDir,
       zipFileName,
-      unzip,
+      // unzip,
     }
   );
   return response.send(result);
 };
 
-export const approveContract = async (
-  request: Request,
-  response: Response
-) => {
+export const approveContract = async (request: Request, response: Response) => {
   if (!request.body) {
     return response.status(400).send({ message: "Missing payload" });
   }
@@ -111,7 +130,6 @@ export const signContract = async (request: Request, response: Response) => {
   }
   const result = await bestSignContractService.signContract({
     bizNo: String(bizNo),
-    account: String(account),
   });
   return response.send(result);
 };

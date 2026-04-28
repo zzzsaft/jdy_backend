@@ -11,18 +11,28 @@ export const autoParse = (req, res, next) => {
     xmlparser(bodyParser);
     bodyParser.xml()(req, res, next);
   } else {
-    bodyParser.json()(req, res, next);
+    bodyParser.json({
+      verify: (req: any, _res, buf) => {
+        // Keep raw body so we can re-parse JSON safely for 19-digit IDs (avoid JS number rounding).
+        req.rawBody = buf?.toString("utf8");
+      },
+    })(req, res, next);
   }
 };
 
 export const expressLog = async (req, res, next) => {
   const clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+  // Prefer rawBody to avoid JS number rounding (e.g. 19-digit BestSign IDs).
+  const bodyText =
+    typeof (req as any).rawBody === "string" && (req as any).rawBody.length
+      ? (req as any).rawBody
+      : JSON.stringify(req.body);
   await addToLog(
     clientIp,
     req.method,
     req.query,
     req.path,
-    JSON.stringify(req.body)
+    bodyText
   );
   next();
 };

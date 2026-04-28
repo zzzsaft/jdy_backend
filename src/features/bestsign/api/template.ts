@@ -40,5 +40,15 @@ class TemplateApiClient extends ApiClient {
       query: { enterpriseName, account },
     });
   }
+  async approveTemplate(templateId) {
+    return await this.doRequest({
+      method: "POST",
+      path: `/api/templates/${templateId}/approve`,
+      // BestSign expects a JSON body even if empty; ensure signature/body match
+      payload: {
+        pass: true,
+      },
+    });
+  }
 }
 export const templatesApiClient = new TemplateApiClient();

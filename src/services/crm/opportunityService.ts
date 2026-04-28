@@ -87,7 +87,7 @@ class OpportunityServices {
         username: chargerName,
       });
       await new MessageService([chargerid], "jdy").send_plain_text(
-        `${cus.accountName}的客户负责人因首个填写该客户的商机已修改为${chargerName}`
+        `${cus.accountName}的客户负责人已修改为${chargerName}，原因：首个填写该客户的商机`
       );
     }
   };

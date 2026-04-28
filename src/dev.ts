@@ -43,7 +43,14 @@ import { syncDepartments } from "./features/wechat/service/departmentService";
 import { OrgnizationService } from "./features/xft/service/orgnizationService";
 import { LogAxios } from "./features/log/entity/log_axios";
 import { vehicleService } from "./features/vehicle/services/vehicleService";
+import { BestSignContractRecord } from "./features/bestsign/entity/contractRecord";
+import { hrContractService } from "./features/hr/service/hrContractService";
+import { hrEmployeeArchiveService } from "./features/hr/service/hrEmployeeArchiveService";
+import { uniqueId } from "lodash";
+import { bestSignContractService } from "./features/bestsign/service/bestSignContractService";
+import { bestSignMaintenanceService } from "./features/bestsign/service/bestSignMaintenanceService";
 
+// (Dev-only switches call into services; keep dev.ts thin.)
 PgDataSource.initialize()
   .then(async () => {
     logger.info("Data Source has been initialized!");
@@ -121,6 +128,70 @@ PgDataSource.initialize()
     // const a = await contactService.bulkImportContactsData();
     // await searchServices.searchCompany("运城塑业（昆山）");
 
+    // const approveResult = await templatesApiClient.approveTemplate(
+    //   "3364564979671753730"
+    // );
+
+    // await controllerMethod();
+
+    // const record = await BestSignContractRecord.findOne({ where: { id: 1 } });
+    // if (record?.contractId && record?.jdyId) {
+    //   await bestSignContractService.uploadBeforeApprovalAttachment(
+    //     record.contractId,
+    //     record.jdyId,
+    //     record.bizNo
+    //   );
+    // } else {
+    //   logger.warn("Dev: missing record 1 contractId/jdyId", {
+    //     contractId: record?.contractId,
+    //     jdyId: record?.jdyId,
+    //   });
+    // }
+    // await bestSignContractService.handleNotification({
+    //   clientId: "1690083812011386745",
+    //   responseData: {
+    //     customContractId: "",
+    //     operationStatus: "SIGN_SUCCEED",
+    //     bizNo: "1597260310",
+    //     message: "签署成功",
+    //     senderEnterpriseName: "浙江精诚时代科技股份有限公司",
+    //     receiverId: 4062911007566979000,
+    //     contractId: 4062910996259135493,
+    //     roleName: "员工",
+    //     signType: "SIGNATURE",
+    //     userType: "PERSON",
+    //     senderUserAccount: "18869965222",
+    //     enterpriseName: "",
+    //     originUserAccounts: ["18869965222"],
+    //   },
+    //   timestamp: "1773085569747",
+    //   type: "OPERATION_COMPLETE",
+    // });
+
+    if (process.env.SYNC_EMP_ARCHIVE_JDY_ID === "1") {
+      // One-time backfill: md_employee.jdy_id from JDY employee archive.
+      await hrEmployeeArchiveService.syncAllEmployeeArchiveJdyIdsToDb();
+    }
+
+    if (process.env.REPLAY_BESTSIGN_NOTIFY_LOG === "1") {
+      const fromText =
+        process.env.REPLAY_BESTSIGN_NOTIFY_LOG_FROM ??
+        "2025-03-12T12:00:00+08:00";
+      const from = new Date(fromText);
+      const limit = process.env.REPLAY_BESTSIGN_NOTIFY_LOG_LIMIT
+        ? Number(process.env.REPLAY_BESTSIGN_NOTIFY_LOG_LIMIT)
+        : undefined;
+      await bestSignMaintenanceService.replayNotifyLogs({ from, limit });
+    }
+
+    if (process.env.FIX_HR_JDY_STATUS_AND_FILES === "1") {
+      const limit = process.env.FIX_HR_JDY_STATUS_AND_FILES_LIMIT
+        ? Number(process.env.FIX_HR_JDY_STATUS_AND_FILES_LIMIT)
+        : undefined;
+      await bestSignMaintenanceService.fixHrJdyStatusAndFiles({ limit });
+    }
+
+    // await bestSignContractService.signContract({ bizNo: "1610260310" });
     const app = express();
     const port = parseInt(process.env.PORT ?? "2002");
     // app.use((err, req, res, next) => {

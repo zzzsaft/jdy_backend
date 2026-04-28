@@ -8,8 +8,8 @@ class ContractApiClient extends ApiClient {
       roleId: string;
       userInfo: {
         enterpriseName?: string;
-        userName: string;
-        userAccount: string;
+        userName?: string;
+        userAccount?: string;
       };
     }[];
     enabledDocumentIds: string[];
@@ -29,7 +29,11 @@ class ContractApiClient extends ApiClient {
     return await this.doRequest({
       method: "POST",
       path: "/api/contracts/download-file",
-      payload,
+      payload: {
+        ...payload,
+        fileType: "zip",
+        // encodeByBase64: true,
+      },
     });
   }
   async sign(
@@ -57,20 +61,45 @@ class ContractApiClient extends ApiClient {
       },
     });
   }
+
+  async remind(contractId: string) {
+    return await this.doRequest({
+      method: "POST",
+      path: "/api/contracts/remind",
+      payload: { contractId },
+    });
+  }
+
+  async overview(contractId: string) {
+    return await this.doRequest({
+      method: "GET",
+      path: `/api/contracts/overview/${contractId}`,
+    });
+  }
   async rejectContract(
-    contractId: number,
+    contractId: string,
     resignMark?: string,
     entName?: string,
     userAccount?: string
   ) {
     return await this.doRequest({
       method: "POST",
-      path: `/api/contract/${contractId}/reject-signer-resign`,
+      path: `/api/contract/${contractId}/reject-signer-resign-v2`,
       payload: {
         contractId,
         resignMark,
         entName,
         userAccount,
+      },
+    });
+  }
+
+  async revokeContract(contractId: string, revokeReason: string) {
+    return await this.doRequest({
+      method: "POST",
+      path: `/api/contracts/${contractId}/revoke`,
+      payload: {
+        revokeReason,
       },
     });
   }

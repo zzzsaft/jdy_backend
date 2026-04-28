@@ -2,14 +2,17 @@ import { logger } from "../../../config/logger";
 import fs from "fs";
 import path from "path";
 import AdmZip from "adm-zip";
-import { exec } from "child_process";
-import { promisify } from "util";
 import {
   BestSignContractRecord,
-  BestSignSignerStatus,
 } from "../entity/contractRecord";
 import { contractApiClient } from "../api/contract";
 import { bestSignTemplateTextLabelService } from "./bestSignTemplateTextLabelService";
+import { getSealNameByEnterprise } from "../bestsign";
+import fileApiClient from "../../jdy/api/file";
+import { jdyFormDataApiClient } from "../../jdy/api/form_data";
+import { exec } from "child_process";
+
+const FIXED_SENDER_ACCOUNT = "18869965222";
 
 type SendContractByTemplatePayload = {
   templateId: string;
@@ -18,8 +21,8 @@ type SendContractByTemplatePayload = {
     roleId: string;
     userInfo: {
       enterpriseName?: string;
-      userName: string;
-      userAccount: string;
+      userName?: string;
+      userAccount?: string;
     };
   }[];
   enabledDocumentIds: string[];
@@ -36,18 +39,90 @@ type SendContractByTemplateMeta = {
   jdyId?: string;
 };
 
-type BestSignNotificationPayload = {
-  timestamp?: string;
-  clientId?: string;
-  type?: string;
-  responseData?: Record<string, unknown>;
-};
-
 class BestSignContractService {
+  private resolveUploadKey(payload: any): string | null {
+    if (!payload) return null;
+    const key =
+      payload.key ??
+      payload.file_key ??
+      payload.fileKey ??
+      payload.data?.key ??
+      payload.data?.file_key ??
+      payload.data?.fileKey;
+    return typeof key === "string" && key.length > 0 ? key : null;
+  }
+
+  /**
+   * Common pipeline: download contract files from BestSign and upload to a JDY upload widget.
+   *
+   * Caller provides:
+   * - appId/entryId/jdyId (target JDY record)
+   * - contractId (BestSign contract)
+   * - uploadWidgetKey (which JDY upload widget to fill)
+   */
+  async uploadContractFilesToJdyUploadWidget(params: {
+    appId: string;
+    entryId: string;
+    jdyId: string;
+    contractId: string;
+    uploadWidgetKey: string;
+    fileNameFallback?: string;
+    extraUpdateData?: Record<string, any>;
+  }) {
+    const files = await this.downloadContractFilesForUpload(
+      String(params.contractId)
+    );
+    if (!files.length) {
+      logger.warn("BestSign: download file empty, skip upload", {
+        jdyId: params.jdyId,
+        contractId: params.contractId,
+      });
+      return null;
+    }
+
+    const uploadResults = await fileApiClient.uploadBuffers(
+      params.appId,
+      params.entryId,
+      files.map((file) => ({
+        fileName:
+          file.name ??
+          params.fileNameFallback ??
+          `contract_${params.contractId}.bin`,
+        buffer: file.content,
+      }))
+    );
+
+    const fileKeys = uploadResults
+      .map((res) => this.resolveUploadKey(res))
+      .filter(Boolean) as string[];
+
+    if (!fileKeys.length) {
+      logger.warn("BestSign: upload keys empty", {
+        jdyId: params.jdyId,
+        contractId: params.contractId,
+      });
+      return null;
+    }
+
+    await jdyFormDataApiClient.singleDataUpdate(
+      params.appId,
+      params.entryId,
+      params.jdyId,
+      {
+        ...(params.extraUpdateData ?? {}),
+        [params.uploadWidgetKey]: { value: fileKeys },
+      },
+      { transaction_id: fileApiClient.transaction_id }
+    );
+
+    return fileKeys;
+  }
+
   async sendContractByTemplate(
     payload: SendContractByTemplatePayload,
     meta?: SendContractByTemplateMeta
   ) {
+    payload.sender.account = FIXED_SENDER_ACCOUNT;
     const params = await bestSignTemplateTextLabelService.getParamsByTemplateId(
       payload.templateId
     );
@@ -91,6 +166,8 @@ class BestSignContractService {
       record.senderEnterpriseName =
         payload.sender?.enterpriseName ?? record.senderEnterpriseName;
       record.enabledDocumentIds = payload.enabledDocumentIds;
+      record.templateId = payload.templateId ?? record.templateId;
+      // We don't have templateName in send-by-template response, set in overview later if available.
 
       await BestSignContractRecord.save(record);
     }
@@ -98,37 +175,8 @@ class BestSignContractService {
     return normalized ?? result;
   }
 
-  async updateStatusByBizNo(bizNo: string, status: string) {
-    const record = await BestSignContractRecord.findOne({
-      where: { bizNo },
-    });
-    if (!record) return null;
-    record.status = status;
-    await record.save();
-    return record;
-  }
-
-  async handleNotification(payload: BestSignNotificationPayload) {
-    const notificationType = payload.type?.trim();
-    const responseData = payload.responseData ?? {};
-
-    if (notificationType === "CONTRACT_SEND_RESULT") {
-      await this.handleSendResultNotification(payload, responseData);
-      return;
-    }
-
-    if (notificationType === "OPERATION_COMPLETE") {
-      await this.handleOperationCompleteNotification(responseData);
-      return;
-    }
-
-    if (notificationType === "CONTRACT_COMPLETE") {
-      await this.handleContractCompleteNotification(responseData);
-    }
-  }
-
   async rejectContract(
-    contractId: number,
+    contractId: string | number,
     resignMark?: string,
     entName?: string,
     userAccount?: string
@@ -149,7 +197,7 @@ class BestSignContractService {
       }
     }
     return await contractApiClient.rejectContract(
-      contractId,
+      this.normalizeId(contractId) ?? String(contractId),
       resignMark,
       entName,
       userAccount
@@ -165,7 +213,23 @@ class BestSignContractService {
     );
   }
 
-  async signContract(payload: { bizNo: string; account: string }) {
+  async remindContract(contractId: string) {
+    return await contractApiClient.remind(String(contractId));
+  }
+
+  async getContractOverview(contractId: string) {
+    const result = await contractApiClient.overview(String(contractId));
+    return this.normalizeResponse(result) ?? result;
+  }
+
+  async revokeContract(contractId: string, revokeReason = "") {
+    return await contractApiClient.revokeContract(
+      String(contractId),
+      revokeReason ?? ""
+    );
+  }
+
+  async signContract(payload: { bizNo: string }) {
     const record = await this.findRecord({ bizNo: payload.bizNo });
     if (!record?.contractId) {
       return {
@@ -174,11 +238,10 @@ class BestSignContractService {
         bizNo: payload.bizNo,
       };
     }
-    // const { getSealNameByEnterprise } = await import("../../../config/bestsign\");
-    // const sealName = getSealNameByEnterprise(record.senderEnterpriseName);
-    return await contractApiClient.sign([record.contractId], "sealName", {
+    const sealName = getSealNameByEnterprise(record.senderEnterpriseName);
+    return await contractApiClient.sign([record.contractId], sealName, {
       enterpriseName: record.senderEnterpriseName,
-      account: payload.account,
+      account: "15868681800",
     });
   }
 
@@ -188,119 +251,137 @@ class BestSignContractService {
       saveLocal?: boolean;
       outputDir?: string;
       zipFileName?: string;
-      unzip?: boolean;
     }
   ) {
+    const a = await this.downloadContractBinary(contractIds);
+    const { buffer, contentType } = a;
+
+    const shouldSaveLocal = options?.saveLocal ?? false;
+    if (shouldSaveLocal) {
+      const outputDir = options?.outputDir ?? "./public/bestsign";
+      const fileName =
+        options?.zipFileName ??
+        this.inferDownloadedFileName(contractIds[0], contentType);
+      const filePath = path.join(outputDir, fileName);
+      await this.ensureDir(outputDir);
+      await fs.promises.writeFile(filePath, buffer);
+      // Requirement: save-to-local does not unzip.
+      return { filePath, contentType };
+    }
+
+    const lower = contentType.toLowerCase();
+    if (!lower.includes("zip")) {
+      return {
+        file: {
+          name: this.inferDownloadedFileName(contractIds[0], contentType),
+          content: buffer,
+          contentType,
+        },
+      };
+    }
+
+    return { extractedData: this.extractFilesFromZipBuffer(buffer) };
+  }
+
+  async downloadContractFileForUpload(contractId: string) {
+    const { buffer, contentType } = await this.downloadContractBinary([
+      String(contractId),
+    ]);
+    const lower = contentType.toLowerCase();
+    if (!lower.includes("zip")) {
+      return {
+        name: this.inferDownloadedFileName(String(contractId), contentType),
+        content: buffer,
+        contentType,
+      };
+    }
+
+    const extracted = this.extractFilesFromZipBuffer(buffer);
+    const folderKeys = Object.keys(extracted).sort();
+    const firstFolder = folderKeys[0];
+    const files = firstFolder ? extracted[firstFolder] : [];
+    const firstFile = files?.[0];
+    if (!firstFile?.content) return null;
+    return {
+      name:
+        firstFile.name ??
+        this.inferDownloadedFileName(String(contractId), contentType),
+      content: firstFile.content,
+      contentType,
+    };
+  }
+
+  async downloadContractFilesForUpload(contractId: string) {
+    const { buffer, contentType } = await this.downloadContractBinary([
+      String(contractId),
+    ]);
+    const lower = contentType.toLowerCase();
+    if (!lower.includes("zip")) {
+      return [
+        {
+          name: this.inferDownloadedFileName(String(contractId), contentType),
+          content: buffer,
+        },
+      ];
+    }
+
+    const extracted = this.extractFilesFromZipBuffer(buffer);
+    const folderKeys = Object.keys(extracted).sort();
+    const files: Array<{ name: string; content: Buffer }> = [];
+    for (const folderKey of folderKeys) {
+      const list = extracted[folderKey] ?? [];
+      for (const file of list) {
+        if (!file?.content) continue;
+        files.push({
+          name:
+            file.name ??
+            this.inferDownloadedFileName(String(contractId), contentType),
+          content: file.content,
+        });
+      }
+    }
+    return files;
+  }
+
+  private async downloadContractBinary(contractIds: string[]) {
     const result = await contractApiClient.downloadContractFiles({
       contractIds,
     });
     const normalized = this.normalizeResponse(result);
 
     if (!normalized || typeof normalized !== "object") {
-      return normalized ?? result;
+      throw new Error("Unexpected download response");
     }
 
     const data = normalized as { contentType?: string; content?: string };
     if (!data.content || !data.contentType) {
-      return normalized ?? result;
+      throw new Error("Missing content/contentType");
     }
 
-    const shouldSaveLocal = options?.saveLocal ?? false;
-    if (!shouldSaveLocal) {
-      const extractedData = this.collectExtractedFilesFromBuffer(
-        Buffer.from(data.content, "base64")
-      );
-      return { extractedData };
-    }
-
-    const outputDir = options?.outputDir ?? "./public/bestsign";
-    const zipFileName =
-      options?.zipFileName ?? `bestsign_contracts_${Date.now()}.zip`;
-    const zipPath = path.join(outputDir, zipFileName);
-    await this.ensureDir(outputDir);
-    await fs.promises.writeFile(zipPath, Buffer.from(data.content, "base64"));
-
-    let extractDir: string | null = null;
-    let extractedData: Record<
-      string,
-      { name: string; content: Buffer }[]
-    > | null = null;
-    if (options?.unzip !== false && data.contentType.includes("zip")) {
-      extractDir = path.join(
-        outputDir,
-        path.basename(zipFileName, path.extname(zipFileName))
-      );
-      await this.ensureDir(extractDir);
-      await this.unzipFile(zipPath, extractDir);
-      extractedData = await this.collectExtractedFiles(extractDir);
-    }
-
-    return { zipPath, extractDir, extractedData };
-  }
-
-  private async handleSendResultNotification(
-    payload: BestSignNotificationPayload,
-    responseData: Record<string, any>
-  ) {
-    const contractId = this.normalizeId(responseData.contractId);
-    const bizNo = (responseData.bizNo as string) ?? undefined;
-    const senderEnterpriseName = responseData.senderEnterpriseName as
-      | string
-      | undefined;
-    const result = responseData.result as string | undefined;
-
-    const record =
-      (await this.findRecord({ contractId, bizNo })) ??
-      BestSignContractRecord.create();
-
-    record.contractId = contractId ?? record.contractId;
-    record.bizNo = bizNo ?? record.bizNo;
-    record.senderEnterpriseName =
-      senderEnterpriseName ?? record.senderEnterpriseName;
-    record.status = result ? `SEND_${result}` : record.status;
-    record.sendTime = this.parseTimestamp(payload.timestamp) ?? record.sendTime;
-
-    await BestSignContractRecord.save(record);
-  }
-
-  private async handleOperationCompleteNotification(
-    responseData: Record<string, any>
-  ) {
-    const contractId = this.normalizeId(responseData.contractId);
-    const bizNo = (responseData.bizNo as string) ?? undefined;
-    const operationStatus = responseData.operationStatus as string | undefined;
-    const userType = responseData.userType as string | undefined;
-    const roleName = responseData.roleName as string | undefined;
-
-    const record = await this.findRecord({ contractId, bizNo });
-    if (!record) return;
-
-    const signerStatus: BestSignSignerStatus = {
-      operationStatus,
-      userType,
-      roleName,
+    return {
+      buffer: Buffer.from(data.content, "base64"),
+      contentType: String(data.contentType),
     };
-
-    record.signerStatus = [...(record.signerStatus ?? []), signerStatus];
-    record.status = operationStatus ?? record.status;
-
-    await BestSignContractRecord.save(record);
   }
 
-  private async handleContractCompleteNotification(
-    responseData: Record<string, unknown>
+  private inferDownloadedFileName(
+    contractId: string | undefined,
+    contentType: string
   ) {
-    const contractIds =
-      (responseData.contractIds as Array<string | number>) ?? [];
-    const contractId = this.normalizeId(contractIds[0]);
-    const bizNo = (responseData.bizNo as string) ?? undefined;
-    if (!contractId && !bizNo) return;
+    const id = contractId || "contract";
+    const lower = contentType.toLowerCase();
+    if (lower.includes("pdf")) return `${id}.pdf`;
+    if (lower.includes("zip")) return `${id}.zip`;
+    return `${id}.bin`;
+  }
 
-    const record = await this.findRecord({ contractId, bizNo });
-    if (!record) return;
-
-    record.status = "CONTRACT_COMPLETE";
-    await BestSignContractRecord.save(record);
+  private extractFilesFromZipBuffer(zipBuffer: Buffer) {
+    try {
+      return this.collectExtractedFilesFromBuffer(zipBuffer);
+    } catch (error) {
+      logger.error(error);
+      return {};
+    }
   }
 
   private normalizeResponse(result: unknown) {
@@ -318,45 +399,6 @@ class BestSignContractService {
 
   private async ensureDir(directory: string) {
     await fs.promises.mkdir(directory, { recursive: true });
-  }
-
-  private async unzipFile(zipPath: string, outputDir: string) {
-    const execAsync = promisify(exec);
-    try {
-      await execAsync(`unzip -o \"${zipPath}\" -d \"${outputDir}\"`);
-    } catch (error) {
-      logger.error(error);
-    }
-  }
-
-  private async collectExtractedFiles(extractDir: string) {
-    const extractedData: Record<string, { name: string; content: Buffer }[]> =
-      {};
-    const folderEntries = await fs.promises.readdir(extractDir, {
-      withFileTypes: true,
-    });
-    for (const folderEntry of folderEntries) {
-      if (!folderEntry.isDirectory()) continue;
-      const folderName = folderEntry.name;
-      const folderNumber = folderName.split("_").slice(-1)[0];
-      if (!folderNumber) continue;
-      const folderPath = path.join(extractDir, folderName);
-      const files = await fs.promises.readdir(folderPath, {
-        withFileTypes: true,
-      });
-      for (const fileEntry of files) {
-        if (!fileEntry.isFile()) continue;
-        const fileName = fileEntry.name;
-        const content = await fs.promises.readFile(
-          path.join(folderPath, fileName)
-        );
-        if (!extractedData[folderNumber]) {
-          extractedData[folderNumber] = [];
-        }
-        extractedData[folderNumber].push({ name: fileName, content });
-      }
-    }
-    return extractedData;
   }
 
   private collectExtractedFilesFromBuffer(zipBuffer: Buffer) {
@@ -384,6 +426,17 @@ class BestSignContractService {
 
   private normalizeId(id?: string | number | null) {
     if (id === undefined || id === null) return undefined;
+    // IMPORTANT:
+    // BestSign IDs can be 19-digit integers which exceed JS MAX_SAFE_INTEGER.
+    // If the ID arrives as a JS number, it may already be rounded and unsafe to persist.
+    // In that case we refuse to normalize it and rely on other stable keys (e.g. bizNo),
+    // or expect the caller to pass the ID as a string.
+    if (typeof id === "number" && !Number.isSafeInteger(id)) {
+      logger.warn("BestSign: unsafe numeric id encountered, skip persisting", {
+        id,
+      });
+      return undefined;
+    }
     return String(id);
   }
 
