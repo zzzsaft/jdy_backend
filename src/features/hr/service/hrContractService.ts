@@ -745,10 +745,11 @@ class HrContractService {
   private async handleSignAction(params: {
     jdyId: string;
     bizNo: string;
-    account: string;
+    contractId?: string;
   }) {
     const result = await bestSignContractService.signContract({
       bizNo: params.bizNo,
+      contractId: params.contractId,
     });
     const normalized =
       typeof result === "string"
@@ -764,7 +765,6 @@ class HrContractService {
       logger.warn("HR contract: sign failed", {
         jdyId: params.jdyId,
         bizNo: params.bizNo,
-        account: params.account,
         result: normalized ?? result,
       });
       return;
@@ -919,18 +919,7 @@ class HrContractService {
     }
 
     if (signAction === SIGN_ACTION_SIGN) {
-      const initiator = JdyUtil.getUser(
-        JdyUtil.getValue(data[WIDGET_INITIATOR]) as any
-      );
-      const account = initiator?.username ?? "";
-      if (!account) {
-        logger.warn("HR contract: missing signer account for sign action", {
-          jdyId,
-          bizNo,
-        });
-        return;
-      }
-      await this.handleSignAction({ jdyId, bizNo, account });
+      await this.handleSignAction({ jdyId, bizNo, contractId });
       return;
     }
 

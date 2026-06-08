@@ -27,6 +27,7 @@ import { OrderRoutes } from "./crm/routes/order";
 import { RuleRoutes } from "./crm/routes/rule";
 import { TemplateRoutes } from "./crm/routes/template";
 import { UserRoutes } from "./crm/routes/user";
+import { QuoteAgentRoutes } from "./quoteAgent/routes/quoteAgent.routes";
 
 export const FeatureRoutes = [
   ...BestSignRoutes,
@@ -45,4 +46,5 @@ export const FeatureRoutes = [
   ...RuleRoutes,
   ...TemplateRoutes,
   ...UserRoutes,
+  ...QuoteAgentRoutes,
 ];

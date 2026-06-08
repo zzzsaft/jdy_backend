@@ -229,19 +229,35 @@ class BestSignContractService {
     );
   }
 
-  async signContract(payload: { bizNo: string }) {
-    const record = await this.findRecord({ bizNo: payload.bizNo });
+  async signContract(payload: {
+    bizNo?: string;
+    contractId?: string;
+  }) {
+    const contractId = String(payload.contractId ?? "").trim();
+    const bizNo = String(payload.bizNo ?? "").trim();
+
+    const record = contractId
+      ? await this.findRecord({ contractId })
+      : await this.findRecord({ bizNo });
     if (!record?.contractId) {
       return {
         code: "NOT_FOUND",
-        message: "Contract not found for bizNo",
-        bizNo: payload.bizNo,
+        message: contractId
+          ? "Contract not found for contractId"
+          : "Contract not found for bizNo",
+        bizNo,
+        contractId,
       };
     }
+
     const sealName = getSealNameByEnterprise(record.senderEnterpriseName);
+
+    // Requirement: signing uses a fixed enterprise member account.
+    const account = "15868681800";
+
     return await contractApiClient.sign([record.contractId], sealName, {
       enterpriseName: record.senderEnterpriseName,
-      account: "15868681800",
+      account,
     });
   }
 

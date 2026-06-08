@@ -11,6 +11,17 @@ const entitiesGlob = isProd
       path.join(__dirname, "..", "features", "bestsign", "entity", "*.js"),
       path.join(__dirname, "..", "features", "fbt", "entity", "*.js"),
       path.join(__dirname, "..", "features", "log", "entity", "*.js"),
+      path.join(__dirname, "..", "features", "quoteAgent", "entity", "*.js"),
+      path.join(__dirname, "..", "llm", "entity", "*.js"),
+      path.join(
+        __dirname,
+        "..",
+        "features",
+        "quoteAgent",
+        "dictionary",
+        "entity",
+        "*.js",
+      ),
       path.join(__dirname, "..", "features", "xft", "entity", "*.js"),
       path.join(__dirname, "..", "features", "vehicle", "entity", "*.js"),
     ]
@@ -20,6 +31,9 @@ const entitiesGlob = isProd
       "src/features/bestsign/entity/*.ts",
       "src/features/fbt/entity/*.ts",
       "src/features/log/entity/*.ts",
+      "src/features/quoteAgent/entity/*.ts",
+      "src/llm/entity/*.ts",
+      "src/features/quoteAgent/dictionary/entity/*.ts",
       "src/features/xft/entity/*.ts",
       "src/features/vehicle/entity/*.ts",
     ];

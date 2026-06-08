@@ -49,6 +49,8 @@ import { hrEmployeeArchiveService } from "./features/hr/service/hrEmployeeArchiv
 import { uniqueId } from "lodash";
 import { bestSignContractService } from "./features/bestsign/service/bestSignContractService";
 import { bestSignMaintenanceService } from "./features/bestsign/service/bestSignMaintenanceService";
+import { main } from "./features/hr/service/test";
+// main();
 
 // (Dev-only switches call into services; keep dev.ts thin.)
 PgDataSource.initialize()
