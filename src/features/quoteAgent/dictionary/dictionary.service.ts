@@ -6,6 +6,7 @@ import {
   DictionaryTerm,
   DictionaryCandidateOccurrence,
 } from "./entity";
+import { SplitResolution } from "../entity/splitResolution.entity";
 import { DictionaryCache } from "./dictionary.cache";
 import {
   createTermTypeCandidate as createTermTypeCandidateRecord,
@@ -233,7 +234,7 @@ export class DictionaryService {
 
   async createValueCandidate(
     params: CreateValueCandidateParams,
-  ): Promise<DictionaryCandidate> {
+  ): Promise<DictionaryCandidate | null> {
     return createValueCandidateRecord(
       this.dataSource,
       params,
@@ -243,7 +244,7 @@ export class DictionaryService {
 
   async createTermTypeCandidate(
     params: CreateTermTypeCandidateParams,
-  ): Promise<DictionaryTermTypeCandidate> {
+  ): Promise<DictionaryTermTypeCandidate | null> {
     return createTermTypeCandidateRecord(
       this.dataSource,
       params,
@@ -266,6 +267,7 @@ export class DictionaryService {
       DictionaryTermTypeCandidate,
     );
     const valueCandidateRepo = this.dataSource.getRepository(DictionaryCandidate);
+    const splitResolutionRepo = this.dataSource.getRepository(SplitResolution);
     const [termTypeCandidates, valueCandidates] = await Promise.all([
       termTypeCandidateRepo.find({
         where: { status: "pending" },
@@ -294,7 +296,7 @@ export class DictionaryService {
       candidate.reason = `auto_resolved_by_dictionary_update:${match.termTypes.join(",")}`;
       candidate.reviewedBy = "system";
       candidate.reviewedAt = new Date();
-      await termTypeCandidateRepo.save(candidate);
+      await this.saveTermTypeCandidateAutoResolved(termTypeCandidateRepo, candidate);
       resolvedTermTypeCandidateCount += 1;
       resolvedTermTypeCandidateIds.push(candidate.id);
       if (candidate.documentId) {
@@ -305,6 +307,68 @@ export class DictionaryService {
     let resolvedValueCandidateCount = 0;
     const resolvedValueCandidateIds: string[] = [];
     for (const candidate of valueCandidates) {
+      if (
+        candidate.documentId &&
+        candidate.extractionResultId &&
+        candidate.itemIndex !== null
+      ) {
+        const splitResolution = await splitResolutionRepo.findOne({
+          where: {
+            documentId: candidate.documentId,
+            extractionResultId: candidate.extractionResultId,
+            itemIndex: candidate.itemIndex,
+            rawValue: candidate.rawValue,
+            source: "candidate_review",
+          },
+        });
+        if (splitResolution) {
+          candidate.status = "auto_resolved";
+          candidate.proposedCanonicalValue = Array.isArray(splitResolution.splitFields)
+            ? splitResolution.splitFields
+                .map((item: any) => `${item.field_name}:${item.value}`)
+                .join("|")
+            : null;
+          candidate.reason = `auto_resolved_by_split_resolution:${splitResolution.id}`;
+          candidate.reviewedBy = "system";
+          candidate.reviewedAt = new Date();
+          await this.saveValueCandidateAutoResolved(valueCandidateRepo, candidate);
+          resolvedValueCandidateCount += 1;
+          resolvedValueCandidateIds.push(candidate.id);
+          affectedDocumentIds.add(Number(candidate.documentId));
+          continue;
+        }
+      }
+
+      const valueKind = this.getTermTypeValueKind(candidate.termType);
+      if (valueKind === "enums") {
+        const cachedTermType = this.cache.termTypeMap.get(candidate.termType);
+        if (cachedTermType) {
+          const multiMatch = normalizeMultiEnumValues(candidate.rawValue, cachedTermType, {
+            aliasMap: this.cache.valueAliasMap,
+          });
+          if (multiMatch.values.length > 0 && multiMatch.unmatchedTokens.length === 0) {
+            candidate.status = "auto_resolved";
+            candidate.proposedTermId =
+              multiMatch.values[0]?.termId === undefined
+                ? candidate.proposedTermId
+                : String(multiMatch.values[0].termId);
+            candidate.proposedCanonicalValue = multiMatch.values
+              .map((value) => value.canonicalValue)
+              .join("|");
+            candidate.reason = `auto_resolved_by_dictionary_update:${candidate.proposedCanonicalValue}`;
+            candidate.reviewedBy = "system";
+            candidate.reviewedAt = new Date();
+            await this.saveValueCandidateAutoResolved(valueCandidateRepo, candidate);
+            resolvedValueCandidateCount += 1;
+            resolvedValueCandidateIds.push(candidate.id);
+            if (candidate.documentId) {
+              affectedDocumentIds.add(Number(candidate.documentId));
+            }
+            continue;
+          }
+        }
+      }
+
       const match = await this.matchValue({
         termType: candidate.termType,
         rawValue: candidate.rawValue,
@@ -321,7 +385,7 @@ export class DictionaryService {
         : `auto_resolved_by_dictionary_update:${match.matchMethod}`;
       candidate.reviewedBy = "system";
       candidate.reviewedAt = new Date();
-      await valueCandidateRepo.save(candidate);
+      await this.saveValueCandidateAutoResolved(valueCandidateRepo, candidate);
       resolvedValueCandidateCount += 1;
       resolvedValueCandidateIds.push(candidate.id);
       if (candidate.documentId) {
@@ -402,15 +466,19 @@ export class DictionaryService {
         itemIndex: params.itemIndex,
         itemProductTypeHint,
         crossProductFallback: termTypeMatch.crossProductFallback,
-        termTypeCandidate,
+        termTypeCandidate: termTypeCandidate ?? undefined,
         warnings: [
           {
-            type: termTypeMatch.crossProductFallback
-              ? "term_type_not_applicable_to_product"
-              : "term_type_no_match",
-            message: termTypeMatch.crossProductFallback
-              ? "字段名命中字典，但不适用于当前产品类型，请人工确认"
-              : "字段名未命中字典，请人工确认",
+            type: termTypeCandidate
+              ? termTypeMatch.crossProductFallback
+                ? "term_type_not_applicable_to_product"
+                : "term_type_no_match"
+              : "term_type_candidate_previously_rejected",
+            message: termTypeCandidate
+              ? termTypeMatch.crossProductFallback
+                ? "字段名命中字典，但不适用于当前产品类型，请人工确认"
+                : "字段名未命中字典，请人工确认"
+              : "字段名候选此前已被拒绝，已跳过重新生成候选",
             rawValue: params.rawValue,
             termType: termTypeMatch.crossProductTermTypes?.[0],
           },
@@ -449,6 +517,7 @@ export class DictionaryService {
       displayName?: string;
       aliasNames?: string[];
     }>;
+    suppressCandidateRawAlias?: boolean;
     bumpVersion?: boolean;
   }): Promise<void> {
     await createValueFromCandidateRecord(this.dataSource, params);
@@ -679,6 +748,38 @@ export class DictionaryService {
     }
   }
 
+  private async saveValueCandidateAutoResolved(
+    candidateRepo: Repository<DictionaryCandidate>,
+    candidate: DictionaryCandidate,
+  ): Promise<void> {
+    try {
+      await candidateRepo.save(candidate);
+    } catch (error) {
+      if (!this.isUniqueConstraintError(error)) {
+        throw error;
+      }
+      candidate.status = this.doneStatus(candidate.id);
+      candidate.reason = `${candidate.reason ?? "auto_resolved"};merged_to_existing_auto_resolved_candidate`;
+      await candidateRepo.save(candidate);
+    }
+  }
+
+  private async saveTermTypeCandidateAutoResolved(
+    candidateRepo: Repository<DictionaryTermTypeCandidate>,
+    candidate: DictionaryTermTypeCandidate,
+  ): Promise<void> {
+    try {
+      await candidateRepo.save(candidate);
+    } catch (error) {
+      if (!this.isUniqueConstraintError(error)) {
+        throw error;
+      }
+      candidate.status = this.doneStatus(candidate.id);
+      candidate.reason = `${candidate.reason ?? "auto_resolved"};merged_to_existing_auto_resolved_candidate`;
+      await candidateRepo.save(candidate);
+    }
+  }
+
   private doneStatus(id: string): string {
     return `done_${String(id).slice(-24)}`;
   }
@@ -714,13 +815,13 @@ export class DictionaryService {
       return buildMatchedFieldResult(params, termTypeMatch, valueMatch);
     }
 
-      const valueCandidate = await this.createValueCandidate({
-        documentId: params.documentId,
-        extractionResultId: params.extractionResultId,
-        itemIndex: params.itemIndex,
-        sourceProductType: params.itemProductTypeHint,
-        termType,
-        rawValue: params.rawValue,
+    const valueCandidate = await this.createValueCandidate({
+      documentId: params.documentId,
+      extractionResultId: params.extractionResultId,
+      itemIndex: params.itemIndex,
+      sourceProductType: params.itemProductTypeHint,
+      termType,
+      rawValue: params.rawValue,
       reason: "value_no_match",
       evidence: params.evidence,
     });
@@ -737,11 +838,15 @@ export class DictionaryService {
       itemProductTypeHint: normalizeProductTypeHintForMatch(
         params.itemProductTypeHint,
       ),
-      valueCandidate,
+      valueCandidate: valueCandidate ?? undefined,
       warnings: [
         {
-          type: "value_no_match",
-          message: "字段值未命中字典，请人工确认",
+          type: valueCandidate
+            ? "value_no_match"
+            : "value_candidate_previously_rejected",
+          message: valueCandidate
+            ? "字段值未命中字典，请人工确认"
+            : "字段值候选此前已被拒绝，已跳过重新生成候选",
           rawValue: params.rawValue,
           termType,
         },
@@ -778,6 +883,8 @@ export class DictionaryService {
     }
 
     // Create value candidates for unmatched tokens
+    let firstValueCandidate: DictionaryCandidate | undefined;
+    const pendingUnmatchedTokens: string[] = [];
     for (let index = 0; index < result.unmatchedTokens.length; index += 1) {
       const unmatched = result.unmatchedTokens[index];
       const normalized = this.normalizeText(unmatched);
@@ -798,10 +905,18 @@ export class DictionaryService {
         reason: 'enums_token_no_match',
         evidence: params.evidence,
       });
+      if (valueCandidate) {
+        firstValueCandidate ??= valueCandidate;
+        pendingUnmatchedTokens.push(unmatched);
+      }
 
       warnings.push({
-        type: 'enums_unmatched_token',
-        message: `以下值未匹配字典：${unmatched}，是否创建为新标准值？`,
+        type: valueCandidate
+          ? 'enums_unmatched_token'
+          : 'value_candidate_previously_rejected',
+        message: valueCandidate
+          ? `以下值未匹配字典：${unmatched}，是否创建为新标准值？`
+          : `字段值候选 ${unmatched} 此前已被拒绝，已跳过重新生成候选`,
         rawValue: params.rawValue,
         termType,
       });
@@ -812,10 +927,11 @@ export class DictionaryService {
       rawValue: params.rawValue,
       termType: cachedTermType,
       values: result.values,
-      unmatchedTokens: result.unmatchedTokens,
+      unmatchedTokens: pendingUnmatchedTokens,
       itemIndex: params.itemIndex,
       itemProductTypeHint: normalizeProductTypeHintForMatch(params.itemProductTypeHint),
       normalizedFieldName: termTypeMatch.normalizedFieldName,
+      valueCandidate: firstValueCandidate,
       warnings,
     });
   }
@@ -905,7 +1021,7 @@ export class DictionaryService {
     }
 
     const firstTermType = enumTermTypes[0];
-      const valueCandidate = await this.createValueCandidate({
+    const valueCandidate = await this.createValueCandidate({
       documentId: params.documentId,
       extractionResultId: params.extractionResultId,
       itemIndex: params.itemIndex,
@@ -929,11 +1045,15 @@ export class DictionaryService {
       itemProductTypeHint: normalizeProductTypeHintForMatch(
         params.itemProductTypeHint,
       ),
-      valueCandidate,
+      valueCandidate: valueCandidate ?? undefined,
       warnings: [
         {
-          type: "value_no_match_in_multiple_term_types",
-          message: "字段名对应多个标准字段，但字段值未命中，请人工确认",
+          type: valueCandidate
+            ? "value_no_match_in_multiple_term_types"
+            : "value_candidate_previously_rejected",
+          message: valueCandidate
+            ? "字段名对应多个标准字段，但字段值未命中，请人工确认"
+            : "字段值候选此前已被拒绝，已跳过重新生成候选",
           rawValue: params.rawValue,
           termType: firstTermType,
         },

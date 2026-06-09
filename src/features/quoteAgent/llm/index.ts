@@ -1,13 +1,15 @@
 import { extractProductConfigWithDeepSeek } from "./deepseekExtract";
 import { extractProductConfigWithInferAiChat } from "./inferAiChatExtract";
 import { extractProductConfigWithLocalModel } from "./localExtract";
+import { extractProductConfigWithXh } from "./xhExtract";
 import { getLocalModelName } from "../../../llm";
 import { LlmExtractParams, LlmExtractResult } from "./types";
 
 const DEEPSEEK_MODEL_PREFIX = "deepseek";
 const INFERAI_MODEL_PREFIXES = ["inferai", "inferaichat"];
+const XH_MODEL_PREFIX = "xh:";
 
-export type LlmProvider = "deepseek" | "inferaichat" | "local";
+export type LlmProvider = "deepseek" | "inferaichat" | "xh" | "local";
 
 export function resolveLlmProvider(model?: string): LlmProvider {
   const selectedModel = model || getLocalModelName();
@@ -22,6 +24,10 @@ export function resolveLlmProvider(model?: string): LlmProvider {
     )
   ) {
     return "inferaichat";
+  }
+
+  if (selectedModel.toLowerCase().startsWith(XH_MODEL_PREFIX)) {
+    return "xh";
   }
 
   return "local";
@@ -41,18 +47,26 @@ export async function extractProductConfigWithLLM(
     return extractProductConfigWithInferAiChat(params, model);
   }
 
+  if (provider === "xh") {
+    return extractProductConfigWithXh(params, model);
+  }
+
   return extractProductConfigWithLocalModel(params, model);
 }
 
 export { extractProductConfigWithDeepSeek } from "./deepseekExtract";
 export { extractProductConfigWithInferAiChat } from "./inferAiChatExtract";
 export { extractProductConfigWithLocalModel } from "./localExtract";
+export { extractProductConfigWithXh } from "./xhExtract";
 export {
   getInferAiChatClient,
   getInferAiChatModel,
+  getXhClient,
+  getXhModel,
   getLocalModelClient,
   getLocalModelName,
   requestInferAiChatJson,
+  requestXhChatJson,
   requestLocalModelJson,
 } from "../../../llm";
 export type {

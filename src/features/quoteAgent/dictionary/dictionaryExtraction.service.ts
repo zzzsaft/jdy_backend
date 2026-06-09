@@ -334,6 +334,7 @@ export class DictionaryExtractionService {
     let splitResolutionCount = 0;
     let rewrittenFieldCount = 0;
     const manualSplitMap = new Map<string, LlmRawField["split_fields"]>();
+    const manualSplitValueKeys = new Set<string>();
     const productTypeOptions =
       await this.dictionaryService.getProductTypeOptions();
     const productTypeMap = new Map(
@@ -357,6 +358,12 @@ export class DictionaryExtractionService {
             ? (split.splitFields as LlmRawField["split_fields"])
             : [],
         );
+        manualSplitValueKeys.add(
+          this.manualSplitValueKey({
+            itemIndex: split.itemIndex,
+            rawValue: split.rawValue,
+          }),
+        );
       }
       await splitResolutionRepo.delete({
         extractionResultId,
@@ -379,6 +386,36 @@ export class DictionaryExtractionService {
             rawValue: rawField.value,
           }),
         );
+        if (
+          !manualSplitFields &&
+          manualSplitValueKeys.has(
+            this.manualSplitValueKey({
+              itemIndex: item.item_index,
+              rawValue: rawField.value,
+            }),
+          )
+        ) {
+          const originalField = createBaseField(rawField);
+          originalField.dictionary.note =
+            "同一原始值已有人工拆分，原字段仅保留作追溯";
+          originalField.warnings.push(
+            createWarning({
+              type: "split_original_retained",
+              message: "同一原始值已有人工拆分，已跳过重复候选生成",
+              itemIndex: item.item_index,
+              fieldName: rawField.field_name,
+              rawValue: rawField.value,
+              evidence: rawField.evidence,
+            }),
+          );
+          warnings.push(...originalField.warnings);
+          fields.push(originalField);
+          rewrittenRawFields.push({
+            ...rawField,
+            _original: true,
+          } as LlmRawField);
+          continue;
+        }
         const rawFieldWithManualSplit =
           manualSplitFields && manualSplitFields.length > 0
             ? { ...rawField, split_fields: manualSplitFields }
@@ -573,6 +610,13 @@ export class DictionaryExtractionService {
     rawValue: string;
   }) {
     return `${params.itemIndex}|${normalizeTextForKey(params.fieldName)}|${normalizeTextForKey(params.rawValue)}`;
+  }
+
+  private manualSplitValueKey(params: {
+    itemIndex: number;
+    rawValue: string;
+  }) {
+    return `${params.itemIndex}|${normalizeTextForKey(params.rawValue)}`;
   }
 
   private async buildField(params: {

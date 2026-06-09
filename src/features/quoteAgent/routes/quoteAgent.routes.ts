@@ -55,12 +55,9 @@ function normalizeSplitRows(value: unknown) {
   return value
     .map((item: any) => ({
       termType: String(item?.termType ?? "").trim(),
-      canonicalValue: String(item?.canonicalValue ?? "").trim(),
       rawValue: String(item?.rawValue ?? "").trim() || undefined,
-      displayName: String(item?.displayName ?? "").trim() || undefined,
-      aliasNames: optionalStringArray(item?.aliasNames),
     }))
-    .filter((item) => item.termType && (item.canonicalValue || item.rawValue || item.displayName));
+    .filter((item) => item.termType && item.rawValue);
 }
 
 function normalizeValueRows(value: unknown) {
@@ -622,6 +619,8 @@ const createValue = async (request: Request, response: Response) => {
           displayName: request.body.displayName,
           aliasNames: optionalStringArray(request.body.aliasNames),
           values: normalizeValueRows(request.body.values),
+          suppressCandidateRawAlias:
+            request.body.suppressCandidateRawAlias === true,
           reviewedBy: request.body.reviewedBy,
         },
       }),

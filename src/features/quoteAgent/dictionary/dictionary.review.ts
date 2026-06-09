@@ -406,6 +406,7 @@ export async function createValueFromCandidate(
       displayName?: string;
       aliasNames?: string[];
     }>;
+    suppressCandidateRawAlias?: boolean;
   },
 ): Promise<void> {
   const candidateRepo = dataSource.getRepository(DictionaryCandidate);
@@ -465,7 +466,9 @@ export async function createValueFromCandidate(
   if (!term) {
     throw new Error("canonicalValue is required");
   }
-  await ensureValueAlias({ aliasRepo, term, candidate });
+  if (!params.suppressCandidateRawAlias) {
+    await ensureValueAlias({ aliasRepo, term, candidate });
+  }
 
   candidate.proposedTermId = term.id;
   candidate.proposedCanonicalValue = term.canonicalValue;
@@ -480,18 +483,13 @@ export async function splitValueCandidate(
     candidateId: string;
     splits: Array<{
       termType: string;
-      canonicalValue: string;
       rawValue?: string;
-      displayName?: string;
-      aliasNames?: string[];
     }>;
     reviewedBy?: string;
   },
 ): Promise<void> {
   const candidateRepo = dataSource.getRepository(DictionaryCandidate);
   const termTypeRepo = dataSource.getRepository(DictionaryTermType);
-  const termRepo = dataSource.getRepository(DictionaryTerm);
-  const aliasRepo = dataSource.getRepository(DictionaryAlias);
 
   const candidate = await candidateRepo.findOne({
     where: { id: params.candidateId },
@@ -502,8 +500,7 @@ export async function splitValueCandidate(
 
   for (const split of params.splits) {
     const termType = String(split.termType ?? "").trim();
-    const canonicalValue = String(split.canonicalValue ?? "").trim();
-    const rawValue = String(split.rawValue ?? split.displayName ?? canonicalValue).trim();
+    const rawValue = String(split.rawValue ?? "").trim();
     if (!termType || !rawValue) continue;
 
     const termTypeRecord = await termTypeRepo.findOne({
@@ -512,55 +509,11 @@ export async function splitValueCandidate(
     if (!termTypeRecord) {
       throw new Error(`DictionaryTermType not found: ${termType}`);
     }
-
-    if ((termTypeRecord.valueKind !== "enum" && termTypeRecord.valueKind !== "enums") || !canonicalValue) {
-      continue;
-    }
-
-    let term = await termRepo.findOne({
-      where: { termType, canonicalValue },
-    });
-    if (!term) {
-      term = await termRepo.save(
-        termRepo.create({
-          termType,
-          canonicalValue,
-          displayName:
-            String(split.displayName ?? "").trim() || canonicalValue,
-          description: null,
-          isActive: true,
-        }),
-      );
-    } else if (!term.isActive || split.displayName !== undefined) {
-      term.isActive = true;
-      term.displayName =
-        String(split.displayName ?? "").trim() || term.displayName;
-      term = await termRepo.save(term);
-    }
-
-    const aliases = new Set<string>();
-    if (termType === candidate.termType) {
-      aliases.add(candidate.rawValue);
-    }
-    for (const alias of split.aliasNames ?? []) {
-      const trimmed = String(alias ?? "").trim();
-      if (trimmed) aliases.add(trimmed);
-    }
-
-    for (const aliasValue of aliases) {
-      await ensureValueAliasByRaw({
-        aliasRepo,
-        term,
-        termType,
-        aliasValue,
-        confidence: candidate.confidence,
-      });
-    }
   }
 
   candidate.proposedTermId = null;
   candidate.proposedCanonicalValue = params.splits
-    .map((item) => `${item.termType}:${item.canonicalValue || item.rawValue || item.displayName}`)
+    .map((item) => `${item.termType}:${item.rawValue}`)
     .join("|");
   candidate.reviewedBy = params.reviewedBy ?? null;
   candidate.reviewedAt = new Date();
@@ -575,7 +528,7 @@ export async function splitValueCandidate(
   const splitFields = params.splits
     .map((split) => ({
       field_name: split.termType,
-      value: String(split.rawValue ?? split.displayName ?? split.canonicalValue ?? "").trim(),
+      value: String(split.rawValue ?? "").trim(),
       raw_text: candidate.rawValue,
       confidence: candidate.confidence ? Number(candidate.confidence) : undefined,
     }))
@@ -809,7 +762,16 @@ export async function rejectValueCandidate(
   candidate.reviewedBy = params.reviewedBy ?? null;
   candidate.reviewedAt = new Date();
   candidate.reason = params.reason ?? candidate.reason;
-  await candidateRepo.save(candidate);
+  try {
+    await candidateRepo.save(candidate);
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) {
+      throw error;
+    }
+    candidate.status = doneStatus(candidate.id);
+    candidate.reason = `${params.reason ?? candidate.reason ?? "rejected"};merged_to_existing_rejected_candidate`;
+    await candidateRepo.save(candidate);
+  }
 }
 
 export async function rejectTermTypeCandidate(
@@ -834,5 +796,14 @@ export async function rejectTermTypeCandidate(
   candidate.reviewedBy = params.reviewedBy ?? null;
   candidate.reviewedAt = new Date();
   candidate.reason = params.reason ?? candidate.reason;
-  await candidateRepo.save(candidate);
+  try {
+    await candidateRepo.save(candidate);
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) {
+      throw error;
+    }
+    candidate.status = doneStatus(candidate.id);
+    candidate.reason = `${params.reason ?? candidate.reason ?? "rejected"};merged_to_existing_rejected_candidate`;
+    await candidateRepo.save(candidate);
+  }
 }

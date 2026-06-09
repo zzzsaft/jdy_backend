@@ -811,6 +811,9 @@ export class QuoteAgentService {
   }
 
   async getCandidates(params?: { status?: string; documentId?: number }) {
+    if (!params?.status || params.status === "pending") {
+      await this.dictionaryService.recheckPendingCandidatesAfterDictionaryUpdate();
+    }
     return this.repository.findCandidates(params);
   }
 

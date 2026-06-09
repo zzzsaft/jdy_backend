@@ -128,6 +128,24 @@
       button.primary:hover {
         background: var(--accent-strong);
       }
+      button.link-chip {
+        min-height: auto;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        white-space: normal;
+      }
+      .field-detail-trigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px;
+        border-radius: 6px;
+      }
+      .field-detail-trigger:hover {
+        background: #f2f4f7;
+      }
       button.danger {
         color: var(--bad);
       }
@@ -227,6 +245,54 @@
       .tag.enums {
         background: #eff6ff;
         color: #1e40af;
+      }
+      .detail-toast {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        width: min(560px, calc(100vw - 36px));
+        max-height: min(720px, calc(100vh - 36px));
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 18px 48px rgba(16, 24, 40, 0.18);
+        z-index: 30;
+      }
+      .detail-toast[hidden] {
+        display: none;
+      }
+      .detail-toast-head {
+        position: sticky;
+        top: 0;
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        background: #fff;
+      }
+      .detail-toast-body {
+        padding: 12px 14px 14px;
+        display: grid;
+        gap: 10px;
+      }
+      .detail-block {
+        display: grid;
+        gap: 6px;
+      }
+      .detail-block pre {
+        margin: 0;
+        max-height: 220px;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        border: 1px solid #eef1f5;
+        border-radius: 6px;
+        padding: 8px;
+        background: #fbfcfe;
+        font-size: 12px;
       }
       .product-checks {
        grid-column: 1 / -1;
@@ -654,6 +720,16 @@
         </div>
       </div>
     </div>
+    <div class="detail-toast" id="fieldDetailToast" hidden>
+      <div class="detail-toast-head">
+        <div>
+          <b id="fieldDetailTitle">字段详情</b>
+          <div class="muted" id="fieldDetailSubtitle"></div>
+        </div>
+        <button id="fieldDetailClose" type="button">关闭</button>
+      </div>
+      <div class="detail-toast-body" id="fieldDetailBody"></div>
+    </div>
     <script>
       const state = {
         documentId: null,
@@ -668,6 +744,7 @@
         currentTermTypeCandidates: [],
         currentValueCandidates: [],
         activeTermTypeInput: null,
+        fieldDetails: new Map(),
         showGlobalCandidates: false,
       };
       const apiBase =
@@ -829,6 +906,28 @@
         return `<span class="tag warn">${type} #${field.candidate.candidate_id}</span>`;
       }
 
+      function renderFieldStatus(field) {
+        if (field.dictionary?.matched) {
+          return '<span class="tag good">已匹配</span>';
+        }
+        if (field.candidate) {
+          return '<span class="tag warn">待审核</span>';
+        }
+        const warningTypes = new Set((field.warnings || []).map((warning) => warning.type));
+        if (
+          warningTypes.has("empty_value") ||
+          warningTypes.has("unknown_value") ||
+          warningTypes.has("split_original_retained") ||
+          warningTypes.has("term_type_candidate_previously_rejected") ||
+          warningTypes.has("value_candidate_previously_rejected")
+        ) {
+          return warningTypes.has("split_original_retained")
+            ? '<span class="tag">已拆分</span>'
+            : '<span class="tag">已跳过</span>';
+        }
+        return '<span class="tag warn">未匹配</span>';
+      }
+
       function renderDictionaryValue(field) {
         const dictionary = field.dictionary || {};
         const values = Array.isArray(dictionary.values) ? dictionary.values : [];
@@ -843,11 +942,47 @@
         return `<span class="muted">${escapeHtml(dictionary.canonical_value || dictionary.display_name || "")}</span>`;
       }
 
+      function compactJson(value) {
+        return escapeHtml(JSON.stringify(value ?? null, null, 2));
+      }
+
+      function showFieldDetailToast(detailId) {
+        const detail = state.fieldDetails.get(detailId);
+        if (!detail) return;
+        $("fieldDetailTitle").textContent = `${detail.field.field_name || "字段"} · ${detail.field.raw_value || ""}`;
+        $("fieldDetailSubtitle").textContent =
+          `item #${detail.item.item_index} · ${productTypeLabel(detail.item.itemProductTypeHint || "unknown")} · ${detail.field.dictionary?.term_type || detail.field.dictionary?.normalized_field_name || "未匹配字段"}`;
+        $("fieldDetailBody").innerHTML = `
+          <div class="detail-block">
+            <b>匹配结果</b>
+            <pre>${compactJson(detail.field.dictionary || {})}</pre>
+          </div>
+          ${
+            detail.field.candidate
+              ? `<div class="detail-block"><b>候选</b><pre>${compactJson(detail.field.candidate)}</pre></div>`
+              : ""
+          }
+          ${
+            (detail.field.warnings || []).length
+              ? `<div class="detail-block"><b>提醒</b><pre>${compactJson(detail.field.warnings)}</pre></div>`
+              : '<div class="detail-block"><b>提醒</b><span class="muted">暂无提醒。</span></div>'
+          }
+          ${
+            detail.field.evidence
+              ? `<div class="detail-block"><b>证据</b><pre>${compactJson(detail.field.evidence)}</pre></div>`
+              : ""
+          }
+        `;
+        $("fieldDetailToast").hidden = false;
+      }
+
       function renderItems(items) {
         if (!items?.length) {
           $("items").innerHTML = '<span class="muted">暂无字段。</span>';
           return;
         }
+        state.fieldDetails.clear();
+        let fieldDetailIndex = 0;
         $("items").innerHTML = items
           .map(
             (item) => `
@@ -864,20 +999,29 @@
                 ${item.itemProductTypeHintRawValue ? `<div class="muted">${escapeHtml(item.itemProductTypeHintRawValue)}</div>` : ""}
                 ${(item.warnings || []).length ? `<pre class="muted">${escapeHtml(JSON.stringify(item.warnings, null, 2))}</pre>` : ""}
                 ${(item.fields || [])
-                  .map(
-                    (field) => `
+                  .map((field) => {
+                    const detailId = `field-${fieldDetailIndex++}`;
+                    state.fieldDetails.set(detailId, { item, field });
+                    return `
                       <div class="field">
                         <div><b>${escapeHtml(field.field_name)}</b><br><span class="muted">item #${item.item_index} · ${escapeHtml(item.itemProductTypeHint || "unknown")} · ${escapeHtml(field.dictionary.term_type || field.dictionary.normalized_field_name || "")}</span></div>
                         <div>${escapeHtml(field.raw_value)}<br>${renderDictionaryValue(field)}</div>
-                        <div>${field.dictionary.matched ? '<span class="tag good">已匹配</span>' : '<span class="tag warn">待审核</span>'} ${candidateTag(field)}</div>
+                        <div>
+                          <button class="link-chip field-detail-trigger" type="button" data-field-detail="${escapeHtml(detailId)}">
+                            ${renderFieldStatus(field)} ${candidateTag(field)}
+                          </button>
+                        </div>
                       </div>
-                    `,
-                  )
+                    `;
+                  })
                   .join("")}
               </div>
             `,
           )
           .join("");
+        $("items").querySelectorAll("[data-field-detail]").forEach((button) => {
+          button.addEventListener("click", () => showFieldDetailToast(button.dataset.fieldDetail));
+        });
       }
 
       function renderDocumentList() {
@@ -1807,47 +1951,33 @@ ${JSON.stringify(input, null, 2)}`;
           : [
               {
                 termType: candidate.termType,
-                canonicalValue: candidate.rawValue || "",
-                displayName: candidate.rawValue || "",
-                aliases: [candidate.rawValue || ""].filter(Boolean),
+                rawValue: candidate.rawValue || "",
               },
             ];
 
         return `
           <div class="split-rows">
             ${list
-              .map((row) => {
-                const aliases = Array.isArray(row.aliases)
-                  ? row.aliases.join("，")
-                  : Array.isArray(row.aliasNames)
-                    ? row.aliasNames.join("，")
-                    : "";
-                return `
-                  <div class="split-row">
-                    <label class="field-label">
-                      字段 Key
-                      <input name="splitTermType" value="${escapeHtml(row.termType || "")}" placeholder="例如 plastic_material">
-                    </label>
-                    <label class="field-label">
-                      原始值 / 文本值
-                      <input name="splitRawValue" value="${escapeHtml(row.rawValue || row.value || row.displayName || row.canonicalValue || "")}" placeholder="例如 按客户要求的进料口尺寸">
-                    </label>
-                    <label class="field-label">
-                      标准值（仅枚举）
-                      <input name="splitCanonicalValue" value="${escapeHtml(row.canonicalValue || "")}" placeholder="例如 center_square_inlet">
-                    </label>
-                    <label class="field-label">
-                      显示名称
-                      <input name="splitDisplayName" value="${escapeHtml(row.displayName || row.canonicalValue || row.rawValue || row.value || "")}" placeholder="例如 中央方口进料">
-                    </label>
-                    <label class="field-label full">
-                      字段值 alias
-                      <input name="splitAliasNames" value="${escapeHtml(aliases)}" placeholder="多个可用逗号或换行分隔">
-                    </label>
-                  </div>
-                `;
-              })
+              .map((row, index) => renderSplitRow(row, index === 0))
               .join("")}
+          </div>
+        `;
+      }
+
+      function renderSplitRow(row = {}, locked = false) {
+        return `
+          <div class="split-row">
+            <label class="field-label">
+              字段 Key
+              <input type="hidden" name="splitTermType" value="${escapeHtml(row.termType || "")}" data-termtype-preview-source>
+              <button type="button" data-open-termtype-picker>选择字段 Key</button>
+              <div class="termtype-selected muted">${escapeHtml(termTypeLabel(row.termType || ""))}</div>
+            </label>
+            <label class="field-label full">
+              原始值 / 文本值
+              <input name="splitRawValue" value="${escapeHtml(row.rawValue || row.value || row.displayName || row.canonicalValue || "")}" placeholder="例如 按客户要求的进料口尺寸">
+            </label>
+            <button type="button" data-remove-split-row ${locked ? "disabled" : ""}>删除</button>
           </div>
         `;
       }
@@ -1856,25 +1986,11 @@ ${JSON.stringify(input, null, 2)}`;
         const rows = [];
         form.querySelectorAll(".split-row").forEach((row) => {
           const termType = row.querySelector('[name="splitTermType"]')?.value.trim();
-          let canonicalValue = row
-            .querySelector('[name="splitCanonicalValue"]')
-            ?.value.trim();
           const rawValue = row
             .querySelector('[name="splitRawValue"]')
             ?.value.trim();
-          const displayName = row
-            .querySelector('[name="splitDisplayName"]')
-            ?.value.trim();
-          const aliasText = row.querySelector('[name="splitAliasNames"]')?.value || "";
-          const aliasNames = aliasText
-            .split(/[,\n，、]/)
-            .map((item) => item.trim())
-            .filter(Boolean);
-          if (!canonicalValue && displayName) {
-            canonicalValue = displayName;
-          }
-          if (termType && (canonicalValue || rawValue || displayName)) {
-            rows.push({ termType, canonicalValue, rawValue, displayName, aliasNames });
+          if (termType && rawValue) {
+            rows.push({ termType, rawValue });
           }
         });
         return rows;
@@ -1885,10 +2001,11 @@ ${JSON.stringify(input, null, 2)}`;
         return candidate.valueKind === "enums" || termType?.valueKind === "enums";
       }
 
-      function splitEnumRawValue(rawValue, termType) {
+      function splitEnumRawValue(rawValue, termType, forceTokenSpaceSplit = false) {
         const trimmed = String(rawValue || "").trim();
         if (!trimmed) return [];
         const allowSpaceSplit = [
+          "plastic_material",
           "applicable_plastic_material",
           "applicable_process_type",
           "application_type",
@@ -1901,7 +2018,10 @@ ${JSON.stringify(input, null, 2)}`;
           .filter(Boolean);
         const parts = [];
         delimiterParts.forEach((part) => {
-          if (allowSpaceSplit && part.includes(" ")) {
+          const shouldSplitSpace =
+            part.includes(" ") &&
+            (allowSpaceSplit || (forceTokenSpaceSplit && /^[A-Za-z0-9_\-.]+(?:\s+[A-Za-z0-9_\-.]+)+$/.test(part)));
+          if (shouldSplitSpace) {
             parts.push(...part.split(/\s+/).map((item) => item.trim()).filter(Boolean));
           } else {
             parts.push(part);
@@ -1927,7 +2047,7 @@ ${JSON.stringify(input, null, 2)}`;
             },
           ];
         }
-        const tokens = splitEnumRawValue(sourceRawValue, candidate.termType);
+        const tokens = splitEnumRawValue(sourceRawValue, candidate.termType, true);
         const fallback = candidate.rawValue ? [candidate.rawValue] : [];
         return (tokens.length ? tokens : fallback).map((token) => ({
           canonicalValue: token,
@@ -1999,6 +2119,14 @@ ${JSON.stringify(input, null, 2)}`;
         return rows;
       }
 
+      function shouldSuppressCandidateRawAlias(form, rows) {
+        if (rows.length <= 1) return false;
+        const candidate = form.closest(".candidate")?._candidate;
+        if (!candidate || !shouldSplitCandidateAsEnums(candidate)) return false;
+        const sourceRawValue = candidate.evidence?.sourceRawValue || candidate.rawValue || "";
+        return splitEnumRawValue(sourceRawValue, candidate.termType, true).length > 1;
+      }
+
       function valueCreateBodyFromForm(form) {
         const rows = collectValueRows(form);
         if (!rows.length) {
@@ -2010,6 +2138,7 @@ ${JSON.stringify(input, null, 2)}`;
           displayName: first.displayName,
           aliasNames: first.aliasNames,
           values: extra,
+          suppressCandidateRawAlias: shouldSuppressCandidateRawAlias(form, rows),
         };
       }
 
@@ -2175,6 +2304,7 @@ ${JSON.stringify(input, null, 2)}`;
                     <div class="hint full">适合“CPE流延缠绕膜”这类把材料、工艺、应用类型写在一起的值。可先生成 DeepSeek Prompt 获取建议，再人工确认。</div>
                     <button type="button" data-suggest-split>生成 DeepSeek Prompt</button>
                     <div class="split-target full">${renderSplitRows(candidate, [])}</div>
+                    <button type="button" data-add-split-row>添加拆分字段</button>
                     <button class="primary">确认拆分</button>
                   </form>`
             }
@@ -2212,36 +2342,31 @@ ${JSON.stringify(input, null, 2)}`;
               });
             });
           });
-          card.querySelectorAll("[data-termtype-preview-source]").forEach((select) => {
-            const updatePreview = () => {
-              const form = select.closest("form");
-              const target = form?.querySelector(".termtype-preview-target");
-              const selected = findTermType(select.value);
-              if (target) {
-                target.innerHTML = renderTermTypePreview(select.value);
-              }
-              const label = form?.querySelector(".termtype-selected");
-              if (label) {
-                label.textContent = termTypeLabel(select.value);
-              }
-              const valueKindSelect = form?.querySelector('select[name="valueKind"]');
-              if (valueKindSelect && selected && !valueKindSelect.value) {
-                valueKindSelect.value = selected.valueKind || "enum";
-              }
-              syncEnumValueInputs(form);
-            };
-            select.addEventListener("change", updatePreview);
-            updatePreview();
-          });
-          card.querySelectorAll("[data-open-termtype-picker]").forEach((button) => {
-            button.addEventListener("click", () => {
-              const form = button.closest("form");
-              const input = form?.querySelector("[data-termtype-preview-source]");
-              if (input) {
-                openTermTypePicker(input);
-              }
-            });
-          });
+          const updateTermTypePreviewSource = (select) => {
+            const form = select.closest("form");
+            const row = select.closest(".split-row");
+            const target = form?.querySelector(".termtype-preview-target");
+            const selected = findTermType(select.value);
+            if (target) {
+              target.innerHTML = renderTermTypePreview(select.value);
+            }
+            const label = row?.querySelector(".termtype-selected") || form?.querySelector(".termtype-selected");
+            if (label) {
+              label.textContent = termTypeLabel(select.value);
+            }
+            const valueKindSelect = form?.querySelector('select[name="valueKind"]');
+            if (valueKindSelect && selected && !valueKindSelect.value) {
+              valueKindSelect.value = selected.valueKind || "enum";
+            }
+            syncEnumValueInputs(form);
+          };
+          const wireTermTypePreviewSource = (select) => {
+            if (!select || select.dataset.previewWired === "1") return;
+            select.dataset.previewWired = "1";
+            select.addEventListener("change", () => updateTermTypePreviewSource(select));
+            updateTermTypePreviewSource(select);
+          };
+          card.querySelectorAll("[data-termtype-preview-source]").forEach(wireTermTypePreviewSource);
           card.querySelectorAll("[data-open-document]").forEach((button) => {
             button.addEventListener("click", async () => {
               try {
@@ -2283,10 +2408,41 @@ ${JSON.stringify(input, null, 2)}`;
               );
             });
           });
+          card.querySelectorAll("[data-add-split-row]").forEach((button) => {
+            button.addEventListener("click", () => {
+              const form = button.closest("form");
+              const target = form?.querySelector(".split-rows");
+              if (!target) return;
+              target.insertAdjacentHTML(
+                "beforeend",
+                renderSplitRow(
+                  { termType: "", rawValue: "" },
+                  false,
+                ),
+              );
+              const input = target.querySelector(".split-row:last-child [data-termtype-preview-source]");
+              if (input) wireTermTypePreviewSource(input);
+            });
+          });
           card.addEventListener("click", (event) => {
+            const termTypeButton = event.target.closest?.("[data-open-termtype-picker]");
+            if (termTypeButton) {
+              const form = termTypeButton.closest("form");
+              const input =
+                termTypeButton.closest(".split-row")?.querySelector("[data-termtype-preview-source]") ||
+                form?.querySelector("[data-termtype-preview-source]");
+              if (input) {
+                wireTermTypePreviewSource(input);
+                openTermTypePicker(input);
+              }
+            }
             const removeButton = event.target.closest?.("[data-remove-value-row]");
             if (removeButton && !removeButton.disabled) {
               removeButton.closest(".value-row")?.remove();
+            }
+            const removeSplitButton = event.target.closest?.("[data-remove-split-row]");
+            if (removeSplitButton && !removeSplitButton.disabled) {
+              removeSplitButton.closest(".split-row")?.remove();
             }
           });
         });
@@ -2552,6 +2708,14 @@ ${JSON.stringify(input, null, 2)}`;
       $("renormalizeCurrentDocument").addEventListener("click", () =>
         renormalizeCurrentDocument().catch((error) => setStatus(error.message)),
       );
+      $("fieldDetailClose").addEventListener("click", () => {
+        $("fieldDetailToast").hidden = true;
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          $("fieldDetailToast").hidden = true;
+        }
+      });
       $("manualSuggestionClose").addEventListener("click", () => {
         $("manualSuggestionModal").hidden = true;
       });

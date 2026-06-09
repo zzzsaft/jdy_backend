@@ -33,10 +33,6 @@ export class DictionaryCache {
       return;
     }
 
-    if (Date.now() - this.lastLoadedAt < this.cacheTtlMs) {
-      return;
-    }
-
     const version = await this.dataSource
       .getRepository(DictionaryVersion)
       .findOne({ where: { versionKey: "dictionary" } });

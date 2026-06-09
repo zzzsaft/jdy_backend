@@ -19,7 +19,7 @@ const DELIMITER_RE = /[、，,;；\/＋+\n]/;
  * Rules:
  * 1. Prefer split_fields if available.
  * 2. Otherwise split by delimiters.
- * 3. For applicable_plastic_material, allow space split.
+ * 3. For known material/process/application list fields, allow space split.
  * 4. Avoid splitting model numbers / specs / ranges.
  */
 export function extractMultiValueTokens(
@@ -42,6 +42,7 @@ export function extractMultiValueTokens(
 
   // Check if we should also split by space for specific term types
   const allowSpaceSplit =
+    termType === "plastic_material" ||
     termType === "applicable_plastic_material" ||
     termType === "applicable_process_type" ||
     termType === "application_type" ||
@@ -57,7 +58,10 @@ export function extractMultiValueTokens(
   // Then for each part, if space-split allowed, split further
   const allParts: Array<{ value: string; rawText: string }> = [];
   for (const part of delimiterParts) {
-    if (allowSpaceSplit && part.includes(" ")) {
+    const shouldSplitSpace =
+      part.includes(" ") &&
+      (allowSpaceSplit || /^[A-Za-z0-9_\-.]+(?:\s+[A-Za-z0-9_\-.]+)+$/.test(part));
+    if (shouldSplitSpace) {
       const spaceParts = part
         .split(/\s+/)
         .map((p) => p.trim())
@@ -202,6 +206,7 @@ export function buildEnumsFieldResult(params: {
   itemIndex?: number;
   itemProductTypeHint?: string;
   normalizedFieldName: string;
+  valueCandidate?: NormalizedFieldResult["valueCandidate"];
   warnings: NormalizedFieldResult["warnings"];
 }): NormalizedFieldResult {
   const result: NormalizedFieldResult = {
@@ -221,6 +226,7 @@ export function buildEnumsFieldResult(params: {
     matchMethod: params.values.length > 0 ? "alias_exact" : "none",
     itemIndex: params.itemIndex,
     itemProductTypeHint: params.itemProductTypeHint,
+    valueCandidate: params.valueCandidate,
     warnings: params.warnings,
   };
 

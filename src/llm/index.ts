@@ -17,6 +17,13 @@ export {
   requestInferAiChatJson,
 } from "./inferAiChatClient";
 export {
+  DEFAULT_XH_MODEL,
+  getXhClient,
+  getXhModel,
+  normalizeXhModel,
+  requestXhChatJson,
+} from "./xhClient";
+export {
   finishLlmCallLog,
   startLlmCallLog,
   type LlmCallLogStartParams,

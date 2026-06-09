@@ -12,7 +12,7 @@ export async function createValueCandidate(
   dataSource: DataSource,
   params: CreateValueCandidateParams,
   normalizedRawValue: string,
-): Promise<DictionaryCandidate> {
+): Promise<DictionaryCandidate | null> {
   if (!normalizedRawValue) {
     throw new Error("rawValue cannot be empty after normalization");
   }
@@ -29,6 +29,17 @@ export async function createValueCandidate(
 
   const sourceProductType = normalizeSourceProductType(params.sourceProductType);
   const candidateRepo = dataSource.getRepository(DictionaryCandidate);
+  const rejectedCandidate = await candidateRepo.findOne({
+    where: {
+      termType: params.termType,
+      normalizedRawValue,
+      status: "rejected",
+    },
+  });
+  if (rejectedCandidate) {
+    return null;
+  }
+
   const existingCandidate = await candidateRepo.findOne({
     where: {
       termType: params.termType,
@@ -103,13 +114,23 @@ export async function createTermTypeCandidate(
   dataSource: DataSource,
   params: CreateTermTypeCandidateParams,
   normalizedFieldName: string,
-): Promise<DictionaryTermTypeCandidate> {
+): Promise<DictionaryTermTypeCandidate | null> {
   if (!normalizedFieldName) {
     throw new Error("rawFieldName cannot be empty after normalization");
   }
 
   const sourceProductType = normalizeSourceProductType(params.sourceProductType);
   const candidateRepo = dataSource.getRepository(DictionaryTermTypeCandidate);
+  const rejectedCandidate = await candidateRepo.findOne({
+    where: {
+      normalizedFieldName,
+      status: "rejected",
+    },
+  });
+  if (rejectedCandidate) {
+    return null;
+  }
+
   const existingCandidate = await candidateRepo.findOne({
     where: {
       sourceProductType,
