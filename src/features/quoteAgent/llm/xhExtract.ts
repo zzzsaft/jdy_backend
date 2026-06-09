@@ -8,6 +8,13 @@ import {
   buildExtractionMessages,
   buildExtractionRetryMessages,
 } from "./prompts";
+import { normalizeLlmExtractionShape } from "./twoStageExtract";
+
+function validateXhExtractionContent(content: string): LlmExtractResult {
+  return validateLlmExtractionResult(
+    normalizeLlmExtractionShape(parseJsonContent(content)),
+  );
+}
 
 export async function extractProductConfigWithXh(
   params: LlmExtractParams,
@@ -25,7 +32,7 @@ export async function extractProductConfigWithXh(
   });
 
   try {
-    return validateLlmExtractionResult(parseJsonContent(firstContent));
+    return validateXhExtractionContent(firstContent);
   } catch (error) {
     const retryContent = await requestXhChatJson({
       client,
@@ -45,7 +52,7 @@ export async function extractProductConfigWithXh(
     });
 
     try {
-      return validateLlmExtractionResult(parseJsonContent(retryContent));
+      return validateXhExtractionContent(retryContent);
     } catch (retryError) {
       throw new Error(
         `XH extraction validation failed after retry: ${

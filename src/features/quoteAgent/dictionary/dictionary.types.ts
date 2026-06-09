@@ -35,6 +35,12 @@ export interface CachedTermType {
 }
 
 export interface LlmDictionaryContext {
+  product_types?: Array<{
+    canonical_value: string;
+    display_name: string;
+    description?: string | null;
+    aliases: string[];
+  }>;
   term_types: Array<{
     term_type: string;
     display_name: string;

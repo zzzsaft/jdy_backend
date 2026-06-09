@@ -2,6 +2,7 @@ import { extractProductConfigWithDeepSeek } from "./deepseekExtract";
 import { extractProductConfigWithInferAiChat } from "./inferAiChatExtract";
 import { extractProductConfigWithLocalModel } from "./localExtract";
 import { extractProductConfigWithXh } from "./xhExtract";
+import { extractProductConfigWithTwoStageXh } from "./twoStageExtract";
 import { getLocalModelName } from "../../../llm";
 import { LlmExtractParams, LlmExtractResult } from "./types";
 
@@ -58,6 +59,12 @@ export { extractProductConfigWithDeepSeek } from "./deepseekExtract";
 export { extractProductConfigWithInferAiChat } from "./inferAiChatExtract";
 export { extractProductConfigWithLocalModel } from "./localExtract";
 export { extractProductConfigWithXh } from "./xhExtract";
+export {
+  extractItemsFromPlanWithXh,
+  extractProductConfigWithTwoStageXh,
+  filterDictionaryContextForProductType,
+  planDocumentWithXh,
+} from "./twoStageExtract";
 export {
   getInferAiChatClient,
   getInferAiChatModel,

@@ -44,6 +44,12 @@ export interface QuoteAgentRepository {
     items: any[];
   }>;
   findDocumentsMissingExtraction(params?: { limit?: number }): Promise<any[]>;
+  findDocumentsMissingPlan(params: {
+    limit?: number;
+    promptVersion: string;
+    dictionaryVersion: number;
+    llmModel: string;
+  }): Promise<any[]>;
 
   findBlocksByDocumentId(documentId: number): Promise<any | null>;
   findBlocksByDocumentIds(documentIds: number[]): Promise<any[]>;
@@ -67,17 +73,33 @@ export interface QuoteAgentRepository {
     llmModel?: string;
   }): Promise<any | null>;
   findLatestExtractionByDocumentId(documentId: number): Promise<any | null>;
+  findExtractionById(extractionResultId: number): Promise<any | null>;
 
   createExtraction(data: {
     documentId: number;
     extractionJson: any;
     dictionaryProposals?: any;
     warnings?: any;
+    llmPlanJson?: any;
     llmModel?: string;
     promptVersion?: string;
     dictionaryVersion?: number;
     status?: string;
   }): Promise<any>;
+  updateExtractionAfterLlm(data: {
+    extractionResultId: number;
+    extractionJson: any;
+    warnings?: any;
+    llmPlanJson?: any;
+    status?: string;
+  }): Promise<any>;
+  findPlannedExtractions(params: {
+    limit?: number;
+    promptVersion: string;
+    dictionaryVersion: number;
+    llmModel: string;
+    productType?: string;
+  }): Promise<any[]>;
   updateExtractionDictionary(data: {
     extractionResultId: number;
     normalizedExtractionJson?: any;
@@ -360,6 +382,53 @@ export class TypeOrmQuoteAgentRepository implements QuoteAgentRepository {
     }
   }
 
+  async findDocumentsMissingPlan(params: {
+    limit?: number;
+    promptVersion: string;
+    dictionaryVersion: number;
+    llmModel: string;
+  }): Promise<any[]> {
+    try {
+      const query = this.documentsRepo
+        .createQueryBuilder("document")
+        .innerJoin(
+          DocumentBlocks,
+          "blocks",
+          "blocks.document_id = document.id"
+        )
+        .leftJoin(
+          ExtractionResults,
+          "plannedExtraction",
+          `plannedExtraction.id = (
+            SELECT planned.id
+            FROM quote_agent.extraction_results planned
+            WHERE planned.document_id = document.id
+              AND planned.prompt_version = :promptVersion
+              AND planned.dictionary_version = :dictionaryVersion
+              AND planned.llm_model = :llmModel
+              AND planned.llm_plan_json IS NOT NULL
+            ORDER BY planned.created_at DESC
+            LIMIT 1
+          )`,
+          {
+            promptVersion: params.promptVersion,
+            dictionaryVersion: params.dictionaryVersion,
+            llmModel: params.llmModel,
+          }
+        )
+        .where("plannedExtraction.id IS NULL")
+        .orderBy("document.id", "ASC");
+
+      if (params.limit && params.limit > 0) {
+        query.limit(params.limit);
+      }
+
+      return await query.getMany();
+    } catch (error) {
+      throw wrapDbError("findDocumentsMissingPlan", error);
+    }
+  }
+
   async findBlocksByDocumentId(documentId: number): Promise<any | null> {
     try {
       return await this.blocksRepo.findOne({
@@ -481,11 +550,22 @@ export class TypeOrmQuoteAgentRepository implements QuoteAgentRepository {
     }
   }
 
+  async findExtractionById(extractionResultId: number): Promise<any | null> {
+    try {
+      return await this.extractionRepo.findOne({
+        where: { id: extractionResultId },
+      });
+    } catch (error) {
+      throw wrapDbError("findExtractionById", error);
+    }
+  }
+
   async createExtraction(data: {
     documentId: number;
     extractionJson: any;
     dictionaryProposals?: any;
     warnings?: any;
+    llmPlanJson?: any;
     llmModel?: string;
     promptVersion?: string;
     dictionaryVersion?: number;
@@ -497,6 +577,7 @@ export class TypeOrmQuoteAgentRepository implements QuoteAgentRepository {
         extractionJson: data.extractionJson,
         dictionaryProposals: data.dictionaryProposals,
         warnings: data.warnings,
+        llmPlanJson: data.llmPlanJson,
         llmModel: data.llmModel,
         promptVersion: data.promptVersion,
         dictionaryVersion: data.dictionaryVersion,
@@ -506,6 +587,89 @@ export class TypeOrmQuoteAgentRepository implements QuoteAgentRepository {
       return await this.extractionRepo.save(extraction);
     } catch (error) {
       throw wrapDbError("createExtraction", error);
+    }
+  }
+
+  async updateExtractionAfterLlm(data: {
+    extractionResultId: number;
+    extractionJson: any;
+    warnings?: any;
+    llmPlanJson?: any;
+    status?: string;
+  }): Promise<any> {
+    try {
+      const updateData: Partial<ExtractionResults> = {
+        extractionJson: data.extractionJson,
+      };
+
+      if (data.warnings !== undefined) {
+        updateData.warnings = data.warnings;
+      }
+
+      if (data.llmPlanJson !== undefined) {
+        updateData.llmPlanJson = data.llmPlanJson;
+      }
+
+      if (data.status !== undefined) {
+        updateData.status = data.status;
+      }
+
+      await this.extractionRepo.update(
+        { id: data.extractionResultId },
+        updateData as any,
+      );
+
+      return await this.extractionRepo.findOne({
+        where: { id: data.extractionResultId },
+      });
+    } catch (error) {
+      throw wrapDbError("updateExtractionAfterLlm", error);
+    }
+  }
+
+  async findPlannedExtractions(params: {
+    limit?: number;
+    promptVersion: string;
+    dictionaryVersion: number;
+    llmModel: string;
+    productType?: string;
+  }): Promise<any[]> {
+    try {
+      const query = this.extractionRepo
+        .createQueryBuilder("extraction")
+        .where("extraction.prompt_version = :promptVersion", {
+          promptVersion: params.promptVersion,
+        })
+        .andWhere("extraction.dictionary_version = :dictionaryVersion", {
+          dictionaryVersion: params.dictionaryVersion,
+        })
+        .andWhere("extraction.llm_model = :llmModel", {
+          llmModel: params.llmModel,
+        })
+        .andWhere("extraction.llm_plan_json IS NOT NULL")
+        .andWhere("extraction.status IN (:...statuses)", {
+          statuses: ["planned", "planned_partial"],
+        })
+        .orderBy("extraction.created_at", "ASC");
+
+      if (params.productType) {
+        query.andWhere(
+          `extraction.llm_plan_json->'items' @> CAST(:productTypeFilter AS jsonb)`,
+          {
+            productTypeFilter: JSON.stringify([
+              { product_type_hint: params.productType },
+            ]),
+          },
+        );
+      }
+
+      if (params.limit && params.limit > 0) {
+        query.limit(params.limit);
+      }
+
+      return await query.getMany();
+    } catch (error) {
+      throw wrapDbError("findPlannedExtractions", error);
     }
   }
 

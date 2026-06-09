@@ -53,6 +53,7 @@ export interface LlmExtractionResult {
     message: string;
     evidence?: unknown;
   }>;
+  llmPlanJson?: unknown;
 }
 
 export type DeepSeekExtractParams = {

@@ -31,6 +31,9 @@ export class ExtractionResults extends BaseEntity {
   @Column("jsonb", { nullable: true })
   warnings: unknown | null;
 
+  @Column("jsonb", { name: "llm_plan_json", nullable: true })
+  llmPlanJson: unknown | null;
+
   @Column({ name: "llm_model" })
   llmModel: string;
 

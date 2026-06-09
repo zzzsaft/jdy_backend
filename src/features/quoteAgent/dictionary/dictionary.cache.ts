@@ -1,6 +1,7 @@
 import { DataSource } from "typeorm";
 import {
   DictionaryAlias,
+  DictionaryTerm,
   DictionaryTermType,
   DictionaryTermTypeAlias,
   DictionaryVersion,
@@ -159,8 +160,31 @@ export class DictionaryCache {
 
     const toAliases = (termType: string) =>
       [...(this.termTypePromptAliasMap.get(termType) ?? [])].sort().slice(0, 8);
+    const productTypeTerms = await this.dataSource
+      .getRepository(DictionaryTerm)
+      .find({
+        where: { termType: "product_type", isActive: true },
+        order: { displayName: "ASC" },
+      });
+    const productTypeAliases = await this.dataSource
+      .getRepository(DictionaryAlias)
+      .find({ where: { termType: "product_type", isActive: true } });
+    const aliasesByTermId = new Map<string, string[]>();
+    for (const alias of productTypeAliases) {
+      const aliases = aliasesByTermId.get(alias.termId) ?? [];
+      aliases.push(alias.aliasValue);
+      aliasesByTermId.set(alias.termId, aliases);
+    }
 
     return {
+      product_types: productTypeTerms.map((term) => ({
+        canonical_value: term.canonicalValue,
+        display_name: term.displayName ?? term.canonicalValue,
+        description: term.description ?? null,
+        aliases: [...new Set(aliasesByTermId.get(term.id) ?? [])]
+          .sort()
+          .slice(0, 12),
+      })),
       term_types: [...this.termTypeMap.values()]
         .sort((a, b) => a.sortOrder - b.sortOrder)
         .map((termType) => ({
