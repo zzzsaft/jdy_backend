@@ -532,7 +532,9 @@ export class QuoteAgentService {
       status: "planned",
     });
 
-    await updateDocumentStatus(this.repository, document, "planned");
+    if (!["normalized", "dictionary_dirty"].includes(document.status)) {
+      await updateDocumentStatus(this.repository, document, "planned");
+    }
 
     return {
       document,

@@ -269,7 +269,12 @@ export class TypeOrmQuoteAgentRepository implements QuoteAgentRepository {
             SELECT latest.id
             FROM quote_agent.extraction_results latest
             WHERE latest.document_id = document.id
-            ORDER BY latest.created_at DESC
+            ORDER BY
+              CASE
+                WHEN latest.status IN ('normalized', 'parsed') THEN 0
+                ELSE 1
+              END,
+              latest.created_at DESC
             LIMIT 1
           )`,
         )
@@ -541,10 +546,18 @@ export class TypeOrmQuoteAgentRepository implements QuoteAgentRepository {
 
   async findLatestExtractionByDocumentId(documentId: number): Promise<any | null> {
     try {
-      return await this.extractionRepo.findOne({
-        where: { documentId },
-        order: { createdAt: "DESC" },
-      });
+      return await this.extractionRepo
+        .createQueryBuilder("extraction")
+        .where("extraction.document_id = :documentId", { documentId })
+        .orderBy(
+          `CASE
+            WHEN extraction.status IN ('normalized', 'parsed') THEN 0
+            ELSE 1
+          END`,
+          "ASC",
+        )
+        .addOrderBy("extraction.created_at", "DESC")
+        .getOne();
     } catch (error) {
       throw wrapDbError("findLatestExtractionByDocumentId", error);
     }
