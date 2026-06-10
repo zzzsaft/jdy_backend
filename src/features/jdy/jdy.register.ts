@@ -1,6 +1,6 @@
-import { registerJdy } from "../../controllers/jdy/jdy.registry";
-import { businessTripCheckinServices } from "./service/businessTripCheckinServices";
-import { restOvertimeServices } from "./service/restOvertimeServices";
+import { registerJdy } from "../../controllers/jdy/jdy.registry.js";
+import { businessTripCheckinServices } from "./service/businessTripCheckinServices.js";
+import { restOvertimeServices } from "./service/restOvertimeServices.js";
 
 registerJdy(
   // 表单名: 出差信息填报

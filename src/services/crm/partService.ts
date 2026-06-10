@@ -1,5 +1,5 @@
 import { Like } from "typeorm";
-import { ProductPart } from "../../entity/crm/productPart";
+import { ProductPart } from "../../entity/crm/productPart.js";
 
 class PartService {
   async searchParts(keyword: string): Promise<ProductPart[]> {

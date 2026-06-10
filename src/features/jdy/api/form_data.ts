@@ -1,12 +1,12 @@
-import { ILimitOpion } from "../../../type/IType";
-import { IFormData } from "../type/IData";
+import { ILimitOpion } from "../../../type/IType.js";
+import { IFormData } from "../type/IData.js";
 import {
   IDataCreateOption,
   IDataUpdateOption,
   IDatasCreateOption,
   IDataQueryOption,
-} from "../type/IOptions";
-import { ApiClient } from "./api_client";
+} from "../type/IOptions.js";
+import { ApiClient } from "./api_client.js";
 
 const FORM_DATA_BASE_PATH = "app/entry/data/";
 

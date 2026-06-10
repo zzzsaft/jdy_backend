@@ -5,12 +5,12 @@ import {
   startOfDay,
   startOfMonth,
 } from "date-fns";
-import { FbtApply } from "../features/fbt/entity/fbt_trip_apply";
+import { FbtApply } from "../features/fbt/entity/fbt_trip_apply.js";
 import { Between, IsNull } from "typeorm";
-import { BusinessTrip } from "../entity/atd/businessTrip";
-import { logger } from "../config/logger";
-import { BusinessTripServices } from "../features/xft/service/businessTripServices";
-import { FbtApplyService } from "../features/fbt/service/fbtApplyService";
+import { BusinessTrip } from "../entity/atd/businessTrip.js";
+import { logger } from "../config/logger.js";
+import { BusinessTripServices } from "../features/xft/service/businessTripServices.js";
+import { FbtApplyService } from "../features/fbt/service/fbtApplyService.js";
 
 export class GetFbtApply {
   startTime: Date;

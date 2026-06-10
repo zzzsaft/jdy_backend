@@ -4,10 +4,10 @@ import {
   makeLlmFriendlyText,
   parseOptionsFromText,
   ParsedOption,
-} from "./parseOptions";
-import { parseTextboxes, TextboxBlock } from "./parseTextboxes";
-import { ExcelParserError } from "../../../../utils/excelFileUtils";
-import type { BuildLlmTextOptions } from "../services/buildLlmText";
+} from "./parseOptions.js";
+import { parseTextboxes, TextboxBlock } from "./parseTextboxes.js";
+import { ExcelParserError } from "../../../../utils/excelFileUtils.js";
+import type { BuildLlmTextOptions } from "../services/buildLlmText.js";
 
 export type ExcelParserOptions = {
   parseTextboxes?: boolean;

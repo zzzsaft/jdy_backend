@@ -6,7 +6,7 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from "typeorm";
-import { User } from "../basic/employee";
+import { User } from "../basic/employee.js";
 
 @Entity("atd_xft_reissue")
 export class XftAtdReissue extends BaseEntity {

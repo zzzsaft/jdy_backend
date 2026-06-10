@@ -5,10 +5,10 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   ManyToOne,
-  Relation,
   Unique,
 } from "typeorm";
-import { Checkin } from "./checkin";
+import type { Relation } from "typeorm";
+import { Checkin } from "./checkin.js";
 
 @Entity({ name: "atd_hardware_checkin_data" })
 @Unique(["userid", "unix_checkin_time"])

@@ -1,13 +1,13 @@
 import { Request, Response } from "express";
-import { logger } from "../../../config/logger";
-import { VehicleRecord } from "../entity/vehicle_record";
-import { ParkingInfo } from "../entity/vehicle_info";
-import { EntryExistRecords } from "../entity/dh_entry_exit_record";
+import { logger } from "../../../config/logger.js";
+import { VehicleRecord } from "../entity/vehicle_record.js";
+import { ParkingInfo } from "../entity/vehicle_info.js";
+import { EntryExistRecords } from "../entity/dh_entry_exit_record.js";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
-import { downloadFile } from "../../../utils/fileUtils";
-import { jdyFormDataApiClient } from "../../jdy/api/form_data";
+import { downloadFile } from "../../../utils/fileUtils.js";
+import { jdyFormDataApiClient } from "../../jdy/api/form_data.js";
 
 const sendInfo = {
   success: true,

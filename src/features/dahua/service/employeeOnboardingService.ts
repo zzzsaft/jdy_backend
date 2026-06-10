@@ -1,7 +1,7 @@
-import { User } from "../../../entity/basic/employee";
-import { jdyFormDataApiClient } from "../../jdy/api/form_data";
-import { downloadFileStream } from "../../../utils/fileUtils";
-import { dahuaServices } from "./dahuaServices";
+import { User } from "../../../entity/basic/employee.js";
+import { jdyFormDataApiClient } from "../../jdy/api/form_data.js";
+import { downloadFileStream } from "../../../utils/fileUtils.js";
+import { dahuaServices } from "./dahuaServices.js";
 
 const getJdyInfo = async () => {
   const id = jdyFormDataApiClient.getFormId("员工档案");

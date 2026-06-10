@@ -1,5 +1,5 @@
-import { ApiClient } from "./api_client";
-import { getCorpToken } from "./token";
+import { ApiClient } from "./api_client.js";
+import { getCorpToken } from "./token.js";
 import { v4 as uuidv4 } from "uuid";
 
 interface Message {

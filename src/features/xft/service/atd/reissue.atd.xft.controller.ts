@@ -1,14 +1,14 @@
 import { addHours, format, isAfter, isBefore } from "date-fns";
-import { XftAtdReissue } from "../../../../entity/atd/xft_reissue";
-import { User } from "../../../../entity/basic/employee";
-import { getDate } from "../../../../utils/dateUtils";
-import { EntryExistRecords } from "../../../../features/vehicle/entity/dh_entry_exit_record";
+import { XftAtdReissue } from "../../../../entity/atd/xft_reissue.js";
+import { User } from "../../../../entity/basic/employee.js";
+import { getDate } from "../../../../utils/dateUtils.js";
+import { EntryExistRecords } from "../../../../features/vehicle/entity/dh_entry_exit_record.js";
 import { Between } from "typeorm";
 import _ from "lodash";
-import { XftTaskEvent } from "../../controller/todo.xft.controller";
-import { xftatdApiClient } from "../../api/xft_atd";
-import { xftOAApiClient } from "../../api/xft_oa";
-import { atdClassService } from "../atdClass.services";
+import { XftTaskEvent } from "../../controller/todo.xft.controller.js";
+import { xftatdApiClient } from "../../api/xft_atd.js";
+import { xftOAApiClient } from "../../api/xft_oa.js";
+import { atdClassService } from "../atdClass.services.js";
 
 export class ReissueEvent {
   task: XftTaskEvent;

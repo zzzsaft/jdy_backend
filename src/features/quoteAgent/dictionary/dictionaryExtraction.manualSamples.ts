@@ -1,4 +1,4 @@
-import type { LlmExtractionResult } from "../llm/types";
+import type { LlmExtractionResult } from "../llm/types.js";
 
 export type DictionaryExtractionManualSample = {
   name: string;

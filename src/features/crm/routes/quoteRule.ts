@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { quoteRuleService } from "../../../services/crm/quoteRuleService";
-import { authService } from "../../../services/authService";
+import { quoteRuleService } from "../../../services/crm/quoteRuleService.js";
+import { authService } from "../../../services/authService.js";
 
 const getRules = async (_req: Request, res: Response) => {
   const rules = await quoteRuleService.getRules();

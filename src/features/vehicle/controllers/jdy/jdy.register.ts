@@ -1,11 +1,11 @@
-import { registerJdy } from "../../../../controllers/jdy/jdy.registry";
+import { registerJdy } from "../../../../controllers/jdy/jdy.registry.js";
 import {
   addCar,
   deleteCar,
   punishCar,
   updateCar,
-} from "./parking.jdy.contollers";
-import { 来宾预约单 } from "./visitor.controller";
+} from "./parking.jdy.contollers.js";
+import { 来宾预约单 } from "./visitor.controller.js";
 
 registerJdy(
   // 表单名: 车辆信息登记

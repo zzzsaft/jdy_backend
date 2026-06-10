@@ -7,27 +7,27 @@ import {
   startOfDay,
   startOfMonth,
 } from "date-fns";
-import { User } from "../../../entity/basic/employee";
+import { User } from "../../../entity/basic/employee.js";
 import {
   checkinApiClient,
   HardwareCheckinData as HardwareCheckin,
-} from "../../wechat/api/chekin";
-import { HardwareCheckinData } from "../../../entity/atd/wx_hardware_checkin_data";
-import { LogCheckin } from "../../log/entity/log_checkin";
-import { getLastDate } from "../../log/service/logCheckinService";
-import { jctimesApiClient } from "../../../api/jctimes/app";
+} from "../../wechat/api/chekin.js";
+import { HardwareCheckinData } from "../../../entity/atd/wx_hardware_checkin_data.js";
+import { LogCheckin } from "../../log/entity/log_checkin.js";
+import { getLastDate } from "../../log/service/logCheckinService.js";
+import { jctimesApiClient } from "../../../api/jctimes/app.js";
 import { Between } from "typeorm";
 import _ from "lodash";
 import {
   compressImage,
   downloadFileStream,
   streamToBase64,
-} from "../../../utils/fileUtils";
+} from "../../../utils/fileUtils.js";
 import { PassThrough } from "stream";
-import { XftTripCheckin } from "../../../entity/atd/business_trip_checkin";
-import { businessTripService } from "../../../services/businessTripService";
-import { jdyFormDataApiClient } from "../../jdy/api/form_data";
-import { xftatdApiClient } from "../api/xft_atd";
+import { XftTripCheckin } from "../../../entity/atd/business_trip_checkin.js";
+import { businessTripService } from "../../../services/businessTripService.js";
+import { jdyFormDataApiClient } from "../../jdy/api/form_data.js";
+import { xftatdApiClient } from "../api/xft_atd.js";
 class CheckinServices {
   async scheduleCheckinMonthly() {
     const startTime = startOfMonth(new Date());

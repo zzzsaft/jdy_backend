@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { appApiClient, connectApiClient } from "./api_client";
+import { appApiClient, connectApiClient } from "./api_client.js";
 
 class XFTOrgnizationApiClient {
   async getOrgnizationList() {

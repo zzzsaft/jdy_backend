@@ -1,11 +1,11 @@
 import { IsNull, Not } from "typeorm";
-import { personApiClient } from "../api/person";
-import { User } from "../../../entity/basic/employee";
-import { fileApiClient } from "../api/file";
-import { logger } from "../../../config/logger";
-import { compressImage, downloadFileStream } from "../../../utils/fileUtils";
-import { sleep } from "../../../config/limiter";
-import { jdyFormDataApiClient } from "../../jdy/api/form_data";
+import { personApiClient } from "../api/person.js";
+import { User } from "../../../entity/basic/employee.js";
+import { fileApiClient } from "../api/file.js";
+import { logger } from "../../../config/logger.js";
+import { compressImage, downloadFileStream } from "../../../utils/fileUtils.js";
+import { sleep } from "../../../config/limiter.js";
+import { jdyFormDataApiClient } from "../../jdy/api/form_data.js";
 
 class DahuaServices {
   async deleteDahuaId() {

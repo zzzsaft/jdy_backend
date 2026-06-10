@@ -1,5 +1,5 @@
-import { wechatCorpConfigs } from "../features/wechat/wechatCorps";
-import { logger } from "../config/logger";
+import { wechatCorpConfigs } from "../features/wechat/wechatCorps.js";
+import { logger } from "../config/logger.js";
 
 const validateConfigs = () => {
   if (!wechatCorpConfigs.length) {

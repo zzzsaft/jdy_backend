@@ -6,7 +6,7 @@ import {
   PrimaryColumn,
   PrimaryGeneratedColumn,
 } from "typeorm";
-import { logger } from "../../../config/logger";
+import { logger } from "../../../config/logger.js";
 
 type ParkingInfoType = {
   id: string;

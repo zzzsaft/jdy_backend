@@ -1,9 +1,9 @@
 import { format } from "date-fns";
-import { XftTaskEvent } from "../../controller/todo.xft.controller";
-import { XftAtdOut } from "../../../../entity/atd/xft_out";
-import { User } from "../../../../entity/basic/employee";
-import { xftOAApiClient } from "../../api/xft_oa";
-import { xftatdApiClient } from "../../api/xft_atd";
+import { XftTaskEvent } from "../../controller/todo.xft.controller.js";
+import { XftAtdOut } from "../../../../entity/atd/xft_out.js";
+import { User } from "../../../../entity/basic/employee.js";
+import { xftOAApiClient } from "../../api/xft_oa.js";
+import { xftatdApiClient } from "../../api/xft_atd.js";
 
 export class OutGoingEvent {
   task: XftTaskEvent;

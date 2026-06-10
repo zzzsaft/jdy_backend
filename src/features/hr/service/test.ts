@@ -1,11 +1,11 @@
-import "../../../config/env";
-import "../../../config/logger";
+import "../../../config/env.js";
+import "../../../config/logger.js";
 
 import "reflect-metadata";
 import { BaseEntity } from "typeorm";
-import { PgDataSource } from "../../../config/data-source";
-import { hrContractService } from "./hrContractService";
-import { logger } from "../../../config/logger";
+import { PgDataSource } from "../../../config/data-source.js";
+import { hrContractService } from "./hrContractService.js";
+import { logger } from "../../../config/logger.js";
 
 /**
  * Dev helper to replay a JDY `data_update` payload into HrContractService.handleUpdate().

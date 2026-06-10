@@ -4,7 +4,7 @@ import {
   createTriggerInfos,
   deleteTriggerInfos,
   updateTriggerInfos,
-} from "../../controllers/frontend/triggerInfo.controller";
+} from "../../controllers/frontend/triggerInfo.controller.js";
 
 /**
  * All application routes.

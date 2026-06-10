@@ -1,5 +1,5 @@
 import { Entity, Column, BaseEntity, PrimaryColumn } from "typeorm";
-import { logger } from "../../config/logger";
+import { logger } from "../../config/logger.js";
 
 @Entity({ name: "md_department" })
 export class Department extends BaseEntity {

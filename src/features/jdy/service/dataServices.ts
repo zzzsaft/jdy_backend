@@ -1,5 +1,5 @@
-import { JdyWidget } from "../../../entity/util/jdy_form_widget";
-import { formApiClient } from "../api/form";
+import { JdyWidget } from "../../../entity/util/jdy_form_widget.js";
+import { formApiClient } from "../api/form.js";
 
 class DataService {
   constructor(private appId: string, private entryId: string) {}

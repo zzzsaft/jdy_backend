@@ -1,11 +1,11 @@
-import { logger } from "../../../config/logger";
-import { getCorpConfig } from "../wechatCorps";
+import { logger } from "../../../config/logger.js";
+import { getCorpConfig } from "../wechatCorps.js";
 import {
   syncDepartmentLevels,
   syncDepartments,
   syncXftDepartmentIds,
-} from "./departmentService";
-import { syncUsers, syncXftUserIds } from "./employeeService";
+} from "./departmentService.js";
+import { syncUsers, syncXftUserIds } from "./employeeService.js";
 
 export type SyncContext = {
   corpIdOrName?: string;

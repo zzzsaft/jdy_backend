@@ -1,10 +1,10 @@
 import _ from "lodash";
 import axios from "axios";
 import qs from "querystring";
-import { ILimitOpion, IRequestOptions } from "../../../type/IType";
-import { dahua_token as token } from "./token";
-import { logger } from "../../../config/logger";
-import { appAxios } from "../../../utils/fileUtils";
+import { ILimitOpion, IRequestOptions } from "../../../type/IType.js";
+import { dahua_token as token } from "./token.js";
+import { logger } from "../../../config/logger.js";
+import { appAxios } from "../../../utils/fileUtils.js";
 export class ApiClient {
   private host: string = "https://www.cloud-dahua.com";
 

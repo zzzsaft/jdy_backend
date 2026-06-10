@@ -1,4 +1,4 @@
-import { CrmTemplate } from "../../entity/crm/template";
+import { CrmTemplate } from "../../entity/crm/template.js";
 
 class TemplateService {
   async getTemplates(params?: {

@@ -1,11 +1,11 @@
-import { normalizeText } from "./dictionary.utils";
+import { normalizeText } from "./dictionary.utils.js";
 import type {
   CachedTermType,
   CachedValueAlias,
   MultiValueToken,
   NormalizedEnumValue,
   NormalizedFieldResult,
-} from "./dictionary.types";
+} from "./dictionary.types.js";
 
 /**
  * Delimiters used for splitting multi-enum values.

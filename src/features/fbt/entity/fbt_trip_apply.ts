@@ -12,11 +12,11 @@ import {
   OneToMany,
   PrimaryColumn,
   PrimaryGeneratedColumn,
-  Relation,
   UpdateDateColumn,
 } from "typeorm";
-import { User } from "../../../entity/basic/employee";
-import { Department } from "../../../entity/basic/department";
+import type { Relation } from "typeorm";
+import { User } from "../../../entity/basic/employee.js";
+import { Department } from "../../../entity/basic/department.js";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { endOfDay } from "date-fns";
 @Entity("fbt_apply")

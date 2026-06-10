@@ -5,10 +5,10 @@ import {
   BaseEntity,
   CreateDateColumn,
   ManyToOne,
-  Relation,
   Index,
 } from "typeorm";
-import { Checkin } from "./checkin";
+import type { Relation } from "typeorm";
+import { Checkin } from "./checkin.js";
 
 @Entity({ name: "atd_checkin_data" })
 export class CheckinData extends BaseEntity {

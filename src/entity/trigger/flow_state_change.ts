@@ -3,12 +3,12 @@ import {
   Column,
   ManyToOne,
   OneToMany,
-  Relation,
   AfterLoad,
   BeforeInsert,
 } from "typeorm";
-import AbstractContent from "../AbstractContent";
-import { Trigger } from "./trigger";
+import type { Relation } from "typeorm";
+import AbstractContent from "../AbstractContent.js";
+import { Trigger } from "./trigger.js";
 @Entity({
   name: "trigger_flow_state_change",
 })

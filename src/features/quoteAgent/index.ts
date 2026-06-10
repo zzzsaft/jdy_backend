@@ -1,8 +1,8 @@
 export {
   quoteAgentRepository,
   TypeOrmQuoteAgentRepository,
-} from "./db.service";
-export type { QuoteAgentRepository } from "./db.service";
+} from "./db.service.js";
+export type { QuoteAgentRepository } from "./db.service.js";
 export {
   calculateFileSha256,
   extractWithLLM,
@@ -12,7 +12,7 @@ export {
   quoteAgentService,
   QuoteAgentService,
   submitToJiandaoyunReview,
-} from "./service";
+} from "./service.js";
 export type {
   QuoteAgentExtractParams,
   QuoteAgentParseAndSaveBlocksBatchError,
@@ -21,7 +21,7 @@ export type {
   QuoteAgentParseAndSaveBlocksResult,
   QuoteAgentProcessParams,
   QuoteAgentProcessResult,
-} from "./service";
+} from "./service.js";
 export {
   extractProductConfigWithDeepSeek,
   extractProductConfigWithLLM,
@@ -29,11 +29,11 @@ export {
   getLocalModelClient,
   getLocalModelName,
   resolveLlmProvider,
-} from "./llm";
+} from "./llm/index.js";
 export type {
   DeepSeekExtractParams,
   DeepSeekExtractResult,
   LlmExtractParams,
   LlmExtractResult,
   LlmProvider,
-} from "./llm";
+} from "./llm/index.js";

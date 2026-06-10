@@ -5,13 +5,14 @@ import {
   DictionaryTermTypeCandidate,
   DictionaryTerm,
   DictionaryCandidateOccurrence,
-} from "./entity";
-import { SplitResolution } from "../entity/splitResolution.entity";
-import { DictionaryCache } from "./dictionary.cache";
+} from "./entity/index.js";
+import { SplitResolution } from "../entity/splitResolution.entity.js";
+import { DictionaryCache } from "./dictionary.cache.js";
+import { logger } from "../../../config/logger.js";
 import {
   createTermTypeCandidate as createTermTypeCandidateRecord,
   createValueCandidate as createValueCandidateRecord,
-} from "./dictionary.candidates";
+} from "./dictionary.candidates.js";
 import {
   approveTermTypeCandidateAsAlias as approveTermTypeCandidateAsAliasRecord,
   approveValueCandidateAsAlias as approveValueCandidateAsAliasRecord,
@@ -19,9 +20,10 @@ import {
   createValueFromCandidate as createValueFromCandidateRecord,
   rejectTermTypeCandidate as rejectTermTypeCandidateRecord,
   rejectValueCandidate as rejectValueCandidateRecord,
+  reviewTermTypeCandidatesBatch as reviewTermTypeCandidatesBatchRecord,
   splitValueCandidate as splitValueCandidateRecord,
-} from "./dictionary.review";
-import { normalizeMultiEnumValues, buildEnumsFieldResult, extractMultiValueTokens } from "./multiValue";
+} from "./dictionary.review.js";
+import { normalizeMultiEnumValues, buildEnumsFieldResult, extractMultiValueTokens } from "./multiValue.js";
 import type {
   CreateTermTypeCandidateParams,
   CreateValueCandidateParams,
@@ -31,13 +33,18 @@ import type {
   NormalizeFieldParams,
   TermTypeMatchResult,
   ValueMatchResult,
-} from "./dictionary.types";
+} from "./dictionary.types.js";
 import {
   buildMatchedFieldResult,
   normalizeText,
   termTypeSpecificityScore,
   valueAliasKey,
-} from "./dictionary.utils";
+} from "./dictionary.utils.js";
+import {
+  isQuoteAgentModelTermType,
+  QuoteAgentMasterDataService,
+  sourceForModelTermType,
+} from "../masterData.service.js";
 
 export type {
   CachedTermType,
@@ -50,15 +57,17 @@ export type {
   NormalizeFieldParams,
   TermTypeMatchResult,
   ValueMatchResult,
-} from "./dictionary.types";
+} from "./dictionary.types.js";
 
 export class DictionaryService {
   private readonly cache: DictionaryCache;
+  private readonly masterDataService: QuoteAgentMasterDataService;
   private readonly pendingTermTypeAliasUsage = new Map<string, number>();
   private readonly pendingValueAliasUsage = new Map<string, number>();
 
   constructor(private readonly dataSource: DataSource) {
     this.cache = new DictionaryCache(dataSource);
+    this.masterDataService = new QuoteAgentMasterDataService(dataSource);
   }
 
   normalizeText(input: unknown): string {
@@ -74,7 +83,11 @@ export class DictionaryService {
   }
 
   async bumpDictionaryVersion(): Promise<void> {
+    const startedAt = Date.now();
     await this.cache.bumpVersion();
+    logger.info(
+      `[quoteAgent:dictionary:bumpVersion] totalMs=${Date.now() - startedAt}`,
+    );
   }
 
   async getLlmDictionaryContext(): Promise<LlmDictionaryContext> {
@@ -261,7 +274,9 @@ export class DictionaryService {
     resolvedValueCandidateCount: number;
     affectedDocumentIds: number[];
   }> {
+    const startedAt = Date.now();
     await this.reloadCache();
+    const reloadCacheMs = Date.now() - startedAt;
     const limit = Math.min(5000, Math.max(1, Number(params?.limit ?? 1000) || 1000));
     const termTypeCandidateRepo = this.dataSource.getRepository(
       DictionaryTermTypeCandidate,
@@ -419,6 +434,13 @@ export class DictionaryService {
     }
 
     await this.flushAliasUsageStats();
+    const totalMs = Date.now() - startedAt;
+    logger.info(
+      `[quoteAgent:dictionary:recheckPendingCandidatesAfterDictionaryUpdate] totalMs=${totalMs} reloadCacheMs=${reloadCacheMs} ` +
+        `limit=${limit} checkedTermTypeCandidateCount=${termTypeCandidates.length} resolvedTermTypeCandidateCount=${resolvedTermTypeCandidateCount} ` +
+        `checkedValueCandidateCount=${valueCandidates.length} resolvedValueCandidateCount=${resolvedValueCandidateCount} ` +
+        `affectedDocumentCount=${affectedDocumentIds.size}`,
+    );
 
     return {
       checkedTermTypeCandidateCount: termTypeCandidates.length,
@@ -500,10 +522,19 @@ export class DictionaryService {
     aliasNames?: string[];
     bumpVersion?: boolean;
   }): Promise<void> {
+    const startedAt = Date.now();
     await approveValueCandidateAsAliasRecord(this.dataSource, params);
+    const writeMs = Date.now() - startedAt;
+    let bumpVersionMs = 0;
     if (params.bumpVersion !== false) {
+      const bumpVersionStartedAt = Date.now();
       await this.bumpDictionaryVersion();
+      bumpVersionMs = Date.now() - bumpVersionStartedAt;
     }
+    logger.info(
+      `[quoteAgent:dictionary:approveValueCandidateAsAlias] candidateId=${params.candidateId} ` +
+        `aliasCount=${params.aliasNames?.length ?? 0} writeMs=${writeMs} bumpVersionMs=${bumpVersionMs} totalMs=${Date.now() - startedAt}`,
+    );
   }
 
   async createValueFromCandidate(params: {
@@ -520,10 +551,20 @@ export class DictionaryService {
     suppressCandidateRawAlias?: boolean;
     bumpVersion?: boolean;
   }): Promise<void> {
+    const startedAt = Date.now();
     await createValueFromCandidateRecord(this.dataSource, params);
+    const writeMs = Date.now() - startedAt;
+    let bumpVersionMs = 0;
     if (params.bumpVersion !== false) {
+      const bumpVersionStartedAt = Date.now();
       await this.bumpDictionaryVersion();
+      bumpVersionMs = Date.now() - bumpVersionStartedAt;
     }
+    logger.info(
+      `[quoteAgent:dictionary:createValueFromCandidate] candidateId=${params.candidateId} ` +
+        `valueCount=${1 + (params.values?.length ?? 0)} aliasCount=${params.aliasNames?.length ?? 0} ` +
+        `writeMs=${writeMs} bumpVersionMs=${bumpVersionMs} totalMs=${Date.now() - startedAt}`,
+    );
   }
 
   async splitValueCandidate(params: {
@@ -538,10 +579,19 @@ export class DictionaryService {
     reviewedBy?: string;
     bumpVersion?: boolean;
   }): Promise<void> {
+    const startedAt = Date.now();
     await splitValueCandidateRecord(this.dataSource, params);
+    const writeMs = Date.now() - startedAt;
+    let bumpVersionMs = 0;
     if (params.bumpVersion !== false) {
+      const bumpVersionStartedAt = Date.now();
       await this.bumpDictionaryVersion();
+      bumpVersionMs = Date.now() - bumpVersionStartedAt;
     }
+    logger.info(
+      `[quoteAgent:dictionary:splitValueCandidate] candidateId=${params.candidateId} splitCount=${params.splits.length} ` +
+        `writeMs=${writeMs} bumpVersionMs=${bumpVersionMs} totalMs=${Date.now() - startedAt}`,
+    );
   }
 
   async approveTermTypeCandidateAsAlias(params: {
@@ -556,10 +606,20 @@ export class DictionaryService {
     appendApplicableProductType?: boolean;
     bumpVersion?: boolean;
   }): Promise<void> {
+    const startedAt = Date.now();
     await approveTermTypeCandidateAsAliasRecord(this.dataSource, params);
+    const writeMs = Date.now() - startedAt;
+    let bumpVersionMs = 0;
     if (params.bumpVersion !== false) {
+      const bumpVersionStartedAt = Date.now();
       await this.bumpDictionaryVersion();
+      bumpVersionMs = Date.now() - bumpVersionStartedAt;
     }
+    logger.info(
+      `[quoteAgent:dictionary:approveTermTypeCandidateAsAlias] candidateId=${params.candidateId} termType=${params.termType} ` +
+        `aliasCount=${params.aliasNames?.length ?? 0} valueAliasCount=${params.valueAliasNames?.length ?? 0} ` +
+        `hasEnumValue=${Boolean(params.valueCanonicalValue)} writeMs=${writeMs} bumpVersionMs=${bumpVersionMs} totalMs=${Date.now() - startedAt}`,
+    );
   }
 
   async createTermTypeFromCandidate(params: {
@@ -579,10 +639,47 @@ export class DictionaryService {
     applicableProductTypes?: string[];
     bumpVersion?: boolean;
   }): Promise<void> {
+    const startedAt = Date.now();
     await createTermTypeFromCandidateRecord(this.dataSource, params);
+    const writeMs = Date.now() - startedAt;
+    let bumpVersionMs = 0;
     if (params.bumpVersion !== false) {
+      const bumpVersionStartedAt = Date.now();
       await this.bumpDictionaryVersion();
+      bumpVersionMs = Date.now() - bumpVersionStartedAt;
     }
+    logger.info(
+      `[quoteAgent:dictionary:createTermTypeFromCandidate] candidateId=${params.candidateId} termType=${params.termType} ` +
+        `valueKind=${params.valueKind} aliasCount=${params.aliasNames?.length ?? 0} valueAliasCount=${params.valueAliasNames?.length ?? 0} ` +
+        `hasEnumValue=${Boolean(params.valueCanonicalValue)} writeMs=${writeMs} bumpVersionMs=${bumpVersionMs} totalMs=${Date.now() - startedAt}`,
+    );
+  }
+
+  async reviewTermTypeCandidatesBatch(
+    operations: Array<{
+      candidateId: string;
+      action: "create_term_type" | "approve_term_type_as_alias";
+      payload: any;
+    }>,
+  ): Promise<
+    Array<{
+      candidateId: string;
+      action: string;
+      status: "ok" | "failed";
+      error?: string;
+    }>
+  > {
+    const startedAt = Date.now();
+    const result = await reviewTermTypeCandidatesBatchRecord(
+      this.dataSource,
+      operations,
+    );
+    logger.info(
+      `[quoteAgent:dictionary:reviewTermTypeCandidatesBatch] operationCount=${operations.length} ` +
+        `successCount=${result.filter((item) => item.status === "ok").length} ` +
+        `failedCount=${result.filter((item) => item.status === "failed").length} totalMs=${Date.now() - startedAt}`,
+    );
+    return result;
   }
 
   async rejectValueCandidate(params: {
@@ -798,6 +895,15 @@ export class DictionaryService {
   ): Promise<NormalizedFieldResult> {
     const termType = termTypeMatch.termTypes[0];
     const valueKind = this.getTermTypeValueKind(termType);
+    if (isQuoteAgentModelTermType(termType)) {
+      return this.normalizeMasterDataModelField(
+        params,
+        termTypeMatch,
+        termType,
+        valueKind,
+      );
+    }
+
     if (valueKind !== "enum" && valueKind !== "enums") {
       return this.buildTermTypeOnlyResult(params, termTypeMatch, termType, valueKind);
     }
@@ -997,6 +1103,16 @@ export class DictionaryService {
     params: NormalizeFieldParams,
     termTypeMatch: TermTypeMatchResult,
   ): Promise<NormalizedFieldResult> {
+    const modelTermType = termTypeMatch.termTypes.find(isQuoteAgentModelTermType);
+    if (modelTermType) {
+      return this.normalizeMasterDataModelField(
+        params,
+        termTypeMatch,
+        modelTermType,
+        this.getTermTypeValueKind(modelTermType),
+      );
+    }
+
     const enumTermTypes = termTypeMatch.termTypes.filter(
       (termType) => this.getTermTypeValueKind(termType) === "enum" || this.getTermTypeValueKind(termType) === "enums",
     );
@@ -1084,6 +1200,50 @@ export class DictionaryService {
         params.itemProductTypeHint,
       ),
       warnings: [],
+    };
+  }
+
+  private async normalizeMasterDataModelField(
+    params: NormalizeFieldParams,
+    termTypeMatch: TermTypeMatchResult,
+    termType: "metering_pump_model" | "filter_model",
+    valueKind: DictionaryValueKind,
+  ): Promise<NormalizedFieldResult> {
+    const masterDataMatch = await this.masterDataService.matchModel({
+      termType,
+      rawValue: params.rawValue,
+    });
+    const itemProductTypeHint = normalizeProductTypeHintForMatch(
+      params.itemProductTypeHint,
+    );
+    const source = sourceForModelTermType(termType);
+
+    return {
+      matched: masterDataMatch.matched,
+      fieldMatched: true,
+      rawFieldName: params.fieldName,
+      normalizedFieldName: termTypeMatch.normalizedFieldName,
+      rawValue: params.rawValue,
+      normalizedValue: this.normalizeText(params.rawValue),
+      termType,
+      candidateTermTypes:
+        termTypeMatch.termTypes.length > 1 ? termTypeMatch.termTypes : undefined,
+      valueKind,
+      matchMethod: "term_type_only",
+      itemIndex: params.itemIndex,
+      itemProductTypeHint,
+      masterDataMatch,
+      warnings: masterDataMatch.matched
+        ? []
+        : [
+            {
+              type: "master_data_no_match",
+              message: "Model did not match CRM product master data; manual binding is required",
+              rawValue: params.rawValue,
+              termType,
+              source,
+            },
+          ],
     };
   }
 

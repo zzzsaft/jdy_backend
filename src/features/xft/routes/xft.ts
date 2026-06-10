@@ -1,7 +1,7 @@
-import { xftEvent } from "../controller/event.xft.controller";
-import { xftTodo } from "../controller/todo.xft.controller";
-import { testXftSSOLogin } from "../controller/login.xft.controller";
-import { token } from "../../wechat/api/token";
+import { xftEvent } from "../controller/event.xft.controller.js";
+import { xftTodo } from "../controller/todo.xft.controller.js";
+import { testXftSSOLogin } from "../controller/login.xft.controller.js";
+import { token } from "../../wechat/api/token.js";
 
 export const xftRoute = [
   {

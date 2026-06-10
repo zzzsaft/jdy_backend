@@ -1,6 +1,6 @@
 import bodyParser from "body-parser";
 import xmlparser from "body-parser-xml";
-import { addToLog } from "../features/log/service/logExpressService";
+import { addToLog } from "../features/log/service/logExpressService.js";
 import rateLimit from "express-rate-limit";
 import { Request, Response, NextFunction } from "express";
 // 自定义中间件来根据请求主体的Content-Type自动选择解析器

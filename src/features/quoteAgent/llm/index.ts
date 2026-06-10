@@ -1,10 +1,10 @@
-import { extractProductConfigWithDeepSeek } from "./deepseekExtract";
-import { extractProductConfigWithInferAiChat } from "./inferAiChatExtract";
-import { extractProductConfigWithLocalModel } from "./localExtract";
-import { extractProductConfigWithXh } from "./xhExtract";
-import { extractProductConfigWithTwoStageXh } from "./twoStageExtract";
-import { getLocalModelName } from "../../../llm";
-import { LlmExtractParams, LlmExtractResult } from "./types";
+import { extractProductConfigWithDeepSeek } from "./deepseekExtract.js";
+import { extractProductConfigWithInferAiChat } from "./inferAiChatExtract.js";
+import { extractProductConfigWithLocalModel } from "./localExtract.js";
+import { extractProductConfigWithXh } from "./xhExtract.js";
+import { extractProductConfigWithTwoStageXh } from "./twoStageExtract.js";
+import { getLocalModelName } from "../../../llm/index.js";
+import type { LlmExtractParams, LlmExtractResult } from "./types.js";
 
 const DEEPSEEK_MODEL_PREFIX = "deepseek";
 const INFERAI_MODEL_PREFIXES = ["inferai", "inferaichat"];
@@ -55,16 +55,16 @@ export async function extractProductConfigWithLLM(
   return extractProductConfigWithLocalModel(params, model);
 }
 
-export { extractProductConfigWithDeepSeek } from "./deepseekExtract";
-export { extractProductConfigWithInferAiChat } from "./inferAiChatExtract";
-export { extractProductConfigWithLocalModel } from "./localExtract";
-export { extractProductConfigWithXh } from "./xhExtract";
+export { extractProductConfigWithDeepSeek } from "./deepseekExtract.js";
+export { extractProductConfigWithInferAiChat } from "./inferAiChatExtract.js";
+export { extractProductConfigWithLocalModel } from "./localExtract.js";
+export { extractProductConfigWithXh } from "./xhExtract.js";
 export {
   extractItemsFromPlanWithXh,
   extractProductConfigWithTwoStageXh,
   filterDictionaryContextForProductType,
   planDocumentWithXh,
-} from "./twoStageExtract";
+} from "./twoStageExtract.js";
 export {
   getInferAiChatClient,
   getInferAiChatModel,
@@ -75,10 +75,10 @@ export {
   requestInferAiChatJson,
   requestXhChatJson,
   requestLocalModelJson,
-} from "../../../llm";
+} from "../../../llm/index.js";
 export type {
   DeepSeekExtractParams,
   DeepSeekExtractResult,
   LlmExtractParams,
   LlmExtractResult,
-} from "./types";
+} from "./types.js";

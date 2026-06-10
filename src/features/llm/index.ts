@@ -1,7 +1,7 @@
-import { extractProductConfigWithDeepSeek } from "./deepseekExtract";
-import { extractProductConfigWithLocalModel } from "./localExtract";
-import { getLocalModelName } from "./localModelClient";
-import { LlmExtractParams, LlmExtractResult } from "./types";
+import { extractProductConfigWithDeepSeek } from "./deepseekExtract.js";
+import { extractProductConfigWithLocalModel } from "./localExtract.js";
+import { getLocalModelName } from "./localModelClient.js";
+import type { LlmExtractParams, LlmExtractResult } from "./types.js";
 
 const DEEPSEEK_MODEL_PREFIX = "deepseek";
 
@@ -30,16 +30,16 @@ export async function extractProductConfigWithLLM(
   return extractProductConfigWithLocalModel(params, model);
 }
 
-export { extractProductConfigWithDeepSeek } from "./deepseekExtract";
-export { extractProductConfigWithLocalModel } from "./localExtract";
+export { extractProductConfigWithDeepSeek } from "./deepseekExtract.js";
+export { extractProductConfigWithLocalModel } from "./localExtract.js";
 export {
   getLocalModelClient,
   getLocalModelName,
   requestLocalModelJson,
-} from "./localModelClient";
+} from "./localModelClient.js";
 export type {
   DeepSeekExtractParams,
   DeepSeekExtractResult,
   LlmExtractParams,
   LlmExtractResult,
-} from "./types";
+} from "./types.js";

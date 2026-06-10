@@ -1,8 +1,8 @@
-import "../../../config/env";
+import "../../../config/env.js";
 import "reflect-metadata";
 import { BaseEntity } from "typeorm";
-import { PgDataSource } from "../../../config/data-source";
-import { quoteAgentService } from "../service";
+import { PgDataSource } from "../../../config/data-source.js";
+import { quoteAgentService } from "../service.js";
 
 function readLimit() {
   const raw = process.env.QUOTE_AGENT_RENORMALIZE_LIMIT;

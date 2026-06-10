@@ -8,8 +8,8 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from "typeorm";
-import { logger } from "../../../config/logger";
-import AbstractContent from "../../../entity/AbstractContent";
+import { logger } from "../../../config/logger.js";
+import AbstractContent from "../../../entity/AbstractContent.js";
 
 type ParkingRecordType = {
   parkingRecordId: string;

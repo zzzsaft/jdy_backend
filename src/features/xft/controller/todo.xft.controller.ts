@@ -1,21 +1,21 @@
 import { Request, Response } from "express";
 import qs from "querystring";
-import { EmployeeService } from "../service/employeeService";
-import { WechatMessage } from "../../log/entity/log_message";
-import { logger } from "../../../config/logger";
+import { EmployeeService } from "../service/employeeService.js";
+import { WechatMessage } from "../../log/entity/log_message.js";
+import { logger } from "../../../config/logger.js";
 import { v4 as uuidv4 } from "uuid";
 
 import { format } from "date-fns";
-import { ReissueEvent } from "../service/atd/reissue.atd.xft.controller";
-import { BusinessTripEvent } from "../service/atd/businessTrip.atd.xft.controller";
-import { OvertimeEvent } from "../service/atd/overtime.atd.xft.controller";
-import { LeaveEvent } from "../service/atd/leave.atd.xft.controller";
-import { OutGoingEvent } from "../service/atd/outgoing";
-import { XftTask } from "../../../entity/util/xft_task";
+import { ReissueEvent } from "../service/atd/reissue.atd.xft.controller.js";
+import { BusinessTripEvent } from "../service/atd/businessTrip.atd.xft.controller.js";
+import { OvertimeEvent } from "../service/atd/overtime.atd.xft.controller.js";
+import { LeaveEvent } from "../service/atd/leave.atd.xft.controller.js";
+import { OutGoingEvent } from "../service/atd/outgoing.js";
+import { XftTask } from "../../../entity/util/xft_task.js";
 import {
   buttonCardType,
   MessageService,
-} from "../../wechat/service/messageService";
+} from "../../wechat/service/messageService.js";
 
 export class XftTaskEvent {
   url: string;

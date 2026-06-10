@@ -8,13 +8,13 @@ import {
   lastDayOfMonth,
   startOfMonth,
 } from "date-fns";
-import { XftTripCheckin } from "../../../entity/atd/business_trip_checkin";
-import { FbtApply } from "../../fbt/entity/fbt_trip_apply";
-import { Department } from "../../../entity/basic/department";
-import { User } from "../../../entity/basic/employee";
-import { JdyUtil } from "../../../utils/jdyUtils";
-import { BusinessTrip } from "../../../entity/atd/businessTrip";
-import { BusinessTripServices } from "../../xft/service/businessTripServices";
+import { XftTripCheckin } from "../../../entity/atd/business_trip_checkin.js";
+import { FbtApply } from "../../fbt/entity/fbt_trip_apply.js";
+import { Department } from "../../../entity/basic/department.js";
+import { User } from "../../../entity/basic/employee.js";
+import { JdyUtil } from "../../../utils/jdyUtils.js";
+import { BusinessTrip } from "../../../entity/atd/businessTrip.js";
+import { BusinessTripServices } from "../../xft/service/businessTripServices.js";
 import {
   And,
   Between,
@@ -24,12 +24,12 @@ import {
   MoreThanOrEqual,
   Or,
 } from "typeorm";
-import { formatDate } from "../../../utils/dateUtils";
-import { MessageService } from "../../wechat/service/messageService";
-import { businessTripService } from "../../../services/businessTripService";
-import { checkinServices } from "../../xft/service/checkinServices";
-import { jdyFormDataApiClient } from "../api/form_data";
-import { JdyTaskEvent } from "./event";
+import { formatDate } from "../../../utils/dateUtils.js";
+import { MessageService } from "../../wechat/service/messageService.js";
+import { businessTripService } from "../../../services/businessTripService.js";
+import { checkinServices } from "../../xft/service/checkinServices.js";
+import { jdyFormDataApiClient } from "../api/form_data.js";
+import { JdyTaskEvent } from "./event.js";
 
 class BusinessTripCheckinServices {
   appid = "5cfef4b5de0b2278b05c8380";

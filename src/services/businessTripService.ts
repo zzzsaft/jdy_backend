@@ -1,5 +1,5 @@
 import { LessThanOrEqual, MoreThanOrEqual } from "typeorm";
-import { BusinessTrip } from "../entity/atd/businessTrip";
+import { BusinessTrip } from "../entity/atd/businessTrip.js";
 
 class BusinessTripService {
   findBusinessTrip = async (userId, checkinDate) => {

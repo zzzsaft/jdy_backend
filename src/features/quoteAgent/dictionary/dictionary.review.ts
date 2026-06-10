@@ -1,4 +1,4 @@
-import { DataSource, Repository } from "typeorm";
+import { DataSource, In, Repository } from "typeorm";
 import {
   DictionaryAlias,
   DictionaryCandidate,
@@ -7,10 +7,10 @@ import {
   DictionaryTermTypeAlias,
   DictionaryTermTypeCandidate,
   DictionaryCandidateOccurrence,
-} from "./entity";
-import { SplitResolution } from "../entity/splitResolution.entity";
-import type { DictionaryValueKind } from "./dictionary.types";
-import { normalizeText } from "./dictionary.utils";
+} from "./entity/index.js";
+import { SplitResolution } from "../entity/splitResolution.entity.js";
+import type { DictionaryValueKind } from "./dictionary.types.js";
+import { normalizeText } from "./dictionary.utils.js";
 
 async function ensureValueAlias(params: {
   aliasRepo: Repository<DictionaryAlias>;
@@ -278,6 +278,32 @@ function doneStatus(id: string) {
   return `done_${String(id).slice(-24)}`;
 }
 
+type TermTypeBatchReviewOperation = {
+  candidateId: string;
+  action: "create_term_type" | "approve_term_type_as_alias";
+  payload: any;
+};
+
+type TermTypeCandidateBatchResult = {
+  candidateId: string;
+  action: string;
+  status: "ok" | "failed";
+  error?: string;
+};
+
+function compactStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item) => String(item ?? "").trim())
+    .filter(Boolean);
+}
+
+function sqlJson(value: unknown): string {
+  return JSON.stringify(value);
+}
+
 function isUniqueConstraintError(error: unknown): boolean {
   const candidate = error as { code?: string; message?: string };
   return (
@@ -346,6 +372,440 @@ async function saveTermTypeCandidateAsApproved(
     candidate.reason = candidate.reason ?? "merged_to_existing_reviewed_candidate";
     await candidateRepo.save(candidate);
   }
+}
+
+export async function reviewTermTypeCandidatesBatch(
+  dataSource: DataSource,
+  operations: TermTypeBatchReviewOperation[],
+): Promise<TermTypeCandidateBatchResult[]> {
+  if (operations.length === 0) {
+    return [];
+  }
+
+  const candidateRepo = dataSource.getRepository(DictionaryTermTypeCandidate);
+  const candidateIds = [...new Set(operations.map((item) => item.candidateId))];
+  const candidates = await candidateRepo.findBy({ id: In(candidateIds) });
+  const candidatesById = new Map(candidates.map((item) => [String(item.id), item]));
+
+  const requestedTermTypes = new Set<string>();
+  for (const operation of operations) {
+    const termType = String(operation.payload?.termType ?? "").trim();
+    if (termType) {
+      requestedTermTypes.add(termType);
+    }
+  }
+
+  const existingTermTypes = requestedTermTypes.size
+    ? await dataSource
+        .getRepository(DictionaryTermType)
+        .findBy({ termType: In([...requestedTermTypes]) })
+    : [];
+  const termTypesByName = new Map(
+    existingTermTypes.map((item) => [item.termType, item]),
+  );
+
+  const termTypeRows = new Map<string, any>();
+  const termTypeAliasRows = new Map<string, any>();
+  const enumValueRows = new Map<string, any>();
+  const enumValueAliasRows = new Map<string, any>();
+  const approvedKeys = new Map<string, string>();
+  const candidateUpdates: Array<{
+    id: string;
+    proposed_term_type: string | null;
+    reviewed_by: string | null;
+    reviewed_at: Date;
+    status: string;
+    reason: string | null;
+  }> = [];
+  const results: TermTypeCandidateBatchResult[] = [];
+
+  const approvedLookupRows = [
+    ...new Map(
+      candidates.map((candidate) => [
+        `${candidate.sourceProductType}\u0000${candidate.normalizedFieldName}`,
+        {
+          source_product_type: candidate.sourceProductType,
+          normalized_field_name: candidate.normalizedFieldName,
+        },
+      ]),
+    ).values(),
+  ];
+  const approvedCandidates =
+    approvedLookupRows.length > 0
+      ? await dataSource.query(
+          `
+          SELECT approved.*
+          FROM quote_agent.dictionary_term_type_candidates approved
+          JOIN jsonb_to_recordset($1::jsonb) AS input(
+            source_product_type text,
+            normalized_field_name text
+          )
+            ON approved.source_product_type = input.source_product_type
+           AND approved.normalized_field_name = input.normalized_field_name
+          WHERE approved.status = 'approved'
+          `,
+          [sqlJson(approvedLookupRows)],
+        )
+      : [];
+  for (const candidate of approvedCandidates) {
+    approvedKeys.set(
+      `${candidate.source_product_type ?? candidate.sourceProductType}\u0000${
+        candidate.normalized_field_name ?? candidate.normalizedFieldName
+      }`,
+      String(candidate.id),
+    );
+  }
+
+  for (const operation of operations) {
+    const candidate = candidatesById.get(operation.candidateId);
+    if (!candidate) {
+      results.push({
+        candidateId: operation.candidateId,
+        action: operation.action,
+        status: "failed",
+        error: `DictionaryTermTypeCandidate not found: ${operation.candidateId}`,
+      });
+      continue;
+    }
+
+    const termType = String(operation.payload?.termType ?? "").trim();
+    if (!termType) {
+      results.push({
+        candidateId: operation.candidateId,
+        action: operation.action,
+        status: "failed",
+        error: "termType is required",
+      });
+      continue;
+    }
+
+    const existingTermType = termTypesByName.get(termType);
+    if (operation.action === "approve_term_type_as_alias" && !existingTermType) {
+      results.push({
+        candidateId: operation.candidateId,
+        action: operation.action,
+        status: "failed",
+        error: `DictionaryTermType not found: ${termType}`,
+      });
+      continue;
+    }
+
+    const applicableProductTypes =
+      operation.action === "create_term_type"
+        ? normalizeApplicableProductTypes(
+            operation.payload?.applicableProductTypes,
+            candidate.sourceProductType,
+          )
+        : operation.payload?.appendApplicableProductType
+          ? appendApplicableProductType(
+              existingTermType?.applicableProductTypes,
+              candidate.sourceProductType,
+            )
+          : existingTermType?.applicableProductTypes;
+    const valueKind =
+      operation.payload?.valueKind ?? existingTermType?.valueKind ?? "enum";
+
+    if (operation.action === "create_term_type") {
+      termTypeRows.set(termType, {
+        term_type: termType,
+        display_name: String(operation.payload?.displayName ?? "").trim() || termType,
+        quote_display_name:
+          operation.payload?.quoteDisplayName === undefined
+            ? existingTermType?.quoteDisplayName ?? null
+            : String(operation.payload?.quoteDisplayName ?? "").trim() || null,
+        description:
+          operation.payload?.description === undefined
+            ? existingTermType?.description ?? null
+            : String(operation.payload?.description ?? "").trim() || null,
+        category:
+          operation.payload?.category === undefined
+            ? existingTermType?.category ?? null
+            : String(operation.payload?.category ?? "").trim() || null,
+        sort_order:
+          Number.isFinite(Number(operation.payload?.sortOrder))
+            ? Number(operation.payload.sortOrder)
+            : existingTermType?.sortOrder ?? 100,
+        value_kind: valueKind,
+        applicable_product_types: applicableProductTypes ?? [],
+      });
+    } else if (
+      operation.payload?.valueKind !== undefined ||
+      operation.payload?.appendApplicableProductType
+    ) {
+      termTypeRows.set(termType, {
+        term_type: termType,
+        display_name: existingTermType?.displayName ?? termType,
+        quote_display_name: existingTermType?.quoteDisplayName ?? null,
+        description: existingTermType?.description ?? null,
+        category: existingTermType?.category ?? null,
+        sort_order: existingTermType?.sortOrder ?? 100,
+        value_kind: valueKind,
+        applicable_product_types: applicableProductTypes ?? [],
+      });
+    }
+
+    const aliasPairs = new Map<string, string>();
+    aliasPairs.set(candidateAliasKey(candidate.rawFieldName), candidate.rawFieldName);
+    for (const aliasName of compactStringArray(operation.payload?.aliasNames)) {
+      const normalizedAliasName = candidateAliasKey(aliasName);
+      if (normalizedAliasName) {
+        aliasPairs.set(normalizedAliasName, aliasName);
+      }
+    }
+    for (const [normalizedAliasName, aliasName] of aliasPairs) {
+      termTypeAliasRows.set(normalizedAliasName, {
+        term_type: termType,
+        alias_name: aliasName,
+        normalized_alias_name: normalizedAliasName,
+      });
+    }
+
+    const valueCanonicalValue = String(
+      operation.payload?.valueCanonicalValue ?? "",
+    ).trim();
+    if ((valueKind === "enum" || valueKind === "enums") && valueCanonicalValue) {
+      const valueKey = `${termType}\u0000${valueCanonicalValue}`;
+      enumValueRows.set(valueKey, {
+        term_type: termType,
+        canonical_value: valueCanonicalValue,
+        display_name:
+          operation.payload?.valueDisplayName === undefined
+            ? null
+            : String(operation.payload?.valueDisplayName ?? "").trim() || null,
+        fallback_display_name:
+          String(operation.payload?.valueDisplayName ?? "").trim() ||
+          candidate.rawValue ||
+          valueCanonicalValue,
+      });
+
+      const valueAliases = new Map<string, string>();
+      if (candidate.rawValue) {
+        valueAliases.set(normalizeText(candidate.rawValue), candidate.rawValue);
+      }
+      for (const aliasName of compactStringArray(operation.payload?.valueAliasNames)) {
+        const normalizedAlias = normalizeText(aliasName);
+        if (normalizedAlias) {
+          valueAliases.set(normalizedAlias, aliasName);
+        }
+      }
+      for (const [normalizedAlias, aliasValue] of valueAliases) {
+        enumValueAliasRows.set(`${termType}\u0000${normalizedAlias}`, {
+          term_type: termType,
+          canonical_value: valueCanonicalValue,
+          normalized_alias: normalizedAlias,
+          alias_value: aliasValue,
+          confidence: Number(candidate.confidence ?? 0.9),
+        });
+      }
+    }
+
+    const approvedKey = `${candidate.sourceProductType}\u0000${candidate.normalizedFieldName}`;
+    const existingApprovedId = approvedKeys.get(approvedKey);
+    const status =
+      existingApprovedId && existingApprovedId !== candidate.id
+        ? doneStatus(candidate.id)
+        : "approved";
+    const reason =
+      status === "approved"
+        ? candidate.reason
+        : `merged_to_approved_candidate:${existingApprovedId}`;
+    if (status === "approved") {
+      approvedKeys.set(approvedKey, candidate.id);
+    }
+    candidateUpdates.push({
+      id: candidate.id,
+      proposed_term_type: termType,
+      reviewed_by: operation.payload?.reviewedBy ?? null,
+      reviewed_at: new Date(),
+      status,
+      reason,
+    });
+    results.push({
+      candidateId: operation.candidateId,
+      action: operation.action,
+      status: "ok",
+    });
+  }
+
+  if (candidateUpdates.length === 0) {
+    return results;
+  }
+
+  await dataSource.transaction(async (manager) => {
+    const termTypeValues = [...termTypeRows.values()];
+    if (termTypeValues.length > 0) {
+      await manager.query(
+        `
+        INSERT INTO quote_agent.dictionary_term_types(
+          term_type, display_name, quote_display_name, description, category,
+          sort_order, value_kind, applicable_product_types, is_active
+        )
+        SELECT term_type, display_name, quote_display_name, description, category,
+          sort_order, value_kind, applicable_product_types::jsonb, true
+        FROM jsonb_to_recordset($1::jsonb) AS input(
+          term_type text,
+          display_name text,
+          quote_display_name text,
+          description text,
+          category text,
+          sort_order int,
+          value_kind text,
+          applicable_product_types jsonb
+        )
+        ON CONFLICT(term_type)
+        DO UPDATE SET
+          display_name = EXCLUDED.display_name,
+          quote_display_name = EXCLUDED.quote_display_name,
+          description = EXCLUDED.description,
+          category = EXCLUDED.category,
+          sort_order = EXCLUDED.sort_order,
+          value_kind = EXCLUDED.value_kind,
+          applicable_product_types = EXCLUDED.applicable_product_types,
+          is_active = true,
+          updated_at = now()
+        `,
+        [sqlJson(termTypeValues)],
+      );
+    }
+
+    const termTypeAliasValues = [...termTypeAliasRows.values()];
+    if (termTypeAliasValues.length > 0) {
+      await manager.query(
+        `
+        INSERT INTO quote_agent.dictionary_term_type_aliases(
+          term_type, alias_name, normalized_alias_name, description, source,
+          usage_count, last_seen_at, is_active
+        )
+        SELECT term_type, alias_name, normalized_alias_name, null, 'candidate_review',
+          0, null, true
+        FROM jsonb_to_recordset($1::jsonb) AS input(
+          term_type text,
+          alias_name text,
+          normalized_alias_name text
+        )
+        ON CONFLICT(normalized_alias_name)
+        DO UPDATE SET
+          term_type = EXCLUDED.term_type,
+          alias_name = EXCLUDED.alias_name,
+          source = 'candidate_review',
+          is_active = true,
+          updated_at = now()
+        WHERE quote_agent.dictionary_term_type_aliases.is_active = false
+        `,
+        [sqlJson(termTypeAliasValues)],
+      );
+    }
+
+    const enumValueValues = [...enumValueRows.values()];
+    if (enumValueValues.length > 0) {
+      await manager.query(
+        `
+        INSERT INTO quote_agent.dictionary_terms(
+          term_type, canonical_value, display_name, description, is_active
+        )
+        SELECT term_type, canonical_value, COALESCE(display_name, fallback_display_name), null, true
+        FROM jsonb_to_recordset($1::jsonb) AS input(
+          term_type text,
+          canonical_value text,
+          display_name text,
+          fallback_display_name text
+        )
+        ON CONFLICT(term_type, canonical_value) DO NOTHING
+        `,
+        [sqlJson(enumValueValues)],
+      );
+
+      await manager.query(
+        `
+        UPDATE quote_agent.dictionary_terms target
+        SET
+          is_active = true,
+          display_name = CASE
+            WHEN input.display_name IS NULL THEN target.display_name
+            ELSE input.display_name
+          END,
+          updated_at = now()
+        FROM jsonb_to_recordset($1::jsonb) AS input(
+          term_type text,
+          canonical_value text,
+          display_name text
+        )
+        WHERE target.term_type = input.term_type
+          AND target.canonical_value = input.canonical_value
+        `,
+        [sqlJson(enumValueValues)],
+      );
+    }
+
+    const enumValueAliasValues = [...enumValueAliasRows.values()];
+    if (enumValueAliasValues.length > 0) {
+      await manager.query(
+        `
+        WITH input_rows AS (
+          SELECT *
+          FROM jsonb_to_recordset($1::jsonb) AS input(
+            term_type text,
+            canonical_value text,
+            normalized_alias text,
+            alias_value text,
+            confidence numeric
+          )
+        ),
+        resolved_rows AS (
+          SELECT input_rows.*, terms.id AS term_id
+          FROM input_rows
+          JOIN quote_agent.dictionary_terms terms
+            ON terms.term_type = input_rows.term_type
+           AND terms.canonical_value = input_rows.canonical_value
+        )
+        INSERT INTO quote_agent.dictionary_aliases(
+          term_id, term_type, alias_value, normalized_alias, confidence, source,
+          usage_count, last_seen_at, risk_level, note, is_active
+        )
+        SELECT term_id, term_type, alias_value, normalized_alias,
+          COALESCE(confidence, 0.9), 'candidate_review', 0, null, 'normal', null, true
+        FROM resolved_rows
+        ON CONFLICT(term_type, normalized_alias)
+        DO UPDATE SET
+          term_id = EXCLUDED.term_id,
+          alias_value = EXCLUDED.alias_value,
+          confidence = EXCLUDED.confidence,
+          source = 'candidate_review',
+          risk_level = 'normal',
+          is_active = true,
+          updated_at = now()
+        WHERE quote_agent.dictionary_aliases.is_active = false
+          OR quote_agent.dictionary_aliases.term_id IS DISTINCT FROM EXCLUDED.term_id
+        `,
+        [sqlJson(enumValueAliasValues)],
+      );
+    }
+
+    await manager.query(
+      `
+      UPDATE quote_agent.dictionary_term_type_candidates target
+      SET
+        proposed_term_type = input.proposed_term_type,
+        reviewed_by = input.reviewed_by,
+        reviewed_at = input.reviewed_at,
+        status = input.status,
+        reason = input.reason,
+        updated_at = now()
+      FROM jsonb_to_recordset($1::jsonb) AS input(
+        id bigint,
+        proposed_term_type text,
+        reviewed_by text,
+        reviewed_at timestamp,
+        status text,
+        reason text
+      )
+      WHERE target.id = input.id
+      `,
+      [sqlJson(candidateUpdates)],
+    );
+  });
+
+  return results;
 }
 
 export async function approveValueCandidateAsAlias(

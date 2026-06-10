@@ -1,16 +1,16 @@
 import "reflect-metadata";
 import { BaseEntity } from "typeorm";
-import { PgDataSource } from "../../config/data-source";
+import { PgDataSource } from "../../config/data-source.js";
 import {
   DictionaryService,
   type DictionaryValueKind,
   type NormalizedFieldResult,
-} from "./dictionary/dictionary.service";
+} from "./dictionary/dictionary.service.js";
 import type {
   LlmExtractionItem,
   LlmExtractionResult,
   LlmRawField,
-} from "./llm/types";
+} from "./llm/types.js";
 
 const localFilePath =
   "/Users/zzzsaft/Documents/生产明细单/jxyxbyy/2023/生产明细（231411）2023-06-10-1900mmCPE流延膜手动模头.xls";
@@ -396,7 +396,7 @@ async function buildLlmDictionaryTestResult(params: {
 async function testLlmWithDictionary(
   params: TestLlmWithDictionaryParams
 ): Promise<LlmDictionaryTestResult> {
-  const { quoteAgentService } = await import("./service");
+  const { quoteAgentService } = await import("./service.js");
   const dictionaryService = new DictionaryService(PgDataSource);
   let documentId = params.documentId;
   let extractionResultId = params.extractionResultId;
@@ -437,7 +437,7 @@ export async function main() {
     BaseEntity.useDataSource(PgDataSource);
   }
 
-  const { quoteAgentService } = await import("./service");
+  const { quoteAgentService } = await import("./service.js");
 
   const result = await quoteAgentService.process({
     filePath: localFilePath,

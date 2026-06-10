@@ -7,8 +7,9 @@ import {
   OneToOne,
   PrimaryGeneratedColumn,
 } from "typeorm";
-import { DocumentBlocks } from "./documentBlocks.entity";
-import { ExtractionResults } from "./extractionResults.entity";
+import type { Relation } from "typeorm";
+import { DocumentBlocks } from "./documentBlocks.entity.js";
+import { ExtractionResults } from "./extractionResults.entity.js";
 
 @Entity({ name: "documents", schema: "quote_agent" })
 export class Documents extends BaseEntity {
@@ -34,8 +35,8 @@ export class Documents extends BaseEntity {
   createdAt: Date;
 
   @OneToOne(() => DocumentBlocks, (blocks) => blocks.document)
-  blocks: DocumentBlocks;
+  blocks: Relation<DocumentBlocks>;
 
   @OneToMany(() => ExtractionResults, (result) => result.document)
-  extractionResults: ExtractionResults[];
+  extractionResults: Relation<ExtractionResults[]>;
 }

@@ -1,7 +1,7 @@
-import { User } from "../../entity/basic/employee";
-import { JdyUtil } from "../../utils/jdyUtils";
-import { defaultWechatCorpConfig } from "../../features/wechat/wechatCorps";
-import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
+import { User } from "../../entity/basic/employee.js";
+import { JdyUtil } from "../../utils/jdyUtils.js";
+import { defaultWechatCorpConfig } from "../../features/wechat/wechatCorps.js";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data.js";
 
 class EmployeeService {
   appid = "5cfef4b5de0b2278b05c8380";

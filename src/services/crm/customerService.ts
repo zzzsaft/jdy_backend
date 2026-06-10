@@ -1,12 +1,12 @@
-import { tycApiClient } from "../../api/tianyacha/app";
-import { Log } from "../../features/log/entity/log";
-import { CustomerInfo } from "../../entity/crm/customerInfo";
-import { JdyUtil } from "../../utils/jdyUtils";
-import { Customer } from "../../entity/crm/customer";
+import { tycApiClient } from "../../api/tianyacha/app.js";
+import { Log } from "../../features/log/entity/log.js";
+import { CustomerInfo } from "../../entity/crm/customerInfo.js";
+import { JdyUtil } from "../../utils/jdyUtils.js";
+import { Customer } from "../../entity/crm/customer.js";
 import { Like } from "typeorm";
 import _ from "lodash";
-import { jsontoSheet } from "../../utils/excelUtils";
-import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
+import { jsontoSheet } from "../../utils/excelUtils.js";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data.js";
 
 export const provinces = [
   "北京市",

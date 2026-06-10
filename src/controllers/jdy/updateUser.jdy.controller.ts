@@ -1,10 +1,10 @@
-import { User } from "../../entity/basic/employee";
-import { EmployeeService } from "../../features/xft/service/employeeService";
+import { User } from "../../entity/basic/employee.js";
+import { EmployeeService } from "../../features/xft/service/employeeService.js";
 import { format } from "date-fns";
-import { isTaskFinished } from "./jdyUtil";
-import { EmployeeLifecycle } from "../../entity/basic/employee_lifecycle";
-import { xftUserApiClient } from "../../features/xft/api/xft_user";
-import { xftSalaryApiClient } from "../../features/xft/api/xft_salary";
+import { isTaskFinished } from "./jdyUtil.js";
+import { EmployeeLifecycle } from "../../entity/basic/employee_lifecycle.js";
+import { xftUserApiClient } from "../../features/xft/api/xft_user.js";
+import { xftSalaryApiClient } from "../../features/xft/api/xft_salary.js";
 
 export const 转正 = async (data) => {
   const bool = await isTaskFinished(data["_id"]);

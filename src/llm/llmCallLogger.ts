@@ -1,5 +1,5 @@
-import { PgDataSource } from "../config/data-source";
-import { LlmCallLog } from "./entity/llmCallLog.entity";
+import { PgDataSource } from "../config/data-source.js";
+import { LlmCallLog } from "./entity/llmCallLog.entity.js";
 
 export type LlmCallLogStartParams = {
   provider: string;

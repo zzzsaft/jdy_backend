@@ -1,11 +1,11 @@
 import * as crypto from "crypto";
 import { Request, Response } from "express";
-import { getHandlers } from "./jdy.registry";
-import { opportunityServices } from "../../services/crm/opportunityService";
-import { supplierGatherService } from "../../services/srm/supplierGatherService";
-import { followService } from "../../services/crm/followService";
-import { contactService } from "../../services/crm/contactService";
-import { quoteService } from "../../services/crm/quoteService";
+import { getHandlers } from "./jdy.registry.js";
+import { opportunityServices } from "../../services/crm/opportunityService.js";
+import { supplierGatherService } from "../../services/srm/supplierGatherService.js";
+import { followService } from "../../services/crm/followService.js";
+import { contactService } from "../../services/crm/contactService.js";
+import { quoteService } from "../../services/crm/quoteService.js";
 
 function getSignature(
   nonce: string,

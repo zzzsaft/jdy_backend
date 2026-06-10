@@ -8,8 +8,8 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from "typeorm";
-import { User } from "../basic/employee";
-import { Department } from "../basic/department";
+import { User } from "../basic/employee.js";
+import { Department } from "../basic/department.js";
 
 @Entity("atd_xft_overtime")
 export class XftAtdOvertime extends BaseEntity {

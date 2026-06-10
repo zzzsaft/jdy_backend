@@ -1,11 +1,11 @@
 import _ from "lodash";
-import { XftTripCheckin } from "../../entity/atd/business_trip_checkin";
-import { Quote, QuoteItem } from "../../entity/crm/quote";
-import { WechatMessage } from "../../features/log/entity/log_message";
-import { JdyUtil } from "../../utils/jdyUtils";
-import { businessTripCheckinServices } from "../../features/jdy/service/businessTripCheckinServices";
-import { MessageService } from "../../features/wechat/service/messageService";
-import { checkinServices } from "../../features/xft/service/checkinServices";
+import { XftTripCheckin } from "../../entity/atd/business_trip_checkin.js";
+import { Quote, QuoteItem } from "../../entity/crm/quote.js";
+import { WechatMessage } from "../../features/log/entity/log_message.js";
+import { JdyUtil } from "../../utils/jdyUtils.js";
+import { businessTripCheckinServices } from "../../features/jdy/service/businessTripCheckinServices.js";
+import { MessageService } from "../../features/wechat/service/messageService.js";
+import { checkinServices } from "../../features/xft/service/checkinServices.js";
 import {
   getManager,
   In,
@@ -15,15 +15,15 @@ import {
   LessThan,
   MoreThan,
 } from "typeorm";
-import { customerServices } from "./customerService";
-import { PgDataSource } from "../../config/data-source";
-import { Customer } from "../../entity/crm/customer";
-import { jctimesContractApiClient } from "../../api/jctimes/contract";
-import { downloadFile } from "../../utils/fileUtils";
-import { ruleService } from "./ruleService";
-import { similarity } from "../../utils/stringUtils";
-import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
-import { workflowApiClient } from "../../features/jdy/api/workflow";
+import { customerServices } from "./customerService.js";
+import { PgDataSource } from "../../config/data-source.js";
+import { Customer } from "../../entity/crm/customer.js";
+import { jctimesContractApiClient } from "../../api/jctimes/contract.js";
+import { downloadFile } from "../../utils/fileUtils.js";
+import { ruleService } from "./ruleService.js";
+import { similarity } from "../../utils/stringUtils.js";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data.js";
+import { workflowApiClient } from "../../features/jdy/api/workflow.js";
 
 class QuoteService {
   appid = "6191e49fc6c18500070f60ca";

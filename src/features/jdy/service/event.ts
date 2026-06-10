@@ -1,13 +1,13 @@
 import { format } from "date-fns";
-import { WechatMessage } from "../../log/entity/log_message";
-import { User } from "../../../entity/basic/employee";
+import { WechatMessage } from "../../log/entity/log_message.js";
+import { User } from "../../../entity/basic/employee.js";
 import qs from "querystring";
-import { JdyUtil } from "../../../utils/jdyUtils";
+import { JdyUtil } from "../../../utils/jdyUtils.js";
 import {
   buttonCardType,
   MessageService,
-} from "../../wechat/service/messageService";
-import { workflowApiClient } from "../api/workflow";
+} from "../../wechat/service/messageService.js";
+import { workflowApiClient } from "../api/workflow.js";
 
 export class JdyTaskEvent {
   url: string;

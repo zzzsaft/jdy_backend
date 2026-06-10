@@ -1,4 +1,4 @@
-import {
+import type {
   DeepSeekExtractResult,
   LlmExtractionItem,
   LlmExtractionResult,
@@ -6,7 +6,7 @@ import {
   LlmProductTypeHint,
   LlmRawField,
   LlmSplitField,
-} from "./types";
+} from "./types.js";
 
 type JsonObject = Record<string, unknown>;
 

@@ -8,7 +8,7 @@ import {
   Unique,
   UpdateDateColumn,
 } from "typeorm";
-import type { DictionaryValueKind } from "../dictionary.types";
+import type { DictionaryValueKind } from "../dictionary.types.js";
 
 @Entity({ name: "dictionary_term_types", schema: "quote_agent" })
 @Unique(["termType"])

@@ -1,5 +1,5 @@
-import { ApiClient } from "./api_client";
-import { token, token_crm } from "./token";
+import { ApiClient } from "./api_client.js";
+import { token, token_crm } from "./token.js";
 
 class UserApiClient extends ApiClient {
   async getUserInfo(code: string, setToken: "hr" | "crm" = "hr") {

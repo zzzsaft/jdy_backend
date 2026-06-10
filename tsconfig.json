@@ -1,21 +1,22 @@
 {
-   "compilerOptions": {
-      // "lib": [
-      //    "ES2015"
-      // ],
-      "strictNullChecks": true,
-      "target": "ES2022",
-      "module": "CommonJS",
-      "moduleResolution": "node",
-      "outDir": "./build",
-      "emitDecoratorMetadata": true,
-      "experimentalDecorators": true,
-      "sourceMap": false,
-      "esModuleInterop": true,
-      "allowSyntheticDefaultImports": true,
-   },
-   "ts-node": {
+  "compilerOptions": {
+    // "lib": [
+    //    "ES2015"
+    // ],
+    "strictNullChecks": true,
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "node16",
+    "outDir": "./build",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "sourceMap": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "ts-node": {
     "esm": true,
-    "experimentalSpecifierResolution": "node"
-}
+    "experimentalSpecifierResolution": "node",
+    "transpileOnly": true
+  }
 }

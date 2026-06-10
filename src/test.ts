@@ -1,9 +1,9 @@
-import "./config/env";
-import "./config/logger";
-import { PgDataSource } from "./config/data-source";
-import { customerServices } from "./services/crm/customerService";
-import { trafficService } from "./services/entryService";
-import { testLoginUrl } from "./features/xft/controller/login.xft.controller";
+import "./config/env.js";
+import "./config/logger.js";
+import { PgDataSource } from "./config/data-source.js";
+import { customerServices } from "./services/crm/customerService.js";
+import { trafficService } from "./services/entryService.js";
+import { testLoginUrl } from "./features/xft/controller/login.xft.controller.js";
 import {
   createBTcheckin,
   handleWechat,
@@ -22,13 +22,13 @@ import {
   检查分贝通未导入id,
   测试补卡记录,
   // 测试补卡记录,
-} from "./temp";
-import { FbtApply } from "./features/fbt/entity/fbt_trip_apply";
-import { GetFbtApply, XftTripLog } from "./schedule/getFbtApply";
-import { XftCity } from "./entity/util/xft_city";
-import { LogCheckin } from "./features/log/entity/log_checkin";
-import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-import { parkingApiClient } from "./features/vehicle/api/app";
+} from "./temp.js";
+import { FbtApply } from "./features/fbt/entity/fbt_trip_apply.js";
+import { GetFbtApply, XftTripLog } from "./schedule/getFbtApply.js";
+import { XftCity } from "./entity/util/xft_city.js";
+import { LogCheckin } from "./features/log/entity/log_checkin.js";
+import { 转正 } from "./controllers/jdy/updateUser.jdy.controller.js";
+import { parkingApiClient } from "./features/vehicle/api/app.js";
 // customerServices.reviseAllJdy().then(() => {});
 
 PgDataSource.initialize()
@@ -160,53 +160,53 @@ PgDataSource.initialize()
 // const a = await xftOAApiClient.getFormBussinesData();
 // console.log(new Date().getTime().toString());
 // console.log(await testLoginUrl("WuFeng"));
-import { Department } from "./entity/basic/department";
-import { SendTripCheckin } from "./schedule/sendTripCheckin";
-import { JdyForm } from "./entity/util/jdy_form";
+import { Department } from "./entity/basic/department.js";
+import { SendTripCheckin } from "./schedule/sendTripCheckin.js";
+import { JdyForm } from "./entity/util/jdy_form.js";
 import {
   sendMessage,
   updateNextBusinessTrip,
-} from "./features/jdy/service/businessTripCheckinServices";
-import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
-import { BusinessTripServices } from "./features/xft/service/businessTripServices";
+} from "./features/jdy/service/businessTripCheckinServices.js";
+import { XftTripCheckin } from "./entity/atd/business_trip_checkin.js";
+import { BusinessTripServices } from "./features/xft/service/businessTripServices.js";
 import {
   checkinServices,
   获取未排班人员,
-} from "./features/xft/service/checkinServices";
-import { insertWidgets } from "./features/jdy/service/widgetServices";
-import { quotaServices } from "./features/xft/service/quotaServices";
-import { sendXftTodoList } from "./schedule/sendXftTask";
-import { jctimesApiClient } from "./api/jctimes/app";
-import { personApiClient } from "./features/dahua/api/person";
-import { deleteDahuaId, updateDahua } from "./features/dahua/service/dahuaServices";
-import { atdClassService } from "./features/xft/service/atdClass.services";
-import { dayResultServices } from "./features/xft/service/dayResultServices";
-import { XftTaskEvent } from "./features/xft/controller/todo.xft.controller";
+} from "./features/xft/service/checkinServices.js";
+import { insertWidgets } from "./features/jdy/service/widgetServices.js";
+import { quotaServices } from "./features/xft/service/quotaServices.js";
+import { sendXftTodoList } from "./schedule/sendXftTask.js";
+import { jctimesApiClient } from "./api/jctimes/app.js";
+import { personApiClient } from "./features/dahua/api/person.js";
+import { deleteDahuaId, updateDahua } from "./features/dahua/service/dahuaServices.js";
+import { atdClassService } from "./features/xft/service/atdClass.services.js";
+import { dayResultServices } from "./features/xft/service/dayResultServices.js";
+import { XftTaskEvent } from "./features/xft/controller/todo.xft.controller.js";
 import {
   addExistRecord,
   addExistToXft,
   createShiftExcel,
   restOvertimeServices,
-} from "./features/jdy/service/restOvertimeServices";
+} from "./features/jdy/service/restOvertimeServices.js";
 
-import { addChengJiangCar } from "./features/vehicle/services/vehicleService";
-import { JdyRestOvertime } from "./entity/atd/jdy_rest_overtime";
+import { addChengJiangCar } from "./features/vehicle/services/vehicleService.js";
+import { JdyRestOvertime } from "./entity/atd/jdy_rest_overtime.js";
 import { BaseEntity, IsNull, MoreThan, Not } from "typeorm";
-import { testLocations } from "./features/wechat/controller/wechat.controller";
-import { gaoDeApiClient } from "./api/gaode/app";
+import { testLocations } from "./features/wechat/controller/wechat.controller.js";
+import { gaoDeApiClient } from "./api/gaode/app.js";
 import {
   locationService,
   testLocation,
   testLocation1,
-} from "./services/locationService";
-import { handleContactEvent } from "./features/wechat/controller/contact.wechat.controller";
+} from "./services/locationService.js";
+import { handleContactEvent } from "./features/wechat/controller/contact.wechat.controller.js";
 import { format } from "date-fns";
-import { searchServices } from "./services/crm/searchService";
-import { CustomerSearch } from "./entity/crm/customerSearch";
-import { User } from "./entity/basic/employee";
+import { searchServices } from "./services/crm/searchService.js";
+import { CustomerSearch } from "./entity/crm/customerSearch.js";
+import { User } from "./entity/basic/employee.js";
 
-import { Log } from "./features/log/entity/log";
-import { importErrorAtd } from "./schedule/getCheckinData";
+import { Log } from "./features/log/entity/log.js";
+import { importErrorAtd } from "./schedule/getCheckinData.js";
 
 // await handleContactEvent(
 //   {
@@ -224,8 +224,8 @@ import { importErrorAtd } from "./schedule/getCheckinData";
 // import { attt } from "./controllers/xft/event.xft.controller";
 // import { LogCheckin } from "./entity/common/log_checkin";
 // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
-// import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
-// import { parkingApiClient } from "./features/vehicle/api/app";
+// import { 转正 } from "./controllers/jdy/updateUser.jdy.controller.js";
+// import { parkingApiClient } from "./features/vehicle/api/app.js";
 // // const a = await workflowApiClient.workflowInstanceGet(
 // //   "670c27ca3f18ccc122114ddb"
 // // );
@@ -291,16 +291,16 @@ import { importErrorAtd } from "./schedule/getCheckinData";
 // // const a = await xftOAApiClient.getFormBussinesData();
 // // console.log(new Date().getTime().toString());
 // // console.log(await testLoginUrl("WuFeng"));
-// import { Department } from "./entity/basic/department";
-// import { SendTripCheckin } from "./schedule/sendTripCheckin";
-// import { JdyForm } from "./entity/util/jdy_form";
+// import { Department } from "./entity/basic/department.js";
+// import { SendTripCheckin } from "./schedule/sendTripCheckin.js";
+// import { JdyForm } from "./entity/util/jdy_form.js";
 // import { workflowApiClient } from "./api/jdy/workflow";
 // import {
 //   BusinessTripCheckinServices,
 //   sendMessage,
 //   updateNextBusinessTrip,
 // } from "./services/jdy/businessTripCheckinServices";
-// import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
+// import { XftTripCheckin } from "./entity/atd/business_trip_checkin.js";
 // import { BusinessTripServices } from "./services/xft/businessTripServices";
 // import { 获取未排班人员 } from "./services/xft/checkinServices";
 // import { insertWidgets } from "./services/jdy/formServices";
@@ -308,7 +308,7 @@ import { importErrorAtd } from "./schedule/getCheckinData";
 // // import { attt } from "./controllers/xft/event.xft.controller";
 // // import { LogCheckin } from "./entity/common/log_checkin";
 // // import { xftSalaryApiClient } from "./utils/xft/xft_salary";
-// // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller";
+// // import { 转正 } from "./controllers/jdy/updateUser.jdy.controller.js";
 // // await User.updateUser();
 // // await syncUser();
 // // console.log(testLoginUrl("f46bfca930da3f09a765"));

@@ -1,5 +1,5 @@
-import { EmployeeLifecycle } from "../../entity/basic/employee_lifecycle";
-import { SalaryRecord } from "../../entity/basic/salary-record";
+import { EmployeeLifecycle } from "../../entity/basic/employee_lifecycle.js";
+import { SalaryRecord } from "../../entity/basic/salary-record.js";
 export const 入职申请表 = async (data) => {
   await SalaryRecord.addRecord({
     userid: data["_widget_1720801227437"],

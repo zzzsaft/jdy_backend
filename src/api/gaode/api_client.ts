@@ -1,8 +1,8 @@
 import _ from "lodash";
 import axios from "axios";
 import qs from "querystring";
-import { logger } from "../../config/logger";
-import { IRequestOptions } from "../../type/IType";
+import { logger } from "../../config/logger.js";
+import { IRequestOptions } from "../../type/IType.js";
 
 export class ApiClient {
   host: string;

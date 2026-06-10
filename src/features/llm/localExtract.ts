@@ -1,9 +1,9 @@
-import { getLocalModelClient, requestLocalModelJson } from "./localModelClient";
+import { getLocalModelClient, requestLocalModelJson } from "./localModelClient.js";
 import {
   parseJsonContent,
   validateLlmExtractionResult,
-} from "./parseDeepSeekExtractResult";
-import { LlmExtractParams, LlmExtractResult } from "./types";
+} from "./parseDeepSeekExtractResult.js";
+import type { LlmExtractParams, LlmExtractResult } from "./types.js";
 
 export async function extractProductConfigWithLocalModel(
   params: LlmExtractParams,

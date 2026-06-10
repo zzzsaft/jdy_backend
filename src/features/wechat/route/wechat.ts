@@ -3,7 +3,7 @@ import {
   syncAllWechatUsers,
   wechatWebHook,
   wechatWebHookCheck,
-} from "../controller/wechat.controller";
+} from "../controller/wechat.controller.js";
 
 export const WechatRoutes = [
   {

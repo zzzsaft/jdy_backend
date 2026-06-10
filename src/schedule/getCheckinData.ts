@@ -1,19 +1,19 @@
 import _ from "lodash";
-import { IDataQueryOption } from "../features/jdy/type/IOptions";
+import { IDataQueryOption } from "../features/jdy/type/IOptions.js";
 import {
   checkinApiClient,
   HardwareCheckinData as HardwareCheckin,
-} from "../features/wechat/api/chekin";
-import { HardwareCheckinData } from "../entity/atd/wx_hardware_checkin_data";
-import { CheckinData } from "../entity/atd/checkin_data";
+} from "../features/wechat/api/chekin.js";
+import { HardwareCheckinData } from "../entity/atd/wx_hardware_checkin_data.js";
+import { CheckinData } from "../entity/atd/checkin_data.js";
 import { Between, Equal, In, Not } from "typeorm";
-import { User } from "../entity/basic/employee";
-import { jctimesApiClient } from "../api/jctimes/app";
-import { LogCheckin } from "../features/log/entity/log_checkin";
-import { getLastDate } from "../features/log/service/logCheckinService";
+import { User } from "../entity/basic/employee.js";
+import { jctimesApiClient } from "../api/jctimes/app.js";
+import { LogCheckin } from "../features/log/entity/log_checkin.js";
+import { getLastDate } from "../features/log/service/logCheckinService.js";
 import { format } from "date-fns";
-import { Checkin } from "../entity/atd/checkin";
-import { xftatdApiClient } from "../features/xft/api/xft_atd";
+import { Checkin } from "../entity/atd/checkin.js";
+import { xftatdApiClient } from "../features/xft/api/xft_atd.js";
 
 class GetCheckinData {
   twoDaysInSeconds = 2 * 24 * 60 * 60;

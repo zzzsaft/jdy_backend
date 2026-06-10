@@ -1,3 +1,3 @@
-import { PgDataSource } from "./data-source";
+import { PgDataSource } from "./data-source.js";
 
 export default PgDataSource;

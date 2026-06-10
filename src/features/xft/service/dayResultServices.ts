@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { User } from "../../../entity/basic/employee";
+import { User } from "../../../entity/basic/employee.js";
 import {
   addDays,
   endOfDay,
@@ -9,10 +9,10 @@ import {
   startOfDay,
   startOfMonth,
 } from "date-fns";
-import { AtdDayResult } from "../../../entity/atd/day_result";
-import { logger } from "../../../config/logger";
+import { AtdDayResult } from "../../../entity/atd/day_result.js";
+import { logger } from "../../../config/logger.js";
 import { Between } from "typeorm";
-import { xftatdApiClient } from "../api/xft_atd";
+import { xftatdApiClient } from "../api/xft_atd.js";
 
 class DayResultServices {
   getDayResult = async (date: Date = new Date()) => {

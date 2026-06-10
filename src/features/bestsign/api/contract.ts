@@ -1,4 +1,4 @@
-import { ApiClient } from "./api_client";
+import { ApiClient } from "./api_client.js";
 
 class ContractApiClient extends ApiClient {
   async SendContractByTemplate(payload: {

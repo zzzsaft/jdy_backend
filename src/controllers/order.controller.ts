@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
-import { logger } from "../config/logger";
-import { jctimesContractApiClient } from "../api/jctimes/contract";
-import { Quote } from "../entity/crm/quote";
-import { Customer } from "../entity/crm/customer";
+import { logger } from "../config/logger.js";
+import { jctimesContractApiClient } from "../api/jctimes/contract.js";
+import { Quote } from "../entity/crm/quote.js";
+import { Customer } from "../entity/crm/customer.js";
 
 export const getOrderInfo = async (request: Request, response: Response) => {
   const orderId = request.query.orderId as string;

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { authService } from "../../../services/authService";
-import { opportunityServices } from "../../../services/crm/opportunityService";
+import { authService } from "../../../services/authService.js";
+import { opportunityServices } from "../../../services/crm/opportunityService.js";
 const getOpportunity = async (request: Request, response: Response) => {
   const userid = (await authService.verifyToken(request))?.userId;
   if (!userid) {

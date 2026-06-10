@@ -2,7 +2,7 @@ import {
   getAppList,
   getEntryList,
   getFormWidgets,
-} from "../../controllers/frontend/jdy.controller";
+} from "../../controllers/frontend/jdy.controller.js";
 
 export const JdyRoutes = [
   {

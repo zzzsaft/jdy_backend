@@ -1,12 +1,12 @@
 import { Repository } from "typeorm";
 import _ from "lodash";
-import { ExternalContact, FollowUser } from "../../entity/crm/externalContact";
-import { PgDataSource } from "../../config/data-source";
-import { jctimesApiClient } from "../../api/jctimes/app";
-import { Contact } from "../../entity/crm/contact";
-import { JdyUtil } from "../../utils/jdyUtils";
-import { jctimesContractApiClient } from "../../api/jctimes/contract";
-import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
+import { ExternalContact, FollowUser } from "../../entity/crm/externalContact.js";
+import { PgDataSource } from "../../config/data-source.js";
+import { jctimesApiClient } from "../../api/jctimes/app.js";
+import { Contact } from "../../entity/crm/contact.js";
+import { JdyUtil } from "../../utils/jdyUtils.js";
+import { jctimesContractApiClient } from "../../api/jctimes/contract.js";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data.js";
 
 const ADD_WAY_MAP = {
   0: "未知来源",

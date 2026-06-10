@@ -1,14 +1,14 @@
 import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 
 import _ from "lodash";
-import { XftAtdLeave } from "../../../../entity/atd/xft_leave";
-import { User } from "../../../../entity/basic/employee";
-import { XftTaskEvent } from "../../controller/todo.xft.controller";
-import { getDifference, isAfterTime } from "../../../../utils/dateUtils";
-import { MessageService } from "../../../wechat/service/messageService";
-import { xftatdApiClient } from "../../api/xft_atd";
-import { xftOAApiClient } from "../../api/xft_oa";
-import { quotaServices } from "../quotaServices";
+import { XftAtdLeave } from "../../../../entity/atd/xft_leave.js";
+import { User } from "../../../../entity/basic/employee.js";
+import { XftTaskEvent } from "../../controller/todo.xft.controller.js";
+import { getDifference, isAfterTime } from "../../../../utils/dateUtils.js";
+import { MessageService } from "../../../wechat/service/messageService.js";
+import { xftatdApiClient } from "../../api/xft_atd.js";
+import { xftOAApiClient } from "../../api/xft_oa.js";
+import { quotaServices } from "../quotaServices.js";
 
 // In-memory idempotency guard for short-interval duplicate callbacks.
 // Keyed by businessParam (busKey). TTL keeps memory bounded.

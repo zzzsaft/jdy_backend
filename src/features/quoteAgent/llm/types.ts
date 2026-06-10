@@ -1,4 +1,4 @@
-import type { LlmDictionaryContext } from "../dictionary/dictionary.service";
+import type { LlmDictionaryContext } from "../dictionary/dictionary.service.js";
 
 export interface LlmFieldValue {
   value: string;

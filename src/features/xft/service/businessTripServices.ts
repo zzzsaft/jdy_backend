@@ -10,13 +10,13 @@ import {
   adjustToTimeNode,
   formatDate,
   getHalfDay,
-} from "../../../utils/dateUtils";
-import { BusinessTrip } from "../../../entity/atd/businessTrip";
-import { FbtApply } from "../../fbt/entity/fbt_trip_apply";
+} from "../../../utils/dateUtils.js";
+import { BusinessTrip } from "../../../entity/atd/businessTrip.js";
+import { FbtApply } from "../../fbt/entity/fbt_trip_apply.js";
 import { Between, LessThanOrEqual, Like, MoreThanOrEqual } from "typeorm";
 import _ from "lodash";
-import { MessageService } from "../../wechat/service/messageService";
-import { xftatdApiClient } from "../api/xft_atd";
+import { MessageService } from "../../wechat/service/messageService.js";
+import { xftatdApiClient } from "../api/xft_atd.js";
 
 export class BusinessTripServices {
   static async scheduleCreate(date: Date = new Date()) {

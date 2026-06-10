@@ -1,17 +1,17 @@
-import { getDeepSeekClient, requestDeepSeekJson } from "../../../llm";
+import { getDeepSeekClient, requestDeepSeekJson } from "../../../llm/index.js";
 import {
   parseJsonContent,
   validateLlmExtractionResult,
-} from "./parseExtractResult";
-import { DeepSeekExtractParams, DeepSeekExtractResult } from "./types";
+} from "./parseExtractResult.js";
+import type { DeepSeekExtractParams, DeepSeekExtractResult } from "./types.js";
 import type {
   DictionaryService,
   LlmDictionaryContext,
-} from "../dictionary/dictionary.service";
+} from "../dictionary/dictionary.service.js";
 import {
   buildExtractionMessages,
   buildExtractionRetryMessages,
-} from "./prompts";
+} from "./prompts.js";
 
 export async function buildDictionaryContext(
   dictionaryService: DictionaryService
@@ -55,4 +55,4 @@ export async function extractProductConfigWithDeepSeek(
   }
 }
 
-export { DeepSeekExtractParams, DeepSeekExtractResult } from "./types";
+export type { DeepSeekExtractParams, DeepSeekExtractResult } from "./types.js";

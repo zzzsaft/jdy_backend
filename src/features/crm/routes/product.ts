@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { productService } from "../../../services/crm/productService";
-import { partService } from "../../../services/crm/partService";
-import { authService } from "../../../services/authService";
+import { productService } from "../../../services/crm/productService.js";
+import { partService } from "../../../services/crm/partService.js";
+import { authService } from "../../../services/authService.js";
 
 const searchProducts = async (request: Request, response: Response) => {
   const userid = (await authService.verifyToken(request))?.userId;
@@ -58,7 +58,15 @@ export const ProductRoutes = [
         response.status(401).send("Unauthorized");
         return;
       }
-      const category = await productService.getPump();
+      const model =
+        (request.query.model as string) ??
+        (request.query.keyword as string) ??
+        (request.query.q as string) ??
+        "";
+      const category = await productService.getPump({
+        model,
+        exact: request.query.exact === "true",
+      });
       response.send(category);
     },
   },
@@ -71,7 +79,15 @@ export const ProductRoutes = [
         response.status(401).send("Unauthorized");
         return;
       }
-      const data = await productService.getFilter();
+      const model =
+        (request.query.model as string) ??
+        (request.query.keyword as string) ??
+        (request.query.q as string) ??
+        "";
+      const data = await productService.getFilter({
+        model,
+        exact: request.query.exact === "true",
+      });
       response.send(data);
     },
   },

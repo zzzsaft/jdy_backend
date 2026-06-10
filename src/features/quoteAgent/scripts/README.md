@@ -22,21 +22,6 @@ XH 请求会通过 `Authorization: Bearer <XH_AUTH_TOKEN>` 发送。
 
 如果数据库还没有这个字段，先手动执行：
 
-```sql
-ALTER TABLE quote_agent.extraction_results
-ADD COLUMN IF NOT EXISTS llm_plan_json jsonb;
-
-CREATE INDEX IF NOT EXISTS idx_extraction_results_llm_plan_json
-ON quote_agent.extraction_results
-USING gin (llm_plan_json);
-
-CREATE INDEX IF NOT EXISTS idx_extraction_results_plan_lookup
-ON quote_agent.extraction_results (prompt_version, dictionary_version, llm_model, status, created_at)
-WHERE llm_plan_json IS NOT NULL;
-```
-
-不要为这段 SQL 生成 migration 文件，按需手动执行。
-
 ### 连通性测试
 
 只测试 XH 是否可用，不读写 quoteAgent 业务表。

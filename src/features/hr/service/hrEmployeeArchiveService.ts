@@ -1,8 +1,8 @@
-import { logger } from "../../../config/logger";
-import { JdyUtil } from "../../../utils/jdyUtils";
-import { jdyFormDataApiClient } from "../../jdy/api/form_data";
-import { User } from "../../../entity/basic/employee";
-import { defaultWechatCorpConfig } from "../../wechat/wechatCorps";
+import { logger } from "../../../config/logger.js";
+import { JdyUtil } from "../../../utils/jdyUtils.js";
+import { jdyFormDataApiClient } from "../../jdy/api/form_data.js";
+import { User } from "../../../entity/basic/employee.js";
+import { defaultWechatCorpConfig } from "../../wechat/wechatCorps.js";
 
 const EMP_APP_ID = "5cfef4b5de0b2278b05c8380";
 const EMP_ENTRY_ID = "6414573264b9920007c82491";

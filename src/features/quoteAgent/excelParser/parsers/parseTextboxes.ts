@@ -4,7 +4,7 @@ import convert from "xml-js";
 import {
   parseOptionsFromText,
   ParsedOption,
-} from "./parseOptions";
+} from "./parseOptions.js";
 
 export type TextboxBlock = {
   block_id: string;

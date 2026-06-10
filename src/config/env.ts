@@ -12,8 +12,8 @@ const pathsDotenv = resolveApp(".env");
 process.env.TZ = "Asia/Shanghai";
 if (process.env.NODE_ENV === "production") {
   dotenv.config({ path: `${pathsDotenv}.prod` });
-  process.env.PORT = "2000";
+  process.env.PORT ??= "2000";
 } else {
   dotenv.config({ path: `${pathsDotenv}.dev` });
-  process.env.PORT = "2001";
+  process.env.PORT ??= "2001";
 }

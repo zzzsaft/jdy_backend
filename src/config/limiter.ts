@@ -1,4 +1,4 @@
-import { ILimitOpion } from "../type/IType";
+import { ILimitOpion } from "../type/IType.js";
 
 class Limiter {
   seq: number;

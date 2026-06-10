@@ -1,7 +1,7 @@
 import { IsNull } from "typeorm";
-import { LogExpress } from "../entity/log_express";
-import { decryptXftEvent } from "../../xft/api/decrypt";
-import { decryptMsg } from "../../wechat/util";
+import { LogExpress } from "../entity/log_express.js";
+import { decryptXftEvent } from "../../xft/api/decrypt.js";
+import { decryptMsg } from "../../wechat/util.js";
 
 export async function addToLog(
   ip,

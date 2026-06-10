@@ -1,8 +1,10 @@
-import { values } from "lodash";
-import { tycApiClient } from "../../api/tianyacha/app";
-import { CustomerSearch } from "../../entity/crm/customerSearch";
-import { JdyUtil } from "../../utils/jdyUtils";
-import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
+import _ from "lodash";
+import { tycApiClient } from "../../api/tianyacha/app.js";
+import { CustomerSearch } from "../../entity/crm/customerSearch.js";
+import { JdyUtil } from "../../utils/jdyUtils.js";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data.js";
+
+const { values } = _;
 
 const companyType = {
   1: "公司",

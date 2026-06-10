@@ -1,5 +1,5 @@
-import { ApiClient } from "./api_client";
-import { getCorpToken } from "./token";
+import { ApiClient } from "./api_client.js";
+import { getCorpToken } from "./token.js";
 
 class ContactApiClient extends ApiClient {
   private async getAccessToken(corpId?: string) {

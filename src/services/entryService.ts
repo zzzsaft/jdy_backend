@@ -1,16 +1,16 @@
 import { Between, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
-import { logger } from "../config/logger";
-import { XftAtdLeave } from "../entity/atd/xft_leave";
-import { XftAtdOut } from "../entity/atd/xft_out";
-import { BusinessTrip } from "../entity/atd/businessTrip";
+import { logger } from "../config/logger.js";
+import { XftAtdLeave } from "../entity/atd/xft_leave.js";
+import { XftAtdOut } from "../entity/atd/xft_out.js";
+import { BusinessTrip } from "../entity/atd/businessTrip.js";
 import { addDays, addMinutes, format } from "date-fns";
-import { atdClassService } from "../features/xft/service/atdClass.services";
-import { isAfterTime, isBeforeTime } from "../utils/dateUtils";
-import { AbnomalTraffic } from "../features/log/entity/abnormal_traffic";
-import { User } from "../entity/basic/employee";
-import { MessageService } from "../features/wechat/service/messageService";
-import { Department } from "../entity/basic/department";
-import { xftatdApiClient } from "../features/xft/api/xft_atd";
+import { atdClassService } from "../features/xft/service/atdClass.services.js";
+import { isAfterTime, isBeforeTime } from "../utils/dateUtils.js";
+import { AbnomalTraffic } from "../features/log/entity/abnormal_traffic.js";
+import { User } from "../entity/basic/employee.js";
+import { MessageService } from "../features/wechat/service/messageService.js";
+import { Department } from "../entity/basic/department.js";
+import { xftatdApiClient } from "../features/xft/api/xft_atd.js";
 
 export class Traffic {
   traffic: AbnomalTraffic;

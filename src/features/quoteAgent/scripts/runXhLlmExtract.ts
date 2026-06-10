@@ -1,10 +1,10 @@
-import "../../../config/env";
+import "../../../config/env.js";
 import "reflect-metadata";
 import { BaseEntity } from "typeorm";
-import { PgDataSource } from "../../../config/data-source";
-import { requestXhChatJson, getXhModel, normalizeXhModel } from "../../../llm";
-import { quoteAgentRepository } from "../db.service";
-import { quoteAgentService } from "../service";
+import { PgDataSource } from "../../../config/data-source.js";
+import { requestXhChatJson, getXhModel, normalizeXhModel } from "../../../llm/index.js";
+import { quoteAgentRepository } from "../db.service.js";
+import { quoteAgentService } from "../service.js";
 
 type Mode = "ping" | "one" | "batch" | "plan" | "item";
 

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { ruleService } from "../../../services/crm/ruleService";
-import { authService } from "../../../services/authService";
+import { ruleService } from "../../../services/crm/ruleService.js";
+import { authService } from "../../../services/authService.js";
 
 const getRules = async (req: Request, res: Response) => {
   const type = req.query.type as "price" | "grade" | "delivery";

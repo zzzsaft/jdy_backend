@@ -1,7 +1,8 @@
 import type {
   DictionaryCandidate,
   DictionaryTermTypeCandidate,
-} from "./entity";
+} from "./entity/index.js";
+import type { QuoteAgentMasterDataMatch } from "../masterData.service.js";
 
 export type DictionaryValueKind =
   | "enum"
@@ -105,6 +106,7 @@ export interface NormalizedFieldResult {
   note?: string | null;
   valueKind?: DictionaryValueKind;
   values?: NormalizedEnumValue[];
+  masterDataMatch?: QuoteAgentMasterDataMatch;
   matchMethod?: "alias_exact" | "term_type_only" | "none";
   itemIndex?: number;
   itemProductTypeHint?: string;
@@ -116,6 +118,7 @@ export interface NormalizedFieldResult {
     message: string;
     rawValue?: string;
     termType?: string;
+    source?: string;
   }>;
 }
 

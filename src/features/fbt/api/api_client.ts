@@ -2,10 +2,10 @@ import _ from "lodash";
 import axios, { AxiosResponse } from "axios";
 import qs from "querystring";
 import dotenv from "dotenv";
-import { IRequestOptions } from "../../../type/IType";
-import { appAxios } from "../../../utils/fileUtils";
-import { fengbeitong_token } from "./token";
-import { logger } from "../../../config/logger";
+import { IRequestOptions } from "../../../type/IType.js";
+import { appAxios } from "../../../utils/fileUtils.js";
+import { fengbeitong_token } from "./token.js";
+import { logger } from "../../../config/logger.js";
 export class ApiClient {
   private host: string;
   private apiKey: string;

@@ -3,9 +3,9 @@ import {
   buildExtractionPrompt,
   DEEPSEEK_EXTRACT_RETRY_PROMPT,
   DEEPSEEK_EXTRACT_SYSTEM_PROMPT,
-} from "./prompts";
-import { LlmExtractParams } from "./types";
-import { finishLlmCallLog, startLlmCallLog } from "./llmCallLogger";
+} from "./prompts.js";
+import type { LlmExtractParams } from "./types.js";
+import { finishLlmCallLog, startLlmCallLog } from "./llmCallLogger.js";
 
 const DEFAULT_LOCAL_LLM_BASE_URL = "http://localhost:11434/v1";
 const DEFAULT_LOCAL_LLM_MODEL = "gemma4:12b";

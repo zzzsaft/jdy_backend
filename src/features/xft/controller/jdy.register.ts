@@ -1,5 +1,5 @@
-import { registerJdy } from "../../../controllers/jdy/jdy.registry";
-import { addEmployeeToXft } from "../service/employeeOnboardingService";
+import { registerJdy } from "../../../controllers/jdy/jdy.registry.js";
+import { addEmployeeToXft } from "../service/employeeOnboardingService.js";
 
 registerJdy(
   // 表单名: 入职申请

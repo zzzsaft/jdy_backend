@@ -1,18 +1,19 @@
 import { DataSource } from "typeorm";
 import {
   DictionaryCandidateOccurrence,
-} from "./entity";
-import { SplitResolution } from "../entity/splitResolution.entity";
+} from "./entity/index.js";
+import { SplitResolution } from "../entity/splitResolution.entity.js";
 import {
   DictionaryService,
   type DictionaryValueKind,
   type NormalizedFieldResult,
-} from "./dictionary.service";
+} from "./dictionary.service.js";
 import type {
   LlmExtractionItem,
   LlmExtractionResult,
   LlmRawField,
-} from "../llm/types";
+} from "../llm/types.js";
+import type { QuoteAgentMasterDataMatch } from "../masterData.service.js";
 
 export interface DictionaryExtractionResult {
   summary: {
@@ -99,6 +100,7 @@ export interface DictionaryExtractionField {
       rawValue: string;
       confidence: number;
     }>;
+    masterDataMatch?: QuoteAgentMasterDataMatch;
   };
   candidate?: {
     candidate_type: "term_type" | "value";
@@ -120,6 +122,7 @@ export interface DictionaryExtractionWarning {
   field_name?: string;
   raw_value?: string;
   term_type?: string;
+  source?: string;
   evidence?: unknown;
 }
 
@@ -190,6 +193,7 @@ function createWarning(params: {
   fieldName?: string;
   rawValue?: string;
   termType?: string;
+  source?: string;
   evidence?: unknown;
 }): DictionaryExtractionWarning {
   return {
@@ -199,6 +203,7 @@ function createWarning(params: {
     field_name: params.fieldName,
     raw_value: params.rawValue,
     term_type: params.termType,
+    source: params.source,
     evidence: params.evidence,
   };
 }
@@ -253,6 +258,7 @@ function mapDictionaryWarnings(
       fieldName: result.rawFieldName,
       rawValue: warning.rawValue ?? result.rawValue,
       termType: warning.termType ?? result.termType,
+      source: warning.source,
     }),
   );
 }
@@ -695,6 +701,7 @@ export class DictionaryExtractionService {
         rawValue: v.rawValue,
         confidence: v.confidence,
       })),
+      masterDataMatch: normalized.masterDataMatch,
       match_method:
         normalized.matchMethod ?? (normalized.matched ? "alias_exact" : "none"),
     };

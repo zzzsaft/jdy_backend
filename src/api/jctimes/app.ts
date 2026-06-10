@@ -1,5 +1,5 @@
-import { IAppoint } from "../../type/IType";
-import { ApiClient } from "./api_client";
+import { IAppoint } from "../../type/IType.js";
+import { ApiClient } from "./api_client.js";
 
 class JCtimesApiClient extends ApiClient {
   async getUserLists(): Promise<{ userid: string; department: number }[]> {

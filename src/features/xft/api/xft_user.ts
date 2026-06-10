@@ -1,4 +1,4 @@
-import { appApiClient, connectApiClient } from "./api_client";
+import { appApiClient, connectApiClient } from "./api_client.js";
 
 class XftUserApiClient {
   //查询企业自定义字段配置

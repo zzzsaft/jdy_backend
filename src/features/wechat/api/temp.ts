@@ -1,5 +1,5 @@
-import { getApprovalDetail } from "../controller/approval.wechat.controller";
-import { approvalApiClient } from "./approval";
+import { getApprovalDetail } from "../controller/approval.wechat.controller.js";
+import { approvalApiClient } from "./approval.js";
 import _ from "lodash";
 
 const getApprovalList = async () => {

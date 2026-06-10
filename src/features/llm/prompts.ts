@@ -1,4 +1,4 @@
-import type { DeepSeekExtractParams } from "./types";
+import type { DeepSeekExtractParams } from "./types.js";
 
 export const DEEPSEEK_EXTRACT_SYSTEM_PROMPT = `
 你是企业级合同/生产明细表 raw extraction 专家。你的任务是从 Excel/Word 解析文本中抽取订单信息、产品配置字段、选中项和证据，并只输出严格 JSON。

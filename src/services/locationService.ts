@@ -1,7 +1,7 @@
 import { Between, IsNull, Not } from "typeorm";
-import { LogLocation } from "../features/log/entity/log_location";
+import { LogLocation } from "../features/log/entity/log_location.js";
 import { addMinutes, differenceInMinutes } from "date-fns";
-import { gaoDeApiClient } from "../api/gaode/app";
+import { gaoDeApiClient } from "../api/gaode/app.js";
 import _ from "lodash";
 
 class LocationService {

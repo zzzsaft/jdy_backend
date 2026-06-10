@@ -3,7 +3,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { BaseEntity } from "typeorm";
-import { PgDataSource } from "../../../config/data-source";
+import { PgDataSource } from "../../../config/data-source.js";
 
 type ParseErrorRecord = {
   fileName: string;
@@ -109,7 +109,7 @@ async function main() {
   await fs.promises.mkdir(DEFAULT_LOG_DIR, { recursive: true });
   await initializeDatabase();
 
-  const { quoteAgentService } = await import("../service");
+  const { quoteAgentService } = await import("../service.js");
 
   const excelFiles = await collectExcelFiles(sourceDir);
   const successes: ProcessSuccessRecord[] = [];

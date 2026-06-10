@@ -2459,6 +2459,10 @@ ${JSON.stringify(input, null, 2)}`;
                   : form.dataset.valueCreate === "1"
                     ? valueCreateBodyFromForm(form)
                   : bodyFromForm(form);
+              const card = form.closest(".candidate");
+              if (card?.dataset.type === "term_type") {
+                body.deferCandidateRecheck = true;
+              }
               if (form.dataset.formKind === "split" && body.splits.length === 0) {
                 throw new Error("请至少填写一行拆分：字段 Key + 原始值/文本值或标准值");
               }
@@ -2604,7 +2608,7 @@ ${JSON.stringify(input, null, 2)}`;
           const result = await api("/quoteAgent/candidates/reviews/batch", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ operations }),
+            body: JSON.stringify({ operations, deferCandidateRecheck: true }),
           });
           await Promise.all([refreshCandidates(), refreshDocuments()]);
           setStatus(

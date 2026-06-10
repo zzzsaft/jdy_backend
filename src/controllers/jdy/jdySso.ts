@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import { Request, Response } from "express";
 import axios from "axios";
-import { wechatUserApiClient } from "../../features/wechat/api/user";
+import { wechatUserApiClient } from "../../features/wechat/api/user.js";
 // JWT验证与响应生成
 async function verifyAndCreateResponse(userid, redirect_uri?: string) {
   const secret = process.env.JDYSSO_SECRET || "";

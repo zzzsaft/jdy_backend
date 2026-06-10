@@ -1,7 +1,7 @@
-import { registerJdy } from "../../controllers/jdy/jdy.registry";
-import { 入职申请表 } from "../../controllers/jdy/addPerson.controller";
-import { 离职, 转正 } from "../../controllers/jdy/updateUser.jdy.controller";
-import { hrContractService } from "./service/hrContractService";
+import { registerJdy } from "../../controllers/jdy/jdy.registry.js";
+import { 入职申请表 } from "../../controllers/jdy/addPerson.controller.js";
+import { 离职, 转正 } from "../../controllers/jdy/updateUser.jdy.controller.js";
+import { hrContractService } from "./service/hrContractService.js";
 
 registerJdy(
   // 表单名: 入职申请

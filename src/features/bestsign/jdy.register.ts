@@ -1,5 +1,5 @@
-import { registerJdy } from "../../controllers/jdy/jdy.registry";
-import { bestSignTemplateTextLabelService } from "./service/bestSignTemplateTextLabelService";
+import { registerJdy } from "../../controllers/jdy/jdy.registry.js";
+import { bestSignTemplateTextLabelService } from "./service/bestSignTemplateTextLabelService.js";
 
 const APP_ID = "5cd65fc5272c106bbc2bbc38";
 const ENTRY_ID = "69871a0b0eccd9e21de72486";

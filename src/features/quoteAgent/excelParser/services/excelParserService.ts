@@ -6,13 +6,13 @@ import {
   ExcelParserError,
   getExcelFileType,
   safeRemoveDir,
-} from "../../../../utils/excelFileUtils";
+} from "../../../../utils/excelFileUtils.js";
 import {
   ExcelBlock,
   ExcelParserOptions,
   parseWorkbook,
-} from "../parsers/parseWorkbook";
-import { buildLlmText as buildLlmTextFromResult } from "./buildLlmText";
+} from "../parsers/parseWorkbook.js";
+import { buildLlmText as buildLlmTextFromResult } from "./buildLlmText.js";
 
 export type ExcelSourceType = "url" | "local";
 

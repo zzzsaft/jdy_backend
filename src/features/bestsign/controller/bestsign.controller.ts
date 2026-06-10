@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { logger } from "../../../config/logger";
-import { bestSignContractService } from "../service/bestSignContractService";
-import { bestSignContractNotifyService } from "../service/bestSignContractNotifyService";
+import { logger } from "../../../config/logger.js";
+import { bestSignContractService } from "../service/bestSignContractService.js";
+import { bestSignContractNotifyService } from "../service/bestSignContractNotifyService.js";
 
 const quoteLargeIntegers = (jsonText: string) => {
   // Object values:  "key": 1234567890123456789

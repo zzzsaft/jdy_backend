@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
-import { QuoteItem } from "../../entity/crm/quote";
-import { QuoteItemShare } from "../../entity/crm/quoteItemShare";
-import { User } from "../../entity/basic/employee";
+import { QuoteItem } from "../../entity/crm/quote.js";
+import { QuoteItemShare } from "../../entity/crm/quoteItemShare.js";
+import { User } from "../../entity/basic/employee.js";
 
 class QuoteItemShareService {
   private async generateUuid(): Promise<string> {

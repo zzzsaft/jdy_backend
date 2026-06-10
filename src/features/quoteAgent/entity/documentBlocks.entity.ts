@@ -8,7 +8,8 @@ import {
   OneToOne,
   PrimaryGeneratedColumn,
 } from "typeorm";
-import { Documents } from "./documents.entity";
+import type { Relation } from "typeorm";
+import { Documents } from "./documents.entity.js";
 
 @Entity({ name: "document_blocks", schema: "quote_agent" })
 export class DocumentBlocks extends BaseEntity {
@@ -32,5 +33,5 @@ export class DocumentBlocks extends BaseEntity {
     onDelete: "CASCADE",
   })
   @JoinColumn({ name: "document_id" })
-  document: Documents;
+  document: Relation<Documents>;
 }

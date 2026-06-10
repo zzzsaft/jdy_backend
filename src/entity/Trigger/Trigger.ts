@@ -1,8 +1,9 @@
-import { Entity, Column, OneToMany, Relation } from "typeorm";
-import AbstractContent from "../AbstractContent";
-import { Execute_Action } from "./execute_action";
-import { Trigger_Condition } from "./trigger_condition";
-import { Flow_State_Change } from "./flow_state_change";
+import { Entity, Column, OneToMany } from "typeorm";
+import type { Relation } from "typeorm";
+import AbstractContent from "../AbstractContent.js";
+import { Execute_Action } from "./execute_action.js";
+import { Trigger_Condition } from "./trigger_condition.js";
+import { Flow_State_Change } from "./flow_state_change.js";
 
 @Entity()
 export class Trigger extends AbstractContent {

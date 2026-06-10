@@ -1,13 +1,13 @@
-import { getInferAiChatClient, requestInferAiChatJson } from "../../../llm";
+import { getInferAiChatClient, requestInferAiChatJson } from "../../../llm/index.js";
 import {
   parseJsonContent,
   validateLlmExtractionResult,
-} from "./parseExtractResult";
-import { LlmExtractParams, LlmExtractResult } from "./types";
+} from "./parseExtractResult.js";
+import type { LlmExtractParams, LlmExtractResult } from "./types.js";
 import {
   buildExtractionMessages,
   buildExtractionRetryMessages,
-} from "./prompts";
+} from "./prompts.js";
 
 export async function extractProductConfigWithInferAiChat(
   params: LlmExtractParams,

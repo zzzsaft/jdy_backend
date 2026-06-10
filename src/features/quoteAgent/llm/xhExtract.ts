@@ -1,14 +1,14 @@
-import { getXhClient, requestXhChatJson } from "../../../llm/xhClient";
+import { getXhClient, requestXhChatJson } from "../../../llm/xhClient.js";
 import {
   parseJsonContent,
   validateLlmExtractionResult,
-} from "./parseExtractResult";
-import { LlmExtractParams, LlmExtractResult } from "./types";
+} from "./parseExtractResult.js";
+import type { LlmExtractParams, LlmExtractResult } from "./types.js";
 import {
   buildExtractionMessages,
   buildExtractionRetryMessages,
-} from "./prompts";
-import { normalizeLlmExtractionShape } from "./twoStageExtract";
+} from "./prompts.js";
+import { normalizeLlmExtractionShape } from "./twoStageExtract.js";
 
 function validateXhExtractionContent(content: string): LlmExtractResult {
   return validateLlmExtractionResult(

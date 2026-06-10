@@ -1,4 +1,4 @@
-import { LimiterSet } from "../src/config/limiter";
+import { LimiterSet } from "../src/config/limiter.js";
 
 // 测试代码
 async function testLimiterSet() {

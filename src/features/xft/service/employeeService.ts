@@ -1,10 +1,10 @@
 import _ from "lodash";
-import { Department } from "../../../entity/basic/department";
-import { User } from "../../../entity/basic/employee";
+import { Department } from "../../../entity/basic/department.js";
+import { User } from "../../../entity/basic/employee.js";
 import { In, Like } from "typeorm";
-import { defaultWechatCorpConfig } from "../../wechat/wechatCorps";
-import { xftUserApiClient } from "../api/xft_user";
-import { logger } from "../../../config/logger";
+import { defaultWechatCorpConfig } from "../../wechat/wechatCorps.js";
+import { xftUserApiClient } from "../api/xft_user.js";
+import { logger } from "../../../config/logger.js";
 
 export class EmployeeService {
   static async syncUser() {

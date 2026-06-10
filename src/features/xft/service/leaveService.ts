@@ -7,8 +7,8 @@ import {
   parseISO,
   startOfDay,
 } from "date-fns";
-import { Department } from "../../../entity/basic/department";
-import { User } from "../../../entity/basic/employee";
+import { Department } from "../../../entity/basic/department.js";
+import { User } from "../../../entity/basic/employee.js";
 
 export interface DateRange {
   begDate: string;

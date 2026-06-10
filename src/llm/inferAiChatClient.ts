@@ -2,8 +2,8 @@ import OpenAI from "openai";
 import {
   finishLlmCallLog,
   startLlmCallLog,
-} from "./llmCallLogger";
-import type { LlmChatMessage } from "./deepseekClient";
+} from "./llmCallLogger.js";
+import type { LlmChatMessage } from "./deepseekClient.js";
 
 const DEFAULT_INFERAI_BASE_URL = "https://inferaichat.com/v1";
 const INFERAI_MODEL_PREFIX = "inferaichat:";

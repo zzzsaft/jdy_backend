@@ -8,9 +8,9 @@ import {
   UpdateDateColumn,
   JoinColumn,
 } from "typeorm";
-import { logger } from "../../config/logger";
-import { Department } from "./department";
-import { defaultWechatCorpConfig } from "../../features/wechat/wechatCorps";
+import { logger } from "../../config/logger.js";
+import { Department } from "./department.js";
+import { defaultWechatCorpConfig } from "../../features/wechat/wechatCorps.js";
 
 @Entity({ name: "md_employee" })
 export class User extends BaseEntity {

@@ -1,9 +1,9 @@
 import axios from "axios";
 import FormData from "form-data";
-import { ApiClient } from "./api_client";
-import { ILimitOpion } from "../../../type/IType";
-import { jdyLimiter } from "../../../config/limiter";
-import { logger } from "../../../config/logger";
+import { ApiClient } from "./api_client.js";
+import { ILimitOpion } from "../../../type/IType.js";
+import { jdyLimiter } from "../../../config/limiter.js";
+import { logger } from "../../../config/logger.js";
 
 const FORM_BASE_PATH = "app/entry/";
 

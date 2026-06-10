@@ -1,15 +1,15 @@
-import { logger } from "../../../config/logger";
+import { logger } from "../../../config/logger.js";
 import fs from "fs";
 import path from "path";
 import AdmZip from "adm-zip";
 import {
   BestSignContractRecord,
-} from "../entity/contractRecord";
-import { contractApiClient } from "../api/contract";
-import { bestSignTemplateTextLabelService } from "./bestSignTemplateTextLabelService";
-import { getSealNameByEnterprise } from "../bestsign";
-import fileApiClient from "../../jdy/api/file";
-import { jdyFormDataApiClient } from "../../jdy/api/form_data";
+} from "../entity/contractRecord.js";
+import { contractApiClient } from "../api/contract.js";
+import { bestSignTemplateTextLabelService } from "./bestSignTemplateTextLabelService.js";
+import { getSealNameByEnterprise } from "../bestsign.js";
+import fileApiClient from "../../jdy/api/file.js";
+import { jdyFormDataApiClient } from "../../jdy/api/form_data.js";
 import { exec } from "child_process";
 
 const FIXED_SENDER_ACCOUNT = "18869965222";

@@ -1,6 +1,6 @@
 import OpenAI from "openai";
-import { finishLlmCallLog, startLlmCallLog } from "./llmCallLogger";
-import type { LlmChatMessage } from "./deepseekClient";
+import { finishLlmCallLog, startLlmCallLog } from "./llmCallLogger.js";
+import type { LlmChatMessage } from "./deepseekClient.js";
 
 const DEFAULT_LOCAL_LLM_BASE_URL = "http://localhost:11434/v1";
 const DEFAULT_LOCAL_LLM_MODEL = "gemma4:12b";

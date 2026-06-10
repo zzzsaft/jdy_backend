@@ -1,4 +1,4 @@
-import { appApiClient, connectApiClient } from "./api_client";
+import { appApiClient, connectApiClient } from "./api_client.js";
 
 class XFTOAApiClient {
   async start(payload: { starterId: string; trialId: string }) {

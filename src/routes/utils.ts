@@ -1,12 +1,12 @@
-import { isLicensePlate, sendImage } from "../controllers/utils.controllers";
+import { isLicensePlate, sendImage } from "../controllers/utils.controllers.js";
 import { Request, Response } from "express";
-import { quotaServices } from "../features/xft/service/quotaServices";
-import { checkinServices } from "../features/xft/service/checkinServices";
+import { quotaServices } from "../features/xft/service/quotaServices.js";
+import { checkinServices } from "../features/xft/service/checkinServices.js";
 import {
   createShiftExcel,
   restOvertimeServices,
-} from "../features/jdy/service/restOvertimeServices";
-import { atdClassService } from "../features/xft/service/atdClass.services";
+} from "../features/jdy/service/restOvertimeServices.js";
+import { atdClassService } from "../features/xft/service/atdClass.services.js";
 const test = async (request: Request, response: Response) => {
   console.log("Test");
   response.send("Hello World!");

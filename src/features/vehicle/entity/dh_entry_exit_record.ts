@@ -7,10 +7,10 @@ import {
   PrimaryColumn,
   PrimaryGeneratedColumn,
 } from "typeorm";
-import { logger } from "../../../config/logger";
-import { ParkingInfo } from "./vehicle_info";
-import { trafficService } from "../../../services/entryService";
-import { User } from "../../../entity/basic/employee";
+import { logger } from "../../../config/logger.js";
+import { ParkingInfo } from "./vehicle_info.js";
+import { trafficService } from "../../../services/entryService.js";
+import { User } from "../../../entity/basic/employee.js";
 
 interface CarRecord {
   parkingLotCode: string;

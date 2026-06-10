@@ -1,9 +1,9 @@
 // src/services/ProductService.ts
-import { Product } from "../../entity/crm/product";
-import { Pump } from "../../entity/crm/productPump";
-import { Filter } from "../../entity/crm/productFilter";
-import { QuoteItem } from "../../entity/crm/quote";
-import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
+import { Product } from "../../entity/crm/product.js";
+import { Pump } from "../../entity/crm/productPump.js";
+import { Filter } from "../../entity/crm/productFilter.js";
+import { QuoteItem } from "../../entity/crm/quote.js";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data.js";
 
 export class ProductService {
   appid = "6191e49fc6c18500070f60ca";
@@ -48,12 +48,24 @@ export class ProductService {
       select: ["level1Category", "level2Category", "level3Category"],
     });
   };
-  getPump = async () => {
-    return await Pump.find();
+  getPump = async (params?: { model?: string; exact?: boolean }) => {
+    const keyword = normalizeSearchKeyword(params?.model);
+    if (!keyword) {
+      return await Pump.find();
+    }
+
+    const rows = await findProductModelRows(Pump, "pump", keyword);
+    return filterRowsByModel(rows, keyword, params?.exact);
   };
 
-  getFilter = async () => {
-    return await Filter.find();
+  getFilter = async (params?: { model?: string; exact?: boolean }) => {
+    const keyword = normalizeSearchKeyword(params?.model);
+    if (!keyword) {
+      return await Filter.find();
+    }
+
+    const rows = await findProductModelRows(Filter, "filter", keyword);
+    return filterRowsByModel(rows, keyword, params?.exact);
   };
 
   async searchProducts(
@@ -115,3 +127,66 @@ export class ProductService {
 }
 
 export const productService = new ProductService();
+
+async function findProductModelRows<T extends { model?: string | null }>(
+  entity: typeof Pump | typeof Filter,
+  alias: string,
+  keyword: string,
+): Promise<T[]> {
+  const modelEntity = entity as any;
+  const likeRows = (await modelEntity
+    .createQueryBuilder(alias)
+    .where(`${alias}.model IS NOT NULL`)
+    .andWhere(`${alias}.model <> ''`)
+    .andWhere(`lower(${alias}.model) LIKE :keyword`, {
+      keyword: `%${keyword.toLowerCase()}%`,
+    })
+    .getMany()) as T[];
+
+  if (likeRows.length > 0) {
+    return likeRows;
+  }
+
+  return (await modelEntity
+    .createQueryBuilder(alias)
+    .where(`${alias}.model IS NOT NULL`)
+    .andWhere(`${alias}.model <> ''`)
+    .getMany()) as T[];
+}
+
+function filterRowsByModel<T extends { model?: string | null }>(
+  rows: T[],
+  model?: string,
+  exact = false,
+): T[] {
+  const keyword = String(model ?? "").trim();
+  if (!keyword) return rows;
+
+  const lowerKeyword = keyword.toLowerCase();
+  const normalizedKeyword = normalizeProductModel(keyword);
+  return rows.filter((row) => {
+    const rowModel = String(row.model ?? "");
+    return (
+      rowModel === keyword ||
+      rowModel.trim() === keyword ||
+      rowModel.toLowerCase() === lowerKeyword ||
+      normalizeProductModel(rowModel) === normalizedKeyword ||
+      (!exact &&
+        (rowModel.toLowerCase().includes(lowerKeyword) ||
+          normalizeProductModel(rowModel).includes(normalizedKeyword)))
+    );
+  });
+}
+
+function normalizeSearchKeyword(value: unknown): string {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return String(raw ?? "").trim();
+}
+
+function normalizeProductModel(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/[._\-\/\\|,;:()\[\]{}<>]/g, "");
+}

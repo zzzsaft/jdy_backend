@@ -1,7 +1,7 @@
-import { BusinessTrip } from "../entity/atd/businessTrip";
+import { BusinessTrip } from "../entity/atd/businessTrip.js";
 import { log } from "console";
 import { LessThan, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
-import { FbtApply } from "../features/fbt/entity/fbt_trip_apply";
+import { FbtApply } from "../features/fbt/entity/fbt_trip_apply.js";
 import {
   addDays,
   differenceInBusinessDays,
@@ -9,13 +9,13 @@ import {
   endOfDay,
   format,
 } from "date-fns";
-import { IFormData } from "../features/jdy/type/IData";
-import { JdyUtil } from "../utils/jdyUtils";
-import { User } from "../entity/basic/employee";
-import { GetFbtApply, XftTripLog } from "./getFbtApply";
-import { Department } from "../entity/basic/department";
-import { XftTripCheckin } from "../entity/atd/business_trip_checkin";
-import { jdyFormDataApiClient } from "../features/jdy/api/form_data";
+import { IFormData } from "../features/jdy/type/IData.js";
+import { JdyUtil } from "../utils/jdyUtils.js";
+import { User } from "../entity/basic/employee.js";
+import { GetFbtApply, XftTripLog } from "./getFbtApply.js";
+import { Department } from "../entity/basic/department.js";
+import { XftTripCheckin } from "../entity/atd/business_trip_checkin.js";
+import { jdyFormDataApiClient } from "../features/jdy/api/form_data.js";
 
 type busData = {
   // value: {

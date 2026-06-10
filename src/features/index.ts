@@ -3,31 +3,31 @@
  *
  * Keep this list as the single place to register feature jdy hooks.
  */
-import "./hr/jdy.register";
-import "./vehicle/controllers/jdy/jdy.register";
-import "./jdy/jdy.register";
-import "./dahua/jdy.register";
-import "./crm/jdy.register";
-import "./xft/controller/jdy.register";
-import "./bestsign/jdy.register";
+import "./hr/jdy.register.js";
+import "./vehicle/controllers/jdy/jdy.register.js";
+import "./jdy/jdy.register.js";
+import "./dahua/jdy.register.js";
+import "./crm/jdy.register.js";
+import "./xft/controller/jdy.register.js";
+import "./bestsign/jdy.register.js";
 
-import { BestSignRoutes } from "./bestsign/routes/bestsign.routes";
-import { fenbeitongRoutes } from "./fbt/routes/fengbeitong";
-import { parkingRoutes } from "./vehicle/routes/parking";
-import { WechatRoutes } from "./wechat/route/wechat";
-import { WechatOAuthRoutes } from "./wechat/route/wechatOAuth";
-import { xftRoute } from "./xft/routes/xft";
-import { CustomerRoutes } from "./crm/routes/customer";
-import { OpportunityRoutes } from "./crm/routes/opportunity";
-import { QuoteRoutes } from "./crm/routes/quote";
-import { QuoteItemShareRoutes } from "./crm/routes/quoteItemShare";
-import { QuoteRuleRoutes } from "./crm/routes/quoteRule";
-import { ProductRoutes } from "./crm/routes/product";
-import { OrderRoutes } from "./crm/routes/order";
-import { RuleRoutes } from "./crm/routes/rule";
-import { TemplateRoutes } from "./crm/routes/template";
-import { UserRoutes } from "./crm/routes/user";
-import { QuoteAgentRoutes } from "./quoteAgent/routes/quoteAgent.routes";
+import { BestSignRoutes } from "./bestsign/routes/bestsign.routes.js";
+import { fenbeitongRoutes } from "./fbt/routes/fengbeitong.js";
+import { parkingRoutes } from "./vehicle/routes/parking.js";
+import { WechatRoutes } from "./wechat/route/wechat.js";
+import { WechatOAuthRoutes } from "./wechat/route/wechatOAuth.js";
+import { xftRoute } from "./xft/routes/xft.js";
+import { CustomerRoutes } from "./crm/routes/customer.js";
+import { OpportunityRoutes } from "./crm/routes/opportunity.js";
+import { QuoteRoutes } from "./crm/routes/quote.js";
+import { QuoteItemShareRoutes } from "./crm/routes/quoteItemShare.js";
+import { QuoteRuleRoutes } from "./crm/routes/quoteRule.js";
+import { ProductRoutes } from "./crm/routes/product.js";
+import { OrderRoutes } from "./crm/routes/order.js";
+import { RuleRoutes } from "./crm/routes/rule.js";
+import { TemplateRoutes } from "./crm/routes/template.js";
+import { UserRoutes } from "./crm/routes/user.js";
+import { QuoteAgentRoutes } from "./quoteAgent/routes/quoteAgent.routes.js";
 
 export const FeatureRoutes = [
   ...BestSignRoutes,

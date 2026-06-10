@@ -1,4 +1,4 @@
-import { LogCheckin } from "../entity/log_checkin";
+import { LogCheckin } from "../entity/log_checkin.js";
 
 export async function getLastDate() {
   const lastLog = await LogCheckin.find({

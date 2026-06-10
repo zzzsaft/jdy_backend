@@ -1,7 +1,8 @@
-import { Entity, Column, ManyToOne, Relation } from "typeorm";
-import { TriggerMethod } from "../../type/trigger";
-import AbstractContent from "../AbstractContent";
-import { Trigger } from "./trigger";
+import { Entity, Column, ManyToOne } from "typeorm";
+import type { Relation } from "typeorm";
+import { TriggerMethod } from "../../type/trigger.js";
+import AbstractContent from "../AbstractContent.js";
+import { Trigger } from "./trigger.js";
 
 @Entity()
 export class Trigger_Condition extends AbstractContent {

@@ -2,8 +2,8 @@ import OpenAI from "openai";
 import {
   finishLlmCallLog,
   startLlmCallLog,
-} from "./llmCallLogger";
-import type { LlmChatMessage } from "./deepseekClient";
+} from "./llmCallLogger.js";
+import type { LlmChatMessage } from "./deepseekClient.js";
 
 const XH_MODEL_PREFIX = "xh:";
 export const DEFAULT_XH_MODEL = `${XH_MODEL_PREFIX}deepseek-v4-flash`;

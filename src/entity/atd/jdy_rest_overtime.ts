@@ -6,9 +6,9 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from "typeorm";
-import { User } from "../basic/employee";
-import { JdyUtil } from "../../utils/jdyUtils";
-import { logger } from "../../config/logger";
+import { User } from "../basic/employee.js";
+import { JdyUtil } from "../../utils/jdyUtils.js";
+import { logger } from "../../config/logger.js";
 @Entity("atd_rest_overtime")
 export class JdyRestOvertime extends BaseEntity {
   @PrimaryColumn()

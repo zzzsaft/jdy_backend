@@ -1,5 +1,5 @@
 import { Column, Entity } from "typeorm";
-import AbstractContent from "../../../entity/AbstractContent";
+import AbstractContent from "../../../entity/AbstractContent.js";
 
 export type BestSignSignerStatus = {
   operationStatus?: string;

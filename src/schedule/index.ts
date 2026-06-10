@@ -1,18 +1,18 @@
 import cron from "node-cron";
-import { syncXft } from "./syncXftData";
-import { logger } from "../config/logger";
-import { getCheckinData } from "./getCheckinData";
-import { sendtoUserwithLeaveChoice } from "./sendLeave";
-import { GetFbtApply } from "./getFbtApply";
-import { SendTripCheckin } from "./sendTripCheckin";
-import { sendXftTodoList } from "./sendXftTask";
-import { businessTripCheckinServices } from "../features/jdy/service/businessTripCheckinServices";
-import { BusinessTripServices } from "../features/xft/service/businessTripServices";
-import { checkinServices } from "../features/xft/service/checkinServices";
-import { dayResultServices } from "../features/xft/service/dayResultServices";
+import { syncXft } from "./syncXftData.js";
+import { logger } from "../config/logger.js";
+import { getCheckinData } from "./getCheckinData.js";
+import { sendtoUserwithLeaveChoice } from "./sendLeave.js";
+import { GetFbtApply } from "./getFbtApply.js";
+import { SendTripCheckin } from "./sendTripCheckin.js";
+import { sendXftTodoList } from "./sendXftTask.js";
+import { businessTripCheckinServices } from "../features/jdy/service/businessTripCheckinServices.js";
+import { BusinessTripServices } from "../features/xft/service/businessTripServices.js";
+import { checkinServices } from "../features/xft/service/checkinServices.js";
+import { dayResultServices } from "../features/xft/service/dayResultServices.js";
 import { addDays } from "date-fns";
-import { syncWechatData } from "../features/wechat/service/wechatSyncService";
-import { vehicleService } from "../features/vehicle/services/vehicleService";
+import { syncWechatData } from "../features/wechat/service/wechatSyncService.js";
+import { vehicleService } from "../features/vehicle/services/vehicleService.js";
 
 //每过15分钟触发任务
 const checkinDateSchedule = cron.schedule("0,15,30,45 * * * *", async () => {

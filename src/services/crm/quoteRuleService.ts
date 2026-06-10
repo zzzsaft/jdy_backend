@@ -1,1 +1,1 @@
-export { ruleService as quoteRuleService } from "./ruleService";
+export { ruleService as quoteRuleService } from "./ruleService.js";

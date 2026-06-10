@@ -2,9 +2,9 @@ import _ from "lodash";
 import axios from "axios";
 import qs from "querystring";
 import pkg from "sm-crypto";
-import { logger } from "../../config/logger";
-import { IRequestOptions } from "../../type/IType";
-import { appAxios } from "../../utils/fileUtils";
+import { logger } from "../../config/logger.js";
+import { IRequestOptions } from "../../type/IType.js";
+import { appAxios } from "../../utils/fileUtils.js";
 
 export class ApiClient {
   host: string;

@@ -1,17 +1,23 @@
-import "./config/env";
-import "./config/logger";
-import "./features";
+import "./config/env.js";
+import "./config/logger.js";
+import "./features/index.js";
+
+declare module "cors";
 
 import express, { Request, Response } from "express";
 import { BaseEntity } from "typeorm";
-import { AppDataSource, PgDataSource } from "./config/data-source";
-import { AppRoutes } from "./routes";
+import { AppDataSource, PgDataSource } from "./config/data-source.js";
+import { AppRoutes } from "./routes/index.js";
 import cors from "cors";
-import { logger } from "./config/logger";
-import { schedule } from "./schedule";
-import { autoParse, expressLog, requestLimiter } from "./config/autoParse";
-import { DatabaseTransport } from "./config/database-transport";
-import path from "path";
+import { logger } from "./config/logger.js";
+import { schedule } from "./schedule/index.js";
+import { autoParse, expressLog, requestLimiter } from "./config/autoParse.js";
+import { DatabaseTransport } from "./config/database-transport.js";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 PgDataSource.initialize()
   .then(async () => {
@@ -33,7 +39,7 @@ PgDataSource.initialize()
     app.use(expressLog);
     // register all application routes
     AppRoutes.forEach((route) => {
-      app[route.method](
+      (app as any)[route.method](
         route.path,
         async (request: Request, response: Response, next: Function) => {
           try {
@@ -42,7 +48,7 @@ PgDataSource.initialize()
           } catch (err) {
             next(err);
           }
-        }
+        },
       );
     });
     // run app

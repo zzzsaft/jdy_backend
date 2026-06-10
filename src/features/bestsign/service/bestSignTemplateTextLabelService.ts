@@ -1,6 +1,6 @@
-import { logger } from "../../../config/logger";
-import { JdyUtil } from "../../../utils/jdyUtils";
-import { BestSignTemplateTextLabel } from "../entity/templateTextLabel";
+import { logger } from "../../../config/logger.js";
+import { JdyUtil } from "../../../utils/jdyUtils.js";
+import { BestSignTemplateTextLabel } from "../entity/templateTextLabel.js";
 
 const TEMPLATE_ID_WIDGET = "_widget_1770461708074";
 const TEMPLATE_NAME_WIDGET = "_widget_1770461708075";

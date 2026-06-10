@@ -8,7 +8,8 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from "typeorm";
-import { Documents } from "./documents.entity";
+import type { Relation } from "typeorm";
+import { Documents } from "./documents.entity.js";
 
 @Entity({ name: "extraction_results", schema: "quote_agent" })
 export class ExtractionResults extends BaseEntity {
@@ -53,5 +54,5 @@ export class ExtractionResults extends BaseEntity {
     onDelete: "CASCADE",
   })
   @JoinColumn({ name: "document_id" })
-  document: Documents;
+  document: Relation<Documents>;
 }

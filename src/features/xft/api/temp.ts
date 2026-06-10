@@ -1,11 +1,11 @@
-import { xftOrgnizationApiClient } from "./xft_orgnization";
+import { xftOrgnizationApiClient } from "./xft_orgnization.js";
 import crypto from "crypto";
 import nodeRSA from "node-rsa";
-import { xftUserApiClient } from "./xft_user";
+import { xftUserApiClient } from "./xft_user.js";
 import _ from "lodash";
-import { Department } from "../../../entity/basic/department";
-import { jdyFormDataApiClient } from "../../jdy/api/form_data";
-import { IDataQueryOption } from "../../jdy/type/IOptions";
+import { Department } from "../../../entity/basic/department.js";
+import { jdyFormDataApiClient } from "../../jdy/api/form_data.js";
+import { IDataQueryOption } from "../../jdy/type/IOptions.js";
 
 export const importDepartmentToXft = async () => {
   const departments = await Department.find({ where: { is_exist: true } });

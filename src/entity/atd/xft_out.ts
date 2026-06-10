@@ -11,8 +11,8 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from "typeorm";
-import { User } from "../basic/employee";
-import { EntryExistRecords } from "../../features/vehicle/entity/dh_entry_exit_record";
+import { User } from "../basic/employee.js";
+import { EntryExistRecords } from "../../features/vehicle/entity/dh_entry_exit_record.js";
 
 @Entity("atd_xft_out")
 export class XftAtdOut extends BaseEntity {

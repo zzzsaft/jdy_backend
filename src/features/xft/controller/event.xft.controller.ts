@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
-import { xftTaskCallback } from "./todo.xft.controller";
-import { SalaryRecord } from "../../../entity/basic/salary-record";
-import { User } from "../../../entity/basic/employee";
-import { decryptXftEvent } from "../api/decrypt";
-import { xftSalaryApiClient } from "../api/xft_salary";
+import { xftTaskCallback } from "./todo.xft.controller.js";
+import { SalaryRecord } from "../../../entity/basic/salary-record.js";
+import { User } from "../../../entity/basic/employee.js";
+import { decryptXftEvent } from "../api/decrypt.js";
+import { xftSalaryApiClient } from "../api/xft_salary.js";
 
 export const xftEvent = async (request: Request, response: Response) => {
   const { eventId, eventRcdInf } = request.body;

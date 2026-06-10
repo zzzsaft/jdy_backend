@@ -3,9 +3,9 @@ import {
   buildExtractionPrompt,
   DEEPSEEK_EXTRACT_RETRY_PROMPT,
   DEEPSEEK_EXTRACT_SYSTEM_PROMPT,
-} from "./prompts";
-import { DeepSeekExtractParams } from "./types";
-import { finishLlmCallLog, startLlmCallLog } from "./llmCallLogger";
+} from "./prompts.js";
+import type { DeepSeekExtractParams } from "./types.js";
+import { finishLlmCallLog, startLlmCallLog } from "./llmCallLogger.js";
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 const DEEPSEEK_MODEL = "deepseek-v4-flash";

@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from "uuid";
-import { WechatMessage } from "../../log/entity/log_message";
-import { messageApiClient } from "../api/message";
-import { User } from "../../../entity/basic/employee";
-import { defaultWechatCorpConfig } from "../wechatCorps";
+import { WechatMessage } from "../../log/entity/log_message.js";
+import { messageApiClient } from "../api/message.js";
+import { User } from "../../../entity/basic/employee.js";
+import { defaultWechatCorpConfig } from "../wechatCorps.js";
 
 interface Message {
   touser?: string;

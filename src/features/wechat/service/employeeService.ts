@@ -1,9 +1,9 @@
 import { In, IsNull } from "typeorm";
-import { getCorpList } from "../wechatCorps";
-import { Department } from "../../../entity/basic/department";
-import { User } from "../../../entity/basic/employee";
-import { xftUserApiClient } from "../../xft/api/xft_user";
-import { contactApiClient } from "../api/contact";
+import { getCorpList } from "../wechatCorps.js";
+import { Department } from "../../../entity/basic/department.js";
+import { User } from "../../../entity/basic/employee.js";
+import { xftUserApiClient } from "../../xft/api/xft_user.js";
+import { contactApiClient } from "../api/contact.js";
 
 export const syncUsers = async (corpId?: string): Promise<void> => {
   const corpConfigs = getCorpList(corpId);

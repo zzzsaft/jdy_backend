@@ -1,9 +1,9 @@
-import { Department } from "../../../entity/basic/department";
+import { Department } from "../../../entity/basic/department.js";
 import { IsNull, Not } from "typeorm";
-import { defaultWechatCorpConfig } from "../../wechat/wechatCorps";
-import { xftOrgnizationApiClient } from "../api/xft_orgnization";
-import { logger } from "../../../config/logger";
-import { EmployeeService } from "./employeeService";
+import { defaultWechatCorpConfig } from "../../wechat/wechatCorps.js";
+import { xftOrgnizationApiClient } from "../api/xft_orgnization.js";
+import { logger } from "../../../config/logger.js";
+import { EmployeeService } from "./employeeService.js";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 

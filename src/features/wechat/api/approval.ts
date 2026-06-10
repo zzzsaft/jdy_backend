@@ -1,5 +1,5 @@
-import { ApiClient } from "./api_client";
-import { token } from "./token";
+import { ApiClient } from "./api_client.js";
+import { token } from "./token.js";
 
 class ApprovalApiClient extends ApiClient {
   async getApprovalDetail(sp_no: string) {

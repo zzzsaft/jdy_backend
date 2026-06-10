@@ -1,6 +1,6 @@
 import _ from "lodash";
-import { Department } from "../../../entity/basic/department";
-import { xftUserApiClient } from "../api/xft_user";
+import { Department } from "../../../entity/basic/department.js";
+import { xftUserApiClient } from "../api/xft_user.js";
 
 export const addEmployeeToXft = async (data) => {
   return await xftUserApiClient.saveEmployee([

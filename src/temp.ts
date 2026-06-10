@@ -1,11 +1,11 @@
 import _ from "lodash";
-import { XftAtdLeave } from "./entity/atd/xft_leave";
-import { sleep } from "./config/limiter";
+import { XftAtdLeave } from "./entity/atd/xft_leave.js";
+import { sleep } from "./config/limiter.js";
 import {
   xftTaskCallback,
   XftTaskEvent,
-} from "./features/xft/controller/todo.xft.controller";
-import { User } from "./entity/basic/employee";
+} from "./features/xft/controller/todo.xft.controller.js";
+import { User } from "./entity/basic/employee.js";
 import {
   And,
   Between,
@@ -16,39 +16,39 @@ import {
   Not,
   Or,
 } from "typeorm";
-import { XftCity } from "./entity/util/xft_city";
-import { FbtApply } from "./features/fbt/entity/fbt_trip_apply";
-import { XftTripLog } from "./schedule/getFbtApply";
-import { BusinessTrip } from "./entity/atd/businessTrip";
-import { controllerMethod } from "./controllers/jdy/data.jdy.controller";
-import { LogExpress } from "./features/log/entity/log_express";
-import { XftTripCheckin } from "./entity/atd/business_trip_checkin";
+import { XftCity } from "./entity/util/xft_city.js";
+import { FbtApply } from "./features/fbt/entity/fbt_trip_apply.js";
+import { XftTripLog } from "./schedule/getFbtApply.js";
+import { BusinessTrip } from "./entity/atd/businessTrip.js";
+import { controllerMethod } from "./controllers/jdy/data.jdy.controller.js";
+import { LogExpress } from "./features/log/entity/log_express.js";
+import { XftTripCheckin } from "./entity/atd/business_trip_checkin.js";
 import {
   businessTripCheckinServices,
   updateNextBusinessTrip,
-} from "./features/jdy/service/businessTripCheckinServices";
-import { XftAtdOvertime } from "./entity/atd/xft_overtime";
-import { personApiClient } from "./features/dahua/api/person";
-import { EntryExistRecords } from "./features/vehicle/entity/dh_entry_exit_record";
-import { ReissueEvent } from "./features/xft/service/atd/reissue.atd.xft.controller";
-import { OutGoingEvent } from "./features/xft/service/atd/outgoing";
-import { XftAtdOut } from "./entity/atd/xft_out";
-import { JdyRestOvertime } from "./entity/atd/jdy_rest_overtime";
-import { restOvertimeServices } from "./features/jdy/service/restOvertimeServices";
+} from "./features/jdy/service/businessTripCheckinServices.js";
+import { XftAtdOvertime } from "./entity/atd/xft_overtime.js";
+import { personApiClient } from "./features/dahua/api/person.js";
+import { EntryExistRecords } from "./features/vehicle/entity/dh_entry_exit_record.js";
+import { ReissueEvent } from "./features/xft/service/atd/reissue.atd.xft.controller.js";
+import { OutGoingEvent } from "./features/xft/service/atd/outgoing.js";
+import { XftAtdOut } from "./entity/atd/xft_out.js";
+import { JdyRestOvertime } from "./entity/atd/jdy_rest_overtime.js";
+import { restOvertimeServices } from "./features/jdy/service/restOvertimeServices.js";
 import convert from "xml-js";
-import { OvertimeEvent } from "./features/xft/service/atd/overtime.atd.xft.controller";
-import { LeaveEvent } from "./features/xft/service/atd/leave.atd.xft.controller";
-import { handleContactEvent } from "./features/wechat/controller/contact.wechat.controller";
-import { handleWechatMessage } from "./features/wechat/controller/wechat.controller";
-import { checkinServices } from "./features/xft/service/checkinServices";
-import { Quote, QuoteItem } from "./entity/crm/quote";
-import { jctimesContractApiClient } from "./api/jctimes/contract";
+import { OvertimeEvent } from "./features/xft/service/atd/overtime.atd.xft.controller.js";
+import { LeaveEvent } from "./features/xft/service/atd/leave.atd.xft.controller.js";
+import { handleContactEvent } from "./features/wechat/controller/contact.wechat.controller.js";
+import { handleWechatMessage } from "./features/wechat/controller/wechat.controller.js";
+import { checkinServices } from "./features/xft/service/checkinServices.js";
+import { Quote, QuoteItem } from "./entity/crm/quote.js";
+import { jctimesContractApiClient } from "./api/jctimes/contract.js";
 import { MoreThan } from "typeorm";
 import { level } from "winston";
-import { parseRatioString } from "./utils/stringUtils";
-import { xftatdApiClient } from "./features/xft/api/xft_atd";
-import { xftOAApiClient } from "./features/xft/api/xft_oa";
-import { fbtUserApiClient } from "./features/fbt/api/user";
+import { parseRatioString } from "./utils/stringUtils.js";
+import { xftatdApiClient } from "./features/xft/api/xft_atd.js";
+import { xftOAApiClient } from "./features/xft/api/xft_oa.js";
+import { fbtUserApiClient } from "./features/fbt/api/user.js";
 export const 获取空缺请假记录 = async () => {
   // const leaveRecSeqs = await XftAtdLeave.createQueryBuilder("leave")
   //   .select("leave.leaveRecSeq")

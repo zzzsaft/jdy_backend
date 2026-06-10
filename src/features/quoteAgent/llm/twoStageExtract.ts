@@ -1,17 +1,17 @@
-import type { LlmDictionaryContext } from "../dictionary/dictionary.service";
-import { getXhClient, requestXhChatJson } from "../../../llm/xhClient";
+import type { LlmDictionaryContext } from "../dictionary/dictionary.service.js";
+import { getXhClient, requestXhChatJson } from "../../../llm/xhClient.js";
 import {
   parseJsonContent,
   validateLlmExtractionResult,
-} from "./parseExtractResult";
+} from "./parseExtractResult.js";
 import type {
   LlmChatMessage,
-} from "../../../llm/deepseekClient";
+} from "../../../llm/deepseekClient.js";
 import type {
   LlmExtractionItem,
   LlmExtractParams,
   LlmExtractResult,
-} from "./types";
+} from "./types.js";
 
 const FALLBACK_PRODUCT_TYPE_HINTS = [
   "flat_die",

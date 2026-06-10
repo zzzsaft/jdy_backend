@@ -1,13 +1,13 @@
 import { IsNull } from "typeorm";
-import { parkingApiClient } from "../api/app";
-import { logger } from "../../../config/logger";
-import { ParkingInfo } from "../entity/vehicle_info";
+import { parkingApiClient } from "../api/app.js";
+import { logger } from "../../../config/logger.js";
+import { ParkingInfo } from "../entity/vehicle_info.js";
 import { format } from "date-fns";
-import { jdyFormDataApiClient } from "../../jdy/api/form_data";
-import { User } from "../../../entity/basic/employee";
-import { defaultWechatCorpConfig } from "../../wechat/wechatCorps";
-import { isTaskFinished } from "../../../controllers/jdy/jdyUtil";
-import { MessageService } from "../../../features/wechat/service/messageService";
+import { jdyFormDataApiClient } from "../../jdy/api/form_data.js";
+import { User } from "../../../entity/basic/employee.js";
+import { defaultWechatCorpConfig } from "../../wechat/wechatCorps.js";
+import { isTaskFinished } from "../../../controllers/jdy/jdyUtil.js";
+import { MessageService } from "../../../features/wechat/service/messageService.js";
 
 class VehicleService {
   createCarInfo(carInfo: {

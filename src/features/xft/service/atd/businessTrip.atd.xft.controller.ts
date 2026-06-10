@@ -1,7 +1,7 @@
 import { format } from "date-fns";
-import { BusinessTrip } from "../../../../entity/atd/businessTrip";
-import { XftTaskEvent } from "../../controller/todo.xft.controller";
-import { xftOAApiClient } from "../../api/xft_oa";
+import { BusinessTrip } from "../../../../entity/atd/businessTrip.js";
+import { XftTaskEvent } from "../../controller/todo.xft.controller.js";
+import { xftOAApiClient } from "../../api/xft_oa.js";
 
 export class BusinessTripEvent {
   task: XftTaskEvent;

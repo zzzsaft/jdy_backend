@@ -1,8 +1,8 @@
 import { endOfDay, format, startOfDay } from "date-fns";
 import _ from "lodash";
-import { FbtApply } from "../entity/fbt_trip_apply";
+import { FbtApply } from "../entity/fbt_trip_apply.js";
 import { Between } from "typeorm";
-import { fbtApplyApiClient } from "../api/apply";
+import { fbtApplyApiClient } from "../api/apply.js";
 
 export class FbtApplyService {
   static async syncFbtApplies(startTime: Date, endTime: Date) {

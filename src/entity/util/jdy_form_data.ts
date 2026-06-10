@@ -7,8 +7,8 @@ import {
   OneToMany,
   UpdateDateColumn,
 } from "typeorm";
-import { JdyForm } from "./jdy_form";
-import { PgDataSource } from "../../config/data-source";
+import { JdyForm } from "./jdy_form.js";
+import { PgDataSource } from "../../config/data-source.js";
 
 @Entity({ name: "temporary" })
 class JdyData {

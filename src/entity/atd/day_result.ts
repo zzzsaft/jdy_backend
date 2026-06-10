@@ -7,7 +7,7 @@ import {
   PrimaryColumn,
   BaseEntity,
 } from "typeorm";
-import { mergeDateAndTime } from "../../utils/dateUtils";
+import { mergeDateAndTime } from "../../utils/dateUtils.js";
 
 @Entity({ name: "atd_day_result" })
 export class AtdDayResult extends BaseEntity {

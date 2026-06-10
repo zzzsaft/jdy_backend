@@ -1,9 +1,10 @@
-import { Entity, Column, ManyToOne, Relation, OneToMany } from "typeorm";
-import { TriggerAction } from "../../type/trigger";
-import AbstractContent from "../AbstractContent";
-import { Execute_Action_Condition } from "./execute_action_condition";
-import { Execute_Action_Content } from "./execute_action_content";
-import { Trigger } from "./trigger";
+import { Entity, Column, ManyToOne, OneToMany } from "typeorm";
+import type { Relation } from "typeorm";
+import { TriggerAction } from "../../type/trigger.js";
+import AbstractContent from "../AbstractContent.js";
+import { Execute_Action_Condition } from "./execute_action_condition.js";
+import { Execute_Action_Content } from "./execute_action_content.js";
+import { Trigger } from "./trigger.js";
 
 @Entity({
   name: "trigger_execute_action",

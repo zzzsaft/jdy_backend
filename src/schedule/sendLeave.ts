@@ -1,11 +1,11 @@
 import { getISOWeek, isEqual, startOfMonth } from "date-fns";
-import { sleep } from "../config/limiter";
-import { XftAtdLeave } from "../entity/atd/xft_leave";
+import { sleep } from "../config/limiter.js";
+import { XftAtdLeave } from "../entity/atd/xft_leave.js";
 import _ from "lodash";
-import { getWeekDayName } from "../utils/dateUtils";
-import { quotaServices } from "../features/xft/service/quotaServices";
-import { MessageService } from "../features/wechat/service/messageService";
-import { xftatdApiClient } from "../features/xft/api/xft_atd";
+import { getWeekDayName } from "../utils/dateUtils.js";
+import { quotaServices } from "../features/xft/service/quotaServices.js";
+import { MessageService } from "../features/wechat/service/messageService.js";
+import { xftatdApiClient } from "../features/xft/api/xft_atd.js";
 import {
   calculateDays,
   generateCheckBox,
@@ -13,8 +13,8 @@ import {
   getDateRanges,
   getUser,
   getWeekendDates,
-} from "../features/xft/service/leaveService";
-import { User } from "../entity/basic/employee";
+} from "../features/xft/service/leaveService.js";
+import { User } from "../entity/basic/employee.js";
 
 export const sendLeave = async (
   user: { userid: string; stfSeq: string; stfName: string; orgSeq: string },

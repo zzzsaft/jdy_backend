@@ -5,7 +5,7 @@ import {
   sendContractByTemplate,
   approveContract,
   signContract,
-} from "../controller/bestsign.controller";
+} from "../controller/bestsign.controller.js";
 
 export const BestSignRoutes = [
   {

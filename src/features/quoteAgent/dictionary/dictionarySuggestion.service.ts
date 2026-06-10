@@ -10,11 +10,11 @@ import {
   DictionaryTermTypeCandidate,
   DictionaryTermTypeSuggestion,
   DictionaryValueSplitSuggestion,
-} from "./entity";
-import { ExtractionResults } from "../entity/extractionResults.entity";
-import { normalizeText } from "./dictionary.utils";
-import { getLocalModelClient, getLocalModelName } from "../../../llm";
-import { finishLlmCallLog, startLlmCallLog } from "../../../llm";
+} from "./entity/index.js";
+import { ExtractionResults } from "../entity/extractionResults.entity.js";
+import { normalizeText } from "./dictionary.utils.js";
+import { getLocalModelClient, getLocalModelName } from "../../../llm/index.js";
+import { finishLlmCallLog, startLlmCallLog } from "../../../llm/index.js";
 
 const SUGGEST_TERM_TYPE_SYSTEM_PROMPT =
   "只输出最终 JSON。不要解释，不要推理，不要 Markdown。JSON 必须包含 termType, displayName, aliases。";

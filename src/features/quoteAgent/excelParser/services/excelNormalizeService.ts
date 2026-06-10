@@ -4,4 +4,4 @@ export {
   parseOptionsFromText,
   ParsedOption,
   ParsedOptionsResult,
-} from "../parsers/parseOptions";
+} from "../parsers/parseOptions.js";

@@ -1,13 +1,13 @@
-import { getDeepSeekClient, requestDeepSeekJson } from "./deepseekClient";
+import { getDeepSeekClient, requestDeepSeekJson } from "./deepseekClient.js";
 import {
   parseJsonContent,
   validateLlmExtractionResult,
-} from "./parseDeepSeekExtractResult";
-import { DeepSeekExtractParams, DeepSeekExtractResult } from "./types";
+} from "./parseDeepSeekExtractResult.js";
+import type { DeepSeekExtractParams, DeepSeekExtractResult } from "./types.js";
 import type {
   DictionaryService,
   LlmDictionaryContext,
-} from "../quoteAgent/dictionary/dictionary.service";
+} from "../quoteAgent/dictionary/dictionary.service.js";
 
 export async function buildDictionaryContext(
   dictionaryService: DictionaryService
@@ -42,4 +42,4 @@ export async function extractProductConfigWithDeepSeek(
   }
 }
 
-export { DeepSeekExtractParams, DeepSeekExtractResult } from "./types";
+export type { DeepSeekExtractParams, DeepSeekExtractResult } from "./types.js";

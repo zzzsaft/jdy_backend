@@ -1,4 +1,4 @@
-import { ApiClient } from "./api_client";
+import { ApiClient } from "./api_client.js";
 
 class FBTUserApiClient extends ApiClient {
   async getSSOLink(phone: string | undefined, path: string) {

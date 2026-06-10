@@ -2,7 +2,7 @@ import type {
   NormalizedFieldResult,
   TermTypeMatchResult,
   ValueMatchResult,
-} from "./dictionary.types";
+} from "./dictionary.types.js";
 
 export function normalizeText(input: unknown): string {
   if (input === null || input === undefined) {

@@ -1,10 +1,10 @@
-import { logger } from "../../../config/logger";
-import { LogExpress } from "../../log/entity/log_express";
-import { BestSignContractRecord } from "../entity/contractRecord";
-import { bestSignContractNotifyService } from "./bestSignContractNotifyService";
-import { jdyFormDataApiClient } from "../../jdy/api/form_data";
-import { JdyUtil } from "../../../utils/jdyUtils";
-import { bestSignContractService } from "./bestSignContractService";
+import { logger } from "../../../config/logger.js";
+import { LogExpress } from "../../log/entity/log_express.js";
+import { BestSignContractRecord } from "../entity/contractRecord.js";
+import { bestSignContractNotifyService } from "./bestSignContractNotifyService.js";
+import { jdyFormDataApiClient } from "../../jdy/api/form_data.js";
+import { JdyUtil } from "../../../utils/jdyUtils.js";
+import { bestSignContractService } from "./bestSignContractService.js";
 
 const HR_APP_ID = "5cfef4b5de0b2278b05c8380";
 const HR_ENTRY_ID = "64b915fe3b3b7c0008316594";

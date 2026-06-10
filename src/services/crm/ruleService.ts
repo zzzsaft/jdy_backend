@@ -1,5 +1,5 @@
-import { QuoteRule } from "../../entity/crm/quoteRule";
-import { Quote, QuoteItem } from "../../entity/crm/quote";
+import { QuoteRule } from "../../entity/crm/quoteRule.js";
+import { Quote, QuoteItem } from "../../entity/crm/quote.js";
 import _ from "lodash";
 // import * from '../../../test/sampleRules.json'
 class RuleService {

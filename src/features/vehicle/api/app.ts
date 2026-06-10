@@ -1,5 +1,5 @@
-import { IAppoint } from "../../../type/IType";
-import { apiClient } from "./api_client";
+import { IAppoint } from "../../../type/IType.js";
+import { apiClient } from "./api_client.js";
 
 interface ICreateCarInfo {
   carNum: string;

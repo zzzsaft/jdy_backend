@@ -4,9 +4,9 @@ import {
   getLast2MouthSaturday,
   getMouthSaturday,
   getSaturdaySunday,
-} from "../../../utils/dateUtils";
-import { restOvertimeServices } from "../../jdy/service/restOvertimeServices";
-import { xftatdApiClient } from "../api/xft_atd";
+} from "../../../utils/dateUtils.js";
+import { restOvertimeServices } from "../../jdy/service/restOvertimeServices.js";
+import { xftatdApiClient } from "../api/xft_atd.js";
 
 class QuotaServices {
   private async getQuota(

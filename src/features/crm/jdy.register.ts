@@ -1,6 +1,6 @@
-import { registerJdy } from "../../controllers/jdy/jdy.registry";
-import { customerServices } from "../../services/crm/customerService";
-import { productService } from "../../services/crm/productService";
+import { registerJdy } from "../../controllers/jdy/jdy.registry.js";
+import { customerServices } from "../../services/crm/customerService.js";
+import { productService } from "../../services/crm/productService.js";
 
 const createCustomer = async (data) => {
   if (!["设备厂家", "最终用户"].includes(data["_widget_1740442384783"])) return;

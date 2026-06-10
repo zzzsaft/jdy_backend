@@ -5,13 +5,13 @@ import {
   DictionaryTermType,
   DictionaryTermTypeAlias,
   DictionaryVersion,
-} from "./entity";
+} from "./entity/index.js";
 import type {
   CachedTermType,
   CachedValueAlias,
   LlmDictionaryContext,
-} from "./dictionary.types";
-import { normalizeText, valueAliasKey } from "./dictionary.utils";
+} from "./dictionary.types.js";
+import { normalizeText, valueAliasKey } from "./dictionary.utils.js";
 
 export class DictionaryCache {
   readonly termTypeAliasMap = new Map<string, string[]>();

@@ -5,7 +5,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
 } from "typeorm";
-import AbstractContent from "../AbstractContent";
+import AbstractContent from "../AbstractContent.js";
 
 @Entity({ name: "crm_customer" })
 export class Customer extends AbstractContent {

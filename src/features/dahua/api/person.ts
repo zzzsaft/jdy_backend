@@ -1,5 +1,5 @@
-import { ApiClient } from "./api_client";
-import { logger } from "../../../config/logger";
+import { ApiClient } from "./api_client.js";
+import { logger } from "../../../config/logger.js";
 
 class PersonApiClient extends ApiClient {
   async addPersonFile(file: { name: string; facePhotoPath: string }) {

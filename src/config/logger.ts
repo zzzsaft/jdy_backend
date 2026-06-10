@@ -1,15 +1,10 @@
 import winston from "winston";
 import { Logger as TypeORMLogger, QueryRunner } from "typeorm";
 
-// 自定义格式化函数
-const customFormat = winston.format.printf(({ level, message, timestamp }) => {
-  // 获取调用栈信息
-  const stack = new Error().stack?.split("\n")[3]; // 获取调用栈的第三行
-  const callerInfo = stack ? stack.trim() : "";
-
+const customFormat = winston.format.printf(({ level, message }) => {
   return `[${level}]: ${message}`;
 });
-// Winston logger
+
 export const logger = winston.createLogger({
   exitOnError: false,
   level: "info",
@@ -19,25 +14,23 @@ export const logger = winston.createLogger({
     new winston.transports.File({ filename: "error.log", level: "error" }),
     new winston.transports.File({ filename: "combined.log" }),
   ],
-  // exceptionHandlers: [new winston.transports.Console()],
-  // rejectionHandlers: [new winston.transports.Console()],
 });
 
 export class CustomTypeOrmLogger implements TypeORMLogger {
   logQuery(query: string, parameters?: any[], queryRunner?: QueryRunner) {
-    // 不输出查询日志
+    // Keep normal query logging quiet; slow queries are logged by logQuerySlow.
   }
 
   logQueryError(
     error: string | Error,
     query: string,
     parameters?: any[],
-    queryRunner?: QueryRunner
+    queryRunner?: QueryRunner,
   ) {
     logger.error(
       `Query failed: ${query}, Parameters: ${JSON.stringify(
-        parameters
-      )}, Error: ${error}`
+        parameters ?? [],
+      )}, Error: ${error}`,
     );
   }
 
@@ -45,20 +38,24 @@ export class CustomTypeOrmLogger implements TypeORMLogger {
     time: number,
     query: string,
     parameters?: any[],
-    queryRunner?: QueryRunner
+    queryRunner?: QueryRunner,
   ) {
-    // 不输出慢查询日志
+    logger.warn(
+      `[typeorm:slowQuery] timeMs=${time} query=${query} parameters=${JSON.stringify(
+        parameters ?? [],
+      )}`,
+    );
   }
 
   logSchemaBuild(message: string, queryRunner?: QueryRunner) {
-    // 不输出架构构建日志
+    // Intentionally quiet.
   }
 
   logMigration(message: string, queryRunner?: QueryRunner) {
-    // 不输出迁移日志
+    // Intentionally quiet.
   }
 
   log(level: "log" | "info" | "warn", message: any) {
-    // 不输出其他级别的日志
+    // Intentionally quiet.
   }
 }

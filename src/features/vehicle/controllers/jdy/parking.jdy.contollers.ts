@@ -1,4 +1,4 @@
-import { vehicleService } from "../../services/vehicleService";
+import { vehicleService } from "../../services/vehicleService.js";
 
 export const addCar = async (data) => {
   return await vehicleService.addCar(data);

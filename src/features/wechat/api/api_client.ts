@@ -1,11 +1,11 @@
 import _ from "lodash";
 import axios from "axios";
 import qs from "querystring";
-import { token } from "./token";
-import { ILimitOpion, IRequestOptions } from "../../../type/IType";
-import { wechatLimiter } from "../../../config/limiter";
-import { appAxios } from "../../../utils/fileUtils";
-import { logger } from "../../../config/logger";
+import { token } from "./token.js";
+import { ILimitOpion, IRequestOptions } from "../../../type/IType.js";
+import { wechatLimiter } from "../../../config/limiter.js";
+import { appAxios } from "../../../utils/fileUtils.js";
+import { logger } from "../../../config/logger.js";
 export class ApiClient {
   host: string = "https://qyapi.weixin.qq.com";
 

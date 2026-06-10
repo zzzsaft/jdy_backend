@@ -1,7 +1,8 @@
-import { Entity, Column, OneToMany, Relation, Index } from "typeorm";
-import AbstractContent from "../AbstractContent";
-import { CheckinData } from "./checkin_data";
-import { HardwareCheckinData } from "./wx_hardware_checkin_data";
+import { Entity, Column, OneToMany, Index } from "typeorm";
+import type { Relation } from "typeorm";
+import AbstractContent from "../AbstractContent.js";
+import { CheckinData } from "./checkin_data.js";
+import { HardwareCheckinData } from "./wx_hardware_checkin_data.js";
 
 @Entity({ name: "atd_checkin" })
 @Index(["userid", "date"], { unique: true })

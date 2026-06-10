@@ -1,6 +1,6 @@
-import { ILimitOpion } from "../../../type/IType";
-import { IAppList, IEntryList } from "../type/IOptions";
-import { ApiClient } from "./api_client";
+import { ILimitOpion } from "../../../type/IType.js";
+import { IAppList, IEntryList } from "../type/IOptions.js";
+import { ApiClient } from "./api_client.js";
 
 const APP_BASE_PATH = "app/";
 const FORM_BASE_PATH = "app/entry/";

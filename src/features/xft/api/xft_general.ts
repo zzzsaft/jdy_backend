@@ -1,6 +1,6 @@
-import { sleep } from "../../../config/limiter";
-import { User } from "../../../entity/basic/employee";
-import { appApiClient, connectApiClient } from "./api_client";
+import { sleep } from "../../../config/limiter.js";
+import { User } from "../../../entity/basic/employee.js";
+import { appApiClient, connectApiClient } from "./api_client.js";
 
 class XFTGeneralApiClient {
   async uploadFile(file) {

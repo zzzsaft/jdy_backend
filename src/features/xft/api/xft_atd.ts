@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { appApiClient, connectApiClient } from "./api_client";
+import { appApiClient, connectApiClient } from "./api_client.js";
 import {
   addDays,
   eachDayOfInterval,

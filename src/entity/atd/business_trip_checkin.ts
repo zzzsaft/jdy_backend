@@ -8,7 +8,7 @@ import {
   UpdateDateColumn,
   // Point,
 } from "typeorm";
-import { User } from "../basic/employee";
+import { User } from "../basic/employee.js";
 
 @Entity("atd_business_trip_checkin")
 export class XftTripCheckin extends BaseEntity {

@@ -1,9 +1,9 @@
-import { JdyRoutes } from "./frontend/JdyRoutes";
-import { TriggerRoutes } from "./frontend/TriggerRoutes";
-import { JdyDataRoutes } from "./jdy";
-import { UtilsRoutes } from "./utils";
-import { AuthRoutes } from "./auth";
-import { FeatureRoutes } from "../features";
+import { JdyRoutes } from "./frontend/JdyRoutes.js";
+import { TriggerRoutes } from "./frontend/TriggerRoutes.js";
+import { JdyDataRoutes } from "./jdy.js";
+import { UtilsRoutes } from "./utils.js";
+import { AuthRoutes } from "./auth.js";
+import { FeatureRoutes } from "../features/index.js";
 
 /**
  * All application routes.

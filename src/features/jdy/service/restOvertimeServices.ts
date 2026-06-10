@@ -1,6 +1,6 @@
 import { Between, In, Not } from "typeorm";
 import ExcelJS from "exceljs";
-import { JdyRestOvertime } from "../../../entity/atd/jdy_rest_overtime";
+import { JdyRestOvertime } from "../../../entity/atd/jdy_rest_overtime.js";
 import {
   addDays,
   differenceInCalendarDays,
@@ -11,18 +11,18 @@ import {
   startOfMonth,
 } from "date-fns";
 import stream from "stream";
-import { logger } from "../../../config/logger";
+import { logger } from "../../../config/logger.js";
 import {
   getWeekDayName,
   isAfterTime,
   isBeforeTime,
-} from "../../../utils/dateUtils";
-import { AtdDayResult } from "../../../entity/atd/day_result";
+} from "../../../utils/dateUtils.js";
+import { AtdDayResult } from "../../../entity/atd/day_result.js";
 import _ from "lodash";
-import { dayResultServices } from "../../xft/service/dayResultServices";
-import { XftAtdOvertime } from "../../../entity/atd/xft_overtime";
-import { jdyFormDataApiClient } from "../api/form_data";
-import { xftatdApiClient } from "../../xft/api/xft_atd";
+import { dayResultServices } from "../../xft/service/dayResultServices.js";
+import { XftAtdOvertime } from "../../../entity/atd/xft_overtime.js";
+import { jdyFormDataApiClient } from "../api/form_data.js";
+import { xftatdApiClient } from "../../xft/api/xft_atd.js";
 
 class RestOvertimeServices {
   add = async (data) => {

@@ -1,5 +1,5 @@
 import { Entity, Column } from "typeorm";
-import AbstractContent from "../AbstractContent";
+import AbstractContent from "../AbstractContent.js";
 
 @Entity({ name: "salary_record" })
 export class SalaryRecord extends AbstractContent {

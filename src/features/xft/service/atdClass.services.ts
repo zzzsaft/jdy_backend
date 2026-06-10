@@ -1,12 +1,12 @@
 import _ from "lodash";
-import { XftAtdClass } from "../../../entity/atd/xft_class";
+import { XftAtdClass } from "../../../entity/atd/xft_class.js";
 import {
   getDifference,
   isTimeInRanges,
   parseTimeRange,
-} from "../../../utils/dateUtils";
-import { xftatdApiClient } from "../api/xft_atd";
-import { dayResultServices } from "./dayResultServices";
+} from "../../../utils/dateUtils.js";
+import { xftatdApiClient } from "../api/xft_atd.js";
+import { dayResultServices } from "./dayResultServices.js";
 
 class AtdClassService {
   async updateAtdClass() {

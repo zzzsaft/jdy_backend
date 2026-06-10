@@ -1,4 +1,4 @@
-import { Department } from "../entity/basic/department";
+import { Department } from "../entity/basic/department.js";
 
 class OrgServices {
   async isLeader(userid: string): Promise<boolean> {

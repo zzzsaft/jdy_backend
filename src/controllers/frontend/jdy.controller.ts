@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { appApiClient } from "../../features/jdy/api/app";
-import { formApiClient } from "../../features/jdy/api/form";
+import { appApiClient } from "../../features/jdy/api/app.js";
+import { formApiClient } from "../../features/jdy/api/form.js";
 
 export const getAppList = async (request: Request, response: Response) => {
   response.send(await appApiClient.appList());

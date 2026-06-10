@@ -1,7 +1,7 @@
-import { CustomerInfo } from "../../entity/crm/customerInfo";
-import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
-import { JdyUtil } from "../../utils/jdyUtils";
-import { customerServices, provinces } from "../crm/customerService";
+import { CustomerInfo } from "../../entity/crm/customerInfo.js";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data.js";
+import { JdyUtil } from "../../utils/jdyUtils.js";
+import { customerServices, provinces } from "../crm/customerService.js";
 
 class SupplierService {
   appid = "5d95ac1333ae340007cdde4c";

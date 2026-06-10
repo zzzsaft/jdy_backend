@@ -1,7 +1,7 @@
-import { ExcelParserOptions } from "./parsers/parseWorkbook";
-import { downloadExcelFile } from "./services/fileDownloadService";
-import { parseExcelFile } from "./services/excelParserService";
-import { ExcelParserError, safeRemoveDir } from "../../../utils/excelFileUtils";
+import { ExcelParserOptions } from "./parsers/parseWorkbook.js";
+import { downloadExcelFile } from "./services/fileDownloadService.js";
+import { parseExcelFile } from "./services/excelParserService.js";
+import { ExcelParserError, safeRemoveDir } from "../../../utils/excelFileUtils.js";
 
 function isHttpUrl(input: string) {
   return /^https?:\/\//i.test(input);

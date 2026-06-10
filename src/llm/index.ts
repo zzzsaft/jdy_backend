@@ -3,29 +3,29 @@ export {
   getDeepSeekClient,
   requestDeepSeekJson,
   type LlmChatMessage,
-} from "./deepseekClient";
+} from "./deepseekClient.js";
 export {
   getLocalModelClient,
   getLocalModelName,
   requestLocalModelJson,
-} from "./localModelClient";
+} from "./localModelClient.js";
 export {
   DEFAULT_INFERAI_MODEL,
   getInferAiChatClient,
   getInferAiChatModel,
   normalizeInferAiChatModel,
   requestInferAiChatJson,
-} from "./inferAiChatClient";
+} from "./inferAiChatClient.js";
 export {
   DEFAULT_XH_MODEL,
   getXhClient,
   getXhModel,
   normalizeXhModel,
   requestXhChatJson,
-} from "./xhClient";
+} from "./xhClient.js";
 export {
   finishLlmCallLog,
   startLlmCallLog,
   type LlmCallLogStartParams,
-} from "./llmCallLogger";
-export { LlmCallLog } from "./entity/llmCallLog.entity";
+} from "./llmCallLogger.js";
+export { LlmCallLog } from "./entity/llmCallLog.entity.js";

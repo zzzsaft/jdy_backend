@@ -1,13 +1,13 @@
 import { In, Repository } from "typeorm";
-import { PgDataSource } from "../../config/data-source";
+import { PgDataSource } from "../../config/data-source.js";
 import {
   DictionaryCandidate,
   DictionaryCandidateOccurrence,
   DictionaryTermTypeCandidate,
-} from "./dictionary/entity";
-import { DocumentBlocks } from "./entity/documentBlocks.entity";
-import { Documents } from "./entity/documents.entity";
-import { ExtractionResults } from "./entity/extractionResults.entity";
+} from "./dictionary/entity/index.js";
+import { DocumentBlocks } from "./entity/documentBlocks.entity.js";
+import { Documents } from "./entity/documents.entity.js";
+import { ExtractionResults } from "./entity/extractionResults.entity.js";
 
 export interface QuoteAgentRepository {
   findDocumentByHash(fileHash: string): Promise<any | null>;
@@ -73,6 +73,7 @@ export interface QuoteAgentRepository {
     llmModel?: string;
   }): Promise<any | null>;
   findLatestExtractionByDocumentId(documentId: number): Promise<any | null>;
+  findLatestExtractionDetailByDocumentId(documentId: number): Promise<any | null>;
   findExtractionById(extractionResultId: number): Promise<any | null>;
 
   createExtraction(data: {
@@ -111,10 +112,20 @@ export interface QuoteAgentRepository {
     limit?: number;
     onlyMissingNormalized?: boolean;
   }): Promise<any[]>;
+  findExtractionsForRenormalizationBatch(params: {
+    limit: number;
+    onlyMissingNormalized?: boolean;
+    cursorCreatedAt?: Date;
+    cursorId?: number;
+  }): Promise<any[]>;
   findAffectedDocumentIdsForCandidate(params: {
     candidateType: "term_type" | "value";
     candidateId: string;
   }): Promise<number[]>;
+  findAffectedDocumentIdsForCandidates(params: Array<{
+    candidateType: "term_type" | "value";
+    candidateId: string;
+  }>): Promise<Map<string, number[]>>;
   findCandidates(params?: { status?: string; documentId?: number }): Promise<{
     termTypeCandidates: any[];
     valueCandidates: any[];
@@ -563,6 +574,37 @@ export class TypeOrmQuoteAgentRepository implements QuoteAgentRepository {
     }
   }
 
+  async findLatestExtractionDetailByDocumentId(documentId: number): Promise<any | null> {
+    try {
+      return await this.extractionRepo
+        .createQueryBuilder("extraction")
+        .select([
+          "extraction.id",
+          "extraction.documentId",
+          "extraction.normalizedExtractionJson",
+          "extraction.dictionaryProposals",
+          "extraction.warnings",
+          "extraction.llmModel",
+          "extraction.promptVersion",
+          "extraction.dictionaryVersion",
+          "extraction.status",
+          "extraction.createdAt",
+        ])
+        .where("extraction.document_id = :documentId", { documentId })
+        .orderBy(
+          `CASE
+            WHEN extraction.status IN ('normalized', 'parsed') THEN 0
+            ELSE 1
+          END`,
+          "ASC",
+        )
+        .addOrderBy("extraction.created_at", "DESC")
+        .getOne();
+    } catch (error) {
+      throw wrapDbError("findLatestExtractionDetailByDocumentId", error);
+    }
+  }
+
   async findExtractionById(extractionResultId: number): Promise<any | null> {
     try {
       return await this.extractionRepo.findOne({
@@ -744,6 +786,54 @@ export class TypeOrmQuoteAgentRepository implements QuoteAgentRepository {
     }
   }
 
+  async findExtractionsForRenormalizationBatch(params: {
+    limit: number;
+    onlyMissingNormalized?: boolean;
+    cursorCreatedAt?: Date;
+    cursorId?: number;
+  }): Promise<any[]> {
+    try {
+      const query = this.extractionRepo
+        .createQueryBuilder("extraction")
+        .select([
+          "extraction.id",
+          "extraction.documentId",
+          "extraction.extractionJson",
+          "extraction.warnings",
+          "extraction.dictionaryVersion",
+          "extraction.createdAt",
+        ])
+        .where("extraction.extraction_json IS NOT NULL")
+        .orderBy("extraction.created_at", "DESC")
+        .addOrderBy("extraction.id", "DESC")
+        .limit(Math.max(1, params.limit));
+
+      if (params.onlyMissingNormalized !== false) {
+        query.andWhere("extraction.normalized_extraction_json IS NULL");
+      }
+
+      if (params.cursorCreatedAt && params.cursorId) {
+        query.andWhere(
+          `(
+            extraction.created_at < :cursorCreatedAt
+            OR (
+              extraction.created_at = :cursorCreatedAt
+              AND extraction.id < :cursorId
+            )
+          )`,
+          {
+            cursorCreatedAt: params.cursorCreatedAt,
+            cursorId: params.cursorId,
+          },
+        );
+      }
+
+      return await query.getMany();
+    } catch (error) {
+      throw wrapDbError("findExtractionsForRenormalizationBatch", error);
+    }
+  }
+
   async findAffectedDocumentIdsForCandidate(params: {
     candidateType: "term_type" | "value";
     candidateId: string;
@@ -778,6 +868,106 @@ export class TypeOrmQuoteAgentRepository implements QuoteAgentRepository {
     }
   }
 
+  async findAffectedDocumentIdsForCandidates(params: Array<{
+    candidateType: "term_type" | "value";
+    candidateId: string;
+  }>): Promise<Map<string, number[]>> {
+    const result = new Map<string, number[]>();
+    const keyFor = (candidateType: "term_type" | "value", candidateId: string) =>
+      `${candidateType}:${candidateId}`;
+    for (const item of params) {
+      result.set(keyFor(item.candidateType, item.candidateId), []);
+    }
+    if (params.length === 0) {
+      return result;
+    }
+
+    try {
+      const occurrenceRepo = PgDataSource.getRepository(DictionaryCandidateOccurrence);
+      const valueCandidateIds = [
+        ...new Set(
+          params
+            .filter((item) => item.candidateType === "value")
+            .map((item) => item.candidateId),
+        ),
+      ];
+      const termTypeCandidateIds = [
+        ...new Set(
+          params
+            .filter((item) => item.candidateType === "term_type")
+            .map((item) => item.candidateId),
+        ),
+      ];
+
+      const occurrenceQueries = await Promise.all([
+        valueCandidateIds.length
+          ? occurrenceRepo.find({
+              where: {
+                candidateType: "value",
+                candidateId: In(valueCandidateIds),
+              },
+            })
+          : Promise.resolve([]),
+        termTypeCandidateIds.length
+          ? occurrenceRepo.find({
+              where: {
+                candidateType: "term_type",
+                candidateId: In(termTypeCandidateIds),
+              },
+            })
+          : Promise.resolve([]),
+      ]);
+
+      const keysWithOccurrences = new Set<string>();
+      for (const occurrence of occurrenceQueries.flat()) {
+        const key = keyFor(
+          occurrence.candidateType as "term_type" | "value",
+          occurrence.candidateId,
+        );
+        keysWithOccurrences.add(key);
+        result.set(key, [
+          ...new Set([...(result.get(key) ?? []), Number(occurrence.documentId)]),
+        ]);
+      }
+
+      const missingValueIds = valueCandidateIds.filter(
+        (candidateId) => !keysWithOccurrences.has(keyFor("value", candidateId)),
+      );
+      const missingTermTypeIds = termTypeCandidateIds.filter(
+        (candidateId) => !keysWithOccurrences.has(keyFor("term_type", candidateId)),
+      );
+      const [valueCandidates, termTypeCandidates] = await Promise.all([
+        missingValueIds.length
+          ? PgDataSource.getRepository(DictionaryCandidate).findBy({
+              id: In(missingValueIds),
+            })
+          : Promise.resolve([]),
+        missingTermTypeIds.length
+          ? PgDataSource.getRepository(DictionaryTermTypeCandidate).findBy({
+              id: In(missingTermTypeIds),
+            })
+          : Promise.resolve([]),
+      ]);
+
+      for (const candidate of valueCandidates) {
+        if (candidate.documentId) {
+          result.set(keyFor("value", candidate.id), [Number(candidate.documentId)]);
+        }
+      }
+      for (const candidate of termTypeCandidates) {
+        if (candidate.documentId) {
+          result.set(keyFor("term_type", candidate.id), [
+            Number(candidate.documentId),
+          ]);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      throw wrapDbError("findAffectedDocumentIdsForCandidates", error);
+    }
+  }
+
   async findCandidates(params?: { status?: string; documentId?: number }): Promise<{
     termTypeCandidates: any[];
     valueCandidates: any[];
@@ -785,23 +975,64 @@ export class TypeOrmQuoteAgentRepository implements QuoteAgentRepository {
     try {
       const candidateStatus = params?.status || "pending";
       const documentId = params?.documentId;
-      const termTypeCandidates = await PgDataSource
-        .getRepository(DictionaryTermTypeCandidate)
-        .find({
-          where: { status: candidateStatus },
-          order: { createdAt: "DESC" },
-        });
-      const valueCandidates = await PgDataSource
-        .getRepository(DictionaryCandidate)
-        .find({
-          where: { status: candidateStatus },
-          order: { createdAt: "DESC" },
-        });
+      const termTypeCandidateRepo = PgDataSource.getRepository(
+        DictionaryTermTypeCandidate,
+      );
+      const valueCandidateRepo = PgDataSource.getRepository(DictionaryCandidate);
+      const occurrenceRepo = PgDataSource.getRepository(
+        DictionaryCandidateOccurrence,
+      );
+
+      let termTypeWhere: any = { status: candidateStatus };
+      let valueWhere: any = { status: candidateStatus };
+      if (documentId) {
+        const [termTypeOccurrences, valueOccurrences] = await Promise.all([
+          occurrenceRepo.find({
+            where: {
+              candidateType: "term_type",
+              documentId: String(documentId),
+            },
+          }),
+          occurrenceRepo.find({
+            where: {
+              candidateType: "value",
+              documentId: String(documentId),
+            },
+          }),
+        ]);
+        const termTypeCandidateIds = [
+          ...new Set(termTypeOccurrences.map((item) => String(item.candidateId))),
+        ];
+        const valueCandidateIds = [
+          ...new Set(valueOccurrences.map((item) => String(item.candidateId))),
+        ];
+        termTypeWhere = [
+          { status: candidateStatus, documentId: String(documentId) },
+          ...(termTypeCandidateIds.length
+            ? [{ status: candidateStatus, id: In(termTypeCandidateIds) }]
+            : []),
+        ];
+        valueWhere = [
+          { status: candidateStatus, documentId: String(documentId) },
+          ...(valueCandidateIds.length
+            ? [{ status: candidateStatus, id: In(valueCandidateIds) }]
+            : []),
+        ];
+      }
+
+      const termTypeCandidates = await termTypeCandidateRepo.find({
+        where: termTypeWhere,
+        order: { createdAt: "DESC" },
+      });
+      const valueCandidates = await valueCandidateRepo.find({
+        where: valueWhere,
+        order: { createdAt: "DESC" },
+      });
 
       const [enrichedTermTypeCandidates, enrichedValueCandidates] =
         await Promise.all([
-          this.attachCandidateDocuments("term_type", termTypeCandidates),
-          this.attachCandidateDocuments("value", valueCandidates),
+          this.attachCandidateDocuments("term_type", termTypeCandidates, documentId),
+          this.attachCandidateDocuments("value", valueCandidates, documentId),
         ]);
 
       return {
@@ -846,6 +1077,7 @@ export class TypeOrmQuoteAgentRepository implements QuoteAgentRepository {
   private async attachCandidateDocuments(
     candidateType: "term_type" | "value",
     candidates: any[],
+    documentId?: number,
   ): Promise<any[]> {
     if (candidates.length === 0) {
       return candidates;
@@ -856,6 +1088,7 @@ export class TypeOrmQuoteAgentRepository implements QuoteAgentRepository {
       where: {
         candidateType,
         candidateId: In(candidates.map((item) => String(item.id))),
+        ...(documentId ? { documentId: String(documentId) } : {}),
       },
       order: { createdAt: "DESC" },
     });

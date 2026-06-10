@@ -2,9 +2,9 @@ import NodeRSA from "node-rsa";
 import crypto from "crypto";
 import _ from "lodash";
 import qs from "querystring";
-import { IRequestOptions } from "../../../type/IType";
-import { appAxios } from "../../../utils/fileUtils";
-import { bestSignToken } from "./token";
+import { IRequestOptions } from "../../../type/IType.js";
+import { appAxios } from "../../../utils/fileUtils.js";
+import { bestSignToken } from "./token.js";
 interface Params {
   [key: string]: any;
 }

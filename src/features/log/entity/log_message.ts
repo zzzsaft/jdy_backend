@@ -5,7 +5,7 @@ import {
   PrimaryColumn,
   CreateDateColumn,
 } from "typeorm";
-import AbstractContent from "../../../entity/AbstractContent";
+import AbstractContent from "../../../entity/AbstractContent.js";
 @Entity({ name: "log_message" })
 export class WechatMessage extends AbstractContent {
   @Column({ name: "msg_id" })

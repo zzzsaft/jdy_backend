@@ -1,6 +1,6 @@
 import { addHours, format, isBefore } from "date-fns";
-import { parkingApiClient } from "../api/app";
-import { ParkingInfo } from "../entity/vehicle_info";
+import { parkingApiClient } from "../api/app.js";
+import { ParkingInfo } from "../entity/vehicle_info.js";
 
 const normalizePhone = (phone?: string) => {
   if (!phone) return "";

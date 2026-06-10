@@ -1,5 +1,5 @@
 import axios from "axios";
-import { token } from "./token";
+import { token } from "./token.js";
 
 interface AccessTokenResponse {
   errcode: number;

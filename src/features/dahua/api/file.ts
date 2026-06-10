@@ -1,9 +1,9 @@
 import axios, { AxiosRequestConfig } from "axios";
-import { ApiClient } from "./api_client";
+import { ApiClient } from "./api_client.js";
 import FormData from "form-data";
-import { logger } from "../../../config/logger";
+import { logger } from "../../../config/logger.js";
 import * as fs from "fs";
-import { sleep } from "../../../config/limiter";
+import { sleep } from "../../../config/limiter.js";
 
 type UploadInfo = {
   url: string;

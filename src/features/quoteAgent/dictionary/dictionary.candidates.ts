@@ -2,11 +2,11 @@ import { DataSource } from "typeorm";
 import {
   DictionaryCandidate,
   DictionaryTermTypeCandidate,
-} from "./entity";
+} from "./entity/index.js";
 import type {
   CreateTermTypeCandidateParams,
   CreateValueCandidateParams,
-} from "./dictionary.types";
+} from "./dictionary.types.js";
 
 export async function createValueCandidate(
   dataSource: DataSource,

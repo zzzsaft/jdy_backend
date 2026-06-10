@@ -1,10 +1,10 @@
-import "../../config/env";
-import { extractProductConfigWithDeepSeek } from "./deepseekExtract";
+import "../../config/env.js";
+import { extractProductConfigWithDeepSeek } from "./deepseekExtract.js";
 import {
   productionDetail231411FileName,
   productionDetail231411LlmText,
   productionDetail231411SheetName,
-} from "./fixtures/productionDetail231411";
+} from "./fixtures/productionDetail231411.js";
 
 export async function main() {
   const result = await extractProductConfigWithDeepSeek({

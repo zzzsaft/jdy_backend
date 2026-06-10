@@ -1,6 +1,6 @@
-import { registerJdy } from "../../controllers/jdy/jdy.registry";
-import { updateExistInfo } from "./service/dahuaServices";
-import { saveNewInfotoDahua } from "./service/employeeOnboardingService";
+import { registerJdy } from "../../controllers/jdy/jdy.registry.js";
+import { updateExistInfo } from "./service/dahuaServices.js";
+import { saveNewInfotoDahua } from "./service/employeeOnboardingService.js";
 
 registerJdy(
   // 表单名: 员工档案

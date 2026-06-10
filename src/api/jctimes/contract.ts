@@ -1,4 +1,4 @@
-import { ApiClient } from "./api_client";
+import { ApiClient } from "./api_client.js";
 
 class JcContractApiClient extends ApiClient {
   constructor() {

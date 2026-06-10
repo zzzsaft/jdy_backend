@@ -1,7 +1,8 @@
-import { Entity, Column, ManyToOne, Relation } from "typeorm";
-import AbstractContent from "../AbstractContent";
-import { SetType } from "../../type/trigger";
-import { Execute_Action } from "./execute_action";
+import { Entity, Column, ManyToOne } from "typeorm";
+import type { Relation } from "typeorm";
+import AbstractContent from "../AbstractContent.js";
+import { SetType } from "../../type/trigger.js";
+import { Execute_Action } from "./execute_action.js";
 
 @Entity({
   name: "trigger_execute_action_content",

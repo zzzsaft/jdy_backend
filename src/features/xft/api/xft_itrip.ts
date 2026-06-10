@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { appApiClient, connectApiClient } from "./api_client";
+import { appApiClient, connectApiClient } from "./api_client.js";
 import {
   eachDayOfInterval,
   endOfMonth,
@@ -9,7 +9,7 @@ import {
   startOfMonth,
   subMonths,
 } from "date-fns";
-import { getHalfDay } from "../../../utils/dateUtils";
+import { getHalfDay } from "../../../utils/dateUtils.js";
 
 export type importAtd = {
   staffName: string;

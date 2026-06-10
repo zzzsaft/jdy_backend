@@ -1,9 +1,9 @@
-import { logger } from "../../../config/logger";
+import { logger } from "../../../config/logger.js";
 import {
   BestSignContractRecord,
   BestSignSignerStatus,
-} from "../entity/contractRecord";
-import { bestSignContractService } from "./bestSignContractService";
+} from "../entity/contractRecord.js";
+import { bestSignContractService } from "./bestSignContractService.js";
 
 type BestSignNotificationPayload = {
   timestamp?: string;
@@ -191,7 +191,7 @@ class BestSignContractNotifyService {
     // Delegate HR-specific side effects (JDY updates, file download/upload).
     try {
       const { hrContractService } = await import(
-        "../../hr/service/hrContractService"
+        "../../hr/service/hrContractService.js"
       );
 
       // If we don't have a JDY linkage yet (and it's not revoked), try to create one using overview.
@@ -259,7 +259,7 @@ class BestSignContractNotifyService {
 
     try {
       const { hrContractService } = await import(
-        "../../hr/service/hrContractService"
+        "../../hr/service/hrContractService.js"
       );
       if (!record.jdyId && record.contractId && !(record.status && /REVOKE/i.test(record.status))) {
         try {

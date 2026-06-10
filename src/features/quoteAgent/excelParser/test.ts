@@ -1,4 +1,4 @@
-import { parseExcel, parseOptionsFromText } from "./index";
+import { parseExcel, parseOptionsFromText } from "./index.js";
 
 const localFilePath =
   "/Users/zzzsaft/Documents/生产明细单/jxyxbyy/2023/生产明细（231411）2023-06-10-1900mmCPE流延膜手动模头.xls";

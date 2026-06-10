@@ -1,4 +1,4 @@
-import type { ExcelBlock } from "../parsers/parseWorkbook";
+import type { ExcelBlock } from "../parsers/parseWorkbook.js";
 import * as XLSX from "xlsx";
 
 export type BuildLlmTextOptions = {

@@ -1,21 +1,21 @@
 import { decrypt } from "@wecom/crypto";
 import { Request, Response } from "express";
-import { logger } from "../../../config/logger";
-import { handleApprovalEvent } from "./approval.wechat.controller";
-import { handleContactEvent } from "./contact.wechat.controller";
-import { handleMessageEvent } from "./message.wechat.controller";
-import { LogExpress } from "../../log/entity/log_express";
-import { LogLocation } from "../../log/entity/log_location";
+import { logger } from "../../../config/logger.js";
+import { handleApprovalEvent } from "./approval.wechat.controller.js";
+import { handleContactEvent } from "./contact.wechat.controller.js";
+import { handleMessageEvent } from "./message.wechat.controller.js";
+import { LogExpress } from "../../log/entity/log_express.js";
+import { LogLocation } from "../../log/entity/log_location.js";
 import path from "path";
 import { Between, Like, MoreThan } from "typeorm";
-import { locationService } from "../../../services/locationService";
-import { getCorpConfig } from "../wechatCorps";
+import { locationService } from "../../../services/locationService.js";
+import { getCorpConfig } from "../wechatCorps.js";
 import {
   syncAllDepartments,
   syncAllUsers,
   syncWechatData,
-} from "../service/wechatSyncService";
-import { decryptMsg } from "../util";
+} from "../service/wechatSyncService.js";
+import { decryptMsg } from "../util.js";
 
 export async function wechatWebHookCheck(request: Request, response: Response) {
   const corpIdOrName =

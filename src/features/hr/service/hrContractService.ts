@@ -1,11 +1,11 @@
-import { logger } from "../../../config/logger";
-import { JdyUtil } from "../../../utils/jdyUtils";
-import { jdyFormDataApiClient } from "../../jdy/api/form_data";
-import { bestSignContractService } from "../../bestsign/service/bestSignContractService";
-import { bestSignTemplateTextLabelService } from "../../bestsign/service/bestSignTemplateTextLabelService";
-import { BestSignContractRecord } from "../../bestsign/entity/contractRecord";
-import { getEnterpriseConfig } from "../../bestsign/bestsign";
-import { hrEmployeeArchiveService } from "./hrEmployeeArchiveService";
+import { logger } from "../../../config/logger.js";
+import { JdyUtil } from "../../../utils/jdyUtils.js";
+import { jdyFormDataApiClient } from "../../jdy/api/form_data.js";
+import { bestSignContractService } from "../../bestsign/service/bestSignContractService.js";
+import { bestSignTemplateTextLabelService } from "../../bestsign/service/bestSignTemplateTextLabelService.js";
+import { BestSignContractRecord } from "../../bestsign/entity/contractRecord.js";
+import { getEnterpriseConfig } from "../../bestsign/bestsign.js";
+import { hrEmployeeArchiveService } from "./hrEmployeeArchiveService.js";
 
 const APP_ID = "5cfef4b5de0b2278b05c8380";
 const ENTRY_ID = "64b915fe3b3b7c0008316594";

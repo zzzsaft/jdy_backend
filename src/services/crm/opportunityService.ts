@@ -1,14 +1,14 @@
-import { tycApiClient } from "../../api/tianyacha/app";
-import { Log } from "../../features/log/entity/log";
-import { CustomerInfo } from "../../entity/crm/customerInfo";
-import { JdyUtil } from "../../utils/jdyUtils";
-import { Customer } from "../../entity/crm/customer";
+import { tycApiClient } from "../../api/tianyacha/app.js";
+import { Log } from "../../features/log/entity/log.js";
+import { CustomerInfo } from "../../entity/crm/customerInfo.js";
+import { JdyUtil } from "../../utils/jdyUtils.js";
+import { Customer } from "../../entity/crm/customer.js";
 import { Any, Brackets, In, Like } from "typeorm";
-import { Opportunity, OpportunityQuote } from "../../entity/crm/opportunity";
-import { removeUndefined } from "../../utils/stringUtils";
-import { customerServices } from "./customerService";
-import { MessageService } from "../../features/wechat/service/messageService";
-import { jdyFormDataApiClient } from "../../features/jdy/api/form_data";
+import { Opportunity, OpportunityQuote } from "../../entity/crm/opportunity.js";
+import { removeUndefined } from "../../utils/stringUtils.js";
+import { customerServices } from "./customerService.js";
+import { MessageService } from "../../features/wechat/service/messageService.js";
+import { jdyFormDataApiClient } from "../../features/jdy/api/form_data.js";
 
 class OpportunityServices {
   appid = "6191e49fc6c18500070f60ca";

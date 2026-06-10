@@ -9,7 +9,7 @@ import {
   Unique,
   BaseEntity,
 } from "typeorm";
-import AbstractContent from "../AbstractContent";
+import AbstractContent from "../AbstractContent.js";
 
 @Entity({ name: "crm_external_contact" })
 export class ExternalContact extends BaseEntity {

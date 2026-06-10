@@ -3,18 +3,24 @@ import path from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { Request, Response } from "express";
-import { PgDataSource } from "../../../config/data-source";
+import { PgDataSource } from "../../../config/data-source.js";
 import {
   DictionaryTerm,
   DictionaryTermType,
-} from "../dictionary/entity";
-import { DictionaryService } from "../dictionary/dictionary.service";
-import { DictionarySuggestionService } from "../dictionary/dictionarySuggestion.service";
-import { quoteAgentService } from "../service";
+} from "../dictionary/entity/index.js";
+import { DictionaryService } from "../dictionary/dictionary.service.js";
+import { DictionarySuggestionService } from "../dictionary/dictionarySuggestion.service.js";
+import {
+  isQuoteAgentModelTermType,
+  QuoteAgentMasterDataService,
+  type QuoteAgentMasterDataSource,
+} from "../masterData.service.js";
+import { quoteAgentService } from "../service.js";
 
 const uploadDir = path.join(process.cwd(), "uploads", "quote-agent");
 const dictionarySuggestionService = new DictionarySuggestionService(PgDataSource);
 const dictionaryService = new DictionaryService(PgDataSource);
+const masterDataService = new QuoteAgentMasterDataService(PgDataSource);
 const execFileAsync = promisify(execFile);
 
 function sendError(response: Response, error: unknown) {
@@ -76,6 +82,10 @@ function normalizeValueRows(value: unknown) {
 
 function shouldRefreshAffectedDocuments(request: Request): boolean {
   return request.body?.refreshAffectedDocuments === true;
+}
+
+function shouldDeferCandidateRecheck(request: Request): boolean {
+  return request.body?.deferCandidateRecheck === true;
 }
 
 function normalizeBatchReviewOperations(value: unknown) {
@@ -309,7 +319,17 @@ const getExtractionDetail = async (request: Request, response: Response) => {
   try {
     const documentId = Number(request.params.documentId);
     if (!documentId) throw new Error("documentId is required");
-    response.json(await quoteAgentService.getContract(documentId));
+    response.json(await quoteAgentService.getExtractionDetail(documentId));
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const renormalizeExtraction = async (request: Request, response: Response) => {
+  try {
+    const documentId = Number(request.params.documentId);
+    if (!documentId) throw new Error("documentId is required");
+    response.json(await quoteAgentService.generateDictionaryForDocument(documentId));
   } catch (error) {
     sendError(response, error);
   }
@@ -391,6 +411,7 @@ const getCandidates = async (request: Request, response: Response) => {
         documentId !== undefined && Number.isFinite(documentId)
           ? documentId
           : undefined,
+      recheckPendingCandidates: request.query.recheckPendingCandidates === "true",
     });
     const suggestions =
       await dictionarySuggestionService.getCachedBatchReviewSuggestions({
@@ -475,6 +496,40 @@ const getDictionaryProductTypes = async (
   }
 };
 
+const bindModelMasterData = async (request: Request, response: Response) => {
+  try {
+    const termType = requireString(request.body?.termType, "termType");
+    if (!isQuoteAgentModelTermType(termType)) {
+      throw new Error("termType must be metering_pump_model or filter_model");
+    }
+
+    const itemIndex = Number(request.body?.itemIndex);
+    if (!Number.isFinite(itemIndex)) {
+      throw new Error("itemIndex must be a number");
+    }
+
+    response.json(
+      await masterDataService.bindModel({
+        documentId: requireString(request.body?.documentId, "documentId"),
+        extractionResultId: requireString(
+          request.body?.extractionResultId,
+          "extractionResultId",
+        ),
+        itemIndex,
+        termType,
+        rawValue: requireString(request.body?.rawValue, "rawValue"),
+        source: requireString(
+          request.body?.source,
+          "source",
+        ) as QuoteAgentMasterDataSource,
+        masterDataId: requireString(request.body?.masterDataId, "masterDataId"),
+      }),
+    );
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
 const suggestTermType = async (request: Request, response: Response) => {
   try {
     response.json(
@@ -549,6 +604,7 @@ const createTermType = async (request: Request, response: Response) => {
         candidateType: "term_type",
         candidateId: request.params.candidateId,
         refreshAffectedDocuments: shouldRefreshAffectedDocuments(request),
+        deferCandidateRecheck: shouldDeferCandidateRecheck(request),
         action: "create_term_type",
         payload: {
           termType: requireString(request.body.termType, "termType"),
@@ -584,6 +640,7 @@ const approveTermTypeAsAlias = async (request: Request, response: Response) => {
         candidateType: "term_type",
         candidateId: request.params.candidateId,
         refreshAffectedDocuments: shouldRefreshAffectedDocuments(request),
+        deferCandidateRecheck: shouldDeferCandidateRecheck(request),
         action: "approve_term_type_as_alias",
         payload: {
           termType: requireString(request.body.termType, "termType"),
@@ -750,6 +807,7 @@ const reviewCandidatesBatch = async (request: Request, response: Response) => {
     response.json(
       await quoteAgentService.reviewCandidatesBatch({
         refreshAffectedDocuments: shouldRefreshAffectedDocuments(request),
+        deferCandidateRecheck: shouldDeferCandidateRecheck(request),
         operations: normalizeBatchReviewOperations(request.body?.operations),
       }),
     );
@@ -805,6 +863,11 @@ export const QuoteAgentRoutes = [
     action: reextractDocumentWithLlm,
   },
   {
+    path: "/quoteAgent/extractions/:documentId/renormalize",
+    method: "post",
+    action: renormalizeExtraction,
+  },
+  {
     path: "/api/extractions/:documentId",
     method: "get",
     action: getExtractionDetail,
@@ -813,6 +876,11 @@ export const QuoteAgentRoutes = [
     path: "/api/extractions/:documentId/reextract",
     method: "post",
     action: reextractDocumentWithLlm,
+  },
+  {
+    path: "/api/extractions/:documentId/renormalize",
+    method: "post",
+    action: renormalizeExtraction,
   },
   {
     path: "/quoteAgent/documents/:documentId/open-file",
@@ -848,6 +916,11 @@ export const QuoteAgentRoutes = [
     path: "/quoteAgent/dictionary/product-types",
     method: "get",
     action: getDictionaryProductTypes,
+  },
+  {
+    path: "/quoteAgent/master-data/model-binding",
+    method: "post",
+    action: bindModelMasterData,
   },
   {
     path: "/api/dictionary/product-types",

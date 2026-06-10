@@ -1,4 +1,4 @@
-import { logger } from "../../config/logger";
+import { logger } from "../../config/logger.js";
 import fs from "fs";
 import path from "path";
 

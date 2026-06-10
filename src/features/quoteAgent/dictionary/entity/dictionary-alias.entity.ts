@@ -10,7 +10,7 @@ import {
   Unique,
   UpdateDateColumn,
 } from "typeorm";
-import { DictionaryTerm } from "./dictionary-term.entity";
+import { DictionaryTerm } from "./dictionary-term.entity.js";
 
 @Entity({ name: "dictionary_aliases", schema: "quote_agent" })
 @Unique(["termType", "normalizedAlias"])

@@ -8,7 +8,7 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from "typeorm";
-import { ApplyData } from "../../type/wechat/IApproval";
+import { ApplyData } from "../../type/wechat/IApproval.js";
 // import app from "../../utils/jdy/app";
 
 const sp_status = {

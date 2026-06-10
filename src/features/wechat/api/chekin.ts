@@ -1,8 +1,8 @@
 import _ from "lodash";
-import { ApiClient } from "./api_client";
-import { token_checkin } from "./token";
-import { splitDatesIntoContinuousIntervals } from "../../../utils/dateUtils";
-import { ICheckinOption } from "../../../type/wechat/IOption";
+import { ApiClient } from "./api_client.js";
+import { token_checkin } from "./token.js";
+import { splitDatesIntoContinuousIntervals } from "../../../utils/dateUtils.js";
+import { ICheckinOption } from "../../../type/wechat/IOption.js";
 
 export type HardwareCheckinData = {
   userid: string;

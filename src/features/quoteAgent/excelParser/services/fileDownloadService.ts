@@ -1,7 +1,7 @@
 import axios from "axios";
 import fs from "fs";
 import path from "path";
-import { createExcelTempDir, ExcelParserError } from "../../../../utils/excelFileUtils";
+import { createExcelTempDir, ExcelParserError } from "../../../../utils/excelFileUtils.js";
 
 function filenameFromContentDisposition(contentDisposition?: string) {
   if (!contentDisposition) return null;
