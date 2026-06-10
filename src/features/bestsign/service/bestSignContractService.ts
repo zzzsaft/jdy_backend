@@ -7,7 +7,10 @@ import {
 } from "../entity/contractRecord.js";
 import { contractApiClient } from "../api/contract.js";
 import { bestSignTemplateTextLabelService } from "./bestSignTemplateTextLabelService.js";
-import { getSealNameByEnterprise } from "../bestsign.js";
+import {
+  getSealNameByEnterprise,
+  getSignerAccountByEnterprise,
+} from "../bestsign.js";
 import fileApiClient from "../../jdy/api/file.js";
 import { jdyFormDataApiClient } from "../../jdy/api/form_data.js";
 import { exec } from "child_process";
@@ -252,8 +255,9 @@ class BestSignContractService {
 
     const sealName = getSealNameByEnterprise(record.senderEnterpriseName);
 
-    // Requirement: signing uses a fixed enterprise member account.
-    const account = "15868681800";
+    const account =
+      getSignerAccountByEnterprise(record.senderEnterpriseName) ??
+      "15868681800";
 
     return await contractApiClient.sign([record.contractId], sealName, {
       enterpriseName: record.senderEnterpriseName,

@@ -2,7 +2,7 @@ import { Entity, Column, ManyToOne } from "typeorm";
 import type { Relation } from "typeorm";
 import { TriggerMethod } from "../../type/trigger.js";
 import AbstractContent from "../AbstractContent.js";
-import { Trigger } from "./trigger.js";
+import { Trigger } from "./Trigger.js";
 
 @Entity()
 export class Trigger_Condition extends AbstractContent {

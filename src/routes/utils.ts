@@ -1,5 +1,6 @@
 import { isLicensePlate, sendImage } from "../controllers/utils.controllers.js";
 import { Request, Response } from "express";
+import { isValid, parse } from "date-fns";
 import { quotaServices } from "../features/xft/service/quotaServices.js";
 import { checkinServices } from "../features/xft/service/checkinServices.js";
 import {
@@ -45,9 +46,21 @@ const getWorkStartTime = async (request: Request, response: Response) => {
   const userid = request.query.userid as string;
   const date = request.query.date as string;
   if (!userid || !date) return response.status(400).send("参数错误");
-  const time = await atdClassService.getWorkStartTime(userid, new Date(date));
+  const workDate = parseQueryDate(date);
+  if (!workDate) return response.status(400).send("日期格式错误");
+  const time = await atdClassService.getWorkStartTime(userid, workDate);
   response.send({ start: time });
 };
+
+const parseQueryDate = (value: string) => {
+  const dateText = String(value ?? "").trim();
+  if (!dateText) return null;
+  const date = /^\d{8}$/.test(dateText)
+    ? parse(dateText, "yyyyMMdd", new Date())
+    : new Date(dateText);
+  return isValid(date) ? date : null;
+};
+
 export const UtilsRoutes = [
   {
     path: "/utils/plate/:license_plate",

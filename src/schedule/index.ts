@@ -5,7 +5,6 @@ import { getCheckinData } from "./getCheckinData.js";
 import { sendtoUserwithLeaveChoice } from "./sendLeave.js";
 import { GetFbtApply } from "./getFbtApply.js";
 import { SendTripCheckin } from "./sendTripCheckin.js";
-import { sendXftTodoList } from "./sendXftTask.js";
 import { businessTripCheckinServices } from "../features/jdy/service/businessTripCheckinServices.js";
 import { BusinessTripServices } from "../features/xft/service/businessTripServices.js";
 import { checkinServices } from "../features/xft/service/checkinServices.js";
@@ -60,11 +59,6 @@ const sendTripCheckin = cron.schedule("0 */20 7-20 * * *", async () => {
   // logger.info("更新外出打卡");
 });
 
-const sendXftTodoListEveryDay = cron.schedule("0 0 9,16 * * *", async () => {
-  await sendXftTodoList();
-  logger.info("发送待办");
-});
-
 // 每天晚上10点执行离职人员车辆禁用
 const disableLeftUserCars = cron.schedule("0 0 22 * * *", async () => {
   await vehicleService.disableCarIfUserLeft();
@@ -77,6 +71,5 @@ export const schedule = [
   sendLeave,
   fbtApplySchedule,
   sendTripCheckin,
-  sendXftTodoListEveryDay,
   disableLeftUserCars,
 ];

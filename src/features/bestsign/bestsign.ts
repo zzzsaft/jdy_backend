@@ -3,6 +3,7 @@ export type BestSignEnterpriseConfig = {
   legalRepresentative: string;
   postalCode: string;
   sealName: string;
+  signerAccount?: string;
 };
 
 export const bestSignEnterpriseConfig: Record<
@@ -13,7 +14,8 @@ export const bestSignEnterpriseConfig: Record<
     address: "浙江省台州市黄岩区澄江街道香女路3号",
     legalRepresentative: "梁斌",
     postalCode: "318020",
-    sealName: "精艺",
+    sealName: "电子公章",
+    signerAccount: "18869965222",
   },
   浙江精诚时代科技股份有限公司: {
     address: "浙江省台州市黄岩区新前街道建业路88号",
@@ -31,4 +33,9 @@ export const getEnterpriseConfig = (enterpriseName?: string) => {
 export const getSealNameByEnterprise = (enterpriseName?: string) => {
   const config = getEnterpriseConfig(enterpriseName);
   return config?.sealName ?? "公章";
+};
+
+export const getSignerAccountByEnterprise = (enterpriseName?: string) => {
+  const config = getEnterpriseConfig(enterpriseName);
+  return config?.signerAccount;
 };

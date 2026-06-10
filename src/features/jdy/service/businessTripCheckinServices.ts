@@ -420,11 +420,6 @@ const sendNotice = async (data) => {
       data.customer
     }的差旅记录，请点击右下方选择分贝通或薪福通（进出口及精一）进行差旅申请，否则将影响您的考勤、报销、与差旅补贴。`
   );
-  await new MessageService(["ZhengJie", "LiangZhi"]).send_plain_text(
-    `未找到${data.name}${format(data.checkinDate, "yyyy-MM-dd")}拜访${
-      data.customer
-    }的差旅记录，请及时提醒进行申请办理。`
-  );
 };
 
 export const sendButtonMsg = async (checkin: XftTripCheckin | null) => {

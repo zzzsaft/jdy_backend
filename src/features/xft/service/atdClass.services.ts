@@ -42,6 +42,7 @@ class AtdClassService {
   };
   getWorkStartTime = async (userid: string, time: Date) => {
     const shift = await dayResultServices.getShift(time, userid);
+    if (!shift) return null;
     const atdClass = await XftAtdClass.findOne({
       where: { className: shift },
     });

@@ -4,7 +4,7 @@ import { TriggerAction } from "../../type/trigger.js";
 import AbstractContent from "../AbstractContent.js";
 import { Execute_Action_Condition } from "./execute_action_condition.js";
 import { Execute_Action_Content } from "./execute_action_content.js";
-import { Trigger } from "./trigger.js";
+import { Trigger } from "./Trigger.js";
 
 @Entity({
   name: "trigger_execute_action",

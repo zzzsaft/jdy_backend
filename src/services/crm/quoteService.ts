@@ -91,31 +91,33 @@ class QuoteService {
       needPrint: true,
       technicalLevel: data["_widget_1744875560210"],
       material: data["_widget_1747554783187"],
-      finalProduct: data["_widget_1747554783172"].join(","),
-      applicationField: data["_widget_1747554783170"].join(","),
+      finalProduct: joinJdyValues(data["_widget_1747554783172"]),
+      applicationField: joinJdyValues(data["_widget_1747554783170"]),
     });
     if (data["_widget_1615187419450"])
       quote.quoteTime = JdyUtil.getDate(data["_widget_1615187419450"]);
-    quote.items = data["_widget_1615187420300"].map((item, index) => {
-      return QuoteItem.create({
-        index: index + 1,
-        jdyId: item["_id"],
-        productCategory: [
-          item["_widget_1743122083863"],
-          item["_widget_1743122083868"],
-          item["_widget_1743122083870"],
-        ].filter((v) => v),
-        productName: item["_widget_1615858670970"],
-        config: { remark: item["_widget_1743122083872"] },
-        quantity: item["_widget_1615187421349"],
-        unitPrice: item["_widget_1615858670973"],
-        guidePrice: item["_widget_1744502974161"],
-        discountRate: (item["_widget_1615187421408"] ?? 0) * 100,
-        subtotal: item["_widget_1615187421495"],
-        unit: item["_widget_1615858670974"],
-        brand: item["_widget_1747559943553"],
-      });
-    });
+    quote.items = _.castArray(data["_widget_1615187420300"] ?? []).map(
+      (item, index) => {
+        return QuoteItem.create({
+          index: index + 1,
+          jdyId: item["_id"],
+          productCategory: [
+            item["_widget_1743122083863"],
+            item["_widget_1743122083868"],
+            item["_widget_1743122083870"],
+          ].filter((v) => v),
+          productName: item["_widget_1615858670970"],
+          config: { remark: item["_widget_1743122083872"] },
+          quantity: item["_widget_1615187421349"],
+          unitPrice: item["_widget_1615858670973"],
+          guidePrice: item["_widget_1744502974161"],
+          discountRate: (item["_widget_1615187421408"] ?? 0) * 100,
+          subtotal: item["_widget_1615187421495"],
+          unit: item["_widget_1615858670974"],
+          brand: item["_widget_1747559943553"],
+        });
+      }
+    );
     // ["a"].map((value, index) => []);
     return quote;
   };
@@ -606,3 +608,9 @@ class QuoteService {
 }
 
 export const quoteService = new QuoteService();
+
+const joinJdyValues = (value: any) => {
+  return _.castArray(value ?? [])
+    .filter((item) => item != null && item !== "")
+    .join(",");
+};

@@ -22,9 +22,16 @@ export class OvertimeEvent {
     this.task = task;
   }
 
+  private isCancelOvertime() {
+    return (
+      this.task.businessParam?.startsWith("CANOT_") ||
+      this.task.details?.includes("流程类型：取消加班")
+    );
+  }
+
   async process() {
     await this.getRecord();
-    if (await this.rejectOA()) return;
+    if (!this.isCancelOvertime() && (await this.rejectOA())) return;
     if (this.task.dealStatus == "1") {
       await this.sendNotice(this.stfNumber);
     } else if (this.task.dealStatus == "0") {
@@ -34,13 +41,28 @@ export class OvertimeEvent {
 
   getRecord = async () => {
     const leaveRecSeq = this.task.businessParam.split("_").pop();
+    if (this.isCancelOvertime()) {
+      this.proceedCancelRecord();
+      return;
+    }
     const record = await xftatdApiClient.getOvertimeDetail(leaveRecSeq);
     await this.proceedRecord(record);
   };
 
   proceedRecord = async (record) => {
-    Object.assign(this, record["body"]["recordResponseDto"]);
-    Object.assign(this, record["body"]["detailResponseDto"]);
+    const recordResponseDto = record?.["body"]?.["recordResponseDto"];
+    const detailResponseDto = record?.["body"]?.["detailResponseDto"];
+    if (!recordResponseDto || !detailResponseDto) {
+      throw new Error(
+        `加班详情为空，businessParam=${this.task.businessParam}, serialNumber=${this.task.businessParam
+          .split("_")
+          .pop()}, returnCode=${record?.["returnCode"] ?? ""}, errorMsg=${
+          record?.["errorMsg"] ?? ""
+        }`
+      );
+    }
+    Object.assign(this, recordResponseDto);
+    Object.assign(this, detailResponseDto);
     let overtimeType = {
       "0": "工作日",
       "1": "休息日",
@@ -61,7 +83,7 @@ export class OvertimeEvent {
       },
       {
         keyname: "加班时长",
-        value: `${this.overtimeLen.toFixed(1)} ${
+        value: `${Number(this.overtimeLen).toFixed(1)} ${
           this.durationUnit == "0" ? "小时" : "分钟"
         }`,
       },
@@ -71,9 +93,37 @@ export class OvertimeEvent {
       },
     ];
     await XftAtdOvertime.addRecord(
-      record["body"]["recordResponseDto"],
-      record["body"]["detailResponseDto"]
+      recordResponseDto,
+      detailResponseDto
     );
+  };
+
+  proceedCancelRecord = () => {
+    this.stfNumber = this.task.sendUserId;
+    const details = this.task.details ?? "";
+    const applicant = details.match(/申请人：([^，]+)/)?.[1];
+    const overtimeType = details.match(/加班类型：([^，]+)/)?.[1];
+    const timeRange = details.match(
+      /起止时间：(\d{4}-\d{2}-\d{2} \d{2}:\d{2})-(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/
+    );
+    const reason = details.match(/取消原因：([^，]*)/)?.[1];
+    this.task.horizontal_content_list = [
+      { keyname: "流程类型", value: "取消加班" },
+      ...(applicant ? [{ keyname: "申请人", value: applicant }] : []),
+      ...(overtimeType ? [{ keyname: "加班类型", value: overtimeType }] : []),
+      ...(timeRange
+        ? [
+            { keyname: "开始时间", value: timeRange[1] },
+            { keyname: "结束时间", value: timeRange[2] },
+          ]
+        : []),
+    ];
+    if (reason) {
+      this.task.horizontal_content_list.push({
+        keyname: "取消原因",
+        value: reason,
+      });
+    }
   };
 
   rejectOA = async () => {
