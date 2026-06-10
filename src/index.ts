@@ -14,7 +14,7 @@ import { DatabaseTransport } from "./config/database-transport.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __filename = fileURLToPath(import.meta.url);
+// const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 PgDataSource.initialize()
@@ -45,7 +45,7 @@ PgDataSource.initialize()
           } catch (err) {
             next(err);
           }
-        },
+        }
       );
     });
     // run app

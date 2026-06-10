@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 import { CustomTypeOrmLogger } from "./logger.js";
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
+// const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const isProd = process.env.NODE_ENV === "production";
 const entitiesGlob = isProd
@@ -24,7 +24,7 @@ const entitiesGlob = isProd
         "quoteAgent",
         "dictionary",
         "entity",
-        "*.js",
+        "*.js"
       ),
       path.join(__dirname, "..", "features", "xft", "entity", "*.js"),
       path.join(__dirname, "..", "features", "vehicle", "entity", "*.js"),

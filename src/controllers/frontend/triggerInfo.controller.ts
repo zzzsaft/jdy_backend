@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
-import { Trigger } from "../../entity/Trigger/Trigger.js";
-// import { Trigger } from "../../entity/trigger/Trigger.js";
+import { Trigger } from "../../entity/trigger/Trigger.js";
 
 /**
  * Loads all posts from the database.
