@@ -2,8 +2,6 @@ import "./config/env.js";
 import "./config/logger.js";
 import "./features/index.js";
 
-declare module "cors";
-
 import express, { Request, Response } from "express";
 import { BaseEntity } from "typeorm";
 import { AppDataSource, PgDataSource } from "./config/data-source.js";
@@ -44,7 +42,6 @@ PgDataSource.initialize()
         async (request: Request, response: Response, next: Function) => {
           try {
             await route.action(request, response);
-            next();
           } catch (err) {
             next(err);
           }

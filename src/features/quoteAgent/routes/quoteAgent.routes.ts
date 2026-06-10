@@ -597,6 +597,93 @@ const suggestCandidatesBatch = async (request: Request, response: Response) => {
   }
 };
 
+const getCandidateClusterReviewPrompt = async (
+  _request: Request,
+  response: Response,
+) => {
+  try {
+    response.json(dictionarySuggestionService.getClusterBatchReviewPrompt());
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const getCandidateClusters = async (request: Request, response: Response) => {
+  try {
+    const status =
+      typeof request.query.status === "string" ? request.query.status : "pending";
+    if (!["pending", "approved", "rejected"].includes(status)) {
+      throw new Error("status must be pending, approved, or rejected");
+    }
+    const documentId =
+      typeof request.query.documentId === "string" && request.query.documentId
+        ? Number(request.query.documentId)
+        : undefined;
+    if (documentId !== undefined && !Number.isFinite(documentId)) {
+      throw new Error("documentId must be a number");
+    }
+    const limit =
+      typeof request.query.limit === "string" && request.query.limit
+        ? Number(request.query.limit)
+        : undefined;
+    if (limit !== undefined && (!Number.isFinite(limit) || limit <= 0)) {
+      throw new Error("limit must be a positive number");
+    }
+    response.json(
+      await dictionarySuggestionService.buildClusterBatchReviewInput({
+        status,
+        documentId,
+        limit,
+      }),
+    );
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const suggestCandidateClustersBatch = async (
+  request: Request,
+  response: Response,
+) => {
+  try {
+    const status =
+      typeof request.body?.status === "string" ? request.body.status : "pending";
+    if (!["pending", "approved", "rejected"].includes(status)) {
+      throw new Error("status must be pending, approved, or rejected");
+    }
+    const documentId =
+      request.body?.documentId === undefined || request.body?.documentId === ""
+        ? undefined
+        : Number(request.body.documentId);
+    if (documentId !== undefined && !Number.isFinite(documentId)) {
+      throw new Error("documentId must be a number");
+    }
+    const limit =
+      request.body?.limit === undefined || request.body?.limit === ""
+        ? undefined
+        : Number(request.body.limit);
+    if (limit !== undefined && (!Number.isFinite(limit) || limit <= 0)) {
+      throw new Error("limit must be a positive number");
+    }
+    response.json(
+      await dictionarySuggestionService.suggestBatchCandidateClusterReviews({
+        status,
+        documentId,
+        limit,
+        model:
+          typeof request.body?.model === "string" ? request.body.model : undefined,
+        priorDecisions: request.body?.priorDecisions,
+        runPolicy:
+          request.body?.runPolicy && typeof request.body.runPolicy === "object"
+            ? request.body.runPolicy
+            : undefined,
+      }),
+    );
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
 const createTermType = async (request: Request, response: Response) => {
   try {
     response.json(
@@ -896,6 +983,21 @@ export const QuoteAgentRoutes = [
     path: "/quoteAgent/candidates/suggestions/batch",
     method: "post",
     action: suggestCandidatesBatch,
+  },
+  {
+    path: "/quoteAgent/candidates/clusters/review-prompt",
+    method: "get",
+    action: getCandidateClusterReviewPrompt,
+  },
+  {
+    path: "/quoteAgent/candidates/clusters",
+    method: "get",
+    action: getCandidateClusters,
+  },
+  {
+    path: "/quoteAgent/candidates/clusters/suggestions/batch",
+    method: "post",
+    action: suggestCandidateClustersBatch,
   },
   {
     path: "/quoteAgent/candidates/reviews/batch",

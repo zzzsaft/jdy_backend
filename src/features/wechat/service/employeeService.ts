@@ -66,7 +66,10 @@ export const syncUsers = async (corpId?: string): Promise<void> => {
 };
 
 export const syncXftUserIds = async (corpId: string): Promise<void> => {
-  const xftUsers = (await xftUserApiClient.getMemberList())["OPUSRLSTY"]
+  const xftUsers: Pick<
+    User,
+    "corp_id" | "user_id" | "xft_id" | "xft_enterprise_id"
+  >[] = (await xftUserApiClient.getMemberList())["OPUSRLSTY"]
     .map((user) => {
       return {
         corp_id: corpId,
@@ -79,8 +82,25 @@ export const syncXftUserIds = async (corpId: string): Promise<void> => {
   const users = Array.from(
     new Map(xftUsers.map((user) => [user.user_id, user])).values()
   );
-  // await User.upsert(users, {
-  //   conflictPaths: ["user_id", "corp_id"],
-  //   skipUpdateIfNoValuesChanged: true, // supported by postgres, skips update if it would not change row values
-  // });
+  if (users.length === 0) return;
+
+  const userIds = users.map((user) => user.user_id);
+  const existingUsers = await User.find({
+    where: {
+      corp_id: corpId,
+      user_id: In(userIds),
+    },
+    select: ["corp_id", "user_id"],
+  });
+  const existingUserIds = new Set(existingUsers.map((user) => user.user_id));
+  const usersToUpdate = users.filter((user) =>
+    existingUserIds.has(user.user_id)
+  );
+
+  if (usersToUpdate.length === 0) return;
+
+  await User.upsert(usersToUpdate, {
+    conflictPaths: ["user_id", "corp_id"],
+    skipUpdateIfNoValuesChanged: true, // supported by postgres, skips update if it would not change row values
+  });
 };

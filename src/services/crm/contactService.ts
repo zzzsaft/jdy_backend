@@ -293,27 +293,52 @@ class ContactService {
 
     for (const batch of batches) {
       await this.externalContactRepo.manager.transaction(async (manager) => {
-        // 准备所有 ExternalContact 和关联的 FollowUser
-        const externalContacts = batch.map((data) => {
-          const contact = this.prepareExternalContact(data.external_contact);
-          if (data.follow_user) {
-            contact.follow_users =
-              data.follow_user?.map((fu) =>
-                this.prepareFollowUser(contact.external_userid, fu)
-              ) || [];
-          }
-          if (data.follow_info) {
-            contact.follow_users = [
-              this.prepareFollowUser(contact.external_userid, data.follow_info),
-            ];
-          }
-          return contact;
-        });
+        const externalContacts: ExternalContact[] = [];
+        const followUsers: FollowUser[] = [];
 
-        // 批量保存（自动级联）
-        const result = await ExternalContact.save(groupBy(externalContacts));
-        // await FollowUser.delete({ external_userid: IsNull() });
-        return result;
+        for (const data of batch) {
+          if (!data?.external_contact?.external_userid) {
+            throw new Error(
+              `Invalid external contact detail: missing external_contact.external_userid, data=${JSON.stringify(
+                data ?? null
+              ).slice(0, 500)}`
+            );
+          }
+          const contact = this.prepareExternalContact(data?.external_contact);
+          externalContacts.push(contact);
+
+          const followUserData = [
+            ...(data?.follow_user ? _.castArray(data.follow_user) : []),
+            ...(data?.follow_info ? [data.follow_info] : []),
+          ];
+
+          followUsers.push(
+            ...followUserData
+              .filter((fu) => fu?.userid)
+              .map((fu) => this.prepareFollowUser(contact.external_userid, fu))
+          );
+        }
+
+        const externalContactRepo = manager.getRepository(ExternalContact);
+        const followUserRepo = manager.getRepository(FollowUser);
+
+        await externalContactRepo.upsert(
+          _.uniqBy(externalContacts, "external_userid"),
+          {
+            conflictPaths: ["external_userid"],
+            skipUpdateIfNoValuesChanged: true,
+          }
+        );
+
+        if (followUsers.length) {
+          await followUserRepo.upsert(
+            _.uniqBy(followUsers, (fu) => `${fu.external_userid}:${fu.userid}`),
+            {
+              conflictPaths: ["external_userid", "userid"],
+              skipUpdateIfNoValuesChanged: true,
+            }
+          );
+        }
       });
     }
   };
@@ -322,6 +347,13 @@ class ContactService {
    * 准备 ExternalContact 实体（复用之前的方法）
    */
   private prepareExternalContact(contactData: any): ExternalContact {
+    if (!contactData?.external_userid) {
+      throw new Error(
+        `Invalid external contact detail: missing external_contact.external_userid, data=${JSON.stringify(
+          contactData ?? null
+        ).slice(0, 500)}`
+      );
+    }
     const contact = new ExternalContact();
     contact.external_userid = contactData.external_userid;
     contact.name = contactData.name;
@@ -357,20 +389,3 @@ class ContactService {
 }
 
 export const contactService = new ContactService();
-
-const groupBy = (data) => {
-  // 1. 先按 external_userid 分组
-  const grouped = _.groupBy(data, "external_userid");
-
-  // 2. 对每组进行处理，合并 follow_users
-  const result = _.map(grouped, (group) => {
-    // 合并组内所有对象的 follow_users 数组
-    const mergedFollowUsers = _.flatMap(group, "follow_users");
-
-    // 取组内第一个对象作为基础，替换其 follow_users
-    return _.mergeWith({}, group[0], {
-      follow_users: _.uniq(mergedFollowUsers), // 如果需要去重就加上 _.uniq
-    });
-  });
-  return result;
-};

@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import {
   DictionaryAlias,
   DictionaryCandidate,
+  DictionaryCandidateOccurrence,
   DictionaryCandidateReviewSuggestion,
   DictionaryTerm,
   DictionaryTermType,
@@ -11,6 +12,7 @@ import {
   DictionaryTermTypeSuggestion,
   DictionaryValueSplitSuggestion,
 } from "./entity/index.js";
+import { Documents } from "../entity/documents.entity.js";
 import { ExtractionResults } from "../entity/extractionResults.entity.js";
 import { normalizeText } from "./dictionary.utils.js";
 import { getLocalModelClient, getLocalModelName } from "../../../llm/index.js";
@@ -18,6 +20,169 @@ import { finishLlmCallLog, startLlmCallLog } from "../../../llm/index.js";
 
 const SUGGEST_TERM_TYPE_SYSTEM_PROMPT =
   "只输出最终 JSON。不要解释，不要推理，不要 Markdown。JSON 必须包含 termType, displayName, aliases。";
+
+export const CLUSTER_BATCH_REVIEW_SYSTEM_PROMPT = `你是 quoteAgent 字典候选“簇级批量治理”助手。
+
+只输出合法 JSON。不要 Markdown，不要解释，不要代码块。输出必须能被 JSON.parse 解析。
+
+你的任务不是按 document 审核，而是按 candidateCluster 审核。一个 candidateCluster 代表大量文件里重复出现的同类候选，例如：
+plastic_material: PVC自由发泡板
+出现 138 次，涉及 92 个 document
+常见上下文：PVC自由发泡板模头
+AI 建议：不要把“PVC自由发泡板”整体做成 plastic_material；应拆成 plastic_material=PVC + application_type=自由发泡板。
+
+输入包含：
+
+- productTypes：正式产品类型字典，来自 term_type=product_type。
+- termTypes：现有字段 Key，含 termType、displayName、valueKind、category、aliases、applicableProductTypes。
+- enumValues：候选相关 enum/enums 字段下已有标准值摘要。
+- candidateClusters：候选簇列表。每个簇包含 clusterId、candidateType、candidateIds、聚类 key、出现次数、涉及 document 数、常见 rawFieldName/rawValue、常见上下文、样例 occurrence。
+- priorDecisions：历史已确认的簇级治理结果。可用于增量重跑时保持一致。
+- runPolicy：本次运行策略，例如 confidenceThreshold、maxSuggestedAliases、allowSplitValue。
+
+总体原则：
+
+1. 你必须按 clusterId 输出建议，不要逐 document 输出。
+2. 不要遗漏任何 clusterId。
+3. 同一个簇内多个 candidateIds 应得到同一个治理建议，除非簇内样例明显混杂；混杂时返回 needs_human_review。
+4. 对高频簇优先给出可执行建议，但不能牺牲准确性。
+5. 不确定、证据冲突、产品类型错配、可能影响报价但无法判断时，返回 needs_human_review。
+6. 如果 priorDecisions 中已有相同 clusterKey 且现有字典仍兼容，应优先沿用历史决策，并在 reason 中说明“沿用历史簇决策”。
+7. sourceProductType 只作为上下文，不是字段 Key，不要创建 product_type_hint / item_type_hint。
+8. applicableProductTypes 只能使用 productTypes 中的 canonicalValue，或 common。
+9. 如果目标 termType 的 applicableProductTypes 不包含 sourceProductType，也不包含 common，不要直接高置信 approve；应 needs_human_review，或建议追加 applicableProductTypes。
+10. 不要把具体型号、规格、压力、排量、尺寸、客户备注做成 enum value。
+11. 只有 valueKind=enum/enums 的字段值才需要 dictionary value alias。
+12. number、number_unit、boolean、text、date、number_or_boolean 字段值通常不应 create_value 或 approve_as_alias。
+13. 如果 rawValue 包含多个业务含义，优先 split_value，而不是把复合短语整体塞进一个字段。
+14. 如果 rawValue 语义明显不属于当前 termType，返回 move_to_other_term_type。
+15. 如果 rawFieldName 应归属已有字段 Key，返回 approve_as_alias。
+16. 如果确实是新的稳定字段 Key，返回 create_term_type。
+17. 如果候选不是有效字段 Key 或不是需要字典治理的值，返回 reject。
+
+产品类型规则：
+
+- flat_die：平模头
+- filter：过滤器 / 换网器
+- metering_pump：计量泵
+- feedblock：分配器
+- die_cart：模具小车
+- hydraulic_station：液压站
+- melt_pipe：熔体管道 / 连接器 / 联结器 / 联接器
+- blown_film_die：吹膜模头 / 圆模
+- coating_die：涂布模头
+- unknown：未知
+
+领域规则：
+
+1. 过滤器 / 换网器
+- product_type=filter 只表示一级产品类型。
+- 双柱换网器、高压过滤器、液压换网器、连续换网器、板式换网器、柱塞式换网器等不应作为 product_type 的普通 enum value。
+- 这些应优先归入 filter_structure_type / filter_drive_method 等二级字段。
+- 例如“双柱液压换网器”应考虑 split_value：filter_structure_type=双柱换网器，filter_drive_method=液压。
+
+2. 计量泵
+- 具体型号不应做 enum。
+- 排量、压差、出口压力应为 number_unit。
+- 10ccm、25MPa、37MPa 等不应 create_value。
+
+3. 液压站
+- 具体型号不应做 enum。
+- 功率、压力、油箱容量应为 number_unit。
+- “液压”不要单独错误归入 product_type。
+
+4. 材料与应用拆分
+- 如果 rawValue 把材料和应用/工艺混在一起，例如“PVC自由发泡板”“PP流延膜”“PET片材”，不要整体作为 plastic_material。
+- 应优先 split_value：
+  - plastic_material = PVC / PP / PET 等材料
+  - application_type 或 product_application = 自由发泡板 / 流延膜 / 片材 等应用
+- 如果缺少合适的 application termType，建议 create_term_type，而不是把复合值整体 approve。
+
+输出 JSON 格式：
+
+{
+  "clusterSuggestions": [
+    {
+      "clusterId": "string",
+      "candidateType": "term_type | value",
+      "candidateIds": ["string"],
+      "recommendedAction": "create_term_type | approve_as_alias | create_value | move_to_other_term_type | split_value | reject | needs_human_review",
+      "confidence": 0.0,
+      "riskLevel": "low | medium | high",
+      "reason": "string",
+      "humanReviewSummary": "给人工审核者看的简短中文结论",
+
+      "sourceProductType": "string|null",
+      "occurrenceCount": 0,
+      "documentCount": 0,
+
+      "targetTermType": "string|null",
+      "targetTermTypeDisplayName": "string|null",
+      "targetTermTypeApplicableMismatch": false,
+      "suggestedApplicableProductTypesToAdd": ["string"],
+
+      "suggestedTermType": "string|null",
+      "suggestedDisplayName": "string|null",
+      "suggestedQuoteDisplayName": "string|null",
+      "suggestedDescription": "string|null",
+      "suggestedCategory": "string|null",
+      "suggestedSortOrder": 100,
+      "suggestedValueKind": "enum|enums|number|number_unit|text|boolean|date|number_or_boolean|null",
+      "suggestedApplicableProductTypes": ["string"],
+
+      "canonicalValue": "string|null",
+      "displayName": "string|null",
+      "suggestedAliases": ["string"],
+
+      "targetTermId": "string|null",
+      "targetCanonicalValue": "string|null",
+      "targetDisplayName": "string|null",
+
+      "movedFieldName": "string|null",
+      "movedRawValue": "string|null",
+
+      "splits": [
+        {
+          "termType": "string",
+          "displayName": "string|null",
+          "canonicalValue": "string|null",
+          "aliases": ["string"],
+          "applicableProductTypes": ["string"]
+        }
+      ],
+
+      "batchOperationsPreview": [
+        {
+          "candidateType": "term_type|value",
+          "candidateId": "string",
+          "action": "string",
+          "payload": {}
+        }
+      ]
+    }
+  ]
+}
+
+强制要求：
+
+- 每个输入 clusterId 必须输出一个 clusterSuggestion。
+- candidateIds 必须原样带回。
+- recommendedAction 必须与 candidateType 兼容：
+  - term_type 只允许 create_term_type、approve_as_alias、reject、needs_human_review。
+  - value 只允许 create_value、approve_as_alias、move_to_other_term_type、split_value、reject、needs_human_review。
+- approve_as_alias：
+  - term_type 必须填写 targetTermType、targetTermTypeDisplayName、suggestedAliases。
+  - value 必须填写 targetTermId、targetCanonicalValue、targetDisplayName、suggestedAliases。
+- create_term_type 必须填写 suggestedTermType、suggestedDisplayName、suggestedValueKind、suggestedApplicableProductTypes、suggestedDescription、suggestedCategory。
+- create_value 只允许用于 enum/enums 字段，必须填写 canonicalValue、displayName、suggestedAliases。
+- move_to_other_term_type 必须填写 targetTermType、targetTermTypeDisplayName、movedRawValue。
+- split_value 必须填写非空 splits。
+- reject 必须说明为什么不是有效候选。
+- needs_human_review 必须说明不确定点。
+- targetTermTypeApplicableMismatch 默认 false。
+- 没有建议的数组字段输出空数组，不要省略。
+- 如果无法满足某个 action 的必填字段，必须返回 needs_human_review。
+- batchOperationsPreview 只生成“人确认后可提交”的预览，不代表你可以自动审批。`;
 
 const BATCH_REVIEW_SYSTEM_PROMPT = `你是 quoteAgent 字典候选批量预审助手。
 
@@ -294,6 +459,50 @@ const VALUE_REVIEW_ACTIONS = [
   "needs_human_review",
 ];
 
+const CLUSTER_REVIEW_ACTIONS = [
+  ...new Set([...TERM_TYPE_REVIEW_ACTIONS, ...VALUE_REVIEW_ACTIONS]),
+];
+
+type CandidateClusterInput = {
+  clusterId: string;
+  clusterKey: string;
+  candidateType: "term_type" | "value";
+  candidateIds: string[];
+  termType?: string;
+  normalizedRawValue?: string;
+  normalizedFieldName?: string;
+  rawValueSamples: string[];
+  rawFieldNameSamples: string[];
+  normalizedFieldNameSamples: string[];
+  sourceProductType: string;
+  reason: string | null;
+  occurrenceCount: number;
+  documentCount: number;
+  commonContexts: string[];
+  sampleOccurrences: Array<{
+    documentId: string;
+    fileName: string | null;
+    itemIndex: number | null;
+    itemName: string | null;
+    rawFieldName: string;
+    rawValue: string | null;
+  }>;
+};
+
+type CandidateClusterBuildParams = {
+  status?: string;
+  documentId?: number;
+  termTypeCandidateIds?: string[];
+  valueCandidateIds?: string[];
+  limit?: number;
+};
+
+type ClusterBatchReviewRunPolicy = {
+  confidenceThreshold: number;
+  maxSuggestedAliases: number;
+  allowSplitValue: boolean;
+};
+
 function buildPrompt(params: {
   rawFieldName: string;
   rawValue?: string | null;
@@ -510,6 +719,130 @@ function normalizeValueReviewSuggestion(value: any, candidateId: string) {
   };
 }
 
+function normalizeBatchOperationsPreview(value: unknown) {
+  return asArray(value)
+    .map((item) => {
+      const candidateType = String(item?.candidateType ?? "").trim();
+      const candidateId = String(item?.candidateId ?? "").trim();
+      const action = String(item?.action ?? "").trim();
+      if (
+        (candidateType !== "term_type" && candidateType !== "value") ||
+        !candidateId ||
+        !action
+      ) {
+        return null;
+      }
+      return {
+        candidateType,
+        candidateId,
+        action,
+        payload:
+          item?.payload && typeof item.payload === "object"
+            ? item.payload
+            : {},
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 100);
+}
+
+function normalizeClusterReviewSuggestion(
+  value: any,
+  cluster: CandidateClusterInput,
+) {
+  const rawAction = String(value?.recommendedAction ?? "").trim();
+  const allowedActions =
+    cluster.candidateType === "term_type"
+      ? TERM_TYPE_REVIEW_ACTIONS
+      : VALUE_REVIEW_ACTIONS;
+  const recommendedAction =
+    allowedActions.includes(rawAction) && CLUSTER_REVIEW_ACTIONS.includes(rawAction)
+      ? rawAction
+      : "needs_human_review";
+  const riskLevel = String(value?.riskLevel ?? "").trim();
+
+  return {
+    clusterId: cluster.clusterId,
+    candidateType: cluster.candidateType,
+    candidateIds: cluster.candidateIds,
+    recommendedAction,
+    confidence: asNumberOrNull(value?.confidence),
+    riskLevel: ["low", "medium", "high"].includes(riskLevel)
+      ? riskLevel
+      : "medium",
+    reason: asStringOrNull(value?.reason) ?? "模型未给出明确理由",
+    humanReviewSummary:
+      asStringOrNull(value?.humanReviewSummary) ?? "需要人工确认该候选簇。",
+    sourceProductType:
+      asStringOrNull(value?.sourceProductType) ?? cluster.sourceProductType,
+    occurrenceCount: cluster.occurrenceCount,
+    documentCount: cluster.documentCount,
+    targetTermType: asStringOrNull(value?.targetTermType),
+    targetTermTypeDisplayName: asStringOrNull(value?.targetTermTypeDisplayName),
+    targetTermTypeApplicableMismatch: asBoolean(
+      value?.targetTermTypeApplicableMismatch,
+    ),
+    suggestedApplicableProductTypesToAdd: normalizeSuggestedProductTypes(
+      value?.suggestedApplicableProductTypesToAdd,
+    ),
+    suggestedTermType: asStringOrNull(value?.suggestedTermType),
+    suggestedDisplayName: asStringOrNull(value?.suggestedDisplayName),
+    suggestedQuoteDisplayName: asStringOrNull(value?.suggestedQuoteDisplayName),
+    suggestedDescription: asStringOrNull(value?.suggestedDescription),
+    suggestedCategory: asStringOrNull(value?.suggestedCategory),
+    suggestedSortOrder: asIntegerOrNull(value?.suggestedSortOrder),
+    suggestedValueKind: asStringOrNull(value?.suggestedValueKind),
+    suggestedApplicableProductTypes: normalizeSuggestedProductTypes(
+      value?.suggestedApplicableProductTypes,
+    ),
+    canonicalValue: asStringOrNull(value?.canonicalValue),
+    displayName: asStringOrNull(value?.displayName),
+    suggestedAliases: normalizeSuggestionAliases(value?.suggestedAliases),
+    targetTermId: asStringOrNull(value?.targetTermId),
+    targetCanonicalValue: asStringOrNull(value?.targetCanonicalValue),
+    targetDisplayName: asStringOrNull(value?.targetDisplayName),
+    movedFieldName: asStringOrNull(value?.movedFieldName),
+    movedRawValue: asStringOrNull(value?.movedRawValue),
+    splits: normalizeReviewSplits(value?.splits),
+    batchOperationsPreview: normalizeBatchOperationsPreview(
+      value?.batchOperationsPreview,
+    ),
+  };
+}
+
+function uniqueLimited(values: unknown[], limit: number): string[] {
+  return [
+    ...new Set(
+      values
+        .map((value) => String(value ?? "").trim())
+        .filter(Boolean),
+    ),
+  ].slice(0, limit);
+}
+
+function clusterKey(parts: Array<string | null | undefined>): string {
+  return parts.map((part) => String(part ?? "")).join("\u0000");
+}
+
+function clusterId(parts: Array<string | null | undefined>): string {
+  return parts.map((part) => encodeURIComponent(String(part ?? ""))).join(":");
+}
+
+function textFromEvidence(evidence: unknown): string[] {
+  if (!evidence || typeof evidence !== "object") return [];
+  const source = evidence as Record<string, unknown>;
+  return uniqueLimited(
+    [
+      source.itemName,
+      source.context,
+      source.rawText,
+      source.sourceRawValue,
+      source.splitFromRawValue,
+    ],
+    5,
+  );
+}
+
 function confidenceToDb(value: number | null): string | null {
   return value === null ? null : value.toFixed(3);
 }
@@ -519,6 +852,169 @@ export class DictionarySuggestionService {
     private readonly dataSource: DataSource,
     private readonly client: OpenAI = getLocalModelClient()
   ) {}
+
+  getClusterBatchReviewPrompt() {
+    return {
+      systemPrompt: CLUSTER_BATCH_REVIEW_SYSTEM_PROMPT,
+      inputShape: {
+        productTypes: "正式产品类型字典",
+        termTypes: "现有字段 Key 列表",
+        enumValues: "候选相关 enum/enums 标准值摘要",
+        candidateClusters: "按候选聚类后的待审核簇",
+        priorDecisions: "历史已确认簇级决策，用于增量重跑",
+        runPolicy: {
+          confidenceThreshold: 0.85,
+          maxSuggestedAliases: 10,
+          allowSplitValue: true,
+        },
+      },
+      outputShape: {
+        clusterSuggestions: [
+          {
+            clusterId: "string",
+            candidateType: "term_type | value",
+            candidateIds: ["string"],
+            recommendedAction:
+              "create_term_type | approve_as_alias | create_value | move_to_other_term_type | split_value | reject | needs_human_review",
+            confidence: 0,
+            riskLevel: "low | medium | high",
+            reason: "string",
+            humanReviewSummary: "string",
+            batchOperationsPreview: [
+              {
+                candidateType: "term_type|value",
+                candidateId: "string",
+                action: "string",
+                payload: {},
+              },
+            ],
+          },
+        ],
+      },
+    };
+  }
+
+  async buildClusterBatchReviewInput(params: CandidateClusterBuildParams = {}) {
+    const { termTypeCandidates, valueCandidates } =
+      await this.findCandidatesForClusterReview(params);
+    const baseInput = await this.buildBatchReviewInput({
+      termTypeCandidates,
+      valueCandidates,
+    });
+    const candidateClusters = await this.buildCandidateClusters({
+      termTypeCandidates,
+      valueCandidates,
+      documentId: params.documentId,
+      limit: params.limit,
+    });
+
+    return {
+      productTypes: baseInput.productTypes,
+      termTypes: baseInput.termTypes,
+      enumValues: baseInput.enumValues,
+      candidateClusters,
+      priorDecisions: [] as unknown[],
+      runPolicy: {
+        confidenceThreshold: 0.85,
+        maxSuggestedAliases: 10,
+        allowSplitValue: true,
+      } as ClusterBatchReviewRunPolicy,
+    };
+  }
+
+  async suggestBatchCandidateClusterReviews(params: CandidateClusterBuildParams & {
+    model?: string;
+    priorDecisions?: unknown[];
+    runPolicy?: Partial<ClusterBatchReviewRunPolicy>;
+  }) {
+    const model = getLocalModelName(params.model);
+    const input = await this.buildClusterBatchReviewInput(params);
+    input.priorDecisions = asArray(params.priorDecisions);
+    input.runPolicy = {
+      ...input.runPolicy,
+      ...(params.runPolicy ?? {}),
+    };
+
+    if (input.candidateClusters.length === 0) {
+      return {
+        clusterSuggestions: [],
+        generatedCount: 0,
+        model,
+      };
+    }
+
+    const prompt = JSON.stringify(input, null, 2);
+    const messages = [
+      { role: "system" as const, content: CLUSTER_BATCH_REVIEW_SYSTEM_PROMPT },
+      { role: "user" as const, content: prompt },
+    ];
+    const log = await startLlmCallLog({
+      provider: "local",
+      model,
+      purpose: "quote_agent_candidate_cluster_batch_review_suggestion",
+      input: {
+        clusterCount: input.candidateClusters.length,
+        messages,
+      },
+    });
+
+    let completion: OpenAI.Chat.Completions.ChatCompletion;
+    try {
+      completion = await this.client.chat.completions.create({
+        model,
+        temperature: 0,
+        max_tokens: 12000,
+        messages,
+      });
+    } catch (error) {
+      await finishLlmCallLog(log, { error });
+      throw error;
+    }
+
+    const message = completion.choices[0]?.message as
+      | (OpenAI.Chat.Completions.ChatCompletionMessage & { reasoning?: string })
+      | undefined;
+    const content = (message?.content || message?.reasoning || "").trim();
+    if (!content) {
+      await finishLlmCallLog(log, {
+        output: completion,
+        error: "empty content",
+      });
+      throw new Error(
+        `Local LLM returned empty cluster batch review suggestion (${model})`,
+      );
+    }
+
+    let rawResponse: any;
+    try {
+      rawResponse = parseSuggestionJson(content);
+    } catch (error) {
+      await finishLlmCallLog(log, { output: completion, error });
+      throw error;
+    }
+    await finishLlmCallLog(log, { output: completion });
+
+    const suggestionsByClusterId = new Map(
+      asArray(rawResponse?.clusterSuggestions).map((item) => [
+        String(item?.clusterId ?? ""),
+        item,
+      ]),
+    );
+    const clusterSuggestions = input.candidateClusters.map((cluster) =>
+      normalizeClusterReviewSuggestion(
+        suggestionsByClusterId.get(cluster.clusterId),
+        cluster,
+      ),
+    );
+
+    return {
+      clusterSuggestions,
+      generatedCount: clusterSuggestions.length,
+      model,
+      prompt: `${CLUSTER_BATCH_REVIEW_SYSTEM_PROMPT}\n\n${prompt}`,
+      rawResponse,
+    };
+  }
 
   private async ensureReviewSuggestionTable(): Promise<void> {
     await this.dataSource.query(`
@@ -802,6 +1298,362 @@ export class DictionarySuggestionService {
         existing.valueCandidateSuggestions.length,
       model,
     };
+  }
+
+  private async findCandidatesForClusterReview(
+    params: CandidateClusterBuildParams,
+  ) {
+    const status = params.status ?? "pending";
+    const termTypeCandidateRepo = this.dataSource.getRepository(
+      DictionaryTermTypeCandidate,
+    );
+    const valueCandidateRepo =
+      this.dataSource.getRepository(DictionaryCandidate);
+
+    const termTypeQuery = termTypeCandidateRepo
+      .createQueryBuilder("candidate")
+      .orderBy("candidate.created_at", "DESC");
+    if (Array.isArray(params.termTypeCandidateIds)) {
+      if (params.termTypeCandidateIds.length === 0) {
+        termTypeQuery.where("1 = 0");
+      } else {
+        termTypeQuery.where("candidate.id IN (:...ids)", {
+          ids: params.termTypeCandidateIds,
+        });
+      }
+    } else {
+      termTypeQuery.where("candidate.status = :status", { status });
+    }
+    if (params.documentId !== undefined) {
+      termTypeQuery.andWhere("candidate.documentId = :documentId", {
+        documentId: String(params.documentId),
+      });
+    }
+
+    const valueQuery = valueCandidateRepo
+      .createQueryBuilder("candidate")
+      .orderBy("candidate.created_at", "DESC");
+    if (Array.isArray(params.valueCandidateIds)) {
+      if (params.valueCandidateIds.length === 0) {
+        valueQuery.where("1 = 0");
+      } else {
+        valueQuery.where("candidate.id IN (:...ids)", {
+          ids: params.valueCandidateIds,
+        });
+      }
+    } else {
+      valueQuery.where("candidate.status = :status", { status });
+    }
+    if (params.documentId !== undefined) {
+      valueQuery.andWhere("candidate.documentId = :documentId", {
+        documentId: String(params.documentId),
+      });
+    }
+
+    const [termTypeCandidates, valueCandidates] = await Promise.all([
+      termTypeQuery.getMany(),
+      valueQuery.getMany(),
+    ]);
+
+    return { termTypeCandidates, valueCandidates };
+  }
+
+  private async buildCandidateClusters(params: {
+    termTypeCandidates: DictionaryTermTypeCandidate[];
+    valueCandidates: DictionaryCandidate[];
+    documentId?: number;
+    limit?: number;
+  }): Promise<CandidateClusterInput[]> {
+    const occurrenceRepo = this.dataSource.getRepository(
+      DictionaryCandidateOccurrence,
+    );
+    const occurrenceQueries = await Promise.all([
+      params.termTypeCandidates.length === 0
+        ? Promise.resolve([])
+        : occurrenceRepo.find({
+            where: {
+              candidateType: "term_type",
+              candidateId: In(params.termTypeCandidates.map((item) => item.id)),
+              ...(params.documentId
+                ? { documentId: String(params.documentId) }
+                : {}),
+            },
+            order: { createdAt: "DESC" },
+          }),
+      params.valueCandidates.length === 0
+        ? Promise.resolve([])
+        : occurrenceRepo.find({
+            where: {
+              candidateType: "value",
+              candidateId: In(params.valueCandidates.map((item) => item.id)),
+              ...(params.documentId
+                ? { documentId: String(params.documentId) }
+                : {}),
+            },
+            order: { createdAt: "DESC" },
+          }),
+    ]);
+    const occurrences = occurrenceQueries.flat();
+    const occurrencesByCandidate = new Map<string, DictionaryCandidateOccurrence[]>();
+    for (const occurrence of occurrences) {
+      const key = `${occurrence.candidateType}:${occurrence.candidateId}`;
+      occurrencesByCandidate.set(key, [
+        ...(occurrencesByCandidate.get(key) ?? []),
+        occurrence,
+      ]);
+    }
+
+    const documentIds = [
+      ...new Set(
+        [
+          ...params.termTypeCandidates.map((candidate) => candidate.documentId),
+          ...params.valueCandidates.map((candidate) => candidate.documentId),
+          ...occurrences.map((occurrence) => occurrence.documentId),
+        ]
+          .filter(Boolean)
+          .map((id) => Number(id)),
+      ),
+    ];
+    const documents = documentIds.length
+      ? await this.dataSource
+          .getRepository(Documents)
+          .find({ where: { id: In(documentIds) } })
+      : [];
+    const documentMap = new Map(
+      documents.map((document) => [String(document.id), document]),
+    );
+
+    const itemNameMap = await this.buildCandidateItemNameMap([
+      ...params.termTypeCandidates,
+      ...params.valueCandidates,
+      ...occurrences,
+    ]);
+
+    const clusters = new Map<
+      string,
+      CandidateClusterInput & {
+        documentIds: Set<string>;
+        contextCandidates: string[];
+      }
+    >();
+
+    const ensureCluster = (data: {
+      clusterKey: string;
+      clusterId: string;
+      candidateType: "term_type" | "value";
+      sourceProductType: string;
+      reason: string | null;
+      termType?: string;
+      normalizedRawValue?: string;
+      normalizedFieldName?: string;
+    }) => {
+      const existing = clusters.get(data.clusterKey);
+      if (existing) return existing;
+      const created = {
+        clusterId: data.clusterId,
+        clusterKey: data.clusterKey,
+        candidateType: data.candidateType,
+        candidateIds: [],
+        termType: data.termType,
+        normalizedRawValue: data.normalizedRawValue,
+        normalizedFieldName: data.normalizedFieldName,
+        rawValueSamples: [],
+        rawFieldNameSamples: [],
+        normalizedFieldNameSamples: [],
+        sourceProductType: data.sourceProductType,
+        reason: data.reason,
+        occurrenceCount: 0,
+        documentCount: 0,
+        commonContexts: [],
+        sampleOccurrences: [],
+        documentIds: new Set<string>(),
+        contextCandidates: [],
+      };
+      clusters.set(data.clusterKey, created);
+      return created;
+    };
+
+    for (const candidate of params.termTypeCandidates) {
+      const key = clusterKey([
+        "term_type",
+        candidate.normalizedFieldName,
+        candidate.sourceProductType,
+        candidate.reason,
+      ]);
+      const cluster = ensureCluster({
+        clusterKey: key,
+        clusterId: clusterId([
+          "term_type",
+          candidate.normalizedFieldName,
+          candidate.sourceProductType,
+          candidate.reason,
+        ]),
+        candidateType: "term_type",
+        sourceProductType: candidate.sourceProductType ?? "unknown",
+        reason: candidate.reason,
+        normalizedFieldName: candidate.normalizedFieldName,
+      });
+      cluster.candidateIds.push(candidate.id);
+      cluster.rawFieldNameSamples.push(candidate.rawFieldName);
+      if (candidate.rawValue) cluster.rawValueSamples.push(candidate.rawValue);
+      cluster.normalizedFieldNameSamples.push(candidate.normalizedFieldName);
+      if (candidate.documentId) cluster.documentIds.add(candidate.documentId);
+      const candidateOccurrences =
+        occurrencesByCandidate.get(`term_type:${candidate.id}`) ?? [];
+      this.mergeClusterOccurrences({
+        cluster,
+        candidate,
+        candidateType: "term_type",
+        occurrences: candidateOccurrences,
+        documentMap,
+        itemNameMap,
+      });
+    }
+
+    for (const candidate of params.valueCandidates) {
+      const key = clusterKey([
+        "value",
+        candidate.termType,
+        candidate.normalizedRawValue,
+        candidate.sourceProductType,
+        candidate.reason,
+      ]);
+      const cluster = ensureCluster({
+        clusterKey: key,
+        clusterId: clusterId([
+          "value",
+          candidate.termType,
+          candidate.normalizedRawValue,
+          candidate.sourceProductType,
+          candidate.reason,
+        ]),
+        candidateType: "value",
+        sourceProductType: candidate.sourceProductType ?? "unknown",
+        reason: candidate.reason,
+        termType: candidate.termType,
+        normalizedRawValue: candidate.normalizedRawValue,
+      });
+      cluster.candidateIds.push(candidate.id);
+      cluster.rawValueSamples.push(candidate.rawValue);
+      if (candidate.documentId) cluster.documentIds.add(candidate.documentId);
+      const candidateOccurrences =
+        occurrencesByCandidate.get(`value:${candidate.id}`) ?? [];
+      this.mergeClusterOccurrences({
+        cluster,
+        candidate,
+        candidateType: "value",
+        occurrences: candidateOccurrences,
+        documentMap,
+        itemNameMap,
+      });
+    }
+
+    const result = [...clusters.values()].map((cluster) => {
+      cluster.candidateIds = uniqueLimited(cluster.candidateIds, 100);
+      cluster.rawValueSamples = uniqueLimited(cluster.rawValueSamples, 12);
+      cluster.rawFieldNameSamples = uniqueLimited(cluster.rawFieldNameSamples, 12);
+      cluster.normalizedFieldNameSamples = uniqueLimited(
+        cluster.normalizedFieldNameSamples,
+        12,
+      );
+      cluster.commonContexts = uniqueLimited(cluster.contextCandidates, 8);
+      cluster.documentCount = cluster.documentIds.size;
+      cluster.occurrenceCount =
+        cluster.occurrenceCount > 0
+          ? cluster.occurrenceCount
+          : cluster.candidateIds.length;
+      const { documentIds: _documentIds, contextCandidates: _contexts, ...publicCluster } =
+        cluster;
+      return publicCluster;
+    });
+
+    return result
+      .sort((left, right) => {
+        if (right.documentCount !== left.documentCount) {
+          return right.documentCount - left.documentCount;
+        }
+        return right.occurrenceCount - left.occurrenceCount;
+      })
+      .slice(0, Math.max(1, Math.floor(params.limit ?? 200)));
+  }
+
+  private mergeClusterOccurrences(params: {
+    cluster: CandidateClusterInput & {
+      documentIds: Set<string>;
+      contextCandidates: string[];
+    };
+    candidate: DictionaryTermTypeCandidate | DictionaryCandidate;
+    candidateType: "term_type" | "value";
+    occurrences: DictionaryCandidateOccurrence[];
+    documentMap: Map<string, Documents>;
+    itemNameMap: Map<string, string>;
+  }) {
+    const fallbackDocumentId = params.candidate.documentId;
+    const fallbackExtractionResultId = params.candidate.extractionResultId;
+    const fallbackItemIndex = params.candidate.itemIndex;
+    const fallbackItemName =
+      params.itemNameMap.get(
+        `${fallbackExtractionResultId ?? ""}:${fallbackItemIndex ?? ""}`,
+      ) ?? null;
+
+    if (fallbackDocumentId) {
+      params.cluster.documentIds.add(String(fallbackDocumentId));
+    }
+    if (fallbackItemName) {
+      params.cluster.contextCandidates.push(fallbackItemName);
+    }
+    params.cluster.contextCandidates.push(...textFromEvidence(params.candidate.evidence));
+
+    for (const occurrence of params.occurrences) {
+      params.cluster.occurrenceCount += 1;
+      params.cluster.documentIds.add(String(occurrence.documentId));
+      params.cluster.rawFieldNameSamples.push(occurrence.fieldName);
+      if (occurrence.rawValue) {
+        params.cluster.rawValueSamples.push(occurrence.rawValue);
+      }
+      const itemName =
+        params.itemNameMap.get(
+          `${occurrence.extractionResultId}:${occurrence.itemIndex}`,
+        ) ?? null;
+      if (itemName) {
+        params.cluster.contextCandidates.push(itemName);
+      }
+      params.cluster.contextCandidates.push(...textFromEvidence(occurrence.evidence));
+      if (params.cluster.sampleOccurrences.length < 5) {
+        params.cluster.sampleOccurrences.push({
+          documentId: String(occurrence.documentId),
+          fileName:
+            params.documentMap.get(String(occurrence.documentId))?.fileName ??
+            null,
+          itemIndex: occurrence.itemIndex,
+          itemName,
+          rawFieldName: occurrence.fieldName,
+          rawValue: occurrence.rawValue,
+        });
+      }
+    }
+
+    if (params.occurrences.length === 0 && params.cluster.sampleOccurrences.length < 5) {
+      const rawFieldName =
+        params.candidateType === "term_type"
+          ? (params.candidate as DictionaryTermTypeCandidate).rawFieldName
+          : (params.candidate as DictionaryCandidate).termType;
+      const rawValue =
+        params.candidateType === "term_type"
+          ? (params.candidate as DictionaryTermTypeCandidate).rawValue
+          : (params.candidate as DictionaryCandidate).rawValue;
+      params.cluster.sampleOccurrences.push({
+        documentId: String(fallbackDocumentId ?? ""),
+        fileName:
+          fallbackDocumentId === null
+            ? null
+            : params.documentMap.get(String(fallbackDocumentId))?.fileName ?? null,
+        itemIndex: fallbackItemIndex,
+        itemName: fallbackItemName,
+        rawFieldName,
+        rawValue,
+      });
+    }
   }
 
   private async buildBatchReviewInput(params: {

@@ -8,7 +8,7 @@ import {
 } from "typeorm";
 import type { Relation } from "typeorm";
 import AbstractContent from "../AbstractContent.js";
-import { Trigger } from "./trigger.js";
+import { Trigger } from "./Trigger.js";
 @Entity({
   name: "trigger_flow_state_change",
 })

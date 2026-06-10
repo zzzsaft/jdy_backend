@@ -6,6 +6,7 @@ import {
   endOfMonth,
   format,
   isBefore,
+  isValid,
   startOfDay,
   startOfMonth,
 } from "date-fns";
@@ -55,6 +56,7 @@ class DayResultServices {
   }
   async getShift(date: Date, userid: string) {
     if (!date) date = new Date();
+    if (!isValid(date)) return undefined;
     const result = await AtdDayResult.find({
       where: {
         date: Between(addDays(date, -2), endOfDay(date)),

@@ -4,6 +4,7 @@ import { XftAtdOut } from "../../../../entity/atd/xft_out.js";
 import { User } from "../../../../entity/basic/employee.js";
 import { xftOAApiClient } from "../../api/xft_oa.js";
 import { xftatdApiClient } from "../../api/xft_atd.js";
+import { defaultWechatCorpConfig } from "../../../wechat/wechatCorps.js";
 
 export class OutGoingEvent {
   task: XftTaskEvent;
@@ -57,16 +58,28 @@ export class OutGoingEvent {
   };
 
   savetoDb = async (parsedData, formData) => {
+    const staffSeq = parsedData?.outgoingAddDto?.staffSeq;
     let user = await User.findOne({
-      where: { xft_id: parsedData?.outgoingAddDto?.staffSeq },
+      where: { xft_id: staffSeq },
     });
     if (!user) {
-      throw new Error(`用户不存在${parsedData}`);
+      const userId = formData?.applyUser?.[0]?.STFNBR;
+      user = await User.findOne({
+        where: { corp_id: defaultWechatCorpConfig.corpId, user_id: userId },
+      });
+      if (user && staffSeq) {
+        user.xft_id = staffSeq;
+        user.xft_enterprise_id = formData?.applyUser?.[0]?.USRNBR;
+        await user.save();
+      }
+    }
+    if (!user) {
+      throw new Error(`用户不存在${JSON.stringify(parsedData)}`);
     }
     this.staffNbr = user.user_id;
     const out = XftAtdOut.create({
       serialNumber: this.task.businessParam,
-      staffSeq: parsedData?.outgoingAddDto?.staffSeq,
+      staffSeq,
       userId: this.staffNbr,
       name: this.sponsorName,
       departmentId: user.main_department_id,
