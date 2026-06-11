@@ -118,6 +118,11 @@ export interface QuoteAgentRepository {
     cursorCreatedAt?: Date;
     cursorId?: number;
   }): Promise<any[]>;
+  findExtractionsForPendingCandidateRenormalizationBatch(params: {
+    limit: number;
+    cursorCreatedAt?: Date;
+    cursorId?: number;
+  }): Promise<any[]>;
   findAffectedDocumentIdsForCandidate(params: {
     candidateType: "term_type" | "value";
     candidateId: string;
@@ -831,6 +836,86 @@ export class TypeOrmQuoteAgentRepository implements QuoteAgentRepository {
       return await query.getMany();
     } catch (error) {
       throw wrapDbError("findExtractionsForRenormalizationBatch", error);
+    }
+  }
+
+  async findExtractionsForPendingCandidateRenormalizationBatch(params: {
+    limit: number;
+    cursorCreatedAt?: Date;
+    cursorId?: number;
+  }): Promise<any[]> {
+    try {
+      const query = this.extractionRepo
+        .createQueryBuilder("extraction")
+        .select([
+          "extraction.id",
+          "extraction.documentId",
+          "extraction.extractionJson",
+          "extraction.warnings",
+          "extraction.dictionaryVersion",
+          "extraction.createdAt",
+        ])
+        .where("extraction.extraction_json IS NOT NULL")
+        .andWhere(
+          `(
+            EXISTS (
+              SELECT 1
+              FROM quote_agent.dictionary_candidate_occurrences occurrence
+              JOIN quote_agent.dictionary_candidates candidate
+                ON occurrence.candidate_type = 'value'
+               AND occurrence.candidate_id = candidate.id
+              WHERE occurrence.extraction_result_id = extraction.id
+                AND candidate.status = 'pending'
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM quote_agent.dictionary_candidate_occurrences occurrence
+              JOIN quote_agent.dictionary_term_type_candidates candidate
+                ON occurrence.candidate_type = 'term_type'
+               AND occurrence.candidate_id = candidate.id
+              WHERE occurrence.extraction_result_id = extraction.id
+                AND candidate.status = 'pending'
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM quote_agent.dictionary_candidates candidate
+              WHERE candidate.extraction_result_id = extraction.id
+                AND candidate.status = 'pending'
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM quote_agent.dictionary_term_type_candidates candidate
+              WHERE candidate.extraction_result_id = extraction.id
+                AND candidate.status = 'pending'
+            )
+          )`,
+        )
+        .orderBy("extraction.created_at", "DESC")
+        .addOrderBy("extraction.id", "DESC")
+        .limit(Math.max(1, params.limit));
+
+      if (params.cursorCreatedAt && params.cursorId) {
+        query.andWhere(
+          `(
+            extraction.created_at < :cursorCreatedAt
+            OR (
+              extraction.created_at = :cursorCreatedAt
+              AND extraction.id < :cursorId
+            )
+          )`,
+          {
+            cursorCreatedAt: params.cursorCreatedAt,
+            cursorId: params.cursorId,
+          },
+        );
+      }
+
+      return await query.getMany();
+    } catch (error) {
+      throw wrapDbError(
+        "findExtractionsForPendingCandidateRenormalizationBatch",
+        error,
+      );
     }
   }
 

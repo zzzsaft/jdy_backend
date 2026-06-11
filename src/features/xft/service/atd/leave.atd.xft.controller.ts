@@ -1,7 +1,15 @@
-import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
+import {
+  eachDayOfInterval,
+  eachMonthOfInterval,
+  endOfMonth,
+  format,
+  startOfMonth,
+  subMonths,
+} from "date-fns";
 
 import _ from "lodash";
 import { XftAtdLeave } from "../../../../entity/atd/xft_leave.js";
+import { Department } from "../../../../entity/basic/department.js";
 import { User } from "../../../../entity/basic/employee.js";
 import { XftTaskEvent } from "../../controller/todo.xft.controller.js";
 import { getDifference, isAfterTime } from "../../../../utils/dateUtils.js";
@@ -24,6 +32,8 @@ const tryLockPassOA = (key: string) => {
 export class LeaveEvent {
   task: XftTaskEvent;
   title: string;
+  leaveRecSeq: string;
+  stfSeq: string;
   staffName: string;
   stfNumber: string;
   lveTypeName: string;
@@ -125,6 +135,13 @@ export class LeaveEvent {
 
   rejectOA = async () => {
     const org = await User.getOrg(this.stfNumber);
+    const lockKeys = await this.getLeaveRuleLockKeys(org);
+    return XftAtdLeave.withLeaveRuleLocks(lockKeys, async () =>
+      this.rejectOAWithFreshRuleReads(org)
+    );
+  };
+
+  private rejectOAWithFreshRuleReads = async (org: Department | null) => {
     if (
       org &&
       org.level3 == "加工中心" &&
@@ -133,7 +150,7 @@ export class LeaveEvent {
       parseFloat(this.leaveDuration) <= 1
     ) {
       if (this.begDate != this.endDate) {
-        this._rejectOA(
+        await this._rejectOA(
           `不符合请假规则，提交${this.begDate}上午申请则代表请假19:30-次日凌晨1:30，` +
             `提交${this.begDate}下午申请则代表请假次日凌晨1:30-次日上午7:30，如需要请全天班，` +
             `请提交${this.begDate}上午-下午假勤申请`
@@ -145,11 +162,23 @@ export class LeaveEvent {
       const quota = await this.getQuota();
       if (quota.total != 5) return false;
       if (quota.left < 0) {
-        this._rejectOA(
+        await this._rejectOA(
           `本月还剩${quota.left}日轮休假，请查看近两月请假记录。如有疑问请联系人力资源部。`
         );
         return true;
       }
+      if (await this.hasUsedMonthlyWeekdaySingleDayOff()) {
+        await this._rejectOA(
+          "每人每月轮休假调休仅限一次。轮休假在周一至周五使用视为调休，周六、周日使用不受此限制。"
+        );
+        return true;
+      }
+    }
+    const departmentLeaveLimitReason =
+      await this.getDepartmentLeaveLimitRejectReason(org);
+    if (departmentLeaveLimitReason) {
+      await this._rejectOA(departmentLeaveLimitReason);
+      return true;
     }
     if (
       this.task.details.includes("请假类型：事假") &&
@@ -157,12 +186,29 @@ export class LeaveEvent {
     ) {
       const quota = await this.getQuota();
       if (quota.total == 2 && quota.left > 0) {
-        this._rejectOA(
+        await this._rejectOA(
           `本月还剩${quota.left}日轮休假，请先使用轮休假申请请假。`
         );
         return true;
       }
     }
+  };
+
+  private getLeaveRuleLockKeys = async (org: Department | null) => {
+    const keys: string[] = [];
+    if (this.hasWeekdaySingleDayOff()) {
+      for (const month of this.getLeaveMonths()) {
+        keys.push(`xft_leave:weekday_single_day_off:${this.stfSeq}:${format(month, "yyyy-MM")}`);
+      }
+    }
+    if (org?.department_id) {
+      for (const day of this.getWeekdayLeaveDays()) {
+        keys.push(
+          `xft_leave:department_limit:${org.department_id}:${format(day, "yyyy-MM-dd")}`,
+        );
+      }
+    }
+    return keys;
   };
 
   _rejectOA = async (reason) => {
@@ -183,6 +229,82 @@ export class LeaveEvent {
     this.quota = quota;
     return quota;
   };
+
+  hasWeekdaySingleDayOff = () => {
+    return this.leaveDtlDtos?.some(
+      (dtos) => dtos["weekDay"] >= 2 && dtos["weekDay"] <= 6
+    );
+  };
+
+  hasUsedMonthlyWeekdaySingleDayOff = async () => {
+    if (!this.hasWeekdaySingleDayOff()) return false;
+
+    const months = this.getLeaveMonths();
+    const leaveRecSeq = parseInt(this.leaveRecSeq);
+    const excludeLeaveRecSeq = Number.isNaN(leaveRecSeq)
+      ? undefined
+      : leaveRecSeq;
+
+    for (const month of months) {
+      const usedCount = await XftAtdLeave.countMonthlyWeekdaySingleDayOff(
+        this.stfSeq,
+        startOfMonth(month),
+        endOfMonth(month),
+        excludeLeaveRecSeq
+      );
+      if (usedCount >= 1) return true;
+    }
+
+    return false;
+  };
+
+  getDepartmentLeaveLimitRejectReason = async (org?: Department | null) => {
+    if (org === undefined) {
+      org = await User.getOrg(this.stfNumber);
+    }
+    if (!org?.department_id) return "";
+
+    const departmentSize = await User.countActiveByDepartment(
+      org.department_id
+    );
+    const leaveLimit = Math.max(1, Math.floor(departmentSize / 4));
+    const leaveRecSeq = parseInt(this.leaveRecSeq);
+    const excludeLeaveRecSeq = Number.isNaN(leaveRecSeq)
+      ? undefined
+      : leaveRecSeq;
+
+    const leaveDays = this.getWeekdayLeaveDays();
+    const usedCounts = await XftAtdLeave.countDepartmentLeaveUsersByDates(
+      org.department_id,
+      leaveDays,
+      excludeLeaveRecSeq
+    );
+
+    for (const leaveDay of leaveDays) {
+      const usedCount = usedCounts.get(format(leaveDay, "yyyy-MM-dd")) ?? 0;
+
+      if (usedCount >= leaveLimit) {
+        return `${format(leaveDay, "yyyy-MM-dd")} ${org.name ?? "所在部门"}已有${usedCount}人请假，部门在职人数${departmentSize}人，当天请假人数上限为${leaveLimit}人（部门人数的1/4，最少1人），本次申请会超过上限。`;
+      }
+    }
+
+    return "";
+  };
+
+  private getLeaveMonths = () =>
+    eachMonthOfInterval({
+      start: new Date(this.begDate),
+      end: new Date(this.endDate),
+    });
+
+  private getWeekdayLeaveDays = () =>
+    eachDayOfInterval({
+      start: new Date(this.begDate),
+      end: new Date(this.endDate),
+    }).filter((leaveDay) => {
+      const day = leaveDay.getDay();
+      return day >= 1 && day <= 5;
+    });
 
   sendNotice = async (userid: string[], status = this.task.status) => {
     let userids = Array.from(new Set([...userid, this.task.sendUserId]));

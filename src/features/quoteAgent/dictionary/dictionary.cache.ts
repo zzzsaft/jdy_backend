@@ -119,8 +119,7 @@ export class DictionaryCache {
       .getMany();
 
     for (const alias of valueAliases) {
-      const key = valueAliasKey(alias.termType, alias.normalizedAlias);
-      this.valueAliasMap.set(key, {
+      this.registerValueAlias(alias.termType, alias.normalizedAlias, {
         termType: alias.termType,
         termId: alias.termId,
         aliasId: alias.id,
@@ -129,6 +128,31 @@ export class DictionaryCache {
         confidence: Number(alias.confidence),
         riskLevel: alias.riskLevel,
         note: alias.note,
+      });
+    }
+
+    const activeTerms = await this.dataSource
+      .getRepository(DictionaryTerm)
+      .find({ where: { isActive: true } });
+
+    for (const term of activeTerms) {
+      this.registerValueAlias(term.termType, normalizeText(term.canonicalValue), {
+        termType: term.termType,
+        termId: term.id,
+        canonicalValue: term.canonicalValue,
+        displayName: term.displayName ?? undefined,
+        confidence: 1,
+        riskLevel: "normal",
+        note: "intrinsic_term_value",
+      });
+      this.registerValueAlias(term.termType, normalizeText(term.displayName), {
+        termType: term.termType,
+        termId: term.id,
+        canonicalValue: term.canonicalValue,
+        displayName: term.displayName ?? undefined,
+        confidence: 1,
+        riskLevel: "normal",
+        note: "intrinsic_term_display_name",
       });
     }
 
@@ -241,5 +265,19 @@ export class DictionaryCache {
       existingAliasIds.push(aliasId);
     }
     this.termTypeAliasIdMap.set(normalizedAliasName, existingAliasIds);
+  }
+
+  private registerValueAlias(
+    termType: string,
+    normalizedAlias: string,
+    value: CachedValueAlias,
+  ): void {
+    if (!normalizedAlias) {
+      return;
+    }
+    const key = valueAliasKey(termType, normalizedAlias);
+    if (!this.valueAliasMap.has(key)) {
+      this.valueAliasMap.set(key, value);
+    }
   }
 }

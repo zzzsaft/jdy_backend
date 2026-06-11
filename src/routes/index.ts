@@ -1,5 +1,5 @@
-import { JdyRoutes } from "./frontend/JdyRoutes.js";
-import { TriggerRoutes } from "./frontend/TriggerRoutes.js";
+import { JdyRoutes } from "./frontend/jdyroutes.js";
+import { TriggerRoutes } from "./frontend/triggerroutes.js";
 import { JdyDataRoutes } from "./jdy.js";
 import { UtilsRoutes } from "./utils.js";
 import { AuthRoutes } from "./auth.js";

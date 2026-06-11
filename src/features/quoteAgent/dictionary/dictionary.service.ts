@@ -183,7 +183,9 @@ export class DictionaryService {
       };
     }
 
-    this.markValueAliasSeen(matchedAlias.aliasId);
+    if (matchedAlias.aliasId) {
+      this.markValueAliasSeen(matchedAlias.aliasId);
+    }
 
     return {
       matched: true,
@@ -295,6 +297,10 @@ export class DictionaryService {
         take: limit,
       }),
     ]);
+    const splitResolutionLookup = await this.buildCandidateReviewSplitResolutionLookup(
+      valueCandidates,
+      splitResolutionRepo,
+    );
 
     let resolvedTermTypeCandidateCount = 0;
     const resolvedTermTypeCandidateIds: string[] = [];
@@ -327,15 +333,14 @@ export class DictionaryService {
         candidate.extractionResultId &&
         candidate.itemIndex !== null
       ) {
-        const splitResolution = await splitResolutionRepo.findOne({
-          where: {
+        const splitResolution = splitResolutionLookup.get(
+          this.splitResolutionLookupKey({
             documentId: candidate.documentId,
             extractionResultId: candidate.extractionResultId,
             itemIndex: candidate.itemIndex,
             rawValue: candidate.rawValue,
-            source: "candidate_review",
-          },
-        });
+          }),
+        );
         if (splitResolution) {
           candidate.status = "auto_resolved";
           candidate.proposedCanonicalValue = Array.isArray(splitResolution.splitFields)
@@ -449,6 +454,54 @@ export class DictionaryService {
       resolvedValueCandidateCount,
       affectedDocumentIds: [...affectedDocumentIds],
     };
+  }
+
+  private async buildCandidateReviewSplitResolutionLookup(
+    candidates: DictionaryCandidate[],
+    splitResolutionRepo: Repository<SplitResolution>,
+  ): Promise<Map<string, SplitResolution>> {
+    const extractionResultIds = [
+      ...new Set(
+        candidates
+          .map((candidate) => candidate.extractionResultId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    if (extractionResultIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await splitResolutionRepo.find({
+      where: {
+        extractionResultId: In(extractionResultIds),
+        source: "candidate_review",
+      },
+    });
+    return new Map(
+      rows.map((row) => [
+        this.splitResolutionLookupKey({
+          documentId: row.documentId,
+          extractionResultId: row.extractionResultId,
+          itemIndex: row.itemIndex,
+          rawValue: row.rawValue,
+        }),
+        row,
+      ]),
+    );
+  }
+
+  private splitResolutionLookupKey(params: {
+    documentId: string;
+    extractionResultId: string;
+    itemIndex: number;
+    rawValue: string;
+  }): string {
+    return [
+      params.documentId,
+      params.extractionResultId,
+      params.itemIndex,
+      this.normalizeText(params.rawValue),
+    ].join("|");
   }
 
   async normalizeField(

@@ -1,4 +1,4 @@
-import { DataSource, In } from "typeorm";
+import { Brackets, DataSource, In, SelectQueryBuilder } from "typeorm";
 import OpenAI from "openai";
 import {
   DictionaryAlias,
@@ -15,8 +15,49 @@ import {
 import { Documents } from "../entity/documents.entity.js";
 import { ExtractionResults } from "../entity/extractionResults.entity.js";
 import { normalizeText } from "./dictionary.utils.js";
+import {
+  asArray,
+  buildPrompt,
+  buildValueSplitPrompt,
+  CandidateClusterBuildParams,
+  CandidateClusterInput,
+  clusterId,
+  clusterKey,
+  clusterLabel,
+  ClusterBatchReviewRunPolicy,
+  confidenceToDb,
+  normalizeClusterReviewSuggestion,
+  normalizeSplitSuggestions,
+  normalizeTermTypeReviewSuggestion,
+  normalizeValueReviewSuggestion,
+  parseSuggestionJson,
+  readableClusterId,
+  sanitizeTermType,
+  textFromEvidence,
+  uniqueAliases,
+  uniqueLimited,
+} from "./dictionarySuggestion.helpers.js";
 import { getLocalModelClient, getLocalModelName } from "../../../llm/index.js";
 import { finishLlmCallLog, startLlmCallLog } from "../../../llm/index.js";
+
+type ParsedTermTypeClusterId = {
+  candidateType: "term_type";
+  normalizedFieldName: string;
+  sourceProductType: string;
+  reason: string | null;
+};
+
+type ParsedValueClusterId = {
+  candidateType: "value";
+  termType: string;
+  normalizedRawValue: string;
+  sourceProductType: string;
+  reason: string | null;
+};
+
+type ParsedCandidateClusterId =
+  | ParsedTermTypeClusterId
+  | ParsedValueClusterId;
 
 const SUGGEST_TERM_TYPE_SYSTEM_PROMPT =
   "只输出最终 JSON。不要解释，不要推理，不要 Markdown。JSON 必须包含 termType, displayName, aliases。";
@@ -55,10 +96,13 @@ AI 建议：不要把“PVC自由发泡板”整体做成 plastic_material；应
 11. 只有 valueKind=enum/enums 的字段值才需要 dictionary value alias。
 12. number、number_unit、boolean、text、date、number_or_boolean 字段值通常不应 create_value 或 approve_as_alias。
 13. 如果 rawValue 包含多个业务含义，优先 split_value，而不是把复合短语整体塞进一个字段。
-14. 如果 rawValue 语义明显不属于当前 termType，返回 move_to_other_term_type。
-15. 如果 rawFieldName 应归属已有字段 Key，返回 approve_as_alias。
-16. 如果确实是新的稳定字段 Key，返回 create_term_type。
-17. 如果候选不是有效字段 Key 或不是需要字典治理的值，返回 reject。
+14. 严格区分 candidateType：
+   - candidateType=term_type 时，审核对象是 rawFieldName / normalizedFieldName，只能判断字段 Key 是否应创建、作为已有字段别名、拒绝或转人工；不要把 rawValue 当成字段值候选来迁移。
+   - candidateType=value 时，审核对象才是 rawValue / normalizedRawValue，才允许 move_to_other_term_type 或 split_value。
+15. 如果 rawValue 语义明显不属于当前 termType，只能在 candidateType=value 时返回 move_to_other_term_type；candidateType=term_type 时应返回 approve_as_alias、create_term_type 或 needs_human_review。
+16. 如果 rawFieldName 应归属已有字段 Key，返回 approve_as_alias。
+17. 如果确实是新的稳定字段 Key，返回 create_term_type。
+18. 如果候选不是有效字段 Key 或不是需要字典治理的值，返回 reject。
 
 产品类型规则：
 
@@ -170,6 +214,9 @@ AI 建议：不要把“PVC自由发泡板”整体做成 plastic_material；应
 - recommendedAction 必须与 candidateType 兼容：
   - term_type 只允许 create_term_type、approve_as_alias、reject、needs_human_review。
   - value 只允许 create_value、approve_as_alias、move_to_other_term_type、split_value、reject、needs_human_review。
+- candidateType=term_type 时，禁止输出 move_to_other_term_type、split_value、create_value，也禁止在 batchOperationsPreview 中输出 move_value_to_other_term_type、split_value、create_value、approve_value_as_alias。
+- candidateType=value 时，禁止输出 create_term_type、approve_term_type_as_alias。
+- batchOperationsPreview 中每个 operation 的 candidateType 必须等于当前 cluster 的 candidateType，candidateId 必须来自当前 cluster.candidateIds。
 - approve_as_alias：
   - term_type 必须填写 targetTermType、targetTermTypeDisplayName、suggestedAliases。
   - value 必须填写 targetTermId、targetCanonicalValue、targetDisplayName、suggestedAliases。
@@ -443,409 +490,6 @@ const BATCH_REVIEW_SYSTEM_PROMPT = `你是 quoteAgent 字典候选批量预审�
 如果无法满足某个 action 的必填字段，请返回 needs_human_review。
 `;
 
-const TERM_TYPE_REVIEW_ACTIONS = [
-  "create_term_type",
-  "approve_as_alias",
-  "reject",
-  "needs_human_review",
-];
-
-const VALUE_REVIEW_ACTIONS = [
-  "create_value",
-  "approve_as_alias",
-  "move_to_other_term_type",
-  "split_value",
-  "reject",
-  "needs_human_review",
-];
-
-const CLUSTER_REVIEW_ACTIONS = [
-  ...new Set([...TERM_TYPE_REVIEW_ACTIONS, ...VALUE_REVIEW_ACTIONS]),
-];
-
-type CandidateClusterInput = {
-  clusterId: string;
-  clusterKey: string;
-  candidateType: "term_type" | "value";
-  candidateIds: string[];
-  termType?: string;
-  normalizedRawValue?: string;
-  normalizedFieldName?: string;
-  rawValueSamples: string[];
-  rawFieldNameSamples: string[];
-  normalizedFieldNameSamples: string[];
-  sourceProductType: string;
-  reason: string | null;
-  occurrenceCount: number;
-  documentCount: number;
-  commonContexts: string[];
-  sampleOccurrences: Array<{
-    documentId: string;
-    fileName: string | null;
-    itemIndex: number | null;
-    itemName: string | null;
-    rawFieldName: string;
-    rawValue: string | null;
-  }>;
-};
-
-type CandidateClusterBuildParams = {
-  status?: string;
-  documentId?: number;
-  termTypeCandidateIds?: string[];
-  valueCandidateIds?: string[];
-  limit?: number;
-};
-
-type ClusterBatchReviewRunPolicy = {
-  confidenceThreshold: number;
-  maxSuggestedAliases: number;
-  allowSplitValue: boolean;
-};
-
-function buildPrompt(params: {
-  rawFieldName: string;
-  rawValue?: string | null;
-}) {
-  return `你是制造业报价字段字典命名助手。把中文字段名转成稳定英文 snake_case key，并给出3-5个可作为别名的中文叫法。
-字段名: ${params.rawFieldName}
-示例值: ${params.rawValue ?? ""}
-
-直接输出:
-{"termType":"english_snake_case_key","displayName":"中文显示名","aliases":["中文别名1","中文别名2","中文别名3"]}`;
-}
-
-function buildValueSplitPrompt(params: {
-  termType: string;
-  rawValue: string;
-  termTypes: DictionaryTermType[];
-}) {
-  const termTypesText = params.termTypes
-    .map(
-      (item) => `- ${item.termType}: ${item.displayName} (${item.valueKind})`
-    )
-    .join("\n");
-
-  return `你是制造业报价字段值拆分助手。把复合字段值拆成多个已有字段 Key 的标准值。只使用下面字段 Key。
-
-已有字段 Key:
-${termTypesText}
-
-来源字段 Key: ${params.termType}
-复合字段值: ${params.rawValue}
-
-直接输出:
-{"suggestions":[{"termType":"plastic_material","displayName":"塑料原料","canonicalValue":"CPE","aliases":["CPE"]},{"termType":"application_type","displayName":"应用类型","canonicalValue":"缠绕膜","aliases":["流延缠绕膜","缠绕膜"]}]}`;
-}
-
-function sanitizeTermType(input: unknown, fallback: string) {
-  const value = String(input ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return value || fallback;
-}
-
-function parseSuggestionJson(content: string) {
-  const trimmed = content.trim();
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const unfenced = fenced?.[1] ?? trimmed;
-  const jsonText = unfenced.match(/\{[\s\S]*\}/)?.[0] ?? unfenced;
-  return JSON.parse(jsonText);
-}
-
-function uniqueAliases(values: unknown[], rawFieldName: string) {
-  return [
-    ...new Set(
-      values
-        .map((value) => String(value ?? "").trim())
-        .filter((value) => value && value !== rawFieldName)
-    ),
-  ].slice(0, 5);
-}
-
-function normalizeSplitSuggestions(value: unknown) {
-  const rawSuggestions = Array.isArray((value as any)?.suggestions)
-    ? (value as any).suggestions
-    : [];
-
-  return rawSuggestions
-    .map((item) => ({
-      termType: String(item?.termType ?? "").trim(),
-      displayName: String(item?.displayName ?? "").trim() || undefined,
-      canonicalValue: String(item?.canonicalValue ?? "").trim(),
-      aliases: Array.isArray(item?.aliases)
-        ? uniqueAliases(item.aliases, "")
-        : [],
-    }))
-    .filter((item) => item.termType && item.canonicalValue)
-    .slice(0, 8);
-}
-
-function asStringOrNull(value: unknown): string | null {
-  const text = String(value ?? "").trim();
-  return text || null;
-}
-
-function asNumberOrNull(value: unknown): number | null {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return null;
-  return Math.max(0, Math.min(1, number));
-}
-
-function asIntegerOrNull(value: unknown): number | null {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return null;
-  return Math.trunc(number);
-}
-
-function asArray(value: unknown): any[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function normalizeSuggestionAliases(value: unknown): string[] {
-  return [
-    ...new Set(
-      asArray(value)
-        .map((item) => String(item ?? "").trim())
-        .filter(Boolean)
-    ),
-  ].slice(0, 10);
-}
-
-function normalizeSuggestedProductTypes(value: unknown): string[] {
-  return [
-    ...new Set(
-      asArray(value)
-        .map((item) => String(item ?? "").trim())
-        .filter(Boolean)
-    ),
-  ].slice(0, 12);
-}
-
-function asBoolean(value: unknown): boolean {
-  return value === true || value === "true";
-}
-
-function normalizeSuggestedValues(value: unknown) {
-  return asArray(value)
-    .map((item) => ({
-      canonicalValue: asStringOrNull(item?.canonicalValue),
-      displayName: asStringOrNull(item?.displayName),
-      aliases: normalizeSuggestionAliases(item?.aliases),
-    }))
-    .filter((item) => item.canonicalValue)
-    .slice(0, 12);
-}
-
-function normalizeReviewSplits(value: unknown) {
-  return asArray(value)
-    .map((item) => ({
-      termType: asStringOrNull(item?.termType),
-      displayName: asStringOrNull(item?.displayName),
-      canonicalValue: asStringOrNull(item?.canonicalValue),
-      aliases: normalizeSuggestionAliases(item?.aliases),
-      applicableProductTypes: normalizeSuggestedProductTypes(
-        item?.applicableProductTypes
-      ),
-    }))
-    .filter((item) => item.termType || item.canonicalValue)
-    .slice(0, 8);
-}
-
-function normalizeTermTypeReviewSuggestion(value: any, candidateId: string) {
-  const action = String(value?.recommendedAction ?? "").trim();
-  return {
-    candidateId,
-    recommendedAction: TERM_TYPE_REVIEW_ACTIONS.includes(action)
-      ? action
-      : "needs_human_review",
-    confidence: asNumberOrNull(value?.confidence),
-    reason: asStringOrNull(value?.reason) ?? "模型未给出明确理由",
-    sourceProductType: asStringOrNull(value?.sourceProductType),
-    itemIndex: asIntegerOrNull(value?.itemIndex),
-    suggestedTermType: asStringOrNull(value?.suggestedTermType),
-    suggestedDisplayName: asStringOrNull(value?.suggestedDisplayName),
-    suggestedQuoteDisplayName: asStringOrNull(value?.suggestedQuoteDisplayName),
-    suggestedDescription: asStringOrNull(value?.suggestedDescription),
-    suggestedCategory: asStringOrNull(value?.suggestedCategory),
-    suggestedSortOrder: asIntegerOrNull(value?.suggestedSortOrder),
-    suggestedValueKind: asStringOrNull(value?.suggestedValueKind),
-    suggestedApplicableProductTypes: normalizeSuggestedProductTypes(
-      value?.suggestedApplicableProductTypes
-    ),
-    suggestedAliases: normalizeSuggestionAliases(value?.suggestedAliases),
-    suggestedValues: normalizeSuggestedValues(value?.suggestedValues),
-    targetTermType: asStringOrNull(value?.targetTermType),
-    targetTermTypeDisplayName: asStringOrNull(value?.targetTermTypeDisplayName),
-    targetTermTypeApplicableMismatch: asBoolean(
-      value?.targetTermTypeApplicableMismatch
-    ),
-    suggestedApplicableProductTypesToAdd: normalizeSuggestedProductTypes(
-      value?.suggestedApplicableProductTypesToAdd
-    ),
-  };
-}
-
-function normalizeValueReviewSuggestion(value: any, candidateId: string) {
-  const action = String(value?.recommendedAction ?? "").trim();
-  return {
-    candidateId,
-    recommendedAction: VALUE_REVIEW_ACTIONS.includes(action)
-      ? action
-      : "needs_human_review",
-    confidence: asNumberOrNull(value?.confidence),
-    reason: asStringOrNull(value?.reason) ?? "模型未给出明确理由",
-    sourceProductType: asStringOrNull(value?.sourceProductType),
-    itemIndex: asIntegerOrNull(value?.itemIndex),
-    canonicalValue: asStringOrNull(value?.canonicalValue),
-    displayName: asStringOrNull(value?.displayName),
-    suggestedAliases: normalizeSuggestionAliases(value?.suggestedAliases),
-    targetTermId: asStringOrNull(value?.targetTermId),
-    targetCanonicalValue: asStringOrNull(value?.targetCanonicalValue),
-    targetDisplayName: asStringOrNull(value?.targetDisplayName),
-    targetTermType: asStringOrNull(value?.targetTermType),
-    targetTermTypeDisplayName: asStringOrNull(value?.targetTermTypeDisplayName),
-    targetTermTypeApplicableMismatch: asBoolean(
-      value?.targetTermTypeApplicableMismatch
-    ),
-    suggestedApplicableProductTypesToAdd: normalizeSuggestedProductTypes(
-      value?.suggestedApplicableProductTypesToAdd
-    ),
-    movedFieldName: asStringOrNull(value?.movedFieldName),
-    movedRawValue: asStringOrNull(value?.movedRawValue),
-    splits: normalizeReviewSplits(value?.splits),
-  };
-}
-
-function normalizeBatchOperationsPreview(value: unknown) {
-  return asArray(value)
-    .map((item) => {
-      const candidateType = String(item?.candidateType ?? "").trim();
-      const candidateId = String(item?.candidateId ?? "").trim();
-      const action = String(item?.action ?? "").trim();
-      if (
-        (candidateType !== "term_type" && candidateType !== "value") ||
-        !candidateId ||
-        !action
-      ) {
-        return null;
-      }
-      return {
-        candidateType,
-        candidateId,
-        action,
-        payload:
-          item?.payload && typeof item.payload === "object"
-            ? item.payload
-            : {},
-      };
-    })
-    .filter(Boolean)
-    .slice(0, 100);
-}
-
-function normalizeClusterReviewSuggestion(
-  value: any,
-  cluster: CandidateClusterInput,
-) {
-  const rawAction = String(value?.recommendedAction ?? "").trim();
-  const allowedActions =
-    cluster.candidateType === "term_type"
-      ? TERM_TYPE_REVIEW_ACTIONS
-      : VALUE_REVIEW_ACTIONS;
-  const recommendedAction =
-    allowedActions.includes(rawAction) && CLUSTER_REVIEW_ACTIONS.includes(rawAction)
-      ? rawAction
-      : "needs_human_review";
-  const riskLevel = String(value?.riskLevel ?? "").trim();
-
-  return {
-    clusterId: cluster.clusterId,
-    candidateType: cluster.candidateType,
-    candidateIds: cluster.candidateIds,
-    recommendedAction,
-    confidence: asNumberOrNull(value?.confidence),
-    riskLevel: ["low", "medium", "high"].includes(riskLevel)
-      ? riskLevel
-      : "medium",
-    reason: asStringOrNull(value?.reason) ?? "模型未给出明确理由",
-    humanReviewSummary:
-      asStringOrNull(value?.humanReviewSummary) ?? "需要人工确认该候选簇。",
-    sourceProductType:
-      asStringOrNull(value?.sourceProductType) ?? cluster.sourceProductType,
-    occurrenceCount: cluster.occurrenceCount,
-    documentCount: cluster.documentCount,
-    targetTermType: asStringOrNull(value?.targetTermType),
-    targetTermTypeDisplayName: asStringOrNull(value?.targetTermTypeDisplayName),
-    targetTermTypeApplicableMismatch: asBoolean(
-      value?.targetTermTypeApplicableMismatch,
-    ),
-    suggestedApplicableProductTypesToAdd: normalizeSuggestedProductTypes(
-      value?.suggestedApplicableProductTypesToAdd,
-    ),
-    suggestedTermType: asStringOrNull(value?.suggestedTermType),
-    suggestedDisplayName: asStringOrNull(value?.suggestedDisplayName),
-    suggestedQuoteDisplayName: asStringOrNull(value?.suggestedQuoteDisplayName),
-    suggestedDescription: asStringOrNull(value?.suggestedDescription),
-    suggestedCategory: asStringOrNull(value?.suggestedCategory),
-    suggestedSortOrder: asIntegerOrNull(value?.suggestedSortOrder),
-    suggestedValueKind: asStringOrNull(value?.suggestedValueKind),
-    suggestedApplicableProductTypes: normalizeSuggestedProductTypes(
-      value?.suggestedApplicableProductTypes,
-    ),
-    canonicalValue: asStringOrNull(value?.canonicalValue),
-    displayName: asStringOrNull(value?.displayName),
-    suggestedAliases: normalizeSuggestionAliases(value?.suggestedAliases),
-    targetTermId: asStringOrNull(value?.targetTermId),
-    targetCanonicalValue: asStringOrNull(value?.targetCanonicalValue),
-    targetDisplayName: asStringOrNull(value?.targetDisplayName),
-    movedFieldName: asStringOrNull(value?.movedFieldName),
-    movedRawValue: asStringOrNull(value?.movedRawValue),
-    splits: normalizeReviewSplits(value?.splits),
-    batchOperationsPreview: normalizeBatchOperationsPreview(
-      value?.batchOperationsPreview,
-    ),
-  };
-}
-
-function uniqueLimited(values: unknown[], limit: number): string[] {
-  return [
-    ...new Set(
-      values
-        .map((value) => String(value ?? "").trim())
-        .filter(Boolean),
-    ),
-  ].slice(0, limit);
-}
-
-function clusterKey(parts: Array<string | null | undefined>): string {
-  return parts.map((part) => String(part ?? "")).join("\u0000");
-}
-
-function clusterId(parts: Array<string | null | undefined>): string {
-  return parts.map((part) => encodeURIComponent(String(part ?? ""))).join(":");
-}
-
-function textFromEvidence(evidence: unknown): string[] {
-  if (!evidence || typeof evidence !== "object") return [];
-  const source = evidence as Record<string, unknown>;
-  return uniqueLimited(
-    [
-      source.itemName,
-      source.context,
-      source.rawText,
-      source.sourceRawValue,
-      source.splitFromRawValue,
-    ],
-    5,
-  );
-}
-
-function confidenceToDb(value: number | null): string | null {
-  return value === null ? null : value.toFixed(3);
-}
 
 export class DictionarySuggestionService {
   constructor(
@@ -854,43 +498,79 @@ export class DictionarySuggestionService {
   ) {}
 
   getClusterBatchReviewPrompt() {
+    const inputTemplate = {
+      productTypes: "{{productTypes}}",
+      termTypes: "{{termTypes}}",
+      enumValues: "{{enumValues}}",
+      candidateClusters: "{{candidateClusters}}",
+      priorDecisions: "{{priorDecisions}}",
+      runPolicy: {
+        confidenceThreshold: 0.85,
+        maxSuggestedAliases: 10,
+        allowSplitValue: true,
+      },
+    };
+    const outputShape = {
+      suggestions: [
+        {
+          clusterId: "string",
+          recommendedAction:
+            "create_term_type | approve_as_alias | create_value | move_to_other_term_type | split_value | reject | needs_human_review",
+          confidence: 0,
+          riskLevel: "low | medium | high",
+          needsHumanReview: false,
+          humanReviewSummary: "string",
+          reason: "string",
+          batchOperationsPreview: [
+            {
+              candidateType: "term_type|value",
+              candidateId: "string",
+              action:
+                "create_term_type | approve_term_type_as_alias | create_value | approve_value_as_alias | split_value | move_value_to_other_term_type | update_term_type_value_kind | reject",
+              payload: {},
+            },
+          ],
+        },
+      ],
+    };
+    const promptTemplate = [
+      CLUSTER_BATCH_REVIEW_SYSTEM_PROMPT,
+      "",
+      "Review only the candidateClusters in the input JSON. Do not add or infer clusterIds that are not present.",
+      "Return valid JSON only. The top-level shape must be {\"suggestions\": [...]}.",
+      "Every suggestion must include clusterId, recommendedAction, confidence, riskLevel, needsHumanReview, humanReviewSummary, reason, and batchOperationsPreview.",
+      "batchOperationsPreview must be an operations preview that can be submitted to /quoteAgent/candidates/reviews/batch; action must use the action names accepted by that endpoint.",
+      "",
+      "Input JSON:",
+      JSON.stringify(inputTemplate, null, 2),
+      "",
+      "Output JSON shape:",
+      JSON.stringify(outputShape, null, 2),
+    ].join("\n");
+
     return {
+      prompt: promptTemplate,
+      promptTemplate,
+      placeholders: {
+        productTypes:
+          "Replace with options.productTypes or productTypes from /quoteAgent/candidates/clusters.",
+        termTypes:
+          "Replace with options.termTypes or termTypes from /quoteAgent/candidates/clusters.",
+        enumValues:
+          "Replace with options.enumValues or enumValues from /quoteAgent/candidates/clusters.",
+        candidateClusters: "Replace with the currently selected candidateClusters array.",
+        priorDecisions: "Use [] when there are no prior decisions.",
+      },
       systemPrompt: CLUSTER_BATCH_REVIEW_SYSTEM_PROMPT,
       inputShape: {
-        productTypes: "正式产品类型字典",
-        termTypes: "现有字段 Key 列表",
-        enumValues: "候选相关 enum/enums 标准值摘要",
-        candidateClusters: "按候选聚类后的待审核簇",
-        priorDecisions: "历史已确认簇级决策，用于增量重跑",
-        runPolicy: {
-          confidenceThreshold: 0.85,
-          maxSuggestedAliases: 10,
-          allowSplitValue: true,
-        },
+        productTypes: "Official product type dictionary.",
+        termTypes: "Existing dictionary field keys.",
+        enumValues: "Relevant enum/enums standard value summaries.",
+        candidateClusters: "Candidate clusters selected for review.",
+        priorDecisions: "Previously confirmed cluster-level decisions, or [].",
+        runPolicy: inputTemplate.runPolicy,
       },
-      outputShape: {
-        clusterSuggestions: [
-          {
-            clusterId: "string",
-            candidateType: "term_type | value",
-            candidateIds: ["string"],
-            recommendedAction:
-              "create_term_type | approve_as_alias | create_value | move_to_other_term_type | split_value | reject | needs_human_review",
-            confidence: 0,
-            riskLevel: "low | medium | high",
-            reason: "string",
-            humanReviewSummary: "string",
-            batchOperationsPreview: [
-              {
-                candidateType: "term_type|value",
-                candidateId: "string",
-                action: "string",
-                payload: {},
-              },
-            ],
-          },
-        ],
-      },
+      outputShape,
     };
   }
 
@@ -905,7 +585,7 @@ export class DictionarySuggestionService {
       termTypeCandidates,
       valueCandidates,
       documentId: params.documentId,
-      limit: params.limit,
+      limit: params.limit ?? params.clusterIds?.length,
     });
 
     return {
@@ -927,6 +607,12 @@ export class DictionarySuggestionService {
     priorDecisions?: unknown[];
     runPolicy?: Partial<ClusterBatchReviewRunPolicy>;
   }) {
+    if (!Array.isArray(params.clusterIds) || params.clusterIds.length === 0) {
+      throw new Error("clusterIds is required");
+    }
+    if (params.clusterIds.length > 100) {
+      throw new Error("clusterIds length must be <= 100");
+    }
     const model = getLocalModelName(params.model);
     const input = await this.buildClusterBatchReviewInput(params);
     input.priorDecisions = asArray(params.priorDecisions);
@@ -937,9 +623,7 @@ export class DictionarySuggestionService {
 
     if (input.candidateClusters.length === 0) {
       return {
-        clusterSuggestions: [],
-        generatedCount: 0,
-        model,
+        suggestions: [],
       };
     }
 
@@ -995,24 +679,35 @@ export class DictionarySuggestionService {
     await finishLlmCallLog(log, { output: completion });
 
     const suggestionsByClusterId = new Map(
-      asArray(rawResponse?.clusterSuggestions).map((item) => [
+      asArray(rawResponse?.suggestions ?? rawResponse?.clusterSuggestions).map((item) => [
         String(item?.clusterId ?? ""),
         item,
       ]),
     );
-    const clusterSuggestions = input.candidateClusters.map((cluster) =>
-      normalizeClusterReviewSuggestion(
-        suggestionsByClusterId.get(cluster.clusterId),
-        cluster,
+    const suggestions = input.candidateClusters.map((cluster) =>
+      this.toPublicClusterSuggestion(
+        normalizeClusterReviewSuggestion(
+          suggestionsByClusterId.get(cluster.clusterId),
+          cluster,
+        ),
       ),
     );
 
     return {
-      clusterSuggestions,
-      generatedCount: clusterSuggestions.length,
-      model,
-      prompt: `${CLUSTER_BATCH_REVIEW_SYSTEM_PROMPT}\n\n${prompt}`,
-      rawResponse,
+      suggestions,
+    };
+  }
+
+  private toPublicClusterSuggestion(suggestion: any) {
+    return {
+      clusterId: suggestion.clusterId,
+      recommendedAction: suggestion.recommendedAction,
+      confidence: suggestion.confidence,
+      riskLevel: suggestion.riskLevel,
+      needsHumanReview: suggestion.needsHumanReview,
+      humanReviewSummary: suggestion.humanReviewSummary,
+      reason: suggestion.reason,
+      batchOperationsPreview: suggestion.batchOperationsPreview,
     };
   }
 
@@ -1304,6 +999,15 @@ export class DictionarySuggestionService {
     params: CandidateClusterBuildParams,
   ) {
     const status = params.status ?? "pending";
+    const requestedClusters = params.clusterIds?.map((id) =>
+      this.parseCandidateClusterId(id),
+    );
+    const requestedTermTypeClusters =
+      requestedClusters?.filter((cluster) => cluster.candidateType === "term_type") ??
+      [];
+    const requestedValueClusters =
+      requestedClusters?.filter((cluster) => cluster.candidateType === "value") ??
+      [];
     const termTypeCandidateRepo = this.dataSource.getRepository(
       DictionaryTermTypeCandidate,
     );
@@ -1313,7 +1017,13 @@ export class DictionarySuggestionService {
     const termTypeQuery = termTypeCandidateRepo
       .createQueryBuilder("candidate")
       .orderBy("candidate.created_at", "DESC");
-    if (Array.isArray(params.termTypeCandidateIds)) {
+    if (requestedClusters) {
+      this.applyTermTypeClusterFilter(
+        termTypeQuery,
+        requestedTermTypeClusters as ParsedTermTypeClusterId[],
+        status,
+      );
+    } else if (Array.isArray(params.termTypeCandidateIds)) {
       if (params.termTypeCandidateIds.length === 0) {
         termTypeQuery.where("1 = 0");
       } else {
@@ -1333,7 +1043,13 @@ export class DictionarySuggestionService {
     const valueQuery = valueCandidateRepo
       .createQueryBuilder("candidate")
       .orderBy("candidate.created_at", "DESC");
-    if (Array.isArray(params.valueCandidateIds)) {
+    if (requestedClusters) {
+      this.applyValueClusterFilter(
+        valueQuery,
+        requestedValueClusters as ParsedValueClusterId[],
+        status,
+      );
+    } else if (Array.isArray(params.valueCandidateIds)) {
       if (params.valueCandidateIds.length === 0) {
         valueQuery.where("1 = 0");
       } else {
@@ -1358,7 +1074,100 @@ export class DictionarySuggestionService {
     return { termTypeCandidates, valueCandidates };
   }
 
-  private async buildCandidateClusters(params: {
+  private parseCandidateClusterId(
+    clusterIdValue: string,
+  ): ParsedCandidateClusterId {
+    const parts = String(clusterIdValue ?? "")
+      .split(":")
+      .map((part) => decodeURIComponent(part));
+    if (parts[0] === "term_type" && parts.length === 4) {
+      return {
+        candidateType: "term_type",
+        normalizedFieldName: parts[1],
+        sourceProductType: parts[2],
+        reason: parts[3] || null,
+      };
+    }
+    if (parts[0] === "value" && parts.length === 5) {
+      return {
+        candidateType: "value",
+        termType: parts[1],
+        normalizedRawValue: parts[2],
+        sourceProductType: parts[3],
+        reason: parts[4] || null,
+      };
+    }
+    throw new Error(`invalid clusterId: ${clusterIdValue}`);
+  }
+
+  private applyTermTypeClusterFilter(
+    query: SelectQueryBuilder<DictionaryTermTypeCandidate>,
+    clusters: ParsedTermTypeClusterId[],
+    status: string,
+  ) {
+    if (clusters.length === 0) {
+      query.where("1 = 0");
+      return;
+    }
+    query.where(
+      new Brackets((qb) => {
+        clusters.forEach((cluster, index) => {
+          qb.orWhere(
+            `candidate.status = :ttStatus${index}
+             AND candidate.normalizedFieldName = :ttField${index}
+             AND candidate.sourceProductType = :ttSource${index}
+             AND ${this.reasonSql("candidate.reason", `ttReason${index}`)}`,
+            {
+              [`ttStatus${index}`]: status,
+              [`ttField${index}`]: cluster.normalizedFieldName,
+              [`ttSource${index}`]: cluster.sourceProductType,
+              [`ttReason${index}`]: cluster.reason,
+            },
+          );
+        });
+      }),
+    );
+  }
+
+  private applyValueClusterFilter(
+    query: SelectQueryBuilder<DictionaryCandidate>,
+    clusters: ParsedValueClusterId[],
+    status: string,
+  ) {
+    if (clusters.length === 0) {
+      query.where("1 = 0");
+      return;
+    }
+    query.where(
+      new Brackets((qb) => {
+        clusters.forEach((cluster, index) => {
+          qb.orWhere(
+            `candidate.status = :valueStatus${index}
+             AND candidate.termType = :valueTermType${index}
+             AND candidate.normalizedRawValue = :valueRaw${index}
+             AND candidate.sourceProductType = :valueSource${index}
+             AND ${this.reasonSql("candidate.reason", `valueReason${index}`)}`,
+            {
+              [`valueStatus${index}`]: status,
+              [`valueTermType${index}`]: cluster.termType,
+              [`valueRaw${index}`]: cluster.normalizedRawValue,
+              [`valueSource${index}`]: cluster.sourceProductType,
+              [`valueReason${index}`]: cluster.reason,
+            },
+          );
+        });
+      }),
+    );
+  }
+
+  private reasonSql(column: string, parameterName: string): string {
+    return `(
+      (${column} IS NULL AND :${parameterName} IS NULL)
+      OR ${column} = :${parameterName}
+    )`;
+  }
+
+  async buildCandidateClusters(params: {
     termTypeCandidates: DictionaryTermTypeCandidate[];
     valueCandidates: DictionaryCandidate[];
     documentId?: number;
@@ -1440,6 +1249,8 @@ export class DictionarySuggestionService {
     const ensureCluster = (data: {
       clusterKey: string;
       clusterId: string;
+      readableClusterId: string;
+      clusterLabel: string;
       candidateType: "term_type" | "value";
       sourceProductType: string;
       reason: string | null;
@@ -1451,6 +1262,8 @@ export class DictionarySuggestionService {
       if (existing) return existing;
       const created = {
         clusterId: data.clusterId,
+        readableClusterId: data.readableClusterId,
+        clusterLabel: data.clusterLabel,
         clusterKey: data.clusterKey,
         candidateType: data.candidateType,
         candidateIds: [],
@@ -1480,14 +1293,17 @@ export class DictionarySuggestionService {
         candidate.sourceProductType,
         candidate.reason,
       ]);
+      const parts = [
+        "term_type",
+        candidate.normalizedFieldName,
+        candidate.sourceProductType,
+        candidate.reason,
+      ];
       const cluster = ensureCluster({
         clusterKey: key,
-        clusterId: clusterId([
-          "term_type",
-          candidate.normalizedFieldName,
-          candidate.sourceProductType,
-          candidate.reason,
-        ]),
+        clusterId: clusterId(parts),
+        readableClusterId: readableClusterId(parts),
+        clusterLabel: clusterLabel(parts),
         candidateType: "term_type",
         sourceProductType: candidate.sourceProductType ?? "unknown",
         reason: candidate.reason,
@@ -1518,15 +1334,18 @@ export class DictionarySuggestionService {
         candidate.sourceProductType,
         candidate.reason,
       ]);
+      const parts = [
+        "value",
+        candidate.termType,
+        candidate.normalizedRawValue,
+        candidate.sourceProductType,
+        candidate.reason,
+      ];
       const cluster = ensureCluster({
         clusterKey: key,
-        clusterId: clusterId([
-          "value",
-          candidate.termType,
-          candidate.normalizedRawValue,
-          candidate.sourceProductType,
-          candidate.reason,
-        ]),
+        clusterId: clusterId(parts),
+        readableClusterId: readableClusterId(parts),
+        clusterLabel: clusterLabel(parts),
         candidateType: "value",
         sourceProductType: candidate.sourceProductType ?? "unknown",
         reason: candidate.reason,

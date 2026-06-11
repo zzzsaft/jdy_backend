@@ -61,3 +61,7 @@ curl -X POST http://<host>:<port>/wechat/sync/users/all
 > **权限限制**：以上接口当前未内置鉴权逻辑，会直接触发全量同步。请务必通过内网访问、网关白名单或反向代理鉴权进行保护，仅向管理员或可信任务开放。
 
 > **备注**：内部同步逻辑支持使用企业配置中的 `name` 作为公司标识（如通过 webhook/脚本传入 `corpName`），系统会自动解析为对应的 `corpId` 并写入数据库。
+# quoteAgent normalization
+
+Normalization rerun commands are documented in
+`src/features/quoteAgent/scripts/normalization.README.md`.

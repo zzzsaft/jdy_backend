@@ -17,7 +17,7 @@ export type DictionaryValueKind =
 export interface CachedValueAlias {
   termType: string;
   termId: string;
-  aliasId: string;
+  aliasId?: string;
   canonicalValue: string;
   displayName?: string;
   confidence: number;

@@ -78,6 +78,23 @@ export const sendtoUserwithLeaveChoice = async () => {
 
 export const proceedLeave = async (optionIds, config, user) => {
   let flag = false;
+  if (!config["stfSeq"]) {
+    const currentUser = await getUser(user);
+    if (currentUser?.stfSeq) {
+      config = {
+        ...config,
+        stfSeq: currentUser.stfSeq,
+        stfName: currentUser.stfName,
+        orgSeq: currentUser.orgSeq,
+        stfNumber: currentUser.userid.substring(0, 20),
+      };
+    } else {
+      await new MessageService([user]).send_plain_text(
+        "未找到您的新发通员工序号，请联系人力资源先同步员工信息后再提交轮休假。"
+      );
+      return flag;
+    }
+  }
   if (optionIds.length / 2 > config["quota"]) {
     new MessageService([user]).send_plain_text(
       "您选择的日期范围超过了剩余的轮休假天数，请重新选择。"

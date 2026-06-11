@@ -5,10 +5,12 @@ import dotenv from "dotenv";
 import { CustomTypeOrmLogger } from "./logger.js";
 dotenv.config();
 
-// const __filename = fileURLToPath(import.meta.url);
+const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const isProd = process.env.NODE_ENV === "production";
-const entitiesGlob = isProd
+const isCompiledRuntime = path.extname(__filename) === ".js";
+const useCompiledPaths = isProd || isCompiledRuntime;
+const entitiesGlob = useCompiledPaths
   ? [
       path.join(__dirname, "..", "entity", "*.js"),
       path.join(__dirname, "..", "entity", "*", "*.js"),
@@ -50,7 +52,9 @@ export const AppDataSource = new DataSource({
   password: process.env.mariaDBPassword,
   database: "jdy",
   entities: entitiesGlob,
-  migrations: isProd ? ["build/src/migrations/*.js"] : ["src/migrations/*.ts"],
+  migrations: useCompiledPaths
+    ? ["build/src/migrations/*.js"]
+    : ["src/migrations/*.ts"],
   logging: true,
   logger: new CustomTypeOrmLogger(),
   maxQueryExecutionTime: Number(process.env.TYPEORM_SLOW_QUERY_MS ?? 1000),
@@ -65,7 +69,9 @@ export const PgDataSource = new DataSource({
   password: process.env.PgPassword,
   // database: "db",
   entities: entitiesGlob,
-  migrations: isProd ? ["build/src/migrations/*.js"] : ["src/migrations/*.ts"],
+  migrations: useCompiledPaths
+    ? ["build/src/migrations/*.js"]
+    : ["src/migrations/*.ts"],
   logging: isProd ? ["error", "warn"] : true,
   logger: new CustomTypeOrmLogger(),
   maxQueryExecutionTime: Number(process.env.TYPEORM_SLOW_QUERY_MS ?? 1000),

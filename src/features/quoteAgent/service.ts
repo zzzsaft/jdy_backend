@@ -1328,6 +1328,7 @@ export class QuoteAgentService {
     limit?: number;
     batchSize?: number;
     onlyMissingNormalized?: boolean;
+    withPendingCandidates?: boolean;
     onProgress?: (event: {
       batchIndex: number;
       batchCount: number;
@@ -1358,13 +1359,19 @@ export class QuoteAgentService {
     while (totalLimit === undefined || results.length < totalLimit) {
       const remaining =
         totalLimit === undefined ? batchSize : totalLimit - results.length;
-      const extractions =
-        await this.repository.findExtractionsForRenormalizationBatch({
-          limit: Math.min(batchSize, remaining),
-          onlyMissingNormalized,
-          cursorCreatedAt,
-          cursorId,
-        });
+      const batchLimit = Math.min(batchSize, remaining);
+      const extractions = params?.withPendingCandidates === true
+        ? await this.repository.findExtractionsForPendingCandidateRenormalizationBatch({
+            limit: batchLimit,
+            cursorCreatedAt,
+            cursorId,
+          })
+        : await this.repository.findExtractionsForRenormalizationBatch({
+            limit: batchLimit,
+            onlyMissingNormalized,
+            cursorCreatedAt,
+            cursorId,
+          });
 
       if (extractions.length === 0) {
         break;
@@ -1420,6 +1427,7 @@ export class QuoteAgentService {
       requestedLimit: totalLimit ?? null,
       batchSize,
       onlyMissingNormalized,
+      withPendingCandidates: params?.withPendingCandidates === true,
       processedCount: results.length,
       successCount: results.filter((item) => item.status === "normalized").length,
       failedCount: results.filter((item) => item.status === "failed").length,
@@ -1559,7 +1567,10 @@ export class QuoteAgentService {
     }>;
   }) {
     const startedAt = Date.now();
-    const operations = params.operations.slice(0, 200);
+    if (params.operations.length > 200) {
+      throw new Error("operations length must be <= 200");
+    }
+    const operations = params.operations;
     const affectedDocumentIdsByCandidate =
       await this.repository.findAffectedDocumentIdsForCandidates(
         operations.map((operation) => ({

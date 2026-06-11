@@ -154,4 +154,14 @@ export class User extends BaseEntity {
     }
     return null;
   }
+
+  static async countActiveByDepartment(departmentId: string) {
+    return User.count({
+      where: {
+        corp_id: defaultWechatCorpConfig.corpId,
+        main_department_id: departmentId,
+        is_employed: true,
+      },
+    });
+  }
 }

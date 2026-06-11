@@ -4,7 +4,7 @@ import { TriggerAction } from "../../type/trigger.js";
 import AbstractContent from "../AbstractContent.js";
 import { Execute_Action_Condition } from "./execute_action_condition.js";
 import { Execute_Action_Content } from "./execute_action_content.js";
-import { Trigger } from "./Trigger.js";
+import { Trigger } from "./trigger.js";
 
 @Entity({
   name: "trigger_execute_action",
@@ -42,13 +42,13 @@ export class Execute_Action extends AbstractContent {
 
   @OneToMany(
     () => Execute_Action_Condition,
-    (execute_action_condition) => execute_action_condition.execute_action
+    (execute_action_condition) => execute_action_condition.execute_action,
   )
   execute_action_conditions: Relation<Execute_Action_Condition[]>;
 
   @OneToMany(
     () => Execute_Action_Content,
-    (execute_action_content) => execute_action_content.execute_action
+    (execute_action_content) => execute_action_content.execute_action,
   )
   execute_action_contents: Relation<Execute_Action_Content[]>;
 }
