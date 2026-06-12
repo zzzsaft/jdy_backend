@@ -5,6 +5,21 @@ import { User } from "../../../../entity/basic/employee.js";
 import { xftOAApiClient } from "../../api/xft_oa.js";
 import { xftatdApiClient } from "../../api/xft_atd.js";
 import { defaultWechatCorpConfig } from "../../../wechat/wechatCorps.js";
+import { logger } from "../../../../config/logger.js";
+
+const toValidDate = (value: unknown) => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value as string);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const firstValidDate = (...values: unknown[]) => {
+  for (const value of values) {
+    const date = toValidDate(value);
+    if (date) return date;
+  }
+  return null;
+};
 
 export class OutGoingEvent {
   task: XftTaskEvent;
@@ -77,6 +92,35 @@ export class OutGoingEvent {
       throw new Error(`用户不存在${JSON.stringify(parsedData)}`);
     }
     this.staffNbr = user.user_id;
+    const outgoingAddDto = parsedData?.outgoingAddDto ?? {};
+    const beginTime = firstValidDate(
+      this.beginTime,
+      formData?.startTime,
+      formData?.beginTime,
+      outgoingAddDto?.beginTime,
+      outgoingAddDto?.startTime,
+      outgoingAddDto?.beginDateTime
+    );
+    const endTime = firstValidDate(
+      this.endTime,
+      formData?.endTime,
+      outgoingAddDto?.endTime,
+      outgoingAddDto?.endDateTime
+    );
+
+    if (!beginTime || !endTime) {
+      logger.error(
+        `外出记录缺少有效开始/结束时间，已跳过入库。businessParam=${
+          this.task.businessParam
+        }, formData=${JSON.stringify({
+          startTime: formData?.startTime,
+          beginTime: formData?.beginTime,
+          endTime: formData?.endTime,
+        })}, outgoingAddDto=${JSON.stringify(outgoingAddDto)}`
+      );
+      return;
+    }
+
     const out = XftAtdOut.create({
       serialNumber: this.task.businessParam,
       staffSeq,
@@ -84,12 +128,10 @@ export class OutGoingEvent {
       name: this.sponsorName,
       departmentId: user.main_department_id,
       orgName: formData?.department[0]?.ORGNAM,
-      beginTime: new Date(this.beginTime),
-      endTime: new Date(this.endTime),
-      duration:
-        (new Date(this.endTime).getTime() -
-          new Date(this.beginTime).getTime()) /
-        1000,
+      beginTime,
+      endTime,
+      duration: (endTime.getTime() - beginTime.getTime()) / 1000,
+      oldCteateTime: toValidDate(this.task.createTime) ?? new Date(),
       location: this.location,
       remark: this.remark,
       type: this.type,

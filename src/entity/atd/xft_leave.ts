@@ -117,9 +117,13 @@ export class XftAtdLeave extends BaseEntity {
       .andWhere("leave.begDate <= :endDate", { endDate })
       .andWhere("leave.endDate >= :startDate", { startDate })
       .andWhere("(leave.rvkSts IS NULL OR leave.rvkSts = '')")
-      .andWhere("(leave.approveSts IS NULL OR leave.approveSts NOT LIKE :rejectStatus)", {
-        rejectStatus: "%驳回%",
-      });
+      .andWhere(
+        "(leave.approveSts IS NULL OR (leave.approveSts != :rejectCode AND leave.approveSts NOT LIKE :rejectStatus))",
+        {
+          rejectCode: "REJ",
+          rejectStatus: "%驳回%",
+        }
+      );
 
     if (excludeLeaveRecSeq) {
       query.andWhere("leave.leaveRecSeq != :excludeLeaveRecSeq", {
@@ -143,8 +147,9 @@ export class XftAtdLeave extends BaseEntity {
       .andWhere("leave.endDate >= :startDate", { startDate })
       .andWhere("(leave.rvkSts IS NULL OR leave.rvkSts = '')")
       .andWhere(
-        "(leave.approveSts IS NULL OR leave.approveSts NOT LIKE :rejectStatus)",
+        "(leave.approveSts IS NULL OR (leave.approveSts != :rejectCode AND leave.approveSts NOT LIKE :rejectStatus))",
         {
+          rejectCode: "REJ",
           rejectStatus: "%驳回%",
         }
       );
@@ -178,8 +183,9 @@ export class XftAtdLeave extends BaseEntity {
       .andWhere("leave.endDate >= :rangeStart", { rangeStart })
       .andWhere("(leave.rvkSts IS NULL OR leave.rvkSts = '')")
       .andWhere(
-        "(leave.approveSts IS NULL OR leave.approveSts NOT LIKE :rejectStatus)",
+        "(leave.approveSts IS NULL OR (leave.approveSts != :rejectCode AND leave.approveSts NOT LIKE :rejectStatus))",
         {
+          rejectCode: "REJ",
           rejectStatus: "%驳回%",
         }
       );

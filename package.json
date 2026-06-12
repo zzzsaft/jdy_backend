@@ -10,6 +10,8 @@
     "test:local-extract": "node --loader ts-node/esm -r dotenv/config src/features/quoteAgent/llm/testLocalExtract.ts",
     "start": "npm install && node build/src/index.js",
     "build": "tsc",
+    "deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1",
+    "deploy:mac": "pwsh -ExecutionPolicy Bypass -File scripts/deploy.ps1",
     "dev": "npx nodemon --exec \"node --loader ts-node/esm --openssl-legacy-provider -r dotenv/config\" src/dev.ts",
     "test:wechat-config": "node --loader ts-node/esm -r dotenv/config src/scripts/validateWechatConfig.ts",
     "typeorm": "typeorm-ts-node-esm"

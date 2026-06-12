@@ -13,6 +13,13 @@ import {
 } from "typeorm";
 import { User } from "../basic/employee.js";
 import { EntryExistRecords } from "../../features/vehicle/entity/dh_entry_exit_record.js";
+import { logger } from "../../config/logger.js";
+
+const toValidDate = (value: unknown) => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value as string);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
 
 @Entity("atd_xft_out")
 export class XftAtdOut extends BaseEntity {
@@ -63,14 +70,25 @@ export class XftAtdOut extends BaseEntity {
       console.log(`User not found. stfSeq: ${record.staffSeq}`);
       return;
     }
+    const beginTime = toValidDate(record.beginTime);
+    const endTime = toValidDate(record.endTime);
+    if (!beginTime || !endTime) {
+      logger.error(
+        `外出记录缺少有效开始/结束时间，已跳过入库。serialNumber=${
+          record.serialNumber
+        }, beginTime=${record.beginTime}, endTime=${record.endTime}`
+      );
+      return;
+    }
     const out = {
       ...record,
       userId: user.user_id,
       name: user.name,
       departmentId: user.main_department_id,
-      beginTime: new Date(record.beginTime),
-      endTime: new Date(record.endTime),
+      beginTime,
+      endTime,
       duration: record.duration * 60,
+      oldCteateTime: toValidDate(record.oldCteateTime) ?? new Date(),
     };
     const content: XftAtdOut = XftAtdOut.create(out);
     await XftAtdOut.upsert(content, ["serialNumber"]);

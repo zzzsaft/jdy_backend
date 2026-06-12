@@ -169,7 +169,7 @@ export class LeaveEvent {
       }
       if (await this.hasUsedMonthlyWeekdaySingleDayOff()) {
         await this._rejectOA(
-          "每人每月轮休假调休仅限一次。轮休假在周一至周五使用视为调休，周六、周日使用不受此限制。"
+          "本月工作日轮休调休已达2次上限。"
         );
         return true;
       }
@@ -252,7 +252,7 @@ export class LeaveEvent {
         endOfMonth(month),
         excludeLeaveRecSeq
       );
-      if (usedCount >= 1) return true;
+      if (usedCount >= 2) return true;
     }
 
     return false;
@@ -267,7 +267,7 @@ export class LeaveEvent {
     const departmentSize = await User.countActiveByDepartment(
       org.department_id
     );
-    const leaveLimit = Math.max(1, Math.floor(departmentSize / 4));
+    const leaveLimit = Math.max(1, Math.ceil(departmentSize / 4));
     const leaveRecSeq = parseInt(this.leaveRecSeq);
     const excludeLeaveRecSeq = Number.isNaN(leaveRecSeq)
       ? undefined
@@ -284,7 +284,7 @@ export class LeaveEvent {
       const usedCount = usedCounts.get(format(leaveDay, "yyyy-MM-dd")) ?? 0;
 
       if (usedCount >= leaveLimit) {
-        return `${format(leaveDay, "yyyy-MM-dd")} ${org.name ?? "所在部门"}已有${usedCount}人请假，部门在职人数${departmentSize}人，当天请假人数上限为${leaveLimit}人（部门人数的1/4，最少1人），本次申请会超过上限。`;
+        return `${format(leaveDay, "yyyy-MM-dd")} 部门请假已达上限：${usedCount}/${leaveLimit}人。`;
       }
     }
 
