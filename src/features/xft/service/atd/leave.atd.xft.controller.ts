@@ -68,7 +68,7 @@ export class LeaveEvent {
       if (await this.rejectOA()) {
         return;
       }
-      if (this.task.details.includes("请假类型：轮休假")) {
+      if (this.isSingleDayOff()) {
         if (await this.passOA()) {
           await this.sendNotice([...leaderid, this.task.receiverId]);
         } else {
@@ -158,7 +158,7 @@ export class LeaveEvent {
         return true;
       }
     }
-    if (this.task.details.includes("请假类型：轮休假")) {
+    if (this.isSingleDayOff()) {
       const quota = await this.getQuota();
       if (quota.total != 5) return false;
       if (quota.left < 0) {
@@ -173,23 +173,22 @@ export class LeaveEvent {
         );
         return true;
       }
-    }
-    const departmentLeaveLimitReason =
-      await this.getDepartmentLeaveLimitRejectReason(org);
-    if (departmentLeaveLimitReason) {
-      await this._rejectOA(departmentLeaveLimitReason);
-      return true;
+      const departmentLeaveLimitReason =
+        await this.getDepartmentLeaveLimitRejectReason(org);
+      if (departmentLeaveLimitReason) {
+        await this._rejectOA(departmentLeaveLimitReason);
+        return true;
+      }
     }
     if (
-      this.task.details.includes("请假类型：事假") &&
-      !this.task.details.includes("事假小时")
+      this.isPersonalLeave() &&
+      !this.isPersonalLeaveHours()
     ) {
       const quota = await this.getQuota();
       if (quota.total == 2 && quota.left > 0) {
-        await this._rejectOA(
-          `本月还剩${quota.left}日轮休假，请先使用轮休假申请请假。`
+        await this.sendPersonalLeaveQuotaReminder(
+          `本月还剩${quota.left}日轮休假，如符合条件可优先使用轮休假。`
         );
-        return true;
       }
     }
   };
@@ -201,7 +200,10 @@ export class LeaveEvent {
         keys.push(`xft_leave:weekday_single_day_off:${this.stfSeq}:${format(month, "yyyy-MM")}`);
       }
     }
-    if (org?.department_id) {
+    if (
+      org?.department_id &&
+      this.isSingleDayOff()
+    ) {
       for (const day of this.getWeekdayLeaveDays()) {
         keys.push(
           `xft_leave:department_limit:${org.department_id}:${format(day, "yyyy-MM-dd")}`,
@@ -222,12 +224,33 @@ export class LeaveEvent {
     });
     await this.sendNotice([this.task.receiverId]);
   };
+
+  sendPersonalLeaveQuotaReminder = async (reason: string) => {
+    this.task.horizontal_content_list.push({
+      keyname: "提醒",
+      value: reason,
+    });
+    await new MessageService([this.stfNumber]).send_plain_text(reason);
+  };
+
   getQuota = async () => {
     const quota = await quotaServices.getSingleDayOffQuotaLeftByUserId(
       this.stfNumber
     );
     this.quota = quota;
     return quota;
+  };
+
+  isSingleDayOff = () => {
+    return this.lveTypeName == "轮休假" || this.lveType == "CUST16";
+  };
+
+  isPersonalLeave = () => {
+    return this.lveTypeName == "事假" || this.lveTypeName == "事假小时";
+  };
+
+  isPersonalLeaveHours = () => {
+    return this.lveTypeName == "事假小时";
   };
 
   hasWeekdaySingleDayOff = () => {
@@ -326,7 +349,7 @@ export class LeaveEvent {
   }
 
   leaveNotify = async () => {
-    if (!this.task.details.includes("事假小时")) return;
+    if (!this.isPersonalLeaveHours()) return;
     let flag = getDifference(this.begTime, "7:30") ?? 0;
     let flag1 = getDifference(this.begTime, "12:40") ?? 0;
     if (flag > 0) {

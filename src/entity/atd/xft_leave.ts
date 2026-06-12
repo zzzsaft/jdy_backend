@@ -12,6 +12,14 @@ import {
 import { User } from "../basic/employee.js";
 import { Department } from "../basic/department.js";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
+
+const PASSED_APPROVE_STS = ["PAS", "已通过"];
+
+const onlyPassedLeaves = (query) =>
+  query.andWhere("leave.approveSts IN (:...passedApproveSts)", {
+    passedApproveSts: PASSED_APPROVE_STS,
+  });
+
 @Entity("atd_xft_leave")
 export class XftAtdLeave extends BaseEntity {
   @PrimaryColumn()
@@ -116,14 +124,8 @@ export class XftAtdLeave extends BaseEntity {
       .andWhere("leave.weekdays > 0")
       .andWhere("leave.begDate <= :endDate", { endDate })
       .andWhere("leave.endDate >= :startDate", { startDate })
-      .andWhere("(leave.rvkSts IS NULL OR leave.rvkSts = '')")
-      .andWhere(
-        "(leave.approveSts IS NULL OR (leave.approveSts != :rejectCode AND leave.approveSts NOT LIKE :rejectStatus))",
-        {
-          rejectCode: "REJ",
-          rejectStatus: "%驳回%",
-        }
-      );
+      .andWhere("(leave.rvkSts IS NULL OR leave.rvkSts = '')");
+    onlyPassedLeaves(query);
 
     if (excludeLeaveRecSeq) {
       query.andWhere("leave.leaveRecSeq != :excludeLeaveRecSeq", {
@@ -145,14 +147,8 @@ export class XftAtdLeave extends BaseEntity {
       .where("leave.departmentId = :departmentId", { departmentId })
       .andWhere("leave.begDate <= :endDate", { endDate })
       .andWhere("leave.endDate >= :startDate", { startDate })
-      .andWhere("(leave.rvkSts IS NULL OR leave.rvkSts = '')")
-      .andWhere(
-        "(leave.approveSts IS NULL OR (leave.approveSts != :rejectCode AND leave.approveSts NOT LIKE :rejectStatus))",
-        {
-          rejectCode: "REJ",
-          rejectStatus: "%驳回%",
-        }
-      );
+      .andWhere("(leave.rvkSts IS NULL OR leave.rvkSts = '')");
+    onlyPassedLeaves(query);
 
     if (excludeLeaveRecSeq) {
       query.andWhere("leave.leaveRecSeq != :excludeLeaveRecSeq", {
@@ -181,14 +177,8 @@ export class XftAtdLeave extends BaseEntity {
       .where("leave.departmentId = :departmentId", { departmentId })
       .andWhere("leave.begDate <= :rangeEnd", { rangeEnd })
       .andWhere("leave.endDate >= :rangeStart", { rangeStart })
-      .andWhere("(leave.rvkSts IS NULL OR leave.rvkSts = '')")
-      .andWhere(
-        "(leave.approveSts IS NULL OR (leave.approveSts != :rejectCode AND leave.approveSts NOT LIKE :rejectStatus))",
-        {
-          rejectCode: "REJ",
-          rejectStatus: "%驳回%",
-        }
-      );
+      .andWhere("(leave.rvkSts IS NULL OR leave.rvkSts = '')");
+    onlyPassedLeaves(query);
 
     if (excludeLeaveRecSeq) {
       query.andWhere("leave.leaveRecSeq != :excludeLeaveRecSeq", {
