@@ -753,8 +753,10 @@
         window.location.protocol === "file:" ? "http://localhost:2001" : "";
       <!-- const pendingLlmUploadApiBase = "http://hz.jc-times.com:2000"; -->
       const pendingLlmUploadApiBase = "http://localhost:2001";
-      const suggestionDraftKey = "quoteAgent.manualSuggestionJsonDraft";
-      const suggestionAppliedKey = "quoteAgent.manualSuggestionApplied";
+      const suggestionDraftKey = "productConfigAgent.manualSuggestionJsonDraft";
+      const suggestionAppliedKey = "productConfigAgent.manualSuggestionApplied";
+      const legacySuggestionDraftKey = "quoteAgent.manualSuggestionJsonDraft";
+      const legacySuggestionAppliedKey = "quoteAgent.manualSuggestionApplied";
       let pendingLlmUploadTimer = null;
 
       const $ = (id) => document.getElementById(id);
@@ -805,7 +807,7 @@
       }
 
       async function pollPendingLlmUploadStatus() {
-        const data = await api("/quoteAgent/documents/pending-llm-upload/status", {
+        const data = await api("/productConfigAgent/documents/pending-llm-upload/status", {
           apiBase: pendingLlmUploadApiBase,
         });
         renderPendingLlmUploadJob(data.job);
@@ -819,7 +821,7 @@
         $("startPendingLlmUpload").disabled = true;
         setStatus("已请求服务器开始 LLM 批处理...");
         try {
-          const data = await api("/quoteAgent/documents/pending-llm-upload/start", {
+          const data = await api("/productConfigAgent/documents/pending-llm-upload/start", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ limit: 20, concurrency: 10 }),
@@ -1065,7 +1067,7 @@
         const q = $("documentSearch").value.trim();
         if (status) params.set("status", status);
         if (q) params.set("q", q);
-        const data = await api(`/quoteAgent/extractions?${params.toString()}`);
+        const data = await api(`/productConfigAgent/extractions?${params.toString()}`);
         state.documents = data.items || [];
         state.documentTotal = data.total || 0;
         state.documentPage = data.page || state.documentPage;
@@ -1172,6 +1174,7 @@
       const actionLabels = {
         create_term_type: "新增字段 Key",
         approve_as_alias: "归属已有 alias",
+        split_term_type: "拆分字段 Key",
         create_value: "新增标准字段值",
         move_to_other_term_type: "移动到其他字段 Key",
         split_value: "拆分字段值",
@@ -1179,7 +1182,7 @@
         needs_human_review: "人工复核",
       };
 
-      const deepSeekReviewInstructions = `你是 quoteAgent 字典候选批量预审助手。
+      const deepSeekReviewInstructions = `你是 productConfigAgent 字典候选批量预审助手。
 
 只输出合法 JSON，不要 Markdown，不要解释，不要代码块。输出必须能被 JSON.parse 解析。
 
@@ -1229,6 +1232,7 @@
    * 判断依据主要是 rawFieldName / normalizedFieldName。
    * sourceProductType / itemIndex / itemName / rawValue 只能作为上下文辅助。
    * rawValue 不能作为主要依据；不能因为 rawValue 匹配某个 enum value 就把 termType candidate 审核为 value alias。
+   * 如果 rawFieldName 本身是复合字段名，例如“电压及加热功率”“长宽高”“压力及排量”，应返回 split_term_type，并在 splits 中给出拆分后的字段 Key 和对应值；不要返回 split_value。
    * approve_as_alias 必须填写 targetTermType 和 targetTermTypeDisplayName。
    * approve_as_alias 的 suggestedAliases 应包含 rawFieldName 或其合理别名。
    * termTypeCandidateSuggestions 中不要输出 suggestedValues，除非 recommendedAction 是 create_term_type 且 suggestedValueKind 是 enum 或 enums。
@@ -1317,7 +1321,7 @@
 "termTypeCandidateSuggestions": [
 {
 "candidateId": "string",
-"recommendedAction": "create_term_type | approve_as_alias | reject | needs_human_review",
+"recommendedAction": "create_term_type | approve_as_alias | split_term_type | reject | needs_human_review",
 "confidence": 0.0,
 "reason": "string",
 
@@ -1408,6 +1412,7 @@
   * create_term_type：suggestedSortOrder 输出整数，默认 100。
   * create_term_type：如果 sourceProductType 明确且不是 unknown，suggestedApplicableProductTypes 默认包含 sourceProductType。
   * create_term_type：如果字段是通用字段，suggestedApplicableProductTypes 输出 ["common"]。
+  * split_term_type：splits 必须非空；每个 split 必须包含 termType 和 rawValue/canonicalValue/displayName 之一。
   * reject：reason 必须说明为什么不是有效字段 Key。
   * needs_human_review：reason 必须说明不确定点。
   * suggestedValues 只能在 create_term_type 且 suggestedValueKind=enum 时填写，否则必须为空数组。
@@ -1606,8 +1611,21 @@ ${JSON.stringify(input, null, 2)}`;
         );
       }
 
+      function loadMigratedLocalStorageValue(key, legacyKey) {
+        const value = localStorage.getItem(key);
+        if (value !== null) return value;
+        const legacyValue = localStorage.getItem(legacyKey);
+        if (legacyValue !== null) {
+          localStorage.setItem(key, legacyValue);
+        }
+        return legacyValue;
+      }
+
       function loadSuggestionDraft() {
-        const draft = localStorage.getItem(suggestionDraftKey);
+        const draft = loadMigratedLocalStorageValue(
+          suggestionDraftKey,
+          legacySuggestionDraftKey,
+        );
         if (draft && $("suggestionResponseText")) {
           $("suggestionResponseText").value = draft;
         }
@@ -1618,7 +1636,10 @@ ${JSON.stringify(input, null, 2)}`;
       }
 
       function loadAppliedSuggestions() {
-        const text = localStorage.getItem(suggestionAppliedKey);
+        const text = loadMigratedLocalStorageValue(
+          suggestionAppliedKey,
+          legacySuggestionAppliedKey,
+        );
         if (!text) return null;
         try {
           return JSON.parse(text);
@@ -1897,9 +1918,9 @@ ${JSON.stringify(input, null, 2)}`;
 
       async function loadDictionaryOptions() {
         const [termTypeResult, valueResult, productTypeResult] = await Promise.all([
-          api("/quoteAgent/dictionary/term-types"),
-          api("/quoteAgent/dictionary/values"),
-          api("/quoteAgent/dictionary/product-types"),
+          api("/productConfigAgent/dictionary/term-types"),
+          api("/productConfigAgent/dictionary/values"),
+          api("/productConfigAgent/dictionary/product-types"),
         ]);
         state.termTypes = termTypeResult.termTypes || [];
         state.values = valueResult.values || [];
@@ -2174,11 +2195,11 @@ ${JSON.stringify(input, null, 2)}`;
           ? `${candidate.rawFieldName} -> ${candidate.rawValue || ""}`
           : `${findTermType(candidate.termType)?.displayName || candidate.termType}: ${candidate.rawValue}`;
         const createAction = isTermType
-          ? `/quoteAgent/candidates/term-type/${candidate.id}/create-term-type`
-          : `/quoteAgent/candidates/value/${candidate.id}/create-value`;
+          ? `/productConfigAgent/candidates/term-type/${candidate.id}/create-term-type`
+          : `/productConfigAgent/candidates/value/${candidate.id}/create-value`;
         const aliasAction = isTermType
-          ? `/quoteAgent/candidates/term-type/${candidate.id}/approve-as-alias`
-          : `/quoteAgent/candidates/value/${candidate.id}/approve-as-alias`;
+          ? `/productConfigAgent/candidates/term-type/${candidate.id}/approve-as-alias`
+          : `/productConfigAgent/candidates/value/${candidate.id}/approve-as-alias`;
         const rejectType = isTermType ? "term-type" : "value";
         const sourceProductType = candidate.sourceProductType || "unknown";
         const defaultApplicable =
@@ -2274,7 +2295,7 @@ ${JSON.stringify(input, null, 2)}`;
             ${
               isTermType
                 ? ""
-                : `<form class="review-form" hidden data-form-kind="kind" data-action="/quoteAgent/candidates/value/${candidate.id}/update-term-type-kind">
+                : `<form class="review-form" hidden data-form-kind="kind" data-action="/productConfigAgent/candidates/value/${candidate.id}/update-term-type-kind">
                     <div class="form-title">修改字段类型</div>
                     <input name="termType" value="${escapeHtml(candidate.termType)}" readonly>
                     <select name="valueKind">${valueKindOptions(findTermType(candidate.termType)?.valueKind || "enum")}</select>
@@ -2286,7 +2307,7 @@ ${JSON.stringify(input, null, 2)}`;
             ${
               isTermType
                 ? ""
-                : `<form class="review-form" hidden data-form-kind="move" data-action="/quoteAgent/candidates/value/${candidate.id}/move-to-term-type">
+                : `<form class="review-form" hidden data-form-kind="move" data-action="/productConfigAgent/candidates/value/${candidate.id}/move-to-term-type">
                     <div class="form-title">移动到其他字段 Key</div>
                     <input type="hidden" name="termType" data-termtype-preview-source>
                     <button type="button" data-open-termtype-picker>选择字段 Key</button>
@@ -2301,7 +2322,7 @@ ${JSON.stringify(input, null, 2)}`;
             ${
               isTermType
                 ? ""
-                : `<form class="review-form" hidden data-form-kind="split" data-action="/quoteAgent/candidates/value/${candidate.id}/split">
+                : `<form class="review-form" hidden data-form-kind="split" data-action="/productConfigAgent/candidates/value/${candidate.id}/split">
                     <div class="form-title">拆分字段</div>
                     <div class="hint full">适合“CPE流延缠绕膜”这类把材料、工艺、应用类型写在一起的值。可先生成 DeepSeek Prompt 获取建议，再人工确认。</div>
                     <button type="button" data-suggest-split>生成 DeepSeek Prompt</button>
@@ -2310,7 +2331,7 @@ ${JSON.stringify(input, null, 2)}`;
                     <button class="primary">确认拆分</button>
                   </form>`
             }
-            <form class="review-form" hidden data-form-kind="reject" data-action="/quoteAgent/candidates/${rejectType}/${candidate.id}/reject">
+            <form class="review-form" hidden data-form-kind="reject" data-action="/productConfigAgent/candidates/${rejectType}/${candidate.id}/reject">
               <input class="full" name="reason" placeholder="拒绝原因">
               <button class="danger">拒绝</button>
             </form>
@@ -2374,7 +2395,7 @@ ${JSON.stringify(input, null, 2)}`;
               try {
                 const documentId = button.dataset.openDocument;
                 setStatus(`正在打开 document #${documentId}...`);
-                await api(`/quoteAgent/documents/${documentId}/open-file`, {
+                await api(`/productConfigAgent/documents/${documentId}/open-file`, {
                   method: "POST",
                 });
                 setStatus(`已请求打开 document #${documentId} 的文件。`);
@@ -2543,7 +2564,7 @@ ${JSON.stringify(input, null, 2)}`;
         if (!state.showGlobalCandidates && state.documentId) {
           params.set("documentId", String(state.documentId));
         }
-        const data = await api(`/quoteAgent/candidates?${params.toString()}`);
+        const data = await api(`/productConfigAgent/candidates?${params.toString()}`);
         state.currentTermTypeCandidates = data.termTypeCandidates || [];
         state.currentValueCandidates = data.valueCandidates || [];
         const appliedSuggestions = loadAppliedSuggestions();
@@ -2605,7 +2626,7 @@ ${JSON.stringify(input, null, 2)}`;
         $("submitSelectedCandidateReviews").disabled = true;
         setStatus(`正在批量提交 ${operations.length} 个候选审核...`);
         try {
-          const result = await api("/quoteAgent/candidates/reviews/batch", {
+          const result = await api("/productConfigAgent/candidates/reviews/batch", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ operations, deferCandidateRecheck: true }),
@@ -2621,7 +2642,7 @@ ${JSON.stringify(input, null, 2)}`;
 
       async function refreshContract() {
         if (!state.documentId) return;
-        const data = await api(`/quoteAgent/extractions/${state.documentId}`);
+        const data = await api(`/productConfigAgent/extractions/${state.documentId}`);
         const dictionary = data.dictionary_proposals;
         state.dictionary = dictionary;
         renderSummary(dictionary?.summary);
@@ -2636,7 +2657,7 @@ ${JSON.stringify(input, null, 2)}`;
         $("reextractCurrentDocument").disabled = true;
         setStatus(`正在重新 LLM 解析 document #${state.documentId}...`);
         try {
-          const data = await api(`/quoteAgent/extractions/${state.documentId}/reextract`, {
+          const data = await api(`/productConfigAgent/extractions/${state.documentId}/reextract`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({}),
@@ -2661,7 +2682,7 @@ ${JSON.stringify(input, null, 2)}`;
         $("renormalizeCurrentDocument").disabled = true;
         setStatus(`正在按当前字典重归一化 document #${state.documentId}...`);
         try {
-          const data = await api(`/quoteAgent/contracts/${state.documentId}/candidates/generate`, {
+          const data = await api(`/productConfigAgent/contracts/${state.documentId}/candidates/generate`, {
             method: "POST",
           });
           state.dictionary = data.dictionary;
@@ -2679,7 +2700,7 @@ ${JSON.stringify(input, null, 2)}`;
         const form = new FormData();
         form.append("file", file);
         setStatus("上传并抽取中...");
-        const data = await api("/quoteAgent/contracts/upload", {
+        const data = await api("/productConfigAgent/contracts/upload", {
           method: "POST",
           body: form,
         });

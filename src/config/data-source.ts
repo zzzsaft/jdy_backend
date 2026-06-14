@@ -17,13 +17,48 @@ const entitiesGlob = useCompiledPaths
       path.join(__dirname, "..", "features", "bestsign", "entity", "*.js"),
       path.join(__dirname, "..", "features", "fbt", "entity", "*.js"),
       path.join(__dirname, "..", "features", "log", "entity", "*.js"),
-      path.join(__dirname, "..", "features", "quoteAgent", "entity", "*.js"),
+      path.join(
+        __dirname,
+        "..",
+        "features",
+        "productConfigAgent",
+        "workflow",
+        "entity",
+        "*.js"
+      ),
+      path.join(
+        __dirname,
+        "..",
+        "features",
+        "productConfigAgent",
+        "extraction",
+        "entity",
+        "*.js"
+      ),
+      path.join(
+        __dirname,
+        "..",
+        "features",
+        "productConfigAgent",
+        "normalization",
+        "entity",
+        "*.js"
+      ),
+      path.join(
+        __dirname,
+        "..",
+        "features",
+        "productConfigAgent",
+        "archive",
+        "entity",
+        "*.js"
+      ),
       path.join(__dirname, "..", "llm", "entity", "*.js"),
       path.join(
         __dirname,
         "..",
         "features",
-        "quoteAgent",
+        "productConfigAgent",
         "dictionary",
         "entity",
         "*.js"
@@ -37,9 +72,12 @@ const entitiesGlob = useCompiledPaths
       "src/features/bestsign/entity/*.ts",
       "src/features/fbt/entity/*.ts",
       "src/features/log/entity/*.ts",
-      "src/features/quoteAgent/entity/*.ts",
+      "src/features/productConfigAgent/workflow/entity/*.ts",
+      "src/features/productConfigAgent/extraction/entity/*.ts",
+      "src/features/productConfigAgent/normalization/entity/*.ts",
+      "src/features/productConfigAgent/archive/entity/*.ts",
       "src/llm/entity/*.ts",
-      "src/features/quoteAgent/dictionary/entity/*.ts",
+      "src/features/productConfigAgent/dictionary/entity/*.ts",
       "src/features/xft/entity/*.ts",
       "src/features/vehicle/entity/*.ts",
     ];

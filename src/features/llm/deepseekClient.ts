@@ -75,7 +75,7 @@ export async function requestDeepSeekJson(
   const log = await startLlmCallLog({
     provider: "deepseek",
     model: DEEPSEEK_MODEL,
-    purpose: options?.retry ? "quote_agent_extract_retry" : "quote_agent_extract",
+    purpose: options?.retry ? "product_config_agent_extract_retry" : "product_config_agent_extract",
     input: {
       params,
       options,

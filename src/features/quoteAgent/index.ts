@@ -1,39 +1,37 @@
 export {
-  quoteAgentRepository,
-  TypeOrmQuoteAgentRepository,
-} from "./db.service.js";
-export type { QuoteAgentRepository } from "./db.service.js";
+  productConfigAgentRepository as quoteAgentRepository,
+  TypeOrmProductConfigAgentRepository as TypeOrmQuoteAgentRepository,
+} from "../productConfigAgent/index.compat.js";
+export type {
+  ProductConfigAgentRepository as QuoteAgentRepository,
+} from "../productConfigAgent/index.compat.js";
 export {
   calculateFileSha256,
   extractWithLLM,
-  normalizeExtraction,
-  parseExcelToBlocks,
-  publishApprovedExtraction,
-  quoteAgentService,
-  QuoteAgentService,
-  submitToJiandaoyunReview,
-} from "./service.js";
-export type {
-  QuoteAgentExtractParams,
-  QuoteAgentParseAndSaveBlocksBatchError,
-  QuoteAgentParseAndSaveBlocksBatchResult,
-  QuoteAgentParseAndSaveBlocksBatchSuccess,
-  QuoteAgentParseAndSaveBlocksResult,
-  QuoteAgentProcessParams,
-  QuoteAgentProcessResult,
-} from "./service.js";
-export {
   extractProductConfigWithDeepSeek,
   extractProductConfigWithLLM,
   extractProductConfigWithLocalModel,
   getLocalModelClient,
   getLocalModelName,
+  normalizeExtraction,
+  parseExcelToBlocks,
+  productConfigAgentService as quoteAgentService,
+  ProductConfigAgentService as QuoteAgentService,
+  publishApprovedExtraction,
   resolveLlmProvider,
-} from "./llm/index.js";
+  submitToJiandaoyunReview,
+} from "../productConfigAgent/index.compat.js";
 export type {
   DeepSeekExtractParams,
   DeepSeekExtractResult,
   LlmExtractParams,
   LlmExtractResult,
   LlmProvider,
-} from "./llm/index.js";
+  ProductConfigAgentExtractParams as QuoteAgentExtractParams,
+  ProductConfigAgentParseAndSaveBlocksBatchError as QuoteAgentParseAndSaveBlocksBatchError,
+  ProductConfigAgentParseAndSaveBlocksBatchResult as QuoteAgentParseAndSaveBlocksBatchResult,
+  ProductConfigAgentParseAndSaveBlocksBatchSuccess as QuoteAgentParseAndSaveBlocksBatchSuccess,
+  ProductConfigAgentParseAndSaveBlocksResult as QuoteAgentParseAndSaveBlocksResult,
+  ProductConfigAgentProcessParams as QuoteAgentProcessParams,
+  ProductConfigAgentProcessResult as QuoteAgentProcessResult,
+} from "../productConfigAgent/index.compat.js";

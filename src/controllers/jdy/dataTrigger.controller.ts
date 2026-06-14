@@ -1,6 +1,6 @@
 import { Execute_Action } from "../../entity/trigger/execute_action.js";
 import { Execute_Action_Content } from "../../entity/trigger/execute_action_content.js";
-import { Trigger } from "../../entity/trigger/./trigger.js";
+import { Trigger } from "../../entity/trigger/trigger.js";
 import { jdyFormDataApiClient } from "../../features/jdy/api/form_data.js";
 import { FilterCondition } from "../../features/jdy/type/IOptions.js";
 import _ from "lodash";
@@ -42,7 +42,7 @@ export class 智能助手 {
               this.execute_action(trigger);
             }
           }
-        }),
+        })
       )
       .catch((error) => {
         throw error(error);
@@ -115,7 +115,7 @@ export class 智能助手 {
   private async target_form_condition_check(
     action: Execute_Action,
     app_id: string,
-    entry_id: string,
+    entry_id: string
   ): Promise<any[]> {
     if (action.execute_action_conditions.length === 0) {
       return [];
@@ -134,7 +134,7 @@ export class 智能助手 {
           method: condition.method,
           value: this.value_type_convert(
             condition.type,
-            this.data[condition.value],
+            this.data[condition.value]
           ),
         });
       }
@@ -154,7 +154,7 @@ export class 智能助手 {
       const checked_data = await this.target_form_condition_check(
         action,
         action.app_id,
-        action.entry_id,
+        action.entry_id
       );
       switch (action.action) {
         case "create":
@@ -164,7 +164,7 @@ export class 智能助手 {
               action.app_id,
               action.entry_id,
               dataList,
-              { is_start_workflow: action.is_start_workflow },
+              { is_start_workflow: action.is_start_workflow }
             );
           }
           break;
@@ -172,7 +172,7 @@ export class 智能助手 {
           await jdyFormDataApiClient.batchDataRemove(
             action.app_id,
             action.entry_id,
-            checked_data.map((i: any) => i["_id"]),
+            checked_data.map((i: any) => i["_id"])
           );
           break;
         case "update":
@@ -188,7 +188,7 @@ export class 智能助手 {
 
   private async update(
     action: Execute_Action,
-    checked_data: any[],
+    checked_data: any[]
   ): Promise<void> {
     const data = this.create_data(action);
     if (action.extension_subform_name == "") {
@@ -197,7 +197,7 @@ export class 智能助手 {
         action.app_id,
         action.entry_id,
         ids,
-        data,
+        data
       );
     } else {
       const subform_names = action.extension_subform_name.split(",");
@@ -209,7 +209,7 @@ export class 智能助手 {
           action.app_id,
           action.entry_id,
           i["_id"],
-          data,
+          data
         );
       });
     }
@@ -220,10 +220,10 @@ export class 智能助手 {
     const dataList: any[] = [];
     // # 源数据子表，目标数据非子表
     const temp = action.execute_action_contents.filter(
-      (i: Execute_Action_Content) => !i.subform_name && i.value_subform_name,
+      (i: Execute_Action_Content) => !i.subform_name && i.value_subform_name
     );
     temp.sort((a: Execute_Action_Content, b: Execute_Action_Content) =>
-      a.name.localeCompare(b.name),
+      a.name.localeCompare(b.name)
     );
     const grouped_objects = temp.reduce(
       (acc: Execute_Action_Content[][], cur: Execute_Action_Content) => {
@@ -235,7 +235,7 @@ export class 智能助手 {
         }
         return acc;
       },
-      [],
+      []
     );
     const groupedAndSorted = _(temp)
       .groupBy("name")
@@ -274,10 +274,10 @@ export class 智能助手 {
       }
     }
     const temp = action.execute_action_contents.filter(
-      (i: Execute_Action_Content) => i.subform_name,
+      (i: Execute_Action_Content) => i.subform_name
     );
     temp.sort((a: Execute_Action_Content, b: Execute_Action_Content) =>
-      a.name.localeCompare(b.name),
+      a.name.localeCompare(b.name)
     );
     const grouped_objects = temp.reduce(
       (acc: Execute_Action_Content[][], cur: Execute_Action_Content) => {
@@ -289,7 +289,7 @@ export class 智能助手 {
         }
         return acc;
       },
-      [],
+      []
     );
     const subforms: any = {};
     for (const object of grouped_objects) {
@@ -299,7 +299,7 @@ export class 智能助手 {
           subforms[object[0].name][content.subform_name] = {
             value: this.value_type_convert(
               content.type,
-              this.data[content.value],
+              this.data[content.value]
             ),
           };
         } else if (
@@ -315,7 +315,7 @@ export class 智能助手 {
     for (const object of grouped_objects) {
       const value_contents = object.filter(
         (content: Execute_Action_Content) =>
-          content.value_subform_name && content.set_type === "dynamic",
+          content.value_subform_name && content.set_type === "dynamic"
       );
       if (value_contents.length === 0) {
         continue;

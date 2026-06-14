@@ -7,7 +7,7 @@ import type { DeepSeekExtractParams, DeepSeekExtractResult } from "./types.js";
 import type {
   DictionaryService,
   LlmDictionaryContext,
-} from "../quoteAgent/dictionary/dictionary.service.js";
+} from "../productConfigAgent/dictionary/dictionary.service.js";
 
 export async function buildDictionaryContext(
   dictionaryService: DictionaryService

@@ -1,4 +1,4 @@
-import type { LlmDictionaryContext } from "../quoteAgent/dictionary/dictionary.service.js";
+import type { LlmDictionaryContext } from "../productConfigAgent/dictionary/dictionary.service.js";
 
 export interface LlmFieldValue {
   value: string;

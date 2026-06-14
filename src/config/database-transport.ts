@@ -1,7 +1,7 @@
 import { TransportStreamOptions } from "winston-transport";
 import Transport from "winston-transport";
 // import { Log } from "../entity/utils/log";
-import { Trigger } from "../entity/trigger/./trigger.js";
+import { Trigger } from "../entity/trigger/trigger.js";
 
 export class DatabaseTransport extends Transport {
   constructor(options?: TransportStreamOptions) {
