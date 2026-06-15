@@ -1,8 +1,10 @@
 import type {
   DictionaryCandidate,
+  DictionaryUnitCandidate,
   DictionaryTermTypeCandidate,
 } from "./entity/index.js";
 import type { ProductConfigAgentMasterDataMatch } from "../masterData.service.js";
+import type { NormalizedNumberUnit } from "./numberUnit.js";
 
 export type DictionaryValueKind =
   | "enum"
@@ -23,6 +25,13 @@ export interface CachedValueAlias {
   confidence: number;
   riskLevel: string;
   note: string | null;
+}
+
+export interface CachedUnitAlias {
+  id: string;
+  canonicalUnit: string;
+  displayUnit?: string | null;
+  aliasValue: string;
 }
 
 export interface CachedTermType {
@@ -107,11 +116,13 @@ export interface NormalizedFieldResult {
   valueKind?: DictionaryValueKind;
   values?: NormalizedEnumValue[];
   masterDataMatch?: ProductConfigAgentMasterDataMatch;
+  numberUnit?: NormalizedNumberUnit;
   matchMethod?: "alias_exact" | "term_type_only" | "none";
   itemIndex?: number;
   itemProductTypeHint?: string;
   crossProductFallback?: boolean;
   valueCandidate?: DictionaryCandidate;
+  unitCandidate?: DictionaryUnitCandidate;
   termTypeCandidate?: DictionaryTermTypeCandidate;
   warnings: Array<{
     type: string;

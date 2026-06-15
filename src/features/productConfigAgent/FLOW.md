@@ -222,6 +222,32 @@ src/features/productConfigAgent/archive/
 
 Archive is downstream of normalization. It should not call extraction LLM or mutate dictionary candidates.
 
+### Archive Existing Normalized Contracts
+
+Use this script to archive existing normalized documents that have non-empty
+`normalized_extraction_json.items` and are not already archived:
+
+```bash
+npm run product-config-agent:archive-existing
+```
+
+Useful environment variables:
+
+```bash
+# Preview candidates only; does not write archive records.
+QUOTE_AGENT_ARCHIVE_EXISTING_DRY_RUN=true npm run product-config-agent:archive-existing
+
+# Default limit is 100. Use a number or all.
+QUOTE_AGENT_ARCHIVE_EXISTING_LIMIT=20 npm run product-config-agent:archive-existing
+QUOTE_AGENT_ARCHIVE_EXISTING_LIMIT=all npm run product-config-agent:archive-existing
+
+# Force archive when readiness blockers exist.
+QUOTE_AGENT_ARCHIVE_EXISTING_FORCE=true npm run product-config-agent:archive-existing
+
+# Mark archived_by.
+QUOTE_AGENT_ARCHIVE_EXISTING_BY=your-name npm run product-config-agent:archive-existing
+```
+
 ## Important Boundaries
 
 - `excelParser/` parses Excel only.

@@ -320,6 +320,53 @@ Response:
 }
 ```
 
+### Normalized `number_unit` fields
+
+When a matched dictionary field has `valueKind = "number_unit"` and the value
+starts with a number or numeric range, the normalized field includes
+`dictionary.number_unit`.
+
+Text-only values such as `按客户要求` are left as ordinary term-type-only values:
+they do not include `dictionary.number_unit`, do not create unit candidates, and
+do not emit number-unit parse warnings.
+
+Example:
+
+```ts
+{
+  raw_value: "3000-2000 公斤/H",
+  dictionary: {
+    value_kind: "number_unit",
+    normalized_value: "3000-2000 kg/h",
+    number_unit: {
+      rawValue: "3000-2000 公斤/H",
+      numericText: "3000-2000",
+      numberKind: "range",              // "single" | "range"
+      value?: string,                    // present for single number
+      rangeStart?: string,               // preserves source order
+      rangeEnd?: string,                 // preserves source order
+      rangeMin?: string,                 // sorted numeric min
+      rangeMax?: string,                 // sorted numeric max
+      unitRaw?: string,
+      normalizedUnitRaw?: string,
+      unitCanonical?: string,
+      displayUnit?: string,
+      matchedAliasId?: string,
+      normalizedValue: string,
+      warnings: string[]
+    }
+  },
+  candidate?: {
+    candidate_type: "unit",
+    candidate_id: string,
+    term_type?: string,
+    raw_value: string,
+    raw_unit: string,
+    status: string
+  }
+}
+```
+
 ### `POST /productConfigAgent/documents/:documentId/open-file`
 
 Opens the original uploaded file on the server machine.
@@ -381,7 +428,6 @@ Body:
 ```ts
 {
   editedBy?: string,
-  editReason?: string,
   changes: Array<{
     path: string,
     value: unknown
@@ -423,7 +469,6 @@ Body:
 ```ts
 {
   editedBy?: string,
-  editReason?: string,
   bindings: Array<{
     productNumber: string,
     role?: "primary" | "component" | "spare_part" | "derived" | "unknown",
@@ -655,6 +700,52 @@ Frontend can either:
 - replace placeholders in `promptTemplate`, or
 - display/copy `prompt` after filling selected `candidateClusters`.
 
+### `GET /productConfigAgent/candidates/units/review-prompt`
+
+Returns a complete copy-ready prompt template for AI review of pending
+`number_unit` unit alias candidates.
+
+The prompt explicitly tells the AI not to perform unit conversion. It should only
+approve exact spelling/format aliases of the same unit, and should not reorder
+numeric ranges.
+
+Response:
+
+```ts
+{
+  prompt: string,
+  promptTemplate: string,
+  placeholders: {
+    unitAliases: string,
+    unitCandidates: string
+  },
+  inputShape: object,
+  outputShape: {
+    suggestions: Array<{
+      candidateId: string,
+      recommendedAction: "approve" | "reject" | "needs_human_review",
+      canonicalUnit: string | null,
+      displayUnit: string | null,
+      aliasValue: string | null,
+      confidence: number,
+      riskLevel: "low" | "medium" | "high",
+      needsHumanReview: boolean,
+      reason: string
+    }>
+  },
+  applyPolicy: {
+    approveEndpoint: "POST /productConfigAgent/candidates/units/:candidateId/approve",
+    rejectEndpoint: "POST /productConfigAgent/candidates/units/:candidateId/reject",
+    approveBody: string,
+    rejectBody: string
+  }
+}
+```
+
+Frontend should fill `unitAliases` from
+`GET /productConfigAgent/dictionary/unit-aliases` and `unitCandidates` from
+`GET /productConfigAgent/candidates/units?status=pending`.
+
 ### `POST /productConfigAgent/candidates/clusters/suggestions/batch`
 
 Generates LLM suggestions only for the clusters specified by request body `clusterIds`.
@@ -834,6 +925,61 @@ Response:
 { value: DictionaryTerm }
 ```
 
+### `GET /productConfigAgent/dictionary/unit-aliases`
+
+Returns number-unit aliases used by `valueKind = "number_unit"` normalization.
+
+Response:
+
+```ts
+{
+  aliases: Array<{
+    id: string,
+    canonicalUnit: string,       // machine canonical, e.g. "cm3/rev"
+    displayUnit?: string | null, // UI display, e.g. "cm³/rev"
+    aliasValue: string,          // source spelling, e.g. "cm³/rev"
+    normalizedAlias: string,
+    source: string,
+    usageCount: number,
+    note?: string | null,
+    isActive: boolean
+  }>
+}
+```
+
+### `POST /productConfigAgent/dictionary/unit-aliases`
+
+Creates or updates a unit alias by `normalizedAlias`, then bumps dictionary
+version.
+
+Body:
+
+```ts
+{
+  canonicalUnit: string,
+  displayUnit?: string | null,
+  aliasValue: string,
+  note?: string | null
+}
+```
+
+Response:
+
+```ts
+{ alias: DictionaryUnitAlias }
+```
+
+### `PATCH /productConfigAgent/dictionary/unit-aliases/:id`
+
+Updates a unit alias by id. Fields are partial and use the same shape as create,
+plus `isActive`.
+
+Response:
+
+```ts
+{ alias: DictionaryUnitAlias }
+```
+
 ### `GET /productConfigAgent/dictionary/product-types`
 
 Also available as `GET /api/dictionary/product-types`.
@@ -877,6 +1023,86 @@ Common optional body fields:
   deferCandidateRecheck?: boolean,
   reviewedBy?: string
 }
+```
+
+### `GET /productConfigAgent/candidates/units`
+
+Returns unit alias candidates generated from `number_unit` fields whose unit text
+did not match `dictionary_unit_aliases`.
+
+Query:
+
+```ts
+{ status?: "pending" | "approved" | "rejected" } // default: "pending"
+```
+
+Response:
+
+```ts
+{
+  candidates: Array<{
+    id: string,
+    documentId?: string | null,
+    extractionResultId?: string | null,
+    termType?: string | null,
+    rawValue: string,
+    rawUnit: string,
+    normalizedRawUnit: string,
+    proposedCanonicalUnit?: string | null,
+    reason?: string | null,
+    evidence?: unknown,
+    status: "pending" | "approved" | "rejected" | string,
+    reviewedBy?: string | null,
+    reviewedAt?: string | null,
+    createdAt: string,
+    updatedAt: string
+  }>
+}
+```
+
+### `POST /productConfigAgent/candidates/units/:candidateId/approve`
+
+Approves a unit candidate and creates or reuses a unit alias. This bumps the
+dictionary version and marks the candidate's document/archive as
+`dictionary_dirty`.
+
+Body:
+
+```ts
+{
+  canonicalUnit: string,
+  displayUnit?: string | null,
+  aliasValue?: string,     // defaults to candidate.rawUnit
+  reviewedBy?: string
+}
+```
+
+Response:
+
+```ts
+{
+  candidate: DictionaryUnitCandidate,
+  alias: DictionaryUnitAlias
+}
+```
+
+### `POST /productConfigAgent/candidates/units/:candidateId/reject`
+
+Rejects a unit candidate without changing alias rows.
+
+Body:
+
+```ts
+{
+  reason?: string,
+  reviewedBy?: string
+}
+```
+
+Response:
+
+```ts
+{ candidate: DictionaryUnitCandidate }
 ```
 
 ### `POST /productConfigAgent/candidates/reviews/batch`

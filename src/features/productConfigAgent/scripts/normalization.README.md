@@ -8,8 +8,80 @@
 - 只会基于已有的 `extraction_json` 重新生成 `normalized_extraction_json` 和相关字典结果。
 - 默认不会把旧的 pending candidate 改成 `auto_resolved`。
 - 建议先用小批量测试，确认结果正常后再全量执行。
+- 全量脚本会先输出 `targetCount` 和 `plannedCount`，再开始重跑。
+- 全量脚本默认关闭 TypeORM 数据库日志，不输出数据库连接、SQL 或参数细节。
 
 ## 脚本命令
+
+### macOS / zsh 命令速查
+
+macOS 终端里用 `export` 设置环境变量，用 `unset` 清掉环境变量。
+
+小批量测试：
+
+```bash
+export QUOTE_AGENT_FULL_NORMALIZE_SCOPE='all'
+export QUOTE_AGENT_FULL_NORMALIZE_LIMIT='5'
+export QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE='2'
+export QUOTE_AGENT_FULL_NORMALIZE_CONCURRENCY='2'
+node --loader ts-node/esm src/features/productConfigAgent/scripts/runFullNormalizationWithMasterData.ts
+```
+
+如果希望 normalization 后顺便重新检查 pending candidate，并把已经能被当前字典解决的 candidate 标记为 `auto_resolved`，加上：
+
+```bash
+export QUOTE_AGENT_FULL_NORMALIZE_RECHECK_CANDIDATES='1'
+export QUOTE_AGENT_FULL_NORMALIZE_RECHECK_LIMIT='5000'
+```
+
+全量重跑：
+
+```bash
+export QUOTE_AGENT_FULL_NORMALIZE_SCOPE='all'
+unset QUOTE_AGENT_FULL_NORMALIZE_LIMIT
+export QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE='100'
+export QUOTE_AGENT_FULL_NORMALIZE_CONCURRENCY='4'
+node --loader ts-node/esm src/features/productConfigAgent/scripts/runFullNormalizationWithMasterData.ts
+```
+
+只重跑有 pending candidate 的记录：
+
+```bash
+export QUOTE_AGENT_FULL_NORMALIZE_SCOPE='with_pending_candidates'
+export QUOTE_AGENT_FULL_NORMALIZE_LIMIT='5'
+export QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE='2'
+node --loader ts-node/esm src/features/productConfigAgent/scripts/runFullNormalizationWithMasterData.ts
+```
+
+确认小批量正常后，处理所有当前仍关联 pending candidate 的记录：
+
+```bash
+export QUOTE_AGENT_FULL_NORMALIZE_SCOPE='with_pending_candidates'
+unset QUOTE_AGENT_FULL_NORMALIZE_LIMIT
+export QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE='100'
+export QUOTE_AGENT_FULL_NORMALIZE_CONCURRENCY='4'
+node --loader ts-node/esm src/features/productConfigAgent/scripts/runFullNormalizationWithMasterData.ts
+```
+
+全量重跑后顺便清理可自动解决的 pending candidate：
+
+```bash
+export QUOTE_AGENT_FULL_NORMALIZE_SCOPE='with_pending_candidates'
+unset QUOTE_AGENT_FULL_NORMALIZE_LIMIT
+export QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE='100'
+export QUOTE_AGENT_FULL_NORMALIZE_CONCURRENCY='4'
+export QUOTE_AGENT_FULL_NORMALIZE_RECHECK_CANDIDATES='1'
+export QUOTE_AGENT_FULL_NORMALIZE_RECHECK_LIMIT='5000'
+node --loader ts-node/esm src/features/productConfigAgent/scripts/runFullNormalizationWithMasterData.ts
+```
+
+旧版单批脚本：
+
+```bash
+export QUOTE_AGENT_RENORMALIZE_ALL='1'
+export QUOTE_AGENT_RENORMALIZE_LIMIT='20'
+node --loader ts-node/esm src/features/productConfigAgent/scripts/renormalizeExistingExtractions.ts
+```
 
 ### 小批量测试
 
@@ -19,6 +91,7 @@
 $env:QUOTE_AGENT_FULL_NORMALIZE_SCOPE='all'
 $env:QUOTE_AGENT_FULL_NORMALIZE_LIMIT='5'
 $env:QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE='2'
+$env:QUOTE_AGENT_FULL_NORMALIZE_CONCURRENCY='2'
 node --loader ts-node/esm src/features/productConfigAgent/scripts/runFullNormalizationWithMasterData.ts
 ```
 
@@ -37,6 +110,7 @@ $env:QUOTE_AGENT_FULL_NORMALIZE_RECHECK_LIMIT='5000'
 $env:QUOTE_AGENT_FULL_NORMALIZE_SCOPE='all'
 Remove-Item Env:QUOTE_AGENT_FULL_NORMALIZE_LIMIT -ErrorAction SilentlyContinue
 $env:QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE='100'
+$env:QUOTE_AGENT_FULL_NORMALIZE_CONCURRENCY='4'
 node --loader ts-node/esm src/features/productConfigAgent/scripts/runFullNormalizationWithMasterData.ts
 ```
 
@@ -57,6 +131,7 @@ node --loader ts-node/esm src/features/productConfigAgent/scripts/runFullNormali
 $env:QUOTE_AGENT_FULL_NORMALIZE_SCOPE='with_pending_candidates'
 Remove-Item Env:QUOTE_AGENT_FULL_NORMALIZE_LIMIT -ErrorAction SilentlyContinue
 $env:QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE='100'
+$env:QUOTE_AGENT_FULL_NORMALIZE_CONCURRENCY='4'
 node --loader ts-node/esm src/features/productConfigAgent/scripts/runFullNormalizationWithMasterData.ts
 ```
 
@@ -66,6 +141,7 @@ node --loader ts-node/esm src/features/productConfigAgent/scripts/runFullNormali
 $env:QUOTE_AGENT_FULL_NORMALIZE_SCOPE='with_pending_candidates'
 Remove-Item Env:QUOTE_AGENT_FULL_NORMALIZE_LIMIT -ErrorAction SilentlyContinue
 $env:QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE='100'
+$env:QUOTE_AGENT_FULL_NORMALIZE_CONCURRENCY='4'
 $env:QUOTE_AGENT_FULL_NORMALIZE_RECHECK_CANDIDATES='1'
 $env:QUOTE_AGENT_FULL_NORMALIZE_RECHECK_LIMIT='5000'
 node --loader ts-node/esm src/features/productConfigAgent/scripts/runFullNormalizationWithMasterData.ts
@@ -86,12 +162,22 @@ node --loader ts-node/esm src/features/productConfigAgent/scripts/renormalizeExi
 
 后端本地服务运行时，也可以直接调用接口：
 
+macOS / zsh:
+
+```bash
+curl -X POST 'http://localhost:2001/productConfigAgent/extractions/renormalize-batch' \
+  -H 'Content-Type: application/json' \
+  -d '{"scope":"all","limit":5,"batchSize":2,"concurrency":2}'
+```
+
+PowerShell:
+
 ```powershell
 Invoke-RestMethod `
   -Method Post `
   -Uri 'http://localhost:2001/productConfigAgent/extractions/renormalize-batch' `
   -ContentType 'application/json' `
-  -Body '{"scope":"all","limit":5,"batchSize":2}'
+  -Body '{"scope":"all","limit":5,"batchSize":2,"concurrency":2}'
 ```
 
 请求体：
@@ -100,7 +186,8 @@ Invoke-RestMethod `
 {
   "scope": "all",
   "limit": 5,
-  "batchSize": 2
+  "batchSize": 2,
+  "concurrency": 2
 }
 ```
 
@@ -113,6 +200,16 @@ Invoke-RestMethod `
 - `with_pending_candidates`：只处理当前仍关联 pending dictionary candidate 的记录。
 
 只重跑有 pending candidate 的记录：
+
+macOS / zsh:
+
+```bash
+curl -X POST 'http://localhost:2001/productConfigAgent/extractions/renormalize-batch' \
+  -H 'Content-Type: application/json' \
+  -d '{"scope":"with_pending_candidates","limit":5,"batchSize":2}'
+```
+
+PowerShell:
 
 ```powershell
 Invoke-RestMethod `

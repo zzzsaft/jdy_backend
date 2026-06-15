@@ -4,10 +4,12 @@ import {
   DictionaryTerm,
   DictionaryTermType,
   DictionaryTermTypeAlias,
+  DictionaryUnitAlias,
   DictionaryVersion,
 } from "./entity/index.js";
 import type {
   CachedTermType,
+  CachedUnitAlias,
   CachedValueAlias,
   LlmDictionaryContext,
 } from "./dictionary.types.js";
@@ -18,6 +20,7 @@ export class DictionaryCache {
   readonly termTypeAliasIdMap = new Map<string, string[]>();
   readonly termTypePromptAliasMap = new Map<string, Set<string>>();
   readonly valueAliasMap = new Map<string, CachedValueAlias>();
+  readonly unitAliasMap = new Map<string, CachedUnitAlias>();
   readonly termTypeMap = new Map<string, CachedTermType>();
 
   private loadedVersion: number | null = null;
@@ -31,6 +34,10 @@ export class DictionaryCache {
   async ensureFresh(): Promise<void> {
     if (this.loadedVersion === null) {
       await this.reload();
+      return;
+    }
+
+    if (Date.now() - this.lastLoadedAt < this.cacheTtlMs) {
       return;
     }
 
@@ -52,6 +59,7 @@ export class DictionaryCache {
     this.termTypeAliasIdMap.clear();
     this.termTypePromptAliasMap.clear();
     this.valueAliasMap.clear();
+    this.unitAliasMap.clear();
     this.termTypeMap.clear();
 
     const termTypes = await this.dataSource
@@ -153,6 +161,18 @@ export class DictionaryCache {
         confidence: 1,
         riskLevel: "normal",
         note: "intrinsic_term_display_name",
+      });
+    }
+
+    const unitAliases = await this.dataSource
+      .getRepository(DictionaryUnitAlias)
+      .find({ where: { isActive: true } });
+    for (const alias of unitAliases) {
+      this.unitAliasMap.set(alias.normalizedAlias, {
+        id: alias.id,
+        canonicalUnit: alias.canonicalUnit,
+        displayUnit: alias.displayUnit,
+        aliasValue: alias.aliasValue,
       });
     }
 

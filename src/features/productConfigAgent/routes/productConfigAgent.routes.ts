@@ -21,6 +21,7 @@ import {
 } from "../masterData.service.js";
 import { createProductConfigAgentArchiveRoutes } from "../archive/contractArchive.routes.js";
 import { productConfigAgentService } from "../service.js";
+import { productConfigAgentRepository } from "../db.service.js";
 import {
   optionalBoolean,
   optionalString,
@@ -43,6 +44,8 @@ const QUOTE_AGENT_PRODUCTION_PORT = 2000;
 const QUOTE_AGENT_LOCAL_DEV_PORT = 2001;
 const MAX_RENORMALIZE_LIMIT = 1000;
 const MAX_RENORMALIZE_BATCH_SIZE = 100;
+const MAX_DIRTY_REFRESH_LIMIT = 1000;
+const MAX_DIRTY_REFRESH_BATCH_SIZE = 50;
 const MAX_CLUSTER_IDS = 100;
 const MAX_BATCH_REVIEW_OPERATIONS = 200;
 
@@ -462,6 +465,39 @@ const getPendingLlmUploadStatus = async (
   }
 };
 
+const startDirtyDataRefresh = async (request: Request, response: Response) => {
+  try {
+    const limit = assertMax(
+      optionalPositiveInt(request.body?.limit, "limit") ?? 100,
+      MAX_DIRTY_REFRESH_LIMIT,
+      "limit",
+    );
+    const batchSize = assertMax(
+      optionalPositiveInt(request.body?.batchSize, "batchSize") ?? 10,
+      MAX_DIRTY_REFRESH_BATCH_SIZE,
+      "batchSize",
+    );
+    const job = productConfigAgentService.startDirtyDataRefreshJob({
+      limit,
+      batchSize,
+    });
+    response.json({ job });
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const getDirtyDataRefreshStatus = async (
+  _request: Request,
+  response: Response,
+) => {
+  try {
+    response.json({ job: productConfigAgentService.getDirtyDataRefreshJob() });
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
 const generateCandidates = async (request: Request, response: Response) => {
   try {
     const documentId = Number(request.params.documentId);
@@ -551,18 +587,32 @@ const renormalizeExtractionsBatch = async (
       MAX_RENORMALIZE_BATCH_SIZE,
       "batchSize",
     );
+    const concurrency = assertMax(
+      optionalPositiveInt(request.body?.concurrency, "concurrency") ?? 1,
+      16,
+      "concurrency",
+    );
+
+    const targetCount = await productConfigAgentService.countRenormalizationTargets({
+      onlyMissingNormalized: scope === "missing_normalized",
+      withPendingCandidates: scope === "with_pending_candidates",
+    });
 
     const result = await productConfigAgentService.renormalizeExistingExtractionsInBatches({
       limit,
       batchSize,
+      concurrency,
       onlyMissingNormalized: scope === "missing_normalized",
       withPendingCandidates: scope === "with_pending_candidates",
     });
 
     response.json({
       scope,
+      targetCount,
+      plannedCount: Math.min(targetCount, limit),
       requestedLimit: result.requestedLimit,
       batchSize: result.batchSize,
+      concurrency: result.concurrency,
       onlyMissingNormalized: result.onlyMissingNormalized,
       withPendingCandidates: result.withPendingCandidates,
       processedCount: result.processedCount,
@@ -964,6 +1014,108 @@ const deleteDictionaryValue = async (request: Request, response: Response) => {
   }
 };
 
+const getDictionaryUnitAliases = async (_request: Request, response: Response) => {
+  try {
+    response.json({ aliases: await dictionaryService.listUnitAliases() });
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const createDictionaryUnitAlias = async (
+  request: Request,
+  response: Response,
+) => {
+  try {
+    const alias = await dictionaryService.saveUnitAlias({
+      canonicalUnit: requireString(request.body?.canonicalUnit, "canonicalUnit"),
+      displayUnit: optionalString(request.body?.displayUnit),
+      aliasValue: requireString(request.body?.aliasValue, "aliasValue"),
+      note: optionalString(request.body?.note),
+      source: "manual",
+    });
+    response.json({ alias });
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const updateDictionaryUnitAlias = async (
+  request: Request,
+  response: Response,
+) => {
+  try {
+    const alias = await dictionaryService.updateUnitAlias({
+      id: requireString(request.params.id, "id"),
+      canonicalUnit:
+        request.body?.canonicalUnit === undefined
+          ? undefined
+          : requireString(request.body.canonicalUnit, "canonicalUnit"),
+      displayUnit: optionalString(request.body?.displayUnit),
+      aliasValue:
+        request.body?.aliasValue === undefined
+          ? undefined
+          : requireString(request.body.aliasValue, "aliasValue"),
+      note: optionalString(request.body?.note),
+      isActive: optionalBoolean(request.body?.isActive, "isActive"),
+    });
+    response.json({ alias });
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const getUnitCandidates = async (request: Request, response: Response) => {
+  try {
+    const status =
+      typeof request.query.status === "string" && request.query.status.trim()
+        ? request.query.status.trim()
+        : "pending";
+    if (!["pending", "approved", "rejected"].includes(status)) {
+      throw new Error("status must be pending, approved, or rejected");
+    }
+    response.json({
+      candidates: await dictionaryService.listUnitCandidates({ status }),
+    });
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const approveUnitCandidate = async (request: Request, response: Response) => {
+  try {
+    const result = await dictionaryService.approveUnitCandidate({
+      candidateId: requireString(request.params.candidateId, "candidateId"),
+      canonicalUnit: requireString(request.body?.canonicalUnit, "canonicalUnit"),
+      displayUnit: optionalString(request.body?.displayUnit),
+      aliasValue: optionalString(request.body?.aliasValue) ?? undefined,
+      reviewedBy: optionalString(request.body?.reviewedBy) ?? undefined,
+    });
+    const documentId = result.candidate.documentId
+      ? Number(result.candidate.documentId)
+      : undefined;
+    if (documentId) {
+      await productConfigAgentRepository.markDocumentsDictionaryDirty([documentId]);
+    }
+    response.json(result);
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const rejectUnitCandidate = async (request: Request, response: Response) => {
+  try {
+    const candidate = await dictionaryService.rejectUnitCandidate({
+      candidateId: requireString(request.params.candidateId, "candidateId"),
+      reviewedBy: optionalString(request.body?.reviewedBy) ?? undefined,
+      reason: optionalString(request.body?.reason) ?? undefined,
+    });
+    response.json({ candidate });
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
 const getDictionaryProductTypes = async (
   _request: Request,
   response: Response,
@@ -1082,6 +1234,17 @@ const getCandidateClusterReviewPrompt = async (
 ) => {
   try {
     response.json(dictionarySuggestionService.getClusterBatchReviewPrompt());
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const getUnitCandidateReviewPrompt = async (
+  _request: Request,
+  response: Response,
+) => {
+  try {
+    response.json(dictionarySuggestionService.getUnitCandidateReviewPrompt());
   } catch (error) {
     sendError(response, error);
   }
@@ -1442,6 +1605,16 @@ export const ProductConfigAgentRoutes = [
     action: withProductConfigAgentToken(getPendingLlmUploadStatus),
   },
   {
+    path: "/productConfigAgent/dictionary-dirty/refresh/start",
+    method: "post",
+    action: withProductConfigAgentAdmin(startDirtyDataRefresh),
+  },
+  {
+    path: "/productConfigAgent/dictionary-dirty/refresh/status",
+    method: "get",
+    action: withProductConfigAgentToken(getDirtyDataRefreshStatus),
+  },
+  {
     path: "/productConfigAgent/contracts/:documentId/candidates/generate",
     method: "post",
     action: withProductConfigAgentAdmin(generateCandidates),
@@ -1572,9 +1745,44 @@ export const ProductConfigAgentRoutes = [
     action: withProductConfigAgentAdmin(deleteDictionaryValue),
   },
   {
+    path: "/productConfigAgent/dictionary/unit-aliases",
+    method: "get",
+    action: withProductConfigAgentToken(getDictionaryUnitAliases),
+  },
+  {
+    path: "/productConfigAgent/dictionary/unit-aliases",
+    method: "post",
+    action: withProductConfigAgentAdmin(createDictionaryUnitAlias),
+  },
+  {
+    path: "/productConfigAgent/dictionary/unit-aliases/:id",
+    method: "patch",
+    action: withProductConfigAgentAdmin(updateDictionaryUnitAlias),
+  },
+  {
     path: "/productConfigAgent/dictionary/product-types",
     method: "get",
     action: withProductConfigAgentToken(getDictionaryProductTypes),
+  },
+  {
+    path: "/productConfigAgent/candidates/units",
+    method: "get",
+    action: withProductConfigAgentToken(getUnitCandidates),
+  },
+  {
+    path: "/productConfigAgent/candidates/units/review-prompt",
+    method: "get",
+    action: withProductConfigAgentToken(getUnitCandidateReviewPrompt),
+  },
+  {
+    path: "/productConfigAgent/candidates/units/:candidateId/approve",
+    method: "post",
+    action: withProductConfigAgentAdmin(approveUnitCandidate),
+  },
+  {
+    path: "/productConfigAgent/candidates/units/:candidateId/reject",
+    method: "post",
+    action: withProductConfigAgentAdmin(rejectUnitCandidate),
   },
   {
     path: "/productConfigAgent/master-data/model-binding",

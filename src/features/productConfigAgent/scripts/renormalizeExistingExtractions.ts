@@ -11,15 +11,33 @@ function readLimit() {
 }
 
 async function main() {
+  PgDataSource.setOptions({
+    logging: false,
+    maxQueryExecutionTime: 0,
+  });
   await PgDataSource.initialize();
   BaseEntity.useDataSource(PgDataSource);
 
   try {
-    const result = await productConfigAgentService.renormalizeExistingExtractions({
-      limit: readLimit(),
-      onlyMissingNormalized: process.env.QUOTE_AGENT_RENORMALIZE_ALL !== "1",
+    const onlyMissingNormalized = process.env.QUOTE_AGENT_RENORMALIZE_ALL !== "1";
+    const targetCount = await productConfigAgentService.countRenormalizationTargets({
+      onlyMissingNormalized,
     });
-    console.log(JSON.stringify(result, null, 2));
+    const limit = readLimit();
+    console.log(
+      `[productConfigAgent:renormalize] targetCount=${targetCount} plannedCount=${Math.min(targetCount, limit)}`,
+    );
+    const result = await productConfigAgentService.renormalizeExistingExtractions({
+      limit,
+      onlyMissingNormalized,
+    });
+    console.log(
+      JSON.stringify(
+        { targetCount, plannedCount: Math.min(targetCount, limit), ...result },
+        null,
+        2,
+      ),
+    );
   } finally {
     await PgDataSource.destroy();
   }

@@ -9,6 +9,7 @@ import { ContractArchiveQueryService } from "./service/contractArchiveQuery.serv
 import { ContractArchiveReadinessService } from "./service/contractArchiveReadiness.service.js";
 import { ContractArchiveVersionService } from "./service/contractArchiveVersion.service.js";
 import { ProductConfigSearchService } from "./service/productConfigSearch.service.js";
+import { ContractArchive } from "./entity/index.js";
 
 export class ProductConfigAgentArchiveService {
   private readonly queryService: ContractArchiveQueryService;
@@ -38,7 +39,7 @@ export class ProductConfigAgentArchiveService {
   listContracts(params?: {
     page?: number;
     pageSize?: number;
-    status?: "uploaded" | "normalized" | "archived";
+    status?: "uploaded" | "normalized" | "archived" | "dictionary_dirty";
     q?: string;
     productNumber?: string;
     customerId?: string;
@@ -49,6 +50,7 @@ export class ProductConfigAgentArchiveService {
   listContractArchives(params?: {
     page?: number;
     pageSize?: number;
+    status?: "archived" | "dictionary_dirty";
     q?: string;
     productNumber?: string;
     customerId?: string;
@@ -76,7 +78,6 @@ export class ProductConfigAgentArchiveService {
     archiveId: number;
     changes: ContractArchivePatchChange[];
     editedBy?: string | null;
-    editReason?: string | null;
   }) {
     return this.mutationService.patchArchive(params);
   }
@@ -86,9 +87,32 @@ export class ProductConfigAgentArchiveService {
     itemId: number;
     bindings: ContractArchiveProductBindingInput[];
     editedBy?: string | null;
-    editReason?: string | null;
   }) {
     return this.mutationService.replaceItemProductBindings(params);
+  }
+
+  refreshDirtyArchivesForDocument(params: {
+    documentId: number;
+    editedBy?: string | null;
+  }) {
+    return this.mutationService.refreshDirtyArchivesForDocument(params);
+  }
+
+  async findDirtyArchiveExtractionIdsForDocument(documentId: number) {
+    const archives = await this.dataSource.getRepository(ContractArchive).find({
+      where: {
+        documentId: String(documentId),
+        status: "dictionary_dirty",
+      },
+      select: ["extractionResultId"],
+    });
+    return [
+      ...new Set(
+        archives
+          .map((archive) => Number(archive.extractionResultId))
+          .filter((id: number) => Number.isFinite(id) && id > 0),
+      ),
+    ];
   }
 
   listVersions(archiveId: number) {

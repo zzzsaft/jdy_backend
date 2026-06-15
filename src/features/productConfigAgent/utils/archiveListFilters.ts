@@ -2,7 +2,7 @@ import { Brackets } from "typeorm";
 import { UPLOADED_STATUSES } from "../archive/types.js";
 
 export type ContractListFilterParams = {
-  status?: "uploaded" | "normalized" | "archived";
+  status?: "uploaded" | "normalized" | "archived" | "dictionary_dirty";
   q?: string;
   productNumber?: string;
   customerId?: string;
@@ -18,6 +18,8 @@ export function applyContractDocumentListFilters(
     });
   } else if (params?.status === "normalized") {
     builder.andWhere("document.status = :status", { status: "normalized" });
+  } else if (params?.status === "dictionary_dirty") {
+    builder.andWhere("document.status = :status", { status: "dictionary_dirty" });
   }
 
   if (params?.q) {
@@ -76,8 +78,16 @@ export function applyContractDocumentListFilters(
 
 export function applyContractArchiveListFilters(
   builder: any,
-  params?: Pick<ContractListFilterParams, "q" | "productNumber" | "customerId">,
+  params?: Pick<
+    ContractListFilterParams,
+    "status" | "q" | "productNumber" | "customerId"
+  >,
 ) {
+  if (params?.status === "dictionary_dirty") {
+    builder.andWhere("archive.status = :status", { status: "dictionary_dirty" });
+  } else if (params?.status === "archived") {
+    builder.andWhere("archive.status = :status", { status: "archived" });
+  }
   if (params?.customerId) {
     builder.andWhere("archive.customer_id = :customerId", {
       customerId: params.customerId,

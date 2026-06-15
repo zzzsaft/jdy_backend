@@ -36,6 +36,39 @@ export type PendingLlmUploadJob = {
   }>;
 };
 
+export type DirtyDataRefreshJobStatus = "running" | "completed" | "failed";
+
+export type DirtyDataRefreshDocumentProgress = {
+  documentId: number;
+  fileName: string;
+  status: "running" | "success" | "failed";
+  archiveUpdatedCount: number;
+  archiveVersionCount: number;
+  error?: string;
+};
+
+export type DirtyDataRefreshJob = {
+  id: string;
+  status: DirtyDataRefreshJobStatus;
+  limit: number;
+  batchSize: number;
+  startedAt: string;
+  finishedAt?: string;
+  total: number;
+  processed: number;
+  successCount: number;
+  failedCount: number;
+  archiveUpdatedCount: number;
+  archiveVersionCount: number;
+  currentDocumentId?: number;
+  documentProgress: DirtyDataRefreshDocumentProgress[];
+  errors: Array<{
+    documentId: number;
+    fileName: string;
+    error: string;
+  }>;
+};
+
 export type ProductConfigAgentProcessParams = {
   filePath: string;
   fileName?: string;

@@ -5,6 +5,8 @@ import {
   DictionaryTermTypeCandidate,
   DictionaryTerm,
   DictionaryCandidateOccurrence,
+  DictionaryUnitAlias,
+  DictionaryUnitCandidate,
 } from "./entity/index.js";
 import { SplitResolution } from "../normalization/entity/splitResolution.entity.js";
 import { DictionaryCache } from "./dictionary.cache.js";
@@ -46,6 +48,10 @@ import {
   ProductConfigAgentMasterDataService,
   sourceForModelTermType,
 } from "../masterData.service.js";
+import {
+  normalizeNumberUnit,
+  normalizeUnitAliasText,
+} from "./numberUnit.js";
 
 export type {
   CachedTermType,
@@ -77,6 +83,10 @@ export class DictionaryService {
 
   async ensureCacheFresh(): Promise<void> {
     await this.cache.ensureFresh();
+  }
+
+  getUnitAliasMap() {
+    return this.cache.unitAliasMap;
   }
 
   async reloadCache(): Promise<void> {
@@ -266,6 +276,55 @@ export class DictionaryService {
       params,
       this.normalizeText(params.rawFieldName),
     );
+  }
+
+  async createUnitCandidate(params: {
+    documentId?: string;
+    extractionResultId?: string;
+    termType?: string;
+    rawValue: string;
+    rawUnit: string;
+    normalizedRawUnit: string;
+    proposedCanonicalUnit?: string;
+    reason?: string;
+    evidence?: unknown;
+  }): Promise<DictionaryUnitCandidate | undefined> {
+    const normalizedRawUnit =
+      params.normalizedRawUnit || normalizeUnitAliasText(params.rawUnit);
+    if (!normalizedRawUnit) {
+      return undefined;
+    }
+    const repo = this.dataSource.getRepository(DictionaryUnitCandidate);
+    const existing = await repo.findOne({
+      where: { normalizedRawUnit, status: "pending" },
+    });
+    if (existing) {
+      return existing;
+    }
+    try {
+      return await repo.save(
+        repo.create({
+          documentId: params.documentId ?? null,
+          extractionResultId: params.extractionResultId ?? null,
+          termType: params.termType ?? null,
+          rawValue: params.rawValue,
+          rawUnit: params.rawUnit,
+          normalizedRawUnit,
+          proposedCanonicalUnit: params.proposedCanonicalUnit ?? normalizedRawUnit,
+          reason: params.reason ?? "unit_alias_no_match",
+          evidence: params.evidence ?? null,
+          status: "pending",
+        }),
+      );
+    } catch (error) {
+      if (!this.isUniqueConstraintError(error)) {
+        throw error;
+      }
+      return (
+        (await repo.findOne({ where: { normalizedRawUnit, status: "pending" } })) ??
+        undefined
+      );
+    }
   }
 
   async recheckPendingCandidatesAfterDictionaryUpdate(params?: {
@@ -782,6 +841,131 @@ export class DictionaryService {
     await rejectTermTypeCandidateRecord(this.dataSource, params);
   }
 
+  async listUnitAliases() {
+    return this.dataSource.getRepository(DictionaryUnitAlias).find({
+      order: { canonicalUnit: "ASC", aliasValue: "ASC" },
+    });
+  }
+
+  async saveUnitAlias(params: {
+    canonicalUnit: string;
+    displayUnit?: string | null;
+    aliasValue: string;
+    note?: string | null;
+    isActive?: boolean;
+    source?: string;
+  }) {
+    const repo = this.dataSource.getRepository(DictionaryUnitAlias);
+    const normalizedAlias = normalizeUnitAliasText(params.aliasValue);
+    if (!normalizedAlias) {
+      throw new Error("aliasValue is required");
+    }
+    const existing = await repo.findOne({ where: { normalizedAlias } });
+    const row =
+      existing ??
+      repo.create({
+        normalizedAlias,
+      });
+    row.canonicalUnit = params.canonicalUnit.trim();
+    row.displayUnit = params.displayUnit ?? params.canonicalUnit.trim();
+    row.aliasValue = params.aliasValue.trim();
+    row.note = params.note ?? row.note ?? null;
+    row.source = params.source ?? row.source ?? "manual";
+    row.isActive = params.isActive ?? row.isActive ?? true;
+    const alias = await repo.save(row);
+    await this.bumpDictionaryVersion();
+    return alias;
+  }
+
+  async updateUnitAlias(params: {
+    id: string;
+    canonicalUnit?: string;
+    displayUnit?: string | null;
+    aliasValue?: string;
+    note?: string | null;
+    isActive?: boolean;
+  }) {
+    const repo = this.dataSource.getRepository(DictionaryUnitAlias);
+    const row = await repo.findOne({ where: { id: params.id } });
+    if (!row) {
+      throw new Error(`DictionaryUnitAlias not found: ${params.id}`);
+    }
+    if (params.canonicalUnit !== undefined) {
+      row.canonicalUnit = params.canonicalUnit.trim();
+    }
+    if (params.displayUnit !== undefined) {
+      row.displayUnit = params.displayUnit;
+    }
+    if (params.aliasValue !== undefined) {
+      row.aliasValue = params.aliasValue.trim();
+      row.normalizedAlias = normalizeUnitAliasText(params.aliasValue);
+    }
+    if (params.note !== undefined) {
+      row.note = params.note;
+    }
+    if (params.isActive !== undefined) {
+      row.isActive = params.isActive;
+    }
+    const alias = await repo.save(row);
+    await this.bumpDictionaryVersion();
+    return alias;
+  }
+
+  async listUnitCandidates(params?: { status?: string }) {
+    return this.dataSource.getRepository(DictionaryUnitCandidate).find({
+      where: { status: params?.status ?? "pending" },
+      order: { createdAt: "DESC" },
+    });
+  }
+
+  async approveUnitCandidate(params: {
+    candidateId: string;
+    canonicalUnit: string;
+    displayUnit?: string | null;
+    aliasValue?: string;
+    reviewedBy?: string;
+  }) {
+    const candidateRepo = this.dataSource.getRepository(DictionaryUnitCandidate);
+    const candidate = await candidateRepo.findOne({
+      where: { id: params.candidateId },
+    });
+    if (!candidate) {
+      throw new Error(`DictionaryUnitCandidate not found: ${params.candidateId}`);
+    }
+    const alias = await this.saveUnitAlias({
+      canonicalUnit: params.canonicalUnit,
+      displayUnit: params.displayUnit ?? params.canonicalUnit,
+      aliasValue: params.aliasValue ?? candidate.rawUnit,
+      source: "candidate_review",
+    });
+    candidate.status = "approved";
+    candidate.proposedCanonicalUnit = params.canonicalUnit;
+    candidate.reviewedBy = params.reviewedBy ?? null;
+    candidate.reviewedAt = new Date();
+    await candidateRepo.save(candidate);
+    return { candidate, alias };
+  }
+
+  async rejectUnitCandidate(params: {
+    candidateId: string;
+    reviewedBy?: string;
+    reason?: string;
+  }) {
+    const candidateRepo = this.dataSource.getRepository(DictionaryUnitCandidate);
+    const candidate = await candidateRepo.findOne({
+      where: { id: params.candidateId },
+    });
+    if (!candidate) {
+      throw new Error(`DictionaryUnitCandidate not found: ${params.candidateId}`);
+    }
+    candidate.status = "rejected";
+    candidate.reason = params.reason ?? candidate.reason;
+    candidate.reviewedBy = params.reviewedBy ?? null;
+    candidate.reviewedAt = new Date();
+    await candidateRepo.save(candidate);
+    return candidate;
+  }
+
   async updateTermTypeValueKind(params: {
     termType: string;
     valueKind: DictionaryValueKind;
@@ -989,6 +1173,14 @@ export class DictionaryService {
     }
 
     if (valueKind !== "enum" && valueKind !== "enums") {
+      if (valueKind === "number_unit") {
+        return this.normalizeNumberUnitField(
+          params,
+          termTypeMatch,
+          termType,
+          valueKind,
+        );
+      }
       return this.buildTermTypeOnlyResult(params, termTypeMatch, termType, valueKind);
     }
 
@@ -1284,6 +1476,81 @@ export class DictionaryService {
         params.itemProductTypeHint,
       ),
       warnings: [],
+    };
+  }
+
+  private async normalizeNumberUnitField(
+    params: NormalizeFieldParams,
+    termTypeMatch: TermTypeMatchResult,
+    termType: string,
+    valueKind: DictionaryValueKind,
+  ): Promise<NormalizedFieldResult> {
+    const numberUnit = normalizeNumberUnit(
+      params.rawValue,
+      this.cache.unitAliasMap,
+    );
+    if (numberUnit.numberKind === "none") {
+      return {
+        matched: true,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: termTypeMatch.normalizedFieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        termType,
+        candidateTermTypes:
+          termTypeMatch.termTypes.length > 1 ? termTypeMatch.termTypes : undefined,
+        valueKind,
+        matchMethod: "term_type_only",
+        itemIndex: params.itemIndex,
+        itemProductTypeHint: normalizeProductTypeHintForMatch(
+          params.itemProductTypeHint,
+        ),
+        warnings: [],
+      };
+    }
+    let unitCandidate: DictionaryUnitCandidate | undefined;
+    if (numberUnit.unitRaw && !numberUnit.unitCanonical) {
+      unitCandidate = await this.createUnitCandidate({
+        documentId: params.documentId,
+        extractionResultId: params.extractionResultId,
+        termType,
+        rawValue: params.rawValue,
+        rawUnit: numberUnit.unitRaw,
+        normalizedRawUnit: numberUnit.normalizedUnitRaw ?? "",
+        proposedCanonicalUnit: numberUnit.normalizedUnitRaw,
+        reason: "unit_alias_no_match",
+        evidence: params.evidence,
+      });
+    }
+
+    return {
+      matched: true,
+      fieldMatched: true,
+      rawFieldName: params.fieldName,
+      normalizedFieldName: termTypeMatch.normalizedFieldName,
+      rawValue: params.rawValue,
+      normalizedValue: numberUnit.normalizedValue,
+      termType,
+      candidateTermTypes:
+        termTypeMatch.termTypes.length > 1 ? termTypeMatch.termTypes : undefined,
+      valueKind,
+      matchMethod: "term_type_only",
+      itemIndex: params.itemIndex,
+      itemProductTypeHint: normalizeProductTypeHintForMatch(
+        params.itemProductTypeHint,
+      ),
+      numberUnit,
+      unitCandidate,
+      warnings: numberUnit.warnings.map((warning) => ({
+        type: warning,
+        message:
+          warning === "unit_alias_no_match"
+            ? "单位未命中字典 alias，请审核单位写法"
+            : "number_unit 解析存在异常，请人工确认",
+        rawValue: params.rawValue,
+        termType,
+      })),
     };
   }
 

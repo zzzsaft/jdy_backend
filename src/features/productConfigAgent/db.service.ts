@@ -8,6 +8,7 @@ import {
 import { DocumentBlocks } from "./workflow/entity/documentBlocks.entity.js";
 import { Documents } from "./workflow/entity/documents.entity.js";
 import { ExtractionResults } from "./extraction/entity/extractionResults.entity.js";
+import { ContractArchive } from "./archive/entity/index.js";
 import { buildExtractionItemNameMap } from "./extractionItemNames.js";
 
 export interface ProductConfigAgentRepository {
@@ -32,6 +33,7 @@ export interface ProductConfigAgentRepository {
 
   updateDocumentStatus(documentId: number, status: string): Promise<void>;
   updateDocumentsStatus(documentIds: number[], status: string): Promise<void>;
+  markDocumentsDictionaryDirty(documentIds: number[]): Promise<void>;
   findDocumentById(documentId: number): Promise<any | null>;
   listDocuments(params?: {
     page?: number;
@@ -45,6 +47,7 @@ export interface ProductConfigAgentRepository {
     items: any[];
   }>;
   findDocumentsMissingExtraction(params?: { limit?: number }): Promise<any[]>;
+  findDictionaryDirtyDocuments(params?: { limit?: number }): Promise<any[]>;
   findDocumentsMissingPlan(params: {
     limit?: number;
     promptVersion: string;
@@ -113,6 +116,10 @@ export interface ProductConfigAgentRepository {
     limit?: number;
     onlyMissingNormalized?: boolean;
   }): Promise<any[]>;
+  countExtractionsForRenormalization(params?: {
+    onlyMissingNormalized?: boolean;
+    withPendingCandidates?: boolean;
+  }): Promise<number>;
   findExtractionsForRenormalizationBatch(params: {
     limit: number;
     onlyMissingNormalized?: boolean;
@@ -141,6 +148,41 @@ export interface ProductConfigAgentRepository {
 function wrapDbError(method: string, error: unknown): Error {
   const message = error instanceof Error ? error.message : String(error);
   return new Error(`[productConfigAgent:db] ${method} failed: ${message}`);
+}
+
+function pendingCandidateRenormalizationWhereSql(): string {
+  return `(
+    EXISTS (
+      SELECT 1
+      FROM quote_agent.dictionary_candidate_occurrences occurrence
+      JOIN quote_agent.dictionary_candidates candidate
+        ON occurrence.candidate_type = 'value'
+       AND occurrence.candidate_id = candidate.id
+      WHERE occurrence.extraction_result_id = extraction.id
+        AND candidate.status = 'pending'
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM quote_agent.dictionary_candidate_occurrences occurrence
+      JOIN quote_agent.dictionary_term_type_candidates candidate
+        ON occurrence.candidate_type = 'term_type'
+       AND occurrence.candidate_id = candidate.id
+      WHERE occurrence.extraction_result_id = extraction.id
+        AND candidate.status = 'pending'
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM quote_agent.dictionary_candidates candidate
+      WHERE candidate.extraction_result_id = extraction.id
+        AND candidate.status = 'pending'
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM quote_agent.dictionary_term_type_candidates candidate
+      WHERE candidate.extraction_result_id = extraction.id
+        AND candidate.status = 'pending'
+    )
+  )`;
 }
 
 export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRepository {
@@ -247,6 +289,27 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
       await this.documentsRepo.update({ id: In(documentIds) }, { status });
     } catch (error) {
       throw wrapDbError("updateDocumentsStatus", error);
+    }
+  }
+
+  async markDocumentsDictionaryDirty(documentIds: number[]): Promise<void> {
+    const uniqueDocumentIds = [...new Set(documentIds)].filter((id) => id > 0);
+    if (uniqueDocumentIds.length === 0) return;
+
+    try {
+      await PgDataSource.transaction(async (manager) => {
+        await manager
+          .getRepository(Documents)
+          .update({ id: In(uniqueDocumentIds) }, { status: "dictionary_dirty" });
+        await manager
+          .getRepository(ContractArchive)
+          .update(
+            { documentId: In(uniqueDocumentIds.map((id) => String(id))) },
+            { status: "dictionary_dirty" },
+          );
+      });
+    } catch (error) {
+      throw wrapDbError("markDocumentsDictionaryDirty", error);
     }
   }
 
@@ -401,6 +464,39 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
       return await query.getMany();
     } catch (error) {
       throw wrapDbError("findDocumentsMissingExtraction", error);
+    }
+  }
+
+  async findDictionaryDirtyDocuments(params?: { limit?: number }): Promise<any[]> {
+    try {
+      return await this.documentsRepo
+        .createQueryBuilder("document")
+        .leftJoin(
+          ContractArchive,
+          "archive",
+          "archive.document_id = document.id",
+        )
+        .where("document.status = :dirtyStatus", {
+          dirtyStatus: "dictionary_dirty",
+        })
+        .orWhere("archive.status = :dirtyStatus", {
+          dirtyStatus: "dictionary_dirty",
+        })
+        .select([
+          "document.id",
+          "document.fileName",
+          "document.fileHash",
+          "document.filePath",
+          "document.source",
+          "document.status",
+          "document.createdAt",
+        ])
+        .distinct(true)
+        .orderBy("document.createdAt", "ASC")
+        .limit(Math.max(1, params?.limit ?? 100))
+        .getMany();
+    } catch (error) {
+      throw wrapDbError("findDictionaryDirtyDocuments", error);
     }
   }
 
@@ -794,6 +890,31 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
     }
   }
 
+  async countExtractionsForRenormalization(params?: {
+    onlyMissingNormalized?: boolean;
+    withPendingCandidates?: boolean;
+  }): Promise<number> {
+    try {
+      const query = this.extractionRepo
+        .createQueryBuilder("extraction")
+        .where("extraction.extraction_json IS NOT NULL")
+        .andWhere("jsonb_typeof(extraction.extraction_json->'items') = 'array'")
+        .andWhere("jsonb_array_length(extraction.extraction_json->'items') > 0");
+
+      if (params?.onlyMissingNormalized !== false) {
+        query.andWhere("extraction.normalized_extraction_json IS NULL");
+      }
+
+      if (params?.withPendingCandidates === true) {
+        query.andWhere(pendingCandidateRenormalizationWhereSql());
+      }
+
+      return await query.getCount();
+    } catch (error) {
+      throw wrapDbError("countExtractionsForRenormalization", error);
+    }
+  }
+
   async findExtractionsForRenormalizationBatch(params: {
     limit: number;
     onlyMissingNormalized?: boolean;
@@ -861,40 +982,7 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
           "extraction.createdAt",
         ])
         .where("extraction.extraction_json IS NOT NULL")
-        .andWhere(
-          `(
-            EXISTS (
-              SELECT 1
-              FROM quote_agent.dictionary_candidate_occurrences occurrence
-              JOIN quote_agent.dictionary_candidates candidate
-                ON occurrence.candidate_type = 'value'
-               AND occurrence.candidate_id = candidate.id
-              WHERE occurrence.extraction_result_id = extraction.id
-                AND candidate.status = 'pending'
-            )
-            OR EXISTS (
-              SELECT 1
-              FROM quote_agent.dictionary_candidate_occurrences occurrence
-              JOIN quote_agent.dictionary_term_type_candidates candidate
-                ON occurrence.candidate_type = 'term_type'
-               AND occurrence.candidate_id = candidate.id
-              WHERE occurrence.extraction_result_id = extraction.id
-                AND candidate.status = 'pending'
-            )
-            OR EXISTS (
-              SELECT 1
-              FROM quote_agent.dictionary_candidates candidate
-              WHERE candidate.extraction_result_id = extraction.id
-                AND candidate.status = 'pending'
-            )
-            OR EXISTS (
-              SELECT 1
-              FROM quote_agent.dictionary_term_type_candidates candidate
-              WHERE candidate.extraction_result_id = extraction.id
-                AND candidate.status = 'pending'
-            )
-          )`,
-        )
+        .andWhere(pendingCandidateRenormalizationWhereSql())
         .orderBy("extraction.created_at", "DESC")
         .addOrderBy("extraction.id", "DESC")
         .limit(Math.max(1, params.limit));

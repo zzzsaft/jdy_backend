@@ -520,6 +520,78 @@ export class DictionarySuggestionService {
     private readonly client: OpenAI = getLocalModelClient()
   ) {}
 
+  getUnitCandidateReviewPrompt() {
+    const inputTemplate = {
+      unitAliases: "{{unitAliases}}",
+      unitCandidates: "{{unitCandidates}}",
+      runPolicy: {
+        approveOnlyExactEquivalentUnits: true,
+        doNotConvertUnits: true,
+        preserveRangeOrder: true,
+      },
+    };
+    const outputShape = {
+      suggestions: [
+        {
+          candidateId: "string",
+          recommendedAction: "approve | reject | needs_human_review",
+          canonicalUnit: "string|null",
+          displayUnit: "string|null",
+          aliasValue: "string|null",
+          confidence: 0,
+          riskLevel: "low | medium | high",
+          needsHumanReview: false,
+          reason: "string",
+        },
+      ],
+    };
+    const promptTemplate = [
+      "You are reviewing productConfigAgent number_unit unit alias candidates.",
+      "Only decide whether rawUnit is an exact spelling/format alias of an existing or proposed canonical unit.",
+      "Do not perform unit conversion. For example, do not approve bar as MPa, L/min as L/h, or cm as mm.",
+      "Preserve numeric range order. Unit review only concerns the unit text, not number order.",
+      "Approve only when rawUnit and canonicalUnit represent the same unit without scaling.",
+      "Use needs_human_review for ambiguous units, unknown domain abbreviations, or conversion-like cases.",
+      "Return valid JSON only. The top-level shape must be {\"suggestions\": [...]}.",
+      "Every suggestion must include candidateId, recommendedAction, canonicalUnit, displayUnit, aliasValue, confidence, riskLevel, needsHumanReview, and reason.",
+      "Approved suggestions are applied with POST /productConfigAgent/candidates/units/:candidateId/approve.",
+      "Rejected suggestions are applied with POST /productConfigAgent/candidates/units/:candidateId/reject.",
+      "",
+      "Input JSON:",
+      JSON.stringify(inputTemplate, null, 2),
+      "",
+      "Output JSON shape:",
+      JSON.stringify(outputShape, null, 2),
+    ].join("\n");
+
+    return {
+      prompt: promptTemplate,
+      promptTemplate,
+      placeholders: {
+        unitAliases:
+          "Replace with aliases from /productConfigAgent/dictionary/unit-aliases.",
+        unitCandidates:
+          "Replace with selected candidates from /productConfigAgent/candidates/units?status=pending.",
+      },
+      inputShape: {
+        unitAliases:
+          "Existing alias records with canonicalUnit, displayUnit, aliasValue, normalizedAlias.",
+        unitCandidates:
+          "Pending unit candidates with id, rawUnit, normalizedRawUnit, proposedCanonicalUnit, termType, rawValue.",
+      },
+      outputShape,
+      applyPolicy: {
+        approveEndpoint:
+          "POST /productConfigAgent/candidates/units/:candidateId/approve",
+        rejectEndpoint:
+          "POST /productConfigAgent/candidates/units/:candidateId/reject",
+        approveBody:
+          "{ canonicalUnit, displayUnit, aliasValue, reviewedBy? }",
+        rejectBody: "{ reason, reviewedBy? }",
+      },
+    };
+  }
+
   getClusterBatchReviewPrompt() {
     const inputTemplate = {
       productTypes: "{{productTypes}}",

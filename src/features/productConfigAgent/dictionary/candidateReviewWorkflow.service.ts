@@ -99,7 +99,7 @@ export class CandidateReviewWorkflowService {
         `[productConfigAgent:refreshAffectedDocuments:end] source=single documentCount=${dirtyDocumentIds.length} totalMs=${elapsedMs(refreshStartedAt)}`,
       );
     } else if (this.isDictionaryChangingReviewAction(params.action)) {
-      await this.repository.updateDocumentsStatus(dirtyDocumentIds, "dictionary_dirty");
+      await this.repository.markDocumentsDictionaryDirty(dirtyDocumentIds);
     }
     if (dictionaryChanged && params.deferCandidateRecheck === true) {
       this.scheduleDeferredCandidateRecheck("reviewCandidateAndRefresh");
@@ -317,7 +317,7 @@ export class CandidateReviewWorkflowService {
         `[productConfigAgent:refreshAffectedDocuments:end] source=batch documentCount=${documentIds.length} totalMs=${elapsedMs(refreshStartedAt)}`,
       );
     } else if (dictionaryChanged) {
-      await this.repository.updateDocumentsStatus(documentIds, "dictionary_dirty");
+      await this.repository.markDocumentsDictionaryDirty(documentIds);
     }
     if (dictionaryChanged && params.deferCandidateRecheck === true) {
       this.scheduleDeferredCandidateRecheck("reviewCandidatesBatch");
@@ -455,9 +455,8 @@ export class CandidateReviewWorkflowService {
           const result =
             await this.dictionaryService.recheckPendingCandidatesAfterDictionaryUpdate();
           if (result.affectedDocumentIds.length > 0) {
-            await this.repository.updateDocumentsStatus(
+            await this.repository.markDocumentsDictionaryDirty(
               result.affectedDocumentIds,
-              "dictionary_dirty",
             );
           }
           logger.info(

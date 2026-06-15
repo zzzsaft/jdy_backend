@@ -32,9 +32,12 @@ const listContracts = async (request: Request, response: Response) => {
       status !== undefined &&
       status !== "uploaded" &&
       status !== "normalized" &&
-      status !== "archived"
+      status !== "archived" &&
+      status !== "dictionary_dirty"
     ) {
-      throw new Error("status must be uploaded, normalized, or archived");
+      throw new Error(
+        "status must be uploaded, normalized, archived, or dictionary_dirty",
+      );
     }
 
     response.json(
@@ -97,6 +100,17 @@ const getArchiveReadiness = async (request: Request, response: Response) => {
 
 const listContractArchives = async (request: Request, response: Response) => {
   try {
+    const status =
+      typeof request.query.status === "string" && request.query.status.trim()
+        ? request.query.status.trim()
+        : undefined;
+    if (
+      status !== undefined &&
+      status !== "archived" &&
+      status !== "dictionary_dirty"
+    ) {
+      throw new Error("status must be archived or dictionary_dirty");
+    }
     response.json(
       await productConfigAgentArchiveService.listContractArchives({
         page:
@@ -107,6 +121,7 @@ const listContractArchives = async (request: Request, response: Response) => {
           typeof request.query.pageSize === "string"
             ? Number(request.query.pageSize)
             : undefined,
+        status,
         q:
           typeof request.query.q === "string" && request.query.q.trim()
             ? request.query.q.trim()
@@ -147,7 +162,6 @@ const patchContractArchive = async (request: Request, response: Response) => {
         archiveId,
         changes: request.body?.changes,
         editedBy: optionalString(request.body?.editedBy),
-        editReason: optionalString(request.body?.editReason),
       }),
     );
   } catch (error) {
@@ -200,7 +214,6 @@ const replaceItemProductBindings = async (
           ? request.body.bindings
           : [],
         editedBy: optionalString(request.body?.editedBy),
-        editReason: optionalString(request.body?.editReason),
       }),
     );
   } catch (error) {

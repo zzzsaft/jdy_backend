@@ -35,6 +35,14 @@ for (const [canonicalKey, aliases] of Object.entries(DOC_INFO_KEY_ALIASES)) {
   }
 }
 
+export function normalizeDocInfoKey(rawKey: string): string | null {
+  return NORMALIZED_DOC_INFO_KEY.get(normalizeKey(rawKey)) ?? null;
+}
+
+export function isDocInfoFieldName(rawKey: string): boolean {
+  return normalizeDocInfoKey(rawKey) !== null;
+}
+
 export function getFieldValue(field: unknown): string | null {
   if (field && typeof field === "object" && !Array.isArray(field)) {
     return normalizeOptionalString((field as JsonObject).value);
@@ -67,8 +75,7 @@ export function normalizeDocInfo(rawDocInfo: unknown): JsonObject {
   }
 
   for (const [rawKey, rawField] of Object.entries(rawDocInfo as JsonObject)) {
-    const canonicalKey =
-      NORMALIZED_DOC_INFO_KEY.get(normalizeKey(rawKey)) ?? rawKey;
+    const canonicalKey = normalizeDocInfoKey(rawKey) ?? rawKey;
     const nextValue = getFieldValue(rawField);
     const nextConfidence = getFieldConfidence(rawField);
     const existing = result[canonicalKey];

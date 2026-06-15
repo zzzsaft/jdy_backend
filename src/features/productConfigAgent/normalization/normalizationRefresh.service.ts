@@ -89,9 +89,20 @@ export class NormalizationRefreshService {
     };
   }
 
+  async countRenormalizationTargets(params?: {
+    onlyMissingNormalized?: boolean;
+    withPendingCandidates?: boolean;
+  }): Promise<number> {
+    return this.repository.countExtractionsForRenormalization({
+      onlyMissingNormalized: params?.onlyMissingNormalized ?? true,
+      withPendingCandidates: params?.withPendingCandidates === true,
+    });
+  }
+
   async renormalizeExistingExtractionsInBatches(params?: {
     limit?: number;
     batchSize?: number;
+    concurrency?: number;
     onlyMissingNormalized?: boolean;
     withPendingCandidates?: boolean;
     onProgress?: (event: {
@@ -109,6 +120,10 @@ export class NormalizationRefreshService {
     const batchSize = Math.min(
       500,
       Math.max(1, Math.floor(params?.batchSize ?? 100)),
+    );
+    const concurrency = Math.min(
+      batchSize,
+      Math.min(16, Math.max(1, Math.floor(params?.concurrency ?? 1))),
     );
     const onlyMissingNormalized = params?.onlyMissingNormalized ?? true;
     const results: Array<{
@@ -153,26 +168,28 @@ export class NormalizationRefreshService {
         cursorCreatedAt,
       });
 
-      for (const extraction of extractions) {
-        try {
-          await this.generateDictionaryForExtraction({
-            documentId: extraction.documentId,
-            extraction,
-          });
-          results.push({
-            extractionResultId: extraction.id,
-            documentId: extraction.documentId,
-            status: "normalized",
-          });
-        } catch (error) {
-          results.push({
-            extractionResultId: extraction.id,
-            documentId: extraction.documentId,
-            status: "failed",
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
+      results.push(
+        ...(await mapWithConcurrency(extractions, concurrency, async (extraction) => {
+          try {
+            await this.generateDictionaryForExtraction({
+              documentId: extraction.documentId,
+              extraction,
+            });
+            return {
+              extractionResultId: extraction.id,
+              documentId: extraction.documentId,
+              status: "normalized" as const,
+            };
+          } catch (error) {
+            return {
+              extractionResultId: extraction.id,
+              documentId: extraction.documentId,
+              status: "failed" as const,
+              error: error instanceof Error ? error.message : String(error),
+            };
+          }
+        })),
+      );
 
       const last = extractions[extractions.length - 1];
       cursorCreatedAt = last.createdAt;
@@ -191,6 +208,7 @@ export class NormalizationRefreshService {
     return {
       requestedLimit: totalLimit ?? null,
       batchSize,
+      concurrency,
       onlyMissingNormalized,
       withPendingCandidates: params?.withPendingCandidates === true,
       processedCount: results.length,
@@ -232,4 +250,27 @@ export class NormalizationRefreshService {
 
     return dictionaryResult;
   }
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    async () => {
+      while (nextIndex < items.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        results[index] = await mapper(items[index]);
+      }
+    },
+  );
+
+  await Promise.all(workers);
+  return results;
 }

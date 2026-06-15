@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import {
   assertAllowedArchivePatchChanges,
   assertAllowedArchivePatchChangesAgainstSnapshot,
+  collapseArchivePatchArrayChanges,
   validateArchivePatchChanges,
+  writePath,
 } from "./jsonPatch.js";
 
 assert.doesNotThrow(() =>
@@ -60,6 +62,72 @@ assert.doesNotThrow(() =>
     { items: [{ id: "1", itemName: "old" }] },
     [{ path: "items.0.itemName" }],
   ),
+);
+
+const collapsedFieldChanges = collapseArchivePatchArrayChanges(
+  {
+    items: [
+      {
+        id: "1",
+        fields: [
+          { normalized_name: "product_type", dictionary: { matched: false } },
+        ],
+      },
+    ],
+  },
+  [
+    {
+      path: "items.0.fields.0.dictionary.display_name",
+      value: "XPM optical",
+    },
+    {
+      path: "items.0.fields.0.dictionary.canonical_value",
+      value: "XPM_optical",
+    },
+    {
+      path: "items.0.fields.0.dictionary.matched",
+      value: true,
+    },
+  ],
+);
+
+assert.deepEqual(collapsedFieldChanges, [
+  {
+    path: "items.0.fields",
+    value: [
+      {
+        normalized_name: "product_type",
+        dictionary: {
+          display_name: "XPM optical",
+          canonical_value: "XPM_optical",
+          matched: true,
+        },
+      },
+    ],
+  },
+]);
+
+assert.throws(
+  () =>
+    collapseArchivePatchArrayChanges(
+      { items: [{ id: "1", fields: [] }] },
+      [{ path: "items.0.fields.0.__proto__.polluted", value: true }],
+    ),
+  /dangerous path segment is not allowed/,
+);
+
+assert.throws(
+  () =>
+    collapseArchivePatchArrayChanges(
+      { items: [{ id: "1", fields: [] }] },
+      [{ path: "items.0.fields.foo.bar", value: true }],
+    ),
+  /fields and warnings must be replaced as whole arrays/,
+);
+
+assert.throws(
+  () => writePath({}, "__proto__.polluted", true),
+  /dangerous path segment is not allowed/,
 );
 
 console.log("productConfigAgent archive jsonPatch tests passed");
