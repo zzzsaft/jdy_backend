@@ -22,9 +22,12 @@ import {
 } from "./workflow/blockParsing.service.js";
 import { extractWithLLM } from "./workflow/extractionWorkflow.js";
 import { PendingLlmJobService } from "./workflow/pendingLlmJob.service.js";
+import { DirtyDataRefreshJobService } from "./workflow/dirtyDataRefreshJob.service.js";
 import { PlannedExtractionService } from "./workflow/plannedExtraction.service.js";
+import { productConfigAgentArchiveService } from "./archive/contractArchive.service.js";
 import type {
   CandidateReviewAction,
+  DirtyDataRefreshJob,
   PendingLlmUploadJob,
   ProductConfigAgentParseAndSaveBlocksBatchResult,
   ProductConfigAgentParseAndSaveBlocksResult,
@@ -70,6 +73,7 @@ export class ProductConfigAgentService {
   private readonly plannedExtractionService: PlannedExtractionService;
   private readonly queryService: ProductConfigAgentQueryService;
   private readonly pendingLlmJobService: PendingLlmJobService;
+  private readonly dirtyDataRefreshJobService: DirtyDataRefreshJobService;
   private readonly candidateReviewWorkflowService: CandidateReviewWorkflowService;
 
   constructor(
@@ -96,6 +100,15 @@ export class ProductConfigAgentService {
     this.pendingLlmJobService = new PendingLlmJobService(
       this.repository,
       (params) => this.extractDocumentBlocksWithLlm(params),
+    );
+    this.dirtyDataRefreshJobService = new DirtyDataRefreshJobService(
+      this.repository,
+      (documentId) => this.refreshDirtyDocumentDictionary(documentId),
+      (documentId) =>
+        productConfigAgentArchiveService.refreshDirtyArchivesForDocument({
+          documentId,
+          editedBy: "system",
+        }),
     );
     this.candidateReviewWorkflowService = new CandidateReviewWorkflowService(
       this.repository,
@@ -296,6 +309,17 @@ export class ProductConfigAgentService {
     return this.pendingLlmJobService.startPendingLlmUploadJob(params);
   }
 
+  getDirtyDataRefreshJob() {
+    return this.dirtyDataRefreshJobService.getDirtyDataRefreshJob();
+  }
+
+  startDirtyDataRefreshJob(params?: {
+    limit?: number;
+    batchSize?: number;
+  }): DirtyDataRefreshJob {
+    return this.dirtyDataRefreshJobService.startDirtyDataRefreshJob(params);
+  }
+
   async renormalizeExistingExtractions(params?: {
     limit?: number;
     onlyMissingNormalized?: boolean;
@@ -305,9 +329,17 @@ export class ProductConfigAgentService {
     );
   }
 
+  async countRenormalizationTargets(params?: {
+    onlyMissingNormalized?: boolean;
+    withPendingCandidates?: boolean;
+  }) {
+    return this.normalizationRefreshService.countRenormalizationTargets(params);
+  }
+
   async renormalizeExistingExtractionsInBatches(params?: {
     limit?: number;
     batchSize?: number;
+    concurrency?: number;
     onlyMissingNormalized?: boolean;
     withPendingCandidates?: boolean;
     onProgress?: (event: {
@@ -323,6 +355,31 @@ export class ProductConfigAgentService {
     return this.normalizationRefreshService.renormalizeExistingExtractionsInBatches(
       params,
     );
+  }
+
+  private async refreshDirtyDocumentDictionary(documentId: number) {
+    const dirtyArchiveExtractionIds =
+      await productConfigAgentArchiveService.findDirtyArchiveExtractionIdsForDocument(
+        documentId,
+      );
+    const latestResult = await this.generateDictionaryForDocument(documentId);
+    const latestExtractionId = Number((latestResult as any).extraction?.id);
+    const archiveExtractionIds = dirtyArchiveExtractionIds.filter(
+      (extractionId) => extractionId !== latestExtractionId,
+    );
+
+    for (const extractionId of archiveExtractionIds) {
+      const extraction = await this.repository.findExtractionById(extractionId);
+      if (!extraction) {
+        throw new Error(`Extraction not found: ${extractionId}`);
+      }
+      await this.normalizationRefreshService.generateDictionaryForExtraction({
+        documentId,
+        extraction,
+      });
+    }
+
+    return latestResult;
   }
 
   async reviewCandidateAndRefresh(params: {

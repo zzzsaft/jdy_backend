@@ -32,7 +32,7 @@ function readNormalizationScope(): NormalizationScope {
     scope !== "with_pending_candidates"
   ) {
     throw new Error(
-      "QUOTE_AGENT_FULL_NORMALIZE_SCOPE must be all, missing_normalized, or with_pending_candidates",
+      "QUOTE_AGENT_FULL_NORMALIZE_SCOPE must be all, missing_normalized, or with_pending_candidates"
     );
   }
   return scope;
@@ -78,7 +78,7 @@ async function loadMasterDataSummary(documentIds: number[]) {
       GROUP BY field->'dictionary'->>'term_type'
       ORDER BY field->'dictionary'->>'term_type'
     `,
-      [documentIds],
+      [documentIds]
     ),
     PgDataSource.query(
       `
@@ -96,7 +96,7 @@ async function loadMasterDataSummary(documentIds: number[]) {
       GROUP BY warning->>'term_type', warning->>'source'
       ORDER BY warning->>'term_type', warning->>'source'
     `,
-      [documentIds],
+      [documentIds]
     ),
   ]);
 
@@ -110,73 +110,105 @@ async function loadMasterDataSummary(documentIds: number[]) {
 
 async function main() {
   const limit = readOptionalPositiveInt("QUOTE_AGENT_FULL_NORMALIZE_LIMIT");
-  const batchSize = readOptionalPositiveInt("QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE");
+  const batchSize = readOptionalPositiveInt(
+    "QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE"
+  );
+  const concurrency = readOptionalPositiveInt(
+    "QUOTE_AGENT_FULL_NORMALIZE_CONCURRENCY"
+  );
   const scope = readNormalizationScope();
   const recheckCandidates = readBooleanEnv(
-    "QUOTE_AGENT_FULL_NORMALIZE_RECHECK_CANDIDATES",
+    "QUOTE_AGENT_FULL_NORMALIZE_RECHECK_CANDIDATES"
   );
   const recheckLimit = readOptionalPositiveInt(
-    "QUOTE_AGENT_FULL_NORMALIZE_RECHECK_LIMIT",
+    "QUOTE_AGENT_FULL_NORMALIZE_RECHECK_LIMIT"
   );
   const startedAt = Date.now();
   console.log(
-    `[productConfigAgent:full-normalize] starting scope=${scope} limit=${limit ?? "all"} batchSize=${batchSize ?? 100} recheckCandidates=${recheckCandidates}`,
+    `[productConfigAgent:full-normalize] starting scope=${scope} limit=${
+      limit ?? "all"
+    } batchSize=${batchSize ?? 100} concurrency=${
+      concurrency ?? 1
+    } recheckCandidates=${recheckCandidates}`
   );
+  PgDataSource.setOptions({
+    logging: false,
+    maxQueryExecutionTime: 0,
+  });
   await PgDataSource.initialize();
   BaseEntity.useDataSource(PgDataSource);
 
   try {
+    const targetCount =
+      await productConfigAgentService.countRenormalizationTargets({
+        onlyMissingNormalized: scope === "missing_normalized",
+        withPendingCandidates: scope === "with_pending_candidates",
+      });
+    const plannedCount =
+      limit === undefined ? targetCount : Math.min(targetCount, limit);
+    console.log(
+      `[productConfigAgent:full-normalize] targetCount=${targetCount} plannedCount=${plannedCount}`
+    );
+
     let lastLoggedProcessed = 0;
-    const result = await productConfigAgentService.renormalizeExistingExtractionsInBatches({
-      limit,
-      batchSize,
-      onlyMissingNormalized: scope === "missing_normalized",
-      withPendingCandidates: scope === "with_pending_candidates",
-      onProgress: (event) => {
-        if (event.processedCount <= lastLoggedProcessed) {
-          return;
-        }
-        lastLoggedProcessed = event.processedCount;
-        console.log(
-          `[productConfigAgent:full-normalize] batch=${event.batchIndex} size=${event.batchCount} ` +
-            `processed=${event.processedCount} success=${event.successCount} failed=${event.failedCount}`,
-        );
-      },
-    });
+    const result =
+      await productConfigAgentService.renormalizeExistingExtractionsInBatches({
+        limit,
+        batchSize,
+        concurrency,
+        onlyMissingNormalized: scope === "missing_normalized",
+        withPendingCandidates: scope === "with_pending_candidates",
+        onProgress: (event) => {
+          if (event.processedCount <= lastLoggedProcessed) {
+            return;
+          }
+          lastLoggedProcessed = event.processedCount;
+          console.log(
+            `[productConfigAgent:full-normalize] batch=${event.batchIndex} size=${event.batchCount} ` +
+              `processed=${event.processedCount} success=${event.successCount} failed=${event.failedCount}`
+          );
+        },
+      });
     console.log(
       `[productConfigAgent:full-normalize] normalization done processed=${result.processedCount} ` +
-        `success=${result.successCount} failed=${result.failedCount} elapsedMs=${Date.now() - startedAt}`,
+        `success=${result.successCount} failed=${
+          result.failedCount
+        } elapsedMs=${Date.now() - startedAt}`
     );
     const processedDocumentIds = Array.from(
-      new Set(result.results.map((item) => item.documentId)),
+      new Set(result.results.map((item) => item.documentId))
     );
     console.log(
-      `[productConfigAgent:full-normalize] loading master data summary for processed documents=${processedDocumentIds.length}`,
+      `[productConfigAgent:full-normalize] loading master data summary for processed documents=${processedDocumentIds.length}`
     );
     const summary = await loadMasterDataSummary(processedDocumentIds);
     const candidateRecheck = recheckCandidates
-      ? await new DictionaryService(PgDataSource)
-          .recheckPendingCandidatesAfterDictionaryUpdate({
-            limit: recheckLimit,
-          })
+      ? await new DictionaryService(
+          PgDataSource
+        ).recheckPendingCandidatesAfterDictionaryUpdate({
+          limit: recheckLimit,
+        })
       : null;
     console.log(
       JSON.stringify(
         {
           mode: "full_normalization_with_master_data",
           scope,
+          targetCount,
+          plannedCount,
           limit: limit ?? null,
           batchSize: result.batchSize,
           normalization: {
             requestedLimit: result.requestedLimit,
             batchSize: result.batchSize,
+            concurrency: result.concurrency,
             onlyMissingNormalized: result.onlyMissingNormalized,
             withPendingCandidates: result.withPendingCandidates,
             processedCount: result.processedCount,
             successCount: result.successCount,
             failedCount: result.failedCount,
             failedResults: result.results.filter(
-              (item) => item.status === "failed",
+              (item) => item.status === "failed"
             ),
             resultPreview: result.results.slice(0, 20),
           },
@@ -184,8 +216,8 @@ async function main() {
           masterDataSummary: summary,
         },
         null,
-        2,
-      ),
+        2
+      )
     );
   } finally {
     await PgDataSource.destroy();

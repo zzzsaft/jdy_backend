@@ -283,12 +283,27 @@ function testClusterReviewPromptIsCopyReady() {
   assert.ok(Array.isArray(prompt.outputShape.suggestions));
 }
 
+function testUnitCandidateReviewPromptIsCopyReady() {
+  const service = new DictionarySuggestionService(new MemoryDataSource() as any);
+  const prompt = service.getUnitCandidateReviewPrompt();
+
+  assert.equal(typeof prompt.prompt, "string");
+  assert.ok(prompt.prompt.includes("unitCandidates"));
+  assert.ok(prompt.prompt.includes("unitAliases"));
+  assert.ok(prompt.prompt.includes("Do not perform unit conversion"));
+  assert.ok(prompt.prompt.includes('"suggestions"'));
+  assert.ok(prompt.prompt.includes("candidateId"));
+  assert.ok(prompt.prompt.includes("/productConfigAgent/candidates/units/:candidateId/approve"));
+  assert.ok(Array.isArray(prompt.outputShape.suggestions));
+}
+
 async function main() {
   await testCandidateClustersAreNotGroupedByDocument();
   await testDictionaryCacheReloadsWhenVersionChanges();
   testClusterSuggestionShapeAndOperationMapping();
   testClusterSuggestionRejectsIncompatibleOperationPreview();
   testClusterReviewPromptIsCopyReady();
+  testUnitCandidateReviewPromptIsCopyReady();
   console.log("dictionarySuggestion tests passed");
 }
 

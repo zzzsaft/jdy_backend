@@ -616,6 +616,7 @@
         <button id="refreshCandidates">刷新候选</button>
         <button id="generateSuggestions" class="primary">生成 DeepSeek Prompt</button>
         <button id="startPendingLlmUpload" type="button">上传未提取 documents 到 LLM</button>
+        <button id="startDirtyDataRefresh" type="button">后台更新脏数据</button>
       </div>
     </header>
     <main>
@@ -629,6 +630,7 @@
         </label>
         <div class="status" id="status"></div>
         <div class="job-status" id="pendingLlmUploadStatus">LLM 批处理未启动。</div>
+        <div class="job-status" id="dirtyDataRefreshStatus">脏数据更新未启动。</div>
         <div class="document-search">
           <b>解析任务</b>
           <input id="documentSearch" placeholder="搜索文件名" />
@@ -758,6 +760,7 @@
       const legacySuggestionDraftKey = "quoteAgent.manualSuggestionJsonDraft";
       const legacySuggestionAppliedKey = "quoteAgent.manualSuggestionApplied";
       let pendingLlmUploadTimer = null;
+      let dirtyDataRefreshTimer = null;
 
       const $ = (id) => document.getElementById(id);
 
@@ -836,6 +839,51 @@
           setStatus(`LLM 批处理已启动：job #${data.job?.id || "-"}`);
         } finally {
           $("startPendingLlmUpload").disabled = false;
+        }
+      }
+
+      function renderDirtyDataRefreshJob(job) {
+        if (!job) {
+          $("dirtyDataRefreshStatus").textContent = "脏数据更新未启动。";
+          return;
+        }
+        const progress = job.total ? `${job.processed}/${job.total}` : `${job.processed}`;
+        const current = job.currentDocumentId
+          ? ` · 当前 document #${job.currentDocumentId}`
+          : "";
+        const errors = job.failedCount ? ` · 失败 ${job.failedCount}` : "";
+        $("dirtyDataRefreshStatus").textContent =
+          `脏数据更新 ${job.status} · 进度 ${progress} · 成功 ${job.successCount || 0}${errors} · archive 更新 ${job.archiveUpdatedCount || 0} · version ${job.archiveVersionCount || 0}${current}`;
+      }
+
+      async function pollDirtyDataRefreshStatus() {
+        const data = await api("/productConfigAgent/dictionary-dirty/refresh/status");
+        renderDirtyDataRefreshJob(data.job);
+        if (!data.job || data.job.status !== "running") {
+          clearInterval(dirtyDataRefreshTimer);
+          dirtyDataRefreshTimer = null;
+          await refreshDocuments();
+        }
+      }
+
+      async function startDirtyDataRefresh() {
+        $("startDirtyDataRefresh").disabled = true;
+        setStatus("已请求服务器后台更新 dirty document / archive...");
+        try {
+          const data = await api("/productConfigAgent/dictionary-dirty/refresh/start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ limit: 200, batchSize: 10 }),
+          });
+          renderDirtyDataRefreshJob(data.job);
+          if (!dirtyDataRefreshTimer) {
+            dirtyDataRefreshTimer = setInterval(() => {
+              pollDirtyDataRefreshStatus().catch((error) => setStatus(error.message));
+            }, 3000);
+          }
+          setStatus(`脏数据后台更新已启动：job #${data.job?.id || "-"}`);
+        } finally {
+          $("startDirtyDataRefresh").disabled = false;
         }
       }
 
@@ -2728,6 +2776,9 @@ ${JSON.stringify(input, null, 2)}`;
       );
       $("startPendingLlmUpload").addEventListener("click", () =>
         startPendingLlmUpload().catch((error) => setStatus(error.message)),
+      );
+      $("startDirtyDataRefresh").addEventListener("click", () =>
+        startDirtyDataRefresh().catch((error) => setStatus(error.message)),
       );
       $("reextractCurrentDocument").addEventListener("click", () =>
         reextractCurrentDocument().catch((error) => setStatus(error.message)),

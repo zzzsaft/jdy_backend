@@ -53,6 +53,8 @@ function assertRouteShape() {
     "put",
   );
   routeSignature("/quoteAgent/product-configs/search", "get");
+  routeSignature("/quoteAgent/dictionary-dirty/refresh/start", "post");
+  routeSignature("/quoteAgent/dictionary-dirty/refresh/status", "get");
   routeSignature("/quoteAgent/extractions/renormalize-batch", "post");
   routeSignature("/quoteAgent/candidates/clusters/review-prompt", "get");
   routeSignature("/quoteAgent/candidates/clusters", "get");
@@ -67,7 +69,14 @@ function assertRouteShape() {
   routeSignature("/quoteAgent/dictionary/values", "post");
   routeSignature("/quoteAgent/dictionary/values/:id", "patch");
   routeSignature("/quoteAgent/dictionary/values/:id", "delete");
+  routeSignature("/quoteAgent/dictionary/unit-aliases", "get");
+  routeSignature("/quoteAgent/dictionary/unit-aliases", "post");
+  routeSignature("/quoteAgent/dictionary/unit-aliases/:id", "patch");
   routeSignature("/quoteAgent/dictionary/product-types", "get");
+  routeSignature("/quoteAgent/candidates/units", "get");
+  routeSignature("/quoteAgent/candidates/units/review-prompt", "get");
+  routeSignature("/quoteAgent/candidates/units/:candidateId/approve", "post");
+  routeSignature("/quoteAgent/candidates/units/:candidateId/reject", "post");
 
   assertRegisteredBefore({
     firstPath: "/quoteAgent/extractions/renormalize-batch",
@@ -139,6 +148,11 @@ function assertProductConfigAgentRouteAliases() {
   productConfigRouteSignature("/productConfigAgent/contracts/upload", "post");
   productConfigRouteSignature("/productConfigAgent/contracts/summary", "get");
   productConfigRouteSignature("/productConfigAgent/product-configs/search", "get");
+  productConfigRouteSignature("/productConfigAgent/dictionary-dirty/refresh/start", "post");
+  productConfigRouteSignature("/productConfigAgent/dictionary-dirty/refresh/status", "get");
+  productConfigRouteSignature("/productConfigAgent/dictionary/unit-aliases", "get");
+  productConfigRouteSignature("/productConfigAgent/candidates/units", "get");
+  productConfigRouteSignature("/productConfigAgent/candidates/units/review-prompt", "get");
   productConfigRouteSignature("/productConfigAgent/dictionary/product-types", "get");
 
   assert.equal(

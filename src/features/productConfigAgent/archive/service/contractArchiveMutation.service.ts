@@ -22,6 +22,7 @@ import {
   assertAllowedArchivePatchChangesAgainstSnapshot,
   assertAllowedArchivePatchChanges,
   cloneJson,
+  collapseArchivePatchArrayChanges,
   readPath,
   writePath,
 } from "../utils/jsonPatch.js";
@@ -181,12 +182,10 @@ export class ContractArchiveMutationService {
     archiveId: number;
     changes: ContractArchivePatchChange[];
     editedBy?: string | null;
-    editReason?: string | null;
   }) {
     if (!Array.isArray(params.changes) || params.changes.length === 0) {
       throw new Error("changes is required");
     }
-    assertAllowedArchivePatchChanges(params.changes);
 
     return await this.dataSource.transaction(async (manager) => {
       const beforeDetail = await this.queryService.getArchiveDetail(
@@ -195,11 +194,16 @@ export class ContractArchiveMutationService {
       );
       const beforeSnapshot = cloneJson(beforeDetail.archive);
       const nextSnapshot = cloneJson(beforeDetail.archive);
-      assertAllowedArchivePatchChangesAgainstSnapshot(
+      const changes = collapseArchivePatchArrayChanges(
         beforeSnapshot,
         params.changes,
       );
-      const changeSummary = params.changes.map((change) => {
+      assertAllowedArchivePatchChanges(changes);
+      assertAllowedArchivePatchChangesAgainstSnapshot(
+        beforeSnapshot,
+        changes,
+      );
+      const changeSummary = changes.map((change) => {
         const before = readPath(nextSnapshot, change.path);
         writePath(nextSnapshot, change.path, change.value);
         return {
@@ -230,7 +234,7 @@ export class ContractArchiveMutationService {
           snapshotJsonb: afterDetail.archive,
           changeSummaryJsonb: changeSummary,
           editedBy: params.editedBy ?? null,
-          editReason: params.editReason ?? null,
+          editReason: null,
         }),
       );
 
@@ -247,7 +251,6 @@ export class ContractArchiveMutationService {
     itemId: number;
     bindings: ContractArchiveProductBindingInput[];
     editedBy?: string | null;
-    editReason?: string | null;
   }) {
     return await this.dataSource.transaction(async (manager) => {
       const item = await manager.getRepository(ContractArchiveItem).findOne({
@@ -332,12 +335,191 @@ export class ContractArchiveMutationService {
             },
           ],
           editedBy: params.editedBy ?? null,
-          editReason: params.editReason ?? "product_bindings",
+          editReason: null,
         }),
       );
 
       return { archive: afterDetail.archive, version: mapVersion(version, false) };
     });
+  }
+
+  async refreshDirtyArchivesForDocument(params: {
+    documentId: number;
+    editedBy?: string | null;
+  }) {
+    const archives = await this.dataSource.getRepository(ContractArchive).find({
+      where: {
+        documentId: String(params.documentId),
+        status: "dictionary_dirty",
+      },
+      order: { id: "ASC" },
+    });
+    const results: any[] = [];
+
+    for (const archive of archives) {
+      results.push(
+        await this.refreshArchiveFromNormalizedExtraction({
+          archiveId: Number(archive.id),
+          editedBy: params.editedBy,
+        }),
+      );
+    }
+
+    return {
+      updatedCount: results.length,
+      versionCount: results.length,
+      archiveIds: results.map((result) => result.archive.id),
+      results,
+    };
+  }
+
+  private async refreshArchiveFromNormalizedExtraction(params: {
+    archiveId: number;
+    editedBy?: string | null;
+  }) {
+    return await this.dataSource.transaction(async (manager) => {
+      const beforeDetail = await this.queryService.getArchiveDetail(
+        params.archiveId,
+        manager,
+      );
+      const beforeSnapshot = cloneJson(beforeDetail.archive);
+      const archive = await manager.getRepository(ContractArchive).findOne({
+        where: { id: String(params.archiveId) },
+      });
+      if (!archive) {
+        throw new Error(`Contract archive not found: ${params.archiveId}`);
+      }
+      const extraction = await manager.getRepository(ExtractionResults).findOne({
+        where: { id: Number(archive.extractionResultId) },
+      });
+      if (!extraction?.normalizedExtractionJson) {
+        throw new Error(
+          `Normalized extraction not found for archive: ${params.archiveId}`,
+        );
+      }
+
+      await this.persistNormalizedExtractionToArchive({
+        archive,
+        extraction,
+        manager,
+      });
+
+      archive.status = "archived";
+      archive.currentVersion += 1;
+      await manager.getRepository(ContractArchive).save(archive);
+
+      const afterDetail = await this.queryService.getArchiveDetail(
+        params.archiveId,
+        manager,
+      );
+      const version = await manager.getRepository(ContractArchiveVersion).save(
+        manager.getRepository(ContractArchiveVersion).create({
+          archiveId: archive.id,
+          version: archive.currentVersion,
+          snapshotJsonb: afterDetail.archive,
+          changeSummaryJsonb: [
+            {
+              path: "dictionary_refresh",
+              source: "dictionary_dirty_refresh",
+              before: this.dictionaryRefreshSnapshot(beforeSnapshot),
+              after: this.dictionaryRefreshSnapshot(afterDetail.archive),
+            },
+          ],
+          editedBy: params.editedBy ?? "system",
+          editReason: "dictionary_dirty_refresh",
+        }),
+      );
+
+      return {
+        archive: afterDetail.archive,
+        version: mapVersion(version, false),
+        before: beforeSnapshot,
+      };
+    });
+  }
+
+  private async persistNormalizedExtractionToArchive(params: {
+    archive: ContractArchive;
+    extraction: ExtractionResults;
+    manager: EntityManager;
+  }) {
+    const normalizedJson = params.extraction.normalizedExtractionJson as JsonObject;
+    const docInfo = normalizeDocInfo(normalizedJson?.document_info ?? {});
+    const summary = summarizeDocInfo(docInfo);
+    await params.manager.getRepository(ContractArchive).update(
+      { id: params.archive.id },
+      {
+        productNumber: summary.productNumber,
+        contractNumber: summary.contractNumber,
+        orderNumber: summary.orderNumber,
+        customerId: summary.customerId,
+        country: summary.country,
+        orderDate: summary.orderDate,
+        deliveryDate: summary.deliveryDate,
+        docInfoJsonb: docInfo,
+      } as any,
+    );
+
+    const rawItems = Array.isArray(normalizedJson?.items)
+      ? normalizedJson.items
+      : [];
+    const itemRepo = params.manager.getRepository(ContractArchiveItem);
+    for (const rawItem of rawItems) {
+      const itemIndex = Number(rawItem?.item_index ?? 0);
+      const existing = await itemRepo.findOne({
+        where: {
+          archiveId: params.archive.id,
+          itemIndex,
+        },
+      });
+      const patch = {
+        documentId: params.archive.documentId,
+        extractionResultId: params.archive.extractionResultId,
+        itemIndex,
+        itemName: normalizeOptionalString(rawItem?.item_name),
+        itemQuantity: normalizeOptionalString(rawItem?.item_quantity),
+        productTypeHint: String(rawItem?.itemProductTypeHint ?? "unknown"),
+        productTypeRawValue:
+          normalizeOptionalString(rawItem?.itemProductTypeHintRawValue),
+        productTypeDisplayName:
+          normalizeOptionalString(rawItem?.itemProductTypeHintDisplayName),
+        sourceProductNumber: summary.productNumber,
+        fieldsJsonb: Array.isArray(rawItem?.fields) ? rawItem.fields : [],
+        warningsJsonb: Array.isArray(rawItem?.warnings) ? rawItem.warnings : [],
+      };
+
+      if (existing) {
+        await itemRepo.update(
+          { id: existing.id },
+          patch as any,
+        );
+      } else {
+        await itemRepo.save(
+          itemRepo.create({
+            archiveId: params.archive.id,
+            productNumberStatus: summary.productNumber ? "inherited" : "missing",
+            ...patch,
+          } as any),
+        );
+      }
+    }
+  }
+
+  private dictionaryRefreshSnapshot(snapshot: any) {
+    return {
+      status: snapshot.status,
+      docInfo: snapshot.docInfo ?? {},
+      items: Array.isArray(snapshot.items)
+        ? snapshot.items.map((item: any) => ({
+            id: item.id,
+            itemIndex: item.itemIndex,
+            itemName: item.itemName,
+            productTypeHint: item.productTypeHint,
+            fields: item.fields ?? [],
+            warnings: item.warnings ?? [],
+          }))
+        : [],
+    };
   }
 
   private async persistSnapshot(

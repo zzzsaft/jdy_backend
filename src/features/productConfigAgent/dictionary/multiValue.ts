@@ -9,7 +9,8 @@ import type {
 
 /**
  * Delimiters used for splitting multi-enum values.
- * Ordered by priority: space can be overridden per termType.
+ * Whitespace is handled separately after punctuation splitting so values such as
+ * "POM ABS" become two enum tokens.
  */
 const DELIMITER_RE = /[、，,;；\/＋+\n]/;
 
@@ -19,8 +20,7 @@ const DELIMITER_RE = /[、，,;；\/＋+\n]/;
  * Rules:
  * 1. Prefer split_fields if available.
  * 2. Otherwise split by delimiters.
- * 3. For known material/process/application list fields, allow space split.
- * 4. Avoid splitting model numbers / specs / ranges.
+ * 3. Split each part by whitespace.
  */
 export function extractMultiValueTokens(
   rawValue: string,
@@ -40,37 +40,22 @@ export function extractMultiValueTokens(
   const trimmed = rawValue.trim();
   if (!trimmed) return [];
 
-  // Check if we should also split by space for specific term types
-  const allowSpaceSplit =
-    termType === "plastic_material" ||
-    termType === "applicable_plastic_material" ||
-    termType === "applicable_process_type" ||
-    termType === "application_type" ||
-    termType === "surface_treatment_requirement" ||
-    termType === "accessory_list";
-
   // Split by delimiters first
   const delimiterParts = trimmed
     .split(DELIMITER_RE)
     .map((p) => p.trim())
     .filter(Boolean);
 
-  // Then for each part, if space-split allowed, split further
+  // Then split by whitespace. The termType argument is kept for API stability.
+  void termType;
   const allParts: Array<{ value: string; rawText: string }> = [];
   for (const part of delimiterParts) {
-    const shouldSplitSpace =
-      part.includes(" ") &&
-      (allowSpaceSplit || /^[A-Za-z0-9_\-.]+(?:\s+[A-Za-z0-9_\-.]+)+$/.test(part));
-    if (shouldSplitSpace) {
-      const spaceParts = part
-        .split(/\s+/)
-        .map((p) => p.trim())
-        .filter(Boolean);
-      for (const sp of spaceParts) {
-        allParts.push({ value: sp, rawText: sp });
-      }
-    } else {
-      allParts.push({ value: part, rawText: part });
+    const spaceParts = part
+      .split(/\s+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    for (const sp of spaceParts) {
+      allParts.push({ value: sp, rawText: sp });
     }
   }
 
@@ -89,7 +74,7 @@ export function extractMultiValueTokens(
   const seen = new Set<string>();
   const tokens: MultiValueToken[] = [];
   for (const part of allParts) {
-    const normalized = part.value;
+    const normalized = normalizeTextForToken(part.value);
     if (!normalized || seen.has(normalized)) continue;
     seen.add(normalized);
     tokens.push({

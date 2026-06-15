@@ -46,6 +46,11 @@ export type RejectedPatchPath = {
   reason: string;
 };
 
+export type ArchivePatchChange = {
+  path: string;
+  value: unknown;
+};
+
 export class ArchivePatchValidationError extends Error {
   constructor(public readonly rejectedPaths: RejectedPatchPath[]) {
     super(
@@ -70,6 +75,18 @@ function hasDangerousSegment(segments: string[]): boolean {
 
 function isNumericSegment(value: string): boolean {
   return /^\d+$/.test(value);
+}
+
+function isArrayReplacementPath(segments: string[]): boolean {
+  return (
+    segments[0] === "items" &&
+    isNumericSegment(segments[1] ?? "") &&
+    (segments[2] === "fields" || segments[2] === "warnings")
+  );
+}
+
+function isArrayElementPatchPath(segments: string[]): boolean {
+  return isArrayReplacementPath(segments) && isNumericSegment(segments[3] ?? "");
 }
 
 function isAllowedArchivePatchPath(path: string): true | string {
@@ -186,6 +203,83 @@ export function assertAllowedArchivePatchChangesAgainstSnapshot(
   throw new ArchivePatchValidationError(rejected);
 }
 
+export function collapseArchivePatchArrayChanges(
+  snapshot: any,
+  changes: ArchivePatchChange[],
+): ArchivePatchChange[] {
+  const collapsed: ArchivePatchChange[] = [];
+  const arraysByPath = new Map<
+    string,
+    {
+      outputIndex: number;
+      value: unknown;
+    }
+  >();
+  const rejected: RejectedPatchPath[] = [];
+
+  for (const change of changes) {
+    const path = String(change?.path ?? "").trim();
+    const segments = pathSegments(path);
+    const allowed = isAllowedArchivePatchPath(path);
+
+    if (allowed === true) {
+      if (segments.length === 3 && isArrayReplacementPath(segments)) {
+        const value = cloneJson(change.value);
+        const existing = arraysByPath.get(path);
+        if (existing) {
+          existing.value = value;
+          collapsed[existing.outputIndex] = { path, value };
+        } else {
+          arraysByPath.set(path, {
+            outputIndex: collapsed.length,
+            value,
+          });
+          collapsed.push({ path, value });
+        }
+        continue;
+      }
+
+      collapsed.push({ path, value: change.value });
+      continue;
+    }
+
+    if (
+      allowed === "fields and warnings must be replaced as whole arrays" &&
+      isArrayElementPatchPath(segments) &&
+      segments.length > 3 &&
+      !hasDangerousSegment(segments)
+    ) {
+      const arrayPath = segments.slice(0, 3).join(".");
+      let arrayChange = arraysByPath.get(arrayPath);
+      if (!arrayChange) {
+        const currentValue = readPath(snapshot, arrayPath);
+        const value = Array.isArray(currentValue) ? cloneJson(currentValue) : [];
+        arrayChange = {
+          outputIndex: collapsed.length,
+          value,
+        };
+        arraysByPath.set(arrayPath, arrayChange);
+        collapsed.push({ path: arrayPath, value });
+      }
+
+      writePath(arrayChange.value, segments.slice(3).join("."), change.value);
+      collapsed[arrayChange.outputIndex] = {
+        path: arrayPath,
+        value: arrayChange.value,
+      };
+      continue;
+    }
+
+    rejected.push({ path, reason: allowed });
+  }
+
+  if (rejected.length > 0) {
+    throw new ArchivePatchValidationError(rejected);
+  }
+
+  return collapsed;
+}
+
 export function readPath(root: any, path: string): unknown {
   let cursor = root;
   for (const segment of pathSegments(path)) {
@@ -200,6 +294,9 @@ export function writePath(root: any, path: string, value: unknown) {
   const segments = pathSegments(path);
   if (segments.length === 0) {
     throw new Error("change path is required");
+  }
+  if (hasDangerousSegment(segments)) {
+    throw new Error("dangerous path segment is not allowed");
   }
   let cursor = root;
   for (let index = 0; index < segments.length - 1; index += 1) {

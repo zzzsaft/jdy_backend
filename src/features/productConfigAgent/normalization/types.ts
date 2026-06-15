@@ -1,4 +1,5 @@
 import type { DictionaryValueKind } from "../dictionary/dictionary.types.js";
+import type { NormalizedNumberUnit } from "../dictionary/numberUnit.js";
 import type { LlmExtractionResult } from "../extraction/types.js";
 import type { ProductConfigAgentMasterDataMatch } from "../masterData.service.js";
 
@@ -88,13 +89,15 @@ export interface DictionaryExtractionField {
       confidence: number;
     }>;
     masterDataMatch?: ProductConfigAgentMasterDataMatch;
+    number_unit?: NormalizedNumberUnit;
   };
   candidate?: {
-    candidate_type: "term_type" | "value";
+    candidate_type: "term_type" | "value" | "unit";
     candidate_id?: string;
     term_type?: string;
     raw_field_name?: string;
     raw_value?: string;
+    raw_unit?: string;
     source_product_type?: string;
     item_index?: number;
     status?: string;

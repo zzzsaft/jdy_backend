@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { XftAtdLeave } from "./xft_leave.js";
+import { XftAtdLeave } from "../src/entity/atd/xft_leave.js";
 
 async function testDepartmentLeaveUsersAreCountedByRequestedDay() {
   const originalCreateQueryBuilder = (XftAtdLeave as any).createQueryBuilder;

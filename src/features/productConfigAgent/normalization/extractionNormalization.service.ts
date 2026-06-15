@@ -5,6 +5,12 @@ import { DictionaryService } from "../dictionary/dictionary.service.js";
 import type { LlmExtractionResult, LlmRawField } from "../extraction/types.js";
 import { resolveItemProductTypeHint } from "./productTypeRouting.js";
 import {
+  getFieldConfidence,
+  getFieldValue,
+  normalizeDocInfo,
+  normalizeDocInfoKey,
+} from "../archive/utils/docInfo.js";
+import {
   createBaseField,
   hasSplitFields,
   isBlankValue,
@@ -43,6 +49,9 @@ export class ExtractionNormalizationService {
     let termTypeCandidateCount = 0;
     let splitResolutionCount = 0;
     let rewrittenFieldCount = 0;
+    const documentInfo = normalizeDocInfo(
+      params.llmResult.extraction.document_info,
+    );
     const manualSplitMap = new Map<string, LlmRawField["split_fields"]>();
     const manualSplitValueKeys = new Set<string>();
     const productTypeOptions =
@@ -89,6 +98,10 @@ export class ExtractionNormalizationService {
       const rewrittenRawFields: LlmRawField[] = [];
 
       for (const rawField of item.raw_fields) {
+        if (moveRawFieldToDocumentInfo(documentInfo, rawField)) {
+          continue;
+        }
+
         const manualSplitFields = manualSplitMap.get(
           manualSplitKey({
             itemIndex: item.item_index,
@@ -202,12 +215,12 @@ export class ExtractionNormalizationService {
         term_type_candidate_count: termTypeCandidateCount,
         warning_count: warnings.length,
       },
-      document_info: params.llmResult.extraction.document_info,
+      document_info: documentInfo,
       items,
       warnings,
       raw_llm_result: params.llmResult,
       extraction_json: {
-        document_info: params.llmResult.extraction.document_info,
+        document_info: documentInfo,
         items: items.map((item) => ({
           item_index: item.item_index,
           item_name: item.item_name,
@@ -394,6 +407,7 @@ export class ExtractionNormalizationService {
         confidence: v.confidence,
       })),
       masterDataMatch: normalized.masterDataMatch,
+      number_unit: normalized.numberUnit,
       match_method:
         normalized.matchMethod ?? (normalized.matched ? "alias_exact" : "none"),
     };
@@ -441,6 +455,17 @@ export class ExtractionNormalizationService {
         rawValue: params.rawField.value,
         evidence: params.rawField.evidence,
       });
+    }
+
+    if (normalized.unitCandidate) {
+      field.candidate = {
+        candidate_type: "unit",
+        candidate_id: normalized.unitCandidate.id,
+        term_type: normalized.unitCandidate.termType ?? undefined,
+        raw_value: normalized.unitCandidate.rawValue,
+        raw_unit: normalized.unitCandidate.rawUnit,
+        status: normalized.unitCandidate.status,
+      };
     }
 
     field.warnings.push(...mapDictionaryWarnings(normalized, params.itemIndex));
@@ -524,6 +549,35 @@ export class ExtractionNormalizationService {
       ],
     );
   }
+}
+
+function moveRawFieldToDocumentInfo(
+  documentInfo: Record<string, unknown>,
+  rawField: LlmRawField,
+): boolean {
+  const canonicalKey = normalizeDocInfoKey(rawField.field_name);
+  if (!canonicalKey) {
+    return false;
+  }
+
+  const existing = documentInfo[canonicalKey];
+  const existingValue = getFieldValue(existing);
+  const existingConfidence = getFieldConfidence(existing);
+  if (
+    existingValue &&
+    rawField.confidence < (existingConfidence ?? 0)
+  ) {
+    return true;
+  }
+
+  documentInfo[canonicalKey] = {
+    value: rawField.value,
+    evidence: rawField.evidence,
+    confidence: rawField.confidence,
+    rawKey: rawField.field_name,
+    canonicalKey,
+  };
+  return true;
 }
 
 export { ExtractionNormalizationService as DictionaryExtractionService };

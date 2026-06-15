@@ -80,7 +80,6 @@ export function mapVersion(
     changeSummary: version.changeSummaryJsonb,
     snapshot: includeSnapshot ? version.snapshotJsonb : undefined,
     editedBy: version.editedBy,
-    editReason: version.editReason,
     createdAt: version.createdAt,
   };
 }

@@ -41,13 +41,13 @@ export class ContractArchiveQueryService {
   async listContracts(params?: {
     page?: number;
     pageSize?: number;
-    status?: "uploaded" | "normalized" | "archived";
+    status?: "uploaded" | "normalized" | "archived" | "dictionary_dirty";
     q?: string;
     productNumber?: string;
     customerId?: string;
   }) {
     if (params?.status === "archived") {
-      return this.listContractArchives(params);
+      return this.listContractArchives({ ...params, status: "archived" });
     }
 
     const { page, pageSize } = normalizePage(params);
@@ -81,6 +81,7 @@ export class ContractArchiveQueryService {
         "extraction.status AS \"extractionStatus\"",
         "extraction.normalized_extraction_json AS \"normalizedExtractionJson\"",
         "archive.id AS \"archiveId\"",
+        "archive.status AS \"archiveStatus\"",
         "archive.product_number AS \"productNumber\"",
         "archive.contract_number AS \"contractNumber\"",
         "archive.order_number AS \"orderNumber\"",
@@ -135,7 +136,7 @@ export class ContractArchiveQueryService {
             ? Number(row.extractionResultId)
             : null,
           fileName: row.fileName,
-          status: row.archiveId ? "archived" : row.status,
+          status: row.archiveId ? row.archiveStatus : row.status,
           extractionStatus: row.extractionStatus,
           productNumber:
             row.productNumber ?? extractDocInfoValue(docInfo, "product_number"),
@@ -155,6 +156,7 @@ export class ContractArchiveQueryService {
   async listContractArchives(params?: {
     page?: number;
     pageSize?: number;
+    status?: "archived" | "dictionary_dirty";
     q?: string;
     productNumber?: string;
     customerId?: string;
