@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import XLSX from "xlsx";
 import fs from "fs";
 
 export const jsontoSheet = (jsonData) => {

@@ -1,5 +1,5 @@
 import type { ExcelBlock } from "../parsers/parseWorkbook.js";
-import * as XLSX from "xlsx";
+import XLSX from "xlsx";
 
 export type BuildLlmTextOptions = {
   mode?: "row" | "cell";
@@ -33,7 +33,9 @@ function getData(parsedResult: ParsedExcelData | { data?: ParsedExcelData }) {
     : (parsedResult as ParsedExcelData);
 }
 
-function isCellBlock(block: ExcelBlock): block is Extract<ExcelBlock, { type: "cell" }> {
+function isCellBlock(
+  block: ExcelBlock
+): block is Extract<ExcelBlock, { type: "cell" }> {
   return block.type === "cell" && block.source?.kind === "cell";
 }
 
@@ -43,7 +45,11 @@ function isTextboxBlock(
   return block.type === "paragraph" && block.source?.kind === "textbox";
 }
 
-function pushHeader(lines: string[], data: ParsedExcelData, config: Required<BuildLlmTextOptions>) {
+function pushHeader(
+  lines: string[],
+  data: ParsedExcelData,
+  config: Required<BuildLlmTextOptions>
+) {
   if (config.includeFileMeta) {
     lines.push(`文件名：${data.file_name || ""}`);
     lines.push(`来源：${data.source_type || ""}`);
@@ -54,14 +60,19 @@ function pushHeader(lines: string[], data: ParsedExcelData, config: Required<Bui
     lines.push("说明：");
     lines.push("[SEL] 表示该选项被选中。");
     lines.push("[ ] 表示该选项未选中。");
-    lines.push("请以后续结构化时只根据 [SEL] 判断最终选中项；[ ] 只作为候选项参考。");
+    lines.push(
+      "请以后续结构化时只根据 [SEL] 判断最终选中项；[ ] 只作为候选项参考。"
+    );
     lines.push("空括号表示未填写。");
     lines.push("文本中的 [A1]、[B7] 等表示 Excel 原始单元格坐标。");
     lines.push("");
   }
 }
 
-function pushCell(lines: string[], cell: Extract<ExcelBlock, { type: "cell" }>) {
+function pushCell(
+  lines: string[],
+  cell: Extract<ExcelBlock, { type: "cell" }>
+) {
   const text = cell.text.trim();
   const coordinate = `[${cell.source.cell}]`;
   if (text.includes("\n")) {
@@ -73,11 +84,17 @@ function pushCell(lines: string[], cell: Extract<ExcelBlock, { type: "cell" }>) 
   lines.push(`${coordinate} ${text}`);
 }
 
-function buildMergeContextByRow(cells: Extract<ExcelBlock, { type: "cell" }>[]) {
+function buildMergeContextByRow(
+  cells: Extract<ExcelBlock, { type: "cell" }>[]
+) {
   const contextByRow = new Map<number, string>();
 
   cells.forEach((cell) => {
-    if (cell.source.col !== 1 || !cell.source.merge_range || !cell.text?.trim()) {
+    if (
+      cell.source.col !== 1 ||
+      !cell.source.merge_range ||
+      !cell.text?.trim()
+    ) {
       return;
     }
 
@@ -100,7 +117,9 @@ function buildMergeContextByRow(cells: Extract<ExcelBlock, { type: "cell" }>[]) 
   return contextByRow;
 }
 
-function shouldSkipHeaderLikeRow(cells: Extract<ExcelBlock, { type: "cell" }>[]) {
+function shouldSkipHeaderLikeRow(
+  cells: Extract<ExcelBlock, { type: "cell" }>[]
+) {
   const text = cells
     .map((cell) => cell.text || "")
     .join("\n")
@@ -227,7 +246,9 @@ function pushCellMode(
 }
 
 function pushTextboxes(lines: string[], blocks: ExcelBlock[]) {
-  const textboxes = blocks.filter(isTextboxBlock).filter((block) => block.text?.trim());
+  const textboxes = blocks
+    .filter(isTextboxBlock)
+    .filter((block) => block.text?.trim());
   if (!textboxes.length) return;
 
   lines.push("文本框内容：");
@@ -264,5 +285,8 @@ export function buildLlmText(
 
   pushTextboxes(lines, blocks);
 
-  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return lines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }

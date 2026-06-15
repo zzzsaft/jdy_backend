@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import XLSX from "xlsx";
 import { JdyUtil } from "../../utils/jdyUtils.js";
 import { addRandomMonths } from "../../utils/dateUtils.js";
 import _ from "lodash";

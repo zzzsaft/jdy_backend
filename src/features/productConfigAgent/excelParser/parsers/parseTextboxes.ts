@@ -1,5 +1,5 @@
 import AdmZip from "adm-zip";
-import * as XLSX from "xlsx";
+import XLSX from "xlsx";
 import convert from "xml-js";
 import {
   parseOptionsFromText,

@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import XLSX from "xlsx";
 import path from "path";
 import {
   makeLlmFriendlyText,
@@ -214,12 +214,18 @@ export async function parseWorkbook(
     }
   }
 
-  if (options.parseTextboxes !== false && path.extname(filePath).toLowerCase() === ".xlsx") {
+  if (
+    options.parseTextboxes !== false &&
+    path.extname(filePath).toLowerCase() === ".xlsx"
+  ) {
     blocks.push(...(await parseTextboxes(filePath)));
   }
 
   if (!blocks.length) {
-    throw new ExcelParserError("EMPTY_EXCEL_CONTENT", "Excel 未解析到有效文本内容");
+    throw new ExcelParserError(
+      "EMPTY_EXCEL_CONTENT",
+      "Excel 未解析到有效文本内容"
+    );
   }
 
   return blocks;
