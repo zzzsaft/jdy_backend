@@ -45,7 +45,9 @@ export class ApiClient {
       if (response) {
         const { status, data } = response;
         if ((status && status > 200) || data["code"] !== 0) {
-          throw `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`;
+          throw new Error(
+            `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg}`
+          );
         }
       }
       return response.data;

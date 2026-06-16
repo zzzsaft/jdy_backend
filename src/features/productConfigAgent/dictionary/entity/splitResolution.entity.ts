@@ -5,6 +5,7 @@ import {
   Entity,
   Index,
   PrimaryGeneratedColumn,
+  Unique,
   UpdateDateColumn,
 } from "typeorm";
 
@@ -15,6 +16,13 @@ import {
   "extractionResultId",
   "itemIndex",
   "rawFieldName",
+])
+@Unique("uq_split_resolutions_candidate_review_key", [
+  "extractionResultId",
+  "itemIndex",
+  "rawFieldName",
+  "rawValue",
+  "source",
 ])
 export class SplitResolution extends BaseEntity {
   @PrimaryGeneratedColumn({ type: "bigint" })

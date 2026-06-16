@@ -31,6 +31,7 @@ export interface NormalizedExtractionJson {
     itemProductTypeHintRawValue?: string;
     itemProductTypeHintDisplayName?: string;
     itemProductTypeHintConfidence?: number;
+    masterDataMatch?: ProductConfigAgentMasterDataMatch;
     warnings?: DictionaryExtractionWarning[];
     fields: Array<{
       field_name: string;
@@ -57,6 +58,7 @@ export interface DictionaryExtractionItem {
   itemProductTypeHintRawValue?: string;
   itemProductTypeHintDisplayName?: string;
   itemProductTypeHintConfidence?: number;
+  masterDataMatch?: ProductConfigAgentMasterDataMatch;
   warnings: DictionaryExtractionWarning[];
   fields: DictionaryExtractionField[];
 }

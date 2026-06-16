@@ -45,7 +45,7 @@ export class 智能助手 {
         })
       )
       .catch((error) => {
-        throw error(error);
+        throw error;
       });
   }
 

@@ -38,6 +38,20 @@ export class ContractArchiveMutationService {
     private readonly readinessService: ContractArchiveReadinessService,
   ) {}
 
+  private async lockArchive(
+    manager: EntityManager,
+    archiveId: number,
+  ): Promise<ContractArchive> {
+    const archive = await manager.getRepository(ContractArchive).findOne({
+      where: { id: String(archiveId) },
+      lock: { mode: "pessimistic_write" },
+    });
+    if (!archive) {
+      throw new Error(`Contract archive not found: ${archiveId}`);
+    }
+    return archive;
+  }
+
   async archiveDocument(params: {
     documentId: number;
     archivedBy?: string | null;
@@ -192,6 +206,7 @@ export class ContractArchiveMutationService {
     }
 
     return await this.dataSource.transaction(async (manager) => {
+      const archive = await this.lockArchive(manager, params.archiveId);
       const beforeDetail = await this.queryService.getArchiveDetail(
         params.archiveId,
         manager,
@@ -218,13 +233,6 @@ export class ContractArchiveMutationService {
       });
 
       await this.persistSnapshot(params.archiveId, nextSnapshot, manager);
-      const archive = await manager.getRepository(ContractArchive).findOne({
-        where: { id: String(params.archiveId) },
-        lock: { mode: "pessimistic_write" },
-      });
-      if (!archive) {
-        throw new Error(`Contract archive not found: ${params.archiveId}`);
-      }
       archive.currentVersion += 1;
       await manager.getRepository(ContractArchive).save(archive);
 
@@ -258,6 +266,7 @@ export class ContractArchiveMutationService {
     editedBy?: string | null;
   }) {
     return await this.dataSource.transaction(async (manager) => {
+      const archive = await this.lockArchive(manager, params.archiveId);
       const item = await manager.getRepository(ContractArchiveItem).findOne({
         where: {
           id: String(params.itemId),
@@ -310,13 +319,6 @@ export class ContractArchiveMutationService {
       );
       await manager.getRepository(ContractArchiveItem).save(item);
 
-      const archive = await manager.getRepository(ContractArchive).findOne({
-        where: { id: String(params.archiveId) },
-        lock: { mode: "pessimistic_write" },
-      });
-      if (!archive) {
-        throw new Error(`Contract archive not found: ${params.archiveId}`);
-      }
       archive.currentVersion += 1;
       await manager.getRepository(ContractArchive).save(archive);
 
@@ -379,23 +381,63 @@ export class ContractArchiveMutationService {
     };
   }
 
+  async refreshArchivesForDocuments(params: {
+    documentIds: number[];
+    editedBy?: string | null;
+  }) {
+    const documentIds = [
+      ...new Set(
+        params.documentIds
+          .map((documentId) => Number(documentId))
+          .filter((documentId) => Number.isFinite(documentId) && documentId > 0)
+          .map((documentId) => String(Math.floor(documentId))),
+      ),
+    ];
+    if (documentIds.length === 0) {
+      return {
+        updatedCount: 0,
+        versionCount: 0,
+        archiveIds: [],
+        results: [],
+      };
+    }
+
+    const archives = await this.dataSource.getRepository(ContractArchive).find({
+      where: {
+        documentId: In(documentIds),
+      },
+      order: { id: "ASC" },
+    });
+    const results: any[] = [];
+
+    for (const archive of archives) {
+      results.push(
+        await this.refreshArchiveFromNormalizedExtraction({
+          archiveId: Number(archive.id),
+          editedBy: params.editedBy,
+        }),
+      );
+    }
+
+    return {
+      updatedCount: results.length,
+      versionCount: results.length,
+      archiveIds: results.map((result) => result.archive.id),
+      results,
+    };
+  }
+
   private async refreshArchiveFromNormalizedExtraction(params: {
     archiveId: number;
     editedBy?: string | null;
   }) {
     return await this.dataSource.transaction(async (manager) => {
+      const archive = await this.lockArchive(manager, params.archiveId);
       const beforeDetail = await this.queryService.getArchiveDetail(
         params.archiveId,
         manager,
       );
       const beforeSnapshot = cloneJson(beforeDetail.archive);
-      const archive = await manager.getRepository(ContractArchive).findOne({
-        where: { id: String(params.archiveId) },
-        lock: { mode: "pessimistic_write" },
-      });
-      if (!archive) {
-        throw new Error(`Contract archive not found: ${params.archiveId}`);
-      }
       const extraction = await manager.getRepository(ExtractionResults).findOne({
         where: { id: Number(archive.extractionResultId) },
       });

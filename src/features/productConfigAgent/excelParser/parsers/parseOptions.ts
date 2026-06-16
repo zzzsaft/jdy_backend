@@ -4,6 +4,7 @@ const UNSELECTED_MARKS = "□☐○◯◻◇▢";
 export type ParsedOption = {
   selected: boolean;
   label: string;
+  value: string;
   normalized: string;
 };
 
@@ -160,6 +161,7 @@ export function parseOptionsFromText(text: string): ParsedOptionsResult {
     options.push({
       selected,
       label,
+      value: label,
       normalized: `${selected ? "[SEL]" : "[ ]"} ${label}`,
     });
   }

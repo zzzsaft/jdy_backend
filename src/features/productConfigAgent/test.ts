@@ -6,8 +6,8 @@ import {
   type DictionaryValueKind,
   type NormalizedFieldResult,
 } from "./dictionary/dictionary.service.js";
+import { coerceLlmExtractionResult } from "./normalization/index.js";
 import type {
-  LlmExtractionItem,
   LlmExtractionResult,
   LlmRawField,
 } from "./extraction/types.js";
@@ -94,41 +94,16 @@ function stringifyOptionalId(value: unknown): string | undefined {
   return String(value);
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function coerceLlmExtractionResult(value: unknown): LlmExtractionResult {
-  if (!isObject(value) || !isObject(value.extraction)) {
-    throw new Error("LLM extraction result must contain extraction object");
-  }
-
-  if (!Array.isArray(value.extraction.items)) {
-    throw new Error(
-      "LLM extraction result must contain extraction.items array"
-    );
-  }
-
-  return {
-    extraction: {
-      document_info: isObject(value.extraction.document_info)
-        ? (value.extraction
-            .document_info as LlmExtractionResult["extraction"]["document_info"])
-        : undefined,
-      items: value.extraction.items as LlmExtractionItem[],
-    },
-    warnings: Array.isArray(value.warnings)
-      ? (value.warnings as LlmExtractionResult["warnings"])
-      : [],
-  };
-}
-
 function isBlankValue(value: string): boolean {
   return value.trim() === "";
 }
 
 function isUnknownValue(value: string): boolean {
   return ["unknown", "未知", "未识别"].includes(value.trim().toLowerCase());
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isExplicitUnselectedOption(rawField: LlmRawField): boolean {

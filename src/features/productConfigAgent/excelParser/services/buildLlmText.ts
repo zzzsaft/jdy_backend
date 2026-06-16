@@ -60,9 +60,8 @@ function pushHeader(
     lines.push("说明：");
     lines.push("[SEL] 表示该选项被选中。");
     lines.push("[ ] 表示该选项未选中。");
-    lines.push(
-      "请以后续结构化时只根据 [SEL] 判断最终选中项；[ ] 只作为候选项参考。"
-    );
+    lines.push("若文本出现结构化选项块（option_set），请优先按 selected 字段判断；仅当文本中没有结构化块时按 [SEL]/[ ] 推断。");
+    lines.push("[ ] 仅为未选中备选项，不输出为最终值。");
     lines.push("空括号表示未填写。");
     lines.push("文本中的 [A1]、[B7] 等表示 Excel 原始单元格坐标。");
     lines.push("");
@@ -82,6 +81,55 @@ function pushCell(
   }
 
   lines.push(`${coordinate} ${text}`);
+}
+
+function inferFieldName(rawText: string) {
+  if (!rawText) return null;
+  const firstToken = rawText.search(/\[(SEL| )\]/g);
+  const withoutOptionTokens =
+    firstToken >= 0 ? rawText.slice(0, firstToken) : rawText;
+
+  const rawField = withoutOptionTokens
+    .split(/\r?\n/g)[0]
+    .split(/[:：]/)[0]
+    .replace(/^\s+/, "")
+    .replace(/\s+/g, " ")
+    .replace(/^[-_—–\s:：,，;；、]+/, "")
+    .replace(/[\s:：,，;；、]+$/, "")
+    .trim();
+
+  if (!rawField) return null;
+  if (rawField.length > 36) return null;
+  if (/\[(?:SEL| )\]/.test(rawField)) return null;
+
+  return rawField;
+}
+
+function buildOptionSetLine(
+  block: Extract<ExcelBlock, { type: "cell" }>
+) {
+  if (!Array.isArray(block.options) || block.options.length === 0) return null;
+
+  const options = block.options
+    .map((option: any) => {
+      const value = `${(option?.value ?? option?.label ?? "").toString()}`.trim();
+      return {
+        selected: Boolean(option?.selected),
+        value,
+      };
+    })
+    .filter((option) => option.value);
+
+  if (options.length === 0) return null;
+
+  const payload: { options: Array<{ selected: boolean; value: string }>; field?: string } =
+    { options };
+  const fieldFromText = inferFieldName(block.text || block.raw_text || "");
+  if (fieldFromText) {
+    payload.field = fieldFromText;
+  }
+
+  return `option_set: ${JSON.stringify(payload)}`;
 }
 
 function buildMergeContextByRow(
@@ -214,7 +262,13 @@ function pushRowMode(
         lines.push(`上下文：${mergeContext}`);
       }
 
-      orderedCells.forEach((cell) => pushCell(lines, cell));
+      orderedCells.forEach((cell) => {
+        pushCell(lines, cell);
+        const optionSet = buildOptionSetLine(cell);
+        if (optionSet) {
+          lines.push(optionSet);
+        }
+      });
       lines.push("");
     });
 }
@@ -241,6 +295,10 @@ function pushCellMode(
     })
     .forEach((cell) => {
       pushCell(lines, cell);
+      const optionSet = buildOptionSetLine(cell);
+      if (optionSet) {
+        lines.push(optionSet);
+      }
       lines.push("");
     });
 }
@@ -256,6 +314,19 @@ function pushTextboxes(lines: string[], blocks: ExcelBlock[]) {
   textboxes.forEach((block) => {
     lines.push(`[${block.block_id}]`);
     lines.push(block.text.trim());
+
+    const options = (block as any).options;
+    if (Array.isArray(options) && options.length > 0) {
+      const normalized = options
+        .map((option: any) => ({
+          selected: Boolean(option?.selected),
+          value: `${(option?.value ?? option?.label ?? "").toString()}`.trim(),
+        }))
+        .filter((option: { value: string }) => option.value);
+      if (normalized.length > 0) {
+        lines.push(`option_set: ${JSON.stringify({ options: normalized })}`);
+      }
+    }
     lines.push("");
   });
 }

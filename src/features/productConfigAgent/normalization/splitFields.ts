@@ -18,16 +18,24 @@ export function isUnknownValue(value: string): boolean {
 }
 
 export function isExplicitUnselectedOption(rawField: LlmRawField): boolean {
-  if (rawField.selected !== false) {
-    return false;
-  }
-
   const evidenceText = isObject(rawField.evidence)
     ? String(rawField.evidence.text ?? "")
     : "";
-  const rawText = rawField.raw_text ?? evidenceText;
+  const rawText = [rawField.raw_text, evidenceText]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean)
+    .join("\n");
 
-  return /\[\s*\]|□/.test(rawText) && !/\[SEL\]|■|☑|✔|✓/.test(rawText);
+  const hasUnselectedMarker = /\[\s*\]|□/.test(rawText);
+  const hasSelectedMarker = /\[SEL\]|■|☑|✔|✓/.test(rawText);
+  if (hasUnselectedMarker && !hasSelectedMarker) {
+    return true;
+  }
+
+  return (
+    rawField.selected === false &&
+    /(?:\u672a\u9009\u4e2d|\u672a\u52fe\u9009)/u.test(rawField.field_name)
+  );
 }
 
 export function createBaseField(

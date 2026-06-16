@@ -1074,7 +1074,7 @@ ${formatProductTypeOptions(dictionaryContext)}
 2. 不要输出 raw_fields，不要抽配置字段，不要输出 term_type/canonical_value/parsed_value。
 3. 如果文件包含“模头 + 定型模 + 分配器 + 连接器/联结器/换网器/计量泵/液压站”等多个可报价对象，必须拆成多个 items。
 4. 如果多个 item 属于一套系统，用 related_item_indexes 和 relation_note 表达，不要把它们合并成一个 item。
-5. document_info 只放当前产品编号、合同编号、订单号、客户、日期、业务人员、使用地、使用地点、使用地区、使用区域、国内使用/出口使用、国内使用或出口使用、出口国家等文档级信息。当前产品编号统一使用 product_number；模头编号、制品编号、配件编号、die_number、parts_number 都归入 product_number；国内/出口类写入 usage_market，国家/出口国家类写入 country。
+5. document_info 只放文档级信息：当前产品编号、合同/订单、客户、发货/物流、日期、业务人员、使用市场、国家等。当前产品编号统一使用 product_number；客户写入 customer_name，客户编号/客户ID 写入 customer_id；发货/运输类写入 shipping_method；国内/出口/使用地类写入 usage_market；国家/出口国家类写入 country；模头、制品、喷丝板/喷丝组件、配件等当前对象编号都归入 product_number。同义变体按语义归类。
 6. “原产品编号 / 参考产品编号 / 历史产品编号 / 互配产品编号”不是当前产品编号，不要放入 document_info.product_number；它属于 item 配置字段 reference_product，应留给 item 抽取阶段处理。
 7. global_context 保留会影响后续 item 抽取的共用备注、系统关系、整套说明。
 8. llm_text_ranges 要覆盖当前 item 的标题、字段区和备注区；start_line/end_line 必须使用 numbered_llm_text 左侧的四位物理行号（例如 "0067:"），不能使用 Excel "Row 67:" 的 67；宁可稍宽，不要漏掉同一 item 的上下文。
@@ -1130,7 +1130,7 @@ function buildItemExtractSystemPrompt(
 7. 每个 raw_field 必须有 field_name、value、raw_text、evidence、confidence。
 8. 如果字段值明显包含多个业务属性，在该 raw_field 上输出 split_fields；split_fields 也只能用中文 field_name 和原文 value。
 9. 只输出属于当前 product_type 或 current_item 的配置字段；不要把 related_item_summaries 里的字段误放到 current item。
-10. document_info 可以带回阶段一已有文档级信息，但不要把业务员、制单人、使用地、使用地点、使用地区、使用区域、国内使用、出口使用、国内使用/出口使用、国内使用或出口使用、出口国家、国家等文档级字段放进 raw_fields；这些只能写入 document_info。
+10. document_info 可以带回阶段一已有文档级信息；客户、发货/物流、业务员、制单人、使用市场、国家等文档级字段不能放进 raw_fields，只能写入 document_info。同义变体按语义归类。
 11. dictionary_context 只用于理解字段边界和字段适用产品范围；不要输出其中的 term_type 或 canonical value。
 12. [SEL]、■、☑、✔、✓ 表示选中；[ ]、□ 表示未选中。多选字段只输出选中的选项。
 13. 如果 current_item_blocks 中同时包含当前 item 和隐藏的配套 item 配置，可以输出多个 items 来保留边界。典型场景：换网器配置块里写“配液压站”、液压站型号、功率、油箱容量、液压压力、控制方式等，这些字段必须放入 product_type_hint.value = "hydraulic_station" 的 item，不要混入 filter item。
@@ -1138,6 +1138,10 @@ function buildItemExtractSystemPrompt(
 15. 如果当前 product_type_hint 是 air_knife，应抽取风刀/气刀/贴辊风刀/真空箱/负压箱自身配置；不要因为它安装在模头和滚筒之间就合并到 flat_die 或冷却辊 item。
 16. “模头有效宽度 / 口模宽度 / 口模有效宽度”属于模头 item，不要放入 feedblock/分配器 item；如果 current_item_blocks 同时覆盖分配器和模头字段，应拆出或归回模头 item。
 17. 如果 current_item_blocks 里出现静态混合器、喷丝板/喷丝组件、单体抽吸、IBC 气泡冷却单元、开车阀/换向阀、热风管道、保温罩、控温系统等独立标题、产品编号、数量或配置块，可以输出对应独立 item；如果只是当前产品的勾选配置或备注，不要拆 item。
+18. 字段名末尾出现实例序号（半角数字 1/2/3/N、全角数字 １/２/３/N、中文数字 一/二/三/十等）是同类产品多实例配置的重要信号，不限定产品类型。例如“尺寸1/尺寸2/尺寸3”、“重量1/重量2/重量3”、“排量1/排量2/排量3 + 转速1/转速2/转速3”。
+19. 如果当前 item 数量大于 1，或多个字段共享连续实例序号 1..N，且能判断这些字段属于同一 product_type 的 N 个配置实例，应拆成 N 个同 product_type items。第一个 item 使用 current_item.item_index；其余 item 可以先使用相同 item_index 或合理新 index，后端会 reindex。
+20. 拆分后的每个 item 只保留对应实例序号的字段，并把字段名还原为基础字段。例如“尺寸2”在第二个 item 中输出为“尺寸”。缺失字段不要编造。
+21. 如果序号不连续或证据不足，例如只有“尺寸3”或只有“尺寸1/尺寸3”，不要自动补齐或强拆；保留原字段，并在 warnings 中输出 possible_indexed_instance_fields_needs_review。
 
 输出示例：
 {
@@ -1199,7 +1203,7 @@ function buildBatchItemExtractSystemPrompt(
 10. 每个 raw_field 必须有 field_name、value、raw_text、evidence、confidence。
 11. 如果字段值明显包含多个业务属性，在该 raw_field 上输出 split_fields；split_fields 也只能用中文 field_name 和原文 value。
 12. 只输出属于当前 product_type 或 current_item 的配置字段；不要把 related_item_summaries 里的字段误放到 current item。
-13. 禁止把“使用地 / 使用地点 / 使用地区 / 使用区域 / 国内使用 / 出口使用 / 国内使用/出口使用 / 国内使用或出口使用 / 出口国家 / 出口国别 / 国家”放入 raw_fields；这些字段只属于 document_info。国内/出口类写入 document_info.usage_market，出口国家/国家类写入 document_info.country。
+13. 禁止把客户、发货/物流、使用市场、国家等文档级字段放入 raw_fields；这些字段只属于 document_info。客户写入 customer_name；发货/运输类写入 shipping_method；国内/出口/使用地类写入 usage_market；国家/出口国家类写入 country。同义变体按语义归类。
 14. dictionary_context 只用于理解字段边界和字段适用产品范围；不要输出其中的 term_type 或 canonical value。
 15. [SEL]、■、☑、✔、✓ 表示选中；[ ]、□ 表示未选中。多选字段只输出选中的选项。
 16. 如果 current_item_blocks 中同时包含当前 item 和隐藏的配套 item 配置，可以输出多个 items 来保留边界。典型场景：换网器配置块里写“配液压站”、液压站型号、功率、油箱容量、液压压力、控制方式等，这些字段必须放入 product_type_hint.value = "hydraulic_station" 的 item，不要混入 filter item。
@@ -1207,6 +1211,10 @@ function buildBatchItemExtractSystemPrompt(
 18. 如果当前 product_type_hint 是 air_knife，应抽取风刀/气刀/贴辊风刀/真空箱/负压箱自身配置；不要因为它安装在模头和滚筒之间就合并到 flat_die 或冷却辊 item。
 19. “模头有效宽度 / 口模宽度 / 口模有效宽度”属于模头 item，不要放入 feedblock/分配器 item；如果 current_item_blocks 同时覆盖分配器和模头字段，应拆出或归回模头 item。
 20. 如果 current_item_blocks 里出现静态混合器、喷丝板/喷丝组件、单体抽吸、IBC 气泡冷却单元、开车阀/换向阀、热风管道、保温罩、控温系统等独立标题、产品编号、数量或配置块，可以输出对应独立 item；如果只是当前产品的勾选配置或备注，不要拆 item。
+21. 字段名末尾出现实例序号（半角数字 1/2/3/N、全角数字 １/２/３/N、中文数字 一/二/三/十等）是同类产品多实例配置的重要信号，不限定产品类型。例如“尺寸1/尺寸2/尺寸3”、“重量1/重量2/重量3”、“排量1/排量2/排量3 + 转速1/转速2/转速3”。
+22. 如果当前 item 数量大于 1，或多个字段共享连续实例序号 1..N，且能判断这些字段属于同一 product_type 的 N 个配置实例，应拆成 N 个同 product_type items。第一个 item 使用输入 item_index；其余 item 可以先使用相同 item_index 或合理新 index，后端会 reindex。
+23. 拆分后的每个 item 只保留对应实例序号的字段，并把字段名还原为基础字段。例如“尺寸2”在第二个 item 中输出为“尺寸”。缺失字段不要编造。
+24. 如果序号不连续或证据不足，例如只有“尺寸3”或只有“尺寸1/尺寸3”，不要自动补齐或强拆；保留原字段，并在 warnings 中输出 possible_indexed_instance_fields_needs_review。
 
 输出示例：
 {

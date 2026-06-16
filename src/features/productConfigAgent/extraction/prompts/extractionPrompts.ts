@@ -78,6 +78,10 @@ value_kind 使用规则：
 8. 如果字段是订单号、客户、国家、日期、业务员等文件级信息，放 document_info，不要放入某个 item。
 9. 如果字段是共用说明，例如整套系统统一备注，可放入最相关 item，并在 warnings 中说明它可能是全局说明。
 10. 不要因为字典里有字段名，就把字段放进不相关 item。
+11. 字段名末尾出现实例序号（半角数字 1/2/3/N、全角数字 １/２/３/N、中文数字 一/二/三/十等）是同类产品多实例配置的重要信号，不限定产品类型。例如“尺寸1/尺寸2/尺寸3”、“重量1/重量2/重量3”、“排量1/排量2/排量3 + 转速1/转速2/转速3”。
+12. 如果同一 item 数量大于 1，或多个字段共享连续实例序号 1..N，且能判断这些字段属于同一 product_type 的 N 个配置实例，应拆成 N 个同 product_type items。第一个 item 使用原 planned item_index；其余 item 可以先使用相同 item_index 或合理新 index，后端会 reindex。
+13. 拆分后的每个 item 只保留对应实例序号的字段，并把字段名还原为基础字段。例如“尺寸2”在第二个 item 中输出为“尺寸”。缺失字段不要编造。
+14. 如果序号不连续或证据不足，例如只有“尺寸3”或只有“尺寸1/尺寸3”，不要自动补齐或强拆；保留原字段，并在 warnings 中输出 possible_indexed_instance_fields_needs_review。
 
 product_type_hint 规则：
 
@@ -108,22 +112,24 @@ product_type_hint 规则：
 
 1. document_info 放订单/文件级信息：
 
-   * product_number / 当前产品编号、当前制品编号、当前模头编号、当前配件编号
+   * product_number / 当前产品、制品、模头、喷丝板/喷丝组件、配件等编号
    * contract_number / 合同编号
    * order_number / 订单编号
    * customer_id / 客户ID
-   * usage_market / 国内使用、出口使用、使用地、使用地点、使用地区、使用区域、国内使用/出口使用、国内使用或出口使用
-   * country / 国家、出口国家、出口国别、目的国家
+   * customer_name / 客户、客户名称
+   * usage_market / 使用市场，例如国内使用、出口使用、使用地、国内/出口类选择
+   * country / 国家信息，例如国家、出口国家、出口国别、目的国家
    * order_date / 下单日期
    * delivery_date / 交货日期
    * completion_date / 完工日期
    * shipment_date / 实际发货日期
+   * shipping_method / 发货、运输、物流、配送方式
    * business_owner / 业务接单人
    * contract_creator / 合同制作人
 
 2. items[].raw_fields 放产品配置类字段：
 
-   * 禁止把“使用地 / 使用地点 / 使用地区 / 使用区域 / 国内使用 / 出口使用 / 国内使用/出口使用 / 国内使用或出口使用 / 出口国家 / 出口国别 / 国家”放入 items[].raw_fields；这些字段只属于 document_info。国内/出口类写入 document_info.usage_market，出口国家/国家类写入 document_info.country。
+   * 禁止把客户、发货/物流、使用市场、国家等文档级字段放入 items[].raw_fields；这些字段只属于 document_info。例：客户写入 customer_name；发货/运输类写入 shipping_method；国内/出口/使用地类写入 usage_market；国家/出口国家类写入 country。同义变体按语义归类，不要因为表述不同就放入 item。
    * “模头有效宽度 / 口模宽度 / 口模有效宽度”属于模头 item（flat_die/coating_die/blown_film_die 等），即使它出现在分配器/连接器附近，也不要放入 feedblock item。
 
    * 产品材质、模头材料选用
@@ -150,13 +156,14 @@ product_type_hint 规则：
 
 选项规则：
 
-1. [SEL]、■、☑、✔、✓ 表示选中。
-2. [ ]、□ 表示未选中。
-3. 只输出选中的选项，不输出未选中的选项。
-4. 多选字段中，每个选中项输出一条 raw_field，field_name 相同。
-5. 如果字段存在但没有选中项，value 输出 "UNKNOWN"，confidence 约 0.5。
-6. 如果字段存在但值为空，value 输出 ""。
-7. 字段完全不存在时，不要编造。
+1. 若输入文本中出现结构化选项块（如 option_set: {...}），先按 selected: true 判断，未选中项不输出。
+2. [SEL]、■、☑、✔、✓ 表示选中（仅用于没有结构化块时）。
+3. [ ]、□ 表示未选中。
+4. 只输出选中的选项，不输出未选中的选项。
+5. 多选字段中，每个选中项输出一条 raw_field，field_name 相同。
+6. 如果字段存在但没有选中项，value 输出 "UNKNOWN"，confidence 约 0.5。
+7. 如果字段存在但值为空，value 输出 ""。
+8. 字段完全不存在时，不要编造。
 
 字段拆分与错配规则：
 
@@ -342,7 +349,7 @@ export function buildExtractionMessages(params: DeepSeekExtractParams) {
 
 export function buildExtractionRetryMessages(
   params: DeepSeekExtractParams,
-  options: { previousContent?: string; parseError?: unknown }
+  options: { previousContent?: string; parseError?: unknown },
 ) {
   return [
     {

@@ -33,6 +33,19 @@ export function moveRawFieldToDocumentInfo(
     return true;
   }
 
+  if (
+    canonicalKey === "country" &&
+    isExportCountryFieldName(rawField.field_name) &&
+    !getFieldValue(documentInfo.usage_market)
+  ) {
+    upsertDocumentInfoField(documentInfo, "usage_market", {
+      value: "\u51fa\u53e3\u4f7f\u7528",
+      evidence: rawField.evidence,
+      confidence: rawField.confidence,
+      rawKey: rawField.field_name,
+    });
+  }
+
   upsertDocumentInfoField(documentInfo, canonicalKey, {
     value: rawField.value,
     evidence: rawField.evidence,
@@ -40,6 +53,15 @@ export function moveRawFieldToDocumentInfo(
     rawKey: rawField.field_name,
   });
   return true;
+}
+
+function isExportCountryFieldName(fieldName: string): boolean {
+  const text = String(fieldName ?? "");
+  return (
+    text.includes("\u51fa\u53e3\u4f7f\u7528") ||
+    text.includes("\u51fa\u53e3\u56fd\u5bb6") ||
+    text.includes("\u51fa\u53e3\u56fd\u522b")
+  );
 }
 
 function upsertDocumentInfoField(

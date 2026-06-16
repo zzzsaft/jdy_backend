@@ -12,10 +12,35 @@ export interface ProductConfigAgentMasterDataMatch {
   matched: boolean;
   source: ProductConfigAgentMasterDataSource;
   id?: string;
-  model?: string;
+  model?: string | null;
   rawValue: string;
-  matchMethod?: "model_exact" | "model_trim_exact" | "model_case_insensitive" | "model_normalized";
+  matchMethod?:
+    | "model_exact"
+    | "model_trim_exact"
+    | "model_case_insensitive"
+    | "model_normalized"
+    | "attributes_unique_exact";
   details?: Record<string, unknown>;
+}
+
+export interface ProductConfigAgentAttributeMatchReviewCandidate {
+  id: string;
+  model: string | null;
+  source: ProductConfigAgentMasterDataSource;
+  matchedAttributes: string[];
+  details: Record<string, unknown>;
+}
+
+export interface ProductConfigAgentAttributeMatchResult {
+  masterDataMatch: ProductConfigAgentMasterDataMatch;
+  matchedAttributes: string[];
+  candidateCount: number;
+  candidates: ProductConfigAgentAttributeMatchReviewCandidate[];
+  reason:
+    | "matched"
+    | "insufficient_attributes"
+    | "no_match"
+    | "multiple_matches";
 }
 
 export interface ProductConfigAgentMasterDataCandidate {
@@ -32,6 +57,25 @@ const MODEL_TERM_TYPE_SOURCE: Record<
 > = {
   metering_pump_model: "crm_products_pump",
   filter_model: "crm_product_filter",
+};
+
+const ATTRIBUTE_TERM_TYPE_MAP: Record<
+  ProductConfigAgentModelTermType,
+  Array<{ termType: string; masterField: string }>
+> = {
+  filter_model: [
+    { termType: "dimension", masterField: "dimension" },
+    { termType: "weight", masterField: "weight" },
+    { termType: "filter_diameter", masterField: "filterDiameter" },
+    { termType: "effective_filter_area", masterField: "effectiveFilterArea" },
+    { termType: "capacity", masterField: "production" },
+  ],
+  metering_pump_model: [
+    { termType: "pump_displacement", masterField: "pumpage" },
+    { termType: "rotation_speed", masterField: "rotateSpeed" },
+    { termType: "heating_power", masterField: "heatingPower" },
+    { termType: "capacity", masterField: "production" },
+  ],
 };
 
 export function isProductConfigAgentModelTermType(
@@ -52,6 +96,27 @@ export function normalizeMasterDataModel(value: unknown): string {
     .toLowerCase()
     .replace(/\s+/g, "")
     .replace(/[._\-\/\\|,;:()\[\]{}<>]/g, "");
+}
+
+export function normalizeMasterDataAttribute(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\uff10-\uff19]/g, (char) =>
+      String(char.charCodeAt(0) - 0xff10),
+    )
+    .replace(/[，。；：、]/g, "")
+    .replace(/[‐‑‒–—－]/g, "-")
+    .replace(/[×＊*]/g, "x")
+    .replace(/平方厘米|平方公分|cm²|㎠/gi, "cm2")
+    .replace(/毫米/gi, "mm")
+    .replace(/厘米/gi, "cm")
+    .replace(/公斤/gi, "kg")
+    .replace(/千克/gi, "kg")
+    .replace(/每小时|\/小时|每时/gi, "/h")
+    .replace(/\/+/g, "/")
+    .replace(/\s+/g, "")
+    .replace(/[()（）\[\]{}<>]/g, "");
 }
 
 export class ProductConfigAgentMasterDataService {
@@ -143,6 +208,29 @@ export class ProductConfigAgentMasterDataService {
     return { ok: true, masterDataMatch };
   }
 
+  async matchModelByAttributes(params: {
+    termType: ProductConfigAgentModelTermType;
+    attributes: Record<string, string[]>;
+  }): Promise<ProductConfigAgentAttributeMatchResult> {
+    if (params.termType === "metering_pump_model") {
+      return this.matchRowsByAttributes({
+        termType: params.termType,
+        source: "crm_products_pump",
+        rows: await this.getModelRows(Pump, "pump"),
+        attributes: params.attributes,
+        details: (row) => this.pumpDetails(row as Pump),
+      });
+    }
+
+    return this.matchRowsByAttributes({
+      termType: params.termType,
+      source: "crm_product_filter",
+      rows: await this.getModelRows(Filter, "filter"),
+      attributes: params.attributes,
+      details: (row) => this.filterDetails(row as Filter),
+    });
+  }
+
   private async matchPumpModel(
     rawValue: string,
   ): Promise<ProductConfigAgentMasterDataMatch> {
@@ -186,6 +274,126 @@ export class ProductConfigAgentMasterDataService {
       rawValue,
       matchMethod: row.matchMethod,
       details: this.filterDetails(row.entity),
+    };
+  }
+
+  private matchRowsByAttributes<T extends { id: unknown; model: string | null }>(
+    params: {
+      termType: ProductConfigAgentModelTermType;
+      source: ProductConfigAgentMasterDataSource;
+      rows: T[];
+      attributes: Record<string, string[]>;
+      details: (row: T) => Record<string, unknown>;
+    },
+  ): ProductConfigAgentAttributeMatchResult {
+    const mappings = ATTRIBUTE_TERM_TYPE_MAP[params.termType];
+    const usableAttributes = Object.fromEntries(
+      Object.entries(params.attributes)
+        .map(([termType, values]) => [
+          termType,
+          [...new Set(values.map(normalizeMasterDataAttribute).filter(Boolean))],
+        ])
+        .filter(([, values]) => values.length > 0),
+    ) as Record<string, string[]>;
+    const providedMappedAttributes = mappings.filter(
+      (mapping) => (usableAttributes[mapping.termType] ?? []).length > 0,
+    );
+    if (providedMappedAttributes.length < 2) {
+      return {
+        masterDataMatch: {
+          matched: false,
+          source: params.source,
+          rawValue: "",
+          details: {
+            providedAttributes: Object.keys(usableAttributes),
+            requiredMatchCount: 2,
+          },
+        },
+        matchedAttributes: [],
+        candidateCount: 0,
+        candidates: [],
+        reason: "insufficient_attributes",
+      };
+    }
+
+    const candidates: Array<{
+      row: T;
+      matchedAttributes: string[];
+    }> = [];
+    for (const row of params.rows) {
+      const matchedAttributes: string[] = [];
+      let hasConflict = false;
+
+      for (const mapping of providedMappedAttributes) {
+        const masterValue = normalizeMasterDataAttribute((row as any)[mapping.masterField]);
+        if (!masterValue) {
+          continue;
+        }
+        const values = usableAttributes[mapping.termType] ?? [];
+        if (values.includes(masterValue)) {
+          matchedAttributes.push(mapping.termType);
+        } else {
+          hasConflict = true;
+          break;
+        }
+      }
+
+      if (!hasConflict && matchedAttributes.length >= 2) {
+        candidates.push({ row, matchedAttributes });
+      }
+    }
+
+    if (candidates.length === 1) {
+      const candidate = candidates[0];
+      return {
+        masterDataMatch: {
+          matched: true,
+          source: params.source,
+          id: String(candidate.row.id),
+          model: candidate.row.model ?? undefined,
+          rawValue: candidate.row.model ?? "",
+          matchMethod: "attributes_unique_exact",
+          details: {
+            ...params.details(candidate.row),
+            matchedAttributes: candidate.matchedAttributes,
+            sourceAttributes: usableAttributes,
+          },
+        },
+        matchedAttributes: candidate.matchedAttributes,
+        candidateCount: 1,
+        candidates: [
+          {
+            id: String(candidate.row.id),
+            model: candidate.row.model,
+            source: params.source,
+            matchedAttributes: candidate.matchedAttributes,
+            details: params.details(candidate.row),
+          },
+        ],
+        reason: "matched",
+      };
+    }
+
+    return {
+      masterDataMatch: {
+        matched: false,
+        source: params.source,
+        rawValue: "",
+        details: {
+          providedAttributes: usableAttributes,
+          candidateCount: candidates.length,
+        },
+      },
+      matchedAttributes: [],
+      candidateCount: candidates.length,
+      candidates: candidates.slice(0, 10).map((candidate) => ({
+        id: String(candidate.row.id),
+        model: candidate.row.model,
+        source: params.source,
+        matchedAttributes: candidate.matchedAttributes,
+        details: params.details(candidate.row),
+      })),
+      reason: candidates.length > 1 ? "multiple_matches" : "no_match",
     };
   }
 

@@ -7,8 +7,8 @@ import {
   DictionaryTermTypeAlias,
   DictionaryTermTypeCandidate,
   DictionaryCandidateOccurrence,
+  SplitResolution,
 } from "./entity/index.js";
-import { SplitResolution } from "../normalization/entity/splitResolution.entity.js";
 import type { DictionaryValueKind } from "./dictionary.types.js";
 import { normalizeText } from "./dictionary.utils.js";
 

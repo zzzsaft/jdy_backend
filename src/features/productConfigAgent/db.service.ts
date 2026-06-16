@@ -47,6 +47,7 @@ export interface ProductConfigAgentRepository {
   markDocumentsDictionaryDirty(documentIds: number[]): Promise<void>;
   markAllDocumentsDictionaryDirty(): Promise<void>;
   findDocumentById(documentId: number): Promise<any | null>;
+  findDocumentsByIds(documentIds: number[]): Promise<any[]>;
   listDocuments(params?: {
     page?: number;
     pageSize?: number;
@@ -223,6 +224,30 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
       });
     } catch (error) {
       throw wrapDbError("findDocumentByHash", error);
+    }
+  }
+
+  async findDocumentsByIds(documentIds: number[]): Promise<any[]> {
+    if (documentIds.length === 0) return [];
+
+    try {
+      return await PgDataSource.query(
+        `
+          SELECT
+            id,
+            file_name AS "fileName",
+            file_hash AS "fileHash",
+            file_path AS "filePath",
+            source,
+            status,
+            created_at AS "createdAt"
+          FROM quote_agent.documents
+          WHERE id = ANY($1::int[])
+        `,
+        [documentIds],
+      );
+    } catch (error) {
+      throw wrapDbError("findDocumentsByIds", error);
     }
   }
 

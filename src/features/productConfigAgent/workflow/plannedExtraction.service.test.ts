@@ -8,17 +8,43 @@ function createService(params?: {
   onUpdate?: (data: any) => void;
   onDocumentStatus?: (documentId: number, status: string) => void;
   onNormalize?: () => void;
+  disallowSingleFetch?: boolean;
 }) {
   const repository = {
-    findDocumentById: async (documentId: number) =>
-      params?.documents?.get(documentId) ?? { id: documentId, fileName: `doc-${documentId}.xlsx` },
-    findBlocksByDocumentId: async (documentId: number) =>
-      params?.blocks?.get(documentId) ?? {
+    findDocumentById: async (documentId: number) => {
+      if (params?.disallowSingleFetch) throw new Error("single document fetch");
+      return (
+        params?.documents?.get(documentId) ?? {
+          id: documentId,
+          fileName: `doc-${documentId}.xlsx`,
+        }
+      );
+    },
+    findDocumentsByIds: async (documentIds: number[]) =>
+      documentIds.map(
+        (documentId) =>
+          params?.documents?.get(documentId) ?? {
+            id: documentId,
+            fileName: `doc-${documentId}.xlsx`,
+          },
+      ),
+    findBlocksByDocumentId: async (documentId: number) => {
+      if (params?.disallowSingleFetch) throw new Error("single blocks fetch");
+      return params?.blocks?.get(documentId) ?? {
         blocksJson: {
           llm_text: `document ${documentId} text`,
           blocks: [],
         },
-      },
+      };
+    },
+    findBlocksByDocumentIds: async (documentIds: number[]) =>
+      documentIds.map((documentId) => ({
+        documentId,
+        blocksJson: params?.blocks?.get(documentId)?.blocksJson ?? {
+          llm_text: `document ${documentId} text`,
+          blocks: [],
+        },
+      })),
     findPlannedExtractions: async () => params?.extractions ?? [],
     updateExtractionAfterLlm: async (data: any) => {
       params?.onUpdate?.(data);
@@ -82,6 +108,30 @@ async function testCollectPendingBatchItemsFiltersExtractedAndProductType() {
   assert.equal(items[0].extractionResultId, 10);
   assert.equal(items[0].item.item_index, 2);
   assert.equal(items[0].productType, "filter");
+}
+
+async function testCollectPendingBatchItemsUsesBatchFetches() {
+  const service = createService({ disallowSingleFetch: true });
+  const items = await service.collectPendingBatchItems({
+    extractions: [
+      {
+        id: 10,
+        documentId: 1,
+        llmPlanJson: { items: [{ item_index: 1, product_type_hint: "filter" }] },
+      },
+      {
+        id: 20,
+        documentId: 2,
+        llmPlanJson: { items: [{ item_index: 1, product_type_hint: "filter" }] },
+      },
+    ],
+  });
+
+  assert.equal(items.length, 2);
+  assert.deepEqual(
+    items.map((item: any) => item.documentId),
+    [1, 2],
+  );
 }
 
 async function testUpdateExtractionsFromBatchResultsWritesMultipleExtractions() {
@@ -220,8 +270,77 @@ async function testBoundaryMismatchMarksItemForReextract() {
   assert.equal(normalizeCount, 0);
 }
 
+async function testDuplicateReturnedItemIndexesAreReindexedBeforeMerge() {
+  const updates: any[] = [];
+  const service = createService({ onUpdate: (data) => updates.push(data) });
+  const extractionMap = new Map<number, any>([
+    [
+      40,
+      {
+        id: 40,
+        documentId: 4,
+        extractionJson: { items: [] },
+        llmPlanJson: { items: [{ item_index: 1, product_type_hint: "filter" }] },
+      },
+    ],
+  ]);
+  const documentMap = new Map<number, any>([
+    [4, { id: 4, fileName: "d.xlsx" }],
+  ]);
+
+  const result = await service.updateExtractionsFromBatchResults({
+    extractionMap,
+    documentMap,
+    successResults: [
+      {
+        documentId: 4,
+        extractionResultId: 40,
+        itemIndex: 1,
+        result: {
+          extraction: {
+            items: [
+              {
+                item_index: 1,
+                product_type_hint: { value: "filter" },
+                raw_fields: [{ field_name: "尺寸", value: "A", confidence: 0.9 }],
+              },
+              {
+                item_index: 1,
+                product_type_hint: { value: "filter" },
+                raw_fields: [{ field_name: "尺寸", value: "B", confidence: 0.9 }],
+              },
+            ],
+          },
+          warnings: [],
+        },
+      },
+    ],
+  });
+
+  assert.equal(result.updatedExtractionCount, 1);
+  assert.equal(result.failures.length, 0);
+  assert.deepEqual(
+    updates[0].extractionJson.items.map((item: any) => ({
+      itemIndex: item.item_index,
+      value: item.raw_fields[0].value,
+    })),
+    [
+      { itemIndex: 1, value: "A" },
+      { itemIndex: 2, value: "B" },
+    ],
+  );
+  assert.equal(
+    updates[0].warnings.some(
+      (warning: any) => warning.type === "item_instance_split_from_indexed_fields",
+    ),
+    true,
+  );
+}
+
 await testCollectPendingBatchItemsFiltersExtractedAndProductType();
+await testCollectPendingBatchItemsUsesBatchFetches();
 await testUpdateExtractionsFromBatchResultsWritesMultipleExtractions();
 await testBoundaryMismatchMarksItemForReextract();
+await testDuplicateReturnedItemIndexesAreReindexedBeforeMerge();
 
 console.log("planned extraction service tests passed");

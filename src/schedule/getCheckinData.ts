@@ -102,7 +102,7 @@ class GetCheckinData {
           dataList.push(newData);
         }
       } catch (error) {
-        throw `Error fetching hardware checkin data: ${error}`;
+        throw new Error(`Error fetching hardware checkin data: ${error}`);
       }
     }
     // if (dataList.length > 0) await this.insertCheckinData(dataList);

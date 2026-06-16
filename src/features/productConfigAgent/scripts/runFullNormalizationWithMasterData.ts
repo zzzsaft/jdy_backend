@@ -4,21 +4,15 @@ import { BaseEntity } from "typeorm";
 import { PgDataSource } from "../../../config/data-source.js";
 import { DictionaryService } from "../dictionary/dictionary.service.js";
 import { productConfigAgentService } from "../service.js";
+import {
+  readBooleanEnv,
+  readOptionalPositiveIntEnv,
+} from "./scriptArgs.js";
 
 type NormalizationScope =
   | "all"
   | "missing_normalized"
   | "with_pending_candidates";
-
-function readOptionalPositiveInt(name: string): number | undefined {
-  const raw = process.env[name];
-  if (!raw || raw.trim() === "") return undefined;
-  const value = Number(raw);
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${name} must be a positive number`);
-  }
-  return Math.floor(value);
-}
 
 function readNormalizationScope(): NormalizationScope {
   const raw = process.env.QUOTE_AGENT_FULL_NORMALIZE_SCOPE;
@@ -36,10 +30,6 @@ function readNormalizationScope(): NormalizationScope {
     );
   }
   return scope;
-}
-
-function readBooleanEnv(name: string): boolean {
-  return process.env[name] === "1" || process.env[name] === "true";
 }
 
 async function loadMasterDataSummary(documentIds: number[]) {
@@ -109,18 +99,18 @@ async function loadMasterDataSummary(documentIds: number[]) {
 }
 
 async function main() {
-  const limit = readOptionalPositiveInt("QUOTE_AGENT_FULL_NORMALIZE_LIMIT");
-  const batchSize = readOptionalPositiveInt(
+  const limit = readOptionalPositiveIntEnv("QUOTE_AGENT_FULL_NORMALIZE_LIMIT");
+  const batchSize = readOptionalPositiveIntEnv(
     "QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE"
   );
-  const concurrency = readOptionalPositiveInt(
+  const concurrency = readOptionalPositiveIntEnv(
     "QUOTE_AGENT_FULL_NORMALIZE_CONCURRENCY"
   );
   const scope = readNormalizationScope();
   const recheckCandidates = readBooleanEnv(
     "QUOTE_AGENT_FULL_NORMALIZE_RECHECK_CANDIDATES"
   );
-  const recheckLimit = readOptionalPositiveInt(
+  const recheckLimit = readOptionalPositiveIntEnv(
     "QUOTE_AGENT_FULL_NORMALIZE_RECHECK_LIMIT"
   );
   const startedAt = Date.now();

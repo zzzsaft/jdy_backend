@@ -98,6 +98,13 @@ export class ProductConfigAgentArchiveService {
     return this.mutationService.refreshDirtyArchivesForDocument(params);
   }
 
+  refreshArchivesForDocuments(params: {
+    documentIds: number[];
+    editedBy?: string | null;
+  }) {
+    return this.mutationService.refreshArchivesForDocuments(params);
+  }
+
   async findDirtyArchiveExtractionIdsForDocument(documentId: number) {
     const archives = await this.dataSource.getRepository(ContractArchive).find({
       where: {

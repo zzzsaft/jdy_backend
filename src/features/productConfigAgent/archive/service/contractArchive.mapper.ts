@@ -49,6 +49,8 @@ export function mapArchive(archive: ContractArchive) {
 }
 
 export function mapArchiveItem(item: ContractArchiveItem) {
+  const fields = Array.isArray(item.fieldsJsonb) ? item.fieldsJsonb : [];
+  const warnings = Array.isArray(item.warningsJsonb) ? item.warningsJsonb : [];
   return {
     id: Number(item.id),
     itemIndex: item.itemIndex,
@@ -59,14 +61,29 @@ export function mapArchiveItem(item: ContractArchiveItem) {
     productTypeDisplayName: item.productTypeDisplayName,
     sourceProductNumber: item.sourceProductNumber,
     productNumberStatus: item.productNumberStatus,
-    fields: item.fieldsJsonb ?? [],
-    warnings: item.warningsJsonb ?? [],
+    masterDataMatch: resolveArchiveItemMasterDataMatch(fields, warnings),
+    fields,
+    warnings,
     productBindings: [...(item.productBindings ?? [])]
       .sort((a, b) => Number(a.id) - Number(b.id))
       .map(mapBinding),
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
+}
+
+function resolveArchiveItemMasterDataMatch(fields: any[], warnings: any[]) {
+  const fieldMatch = fields
+    .map((field) => field?.dictionary?.masterDataMatch)
+    .find((match) => match?.matched === true);
+  if (fieldMatch) {
+    return fieldMatch;
+  }
+
+  const appliedWarning = warnings.find(
+    (warning) => warning?.type === "master_data_attribute_match_applied",
+  );
+  return appliedWarning?.evidence?.masterDataMatch ?? null;
 }
 
 export function mapVersion(

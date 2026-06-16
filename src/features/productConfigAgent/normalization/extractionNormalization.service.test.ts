@@ -47,9 +47,27 @@ const result = await service.normalizeExtraction({
               confidence: 0.95,
             },
             {
+              field_name: "出口/国内使用",
+              value: "国内使用",
+              evidence: { text: "[SEL] 国内使用" },
+              confidence: 0.95,
+            },
+            {
               field_name: "出口国家",
               value: "美国",
               evidence: { text: "[SEL] 出口使用 国家(美国)" },
+              confidence: 0.95,
+            },
+            {
+              field_name: "客户",
+              value: "路桥 开耀",
+              evidence: { text: "客户：路桥 开耀" },
+              confidence: 0.95,
+            },
+            {
+              field_name: "发货方式",
+              value: "汽运专车（自提）",
+              evidence: { text: "发货方式：汽运专车（自提）" },
               confidence: 0.95,
             },
           ],
@@ -81,6 +99,43 @@ assert.equal(
   (result.extraction_json.document_info as any).country.value,
   "美国",
 );
+assert.equal(
+  (result.extraction_json.document_info as any).customer_name.value,
+  "路桥 开耀",
+);
+assert.equal(
+  (result.extraction_json.document_info as any).shipping_method.value,
+  "汽运专车（自提）",
+);
+
+const spinneretNumberResult = await service.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 0,
+          product_type_hint: { value: "spinneret_plate", confidence: 0.8 },
+          raw_fields: [
+            {
+              field_name: "喷丝板编号",
+              value: "200844-900",
+              evidence: { text: "喷丝板编号 200844-900" },
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.equal(
+  (spinneretNumberResult.extraction_json.document_info as any).product_number
+    .value,
+  "200844-900",
+);
+assert.deepEqual(spinneretNumberResult.items[0].fields, []);
 
 const splitDocInfoResult = await service.normalizeExtraction({
   llmResult: {
@@ -151,6 +206,160 @@ assert.equal(
   "\u5370\u5ea6",
 );
 assert.deepEqual(exportInfoResult.items[0].fields, []);
+
+const exportCountryFieldResult = await service.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 0,
+          product_type_hint: { value: "flat_die", confidence: 0.8 },
+          raw_fields: [
+            {
+              field_name: "出口使用国家",
+              value: "越南",
+              evidence: { text: "出口使用国家：越南" },
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.equal(
+  (exportCountryFieldResult.extraction_json.document_info as any).country.value,
+  "越南",
+);
+assert.equal(
+  (exportCountryFieldResult.extraction_json.document_info as any).usage_market
+    .value,
+  "出口使用",
+);
+assert.deepEqual(exportCountryFieldResult.items[0].fields, []);
+
+const selectionSplitCalls: any[] = [];
+const selectionSplitDictionaryService = {
+  async getProductTypeOptions() {
+    return [];
+  },
+  async flushAliasUsageStats() {},
+  async normalizeField(params: any) {
+    selectionSplitCalls.push(params);
+    return {
+      matched: true,
+      fieldMatched: true,
+      rawFieldName: params.fieldName,
+      normalizedFieldName: "product_material",
+      rawValue: params.rawValue,
+      normalizedValue: params.rawValue,
+      termType: "product_material",
+      valueKind: "enum",
+      matchMethod: "term_type_only",
+      warnings: [],
+    };
+  },
+};
+const selectionSplitService = new ExtractionNormalizationService(
+  { getRepository: () => ({ save: async () => {}, create: (value: any) => value }) } as any,
+  selectionSplitDictionaryService as any,
+);
+const selectionSplitResult = await selectionSplitService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "产品材质",
+              value: "A 1.2714A / B 1.2311A",
+              raw_text: "A 1.2714A [SEL] B 1.2311A",
+              evidence: {
+                text: "Row 39: [ ] A 1.2714A [SEL] B 1.2311A",
+              },
+              confidence: 0.95,
+              split_fields: [
+                {
+                  field_name: "材质选项（未选中）",
+                  value: "A 1.2714A",
+                },
+                {
+                  field_name: "材质选项（选中）",
+                  value: "B 1.2311A",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.deepEqual(
+  selectionSplitCalls.map((item) => ({
+    fieldName: item.fieldName,
+    rawValue: item.rawValue,
+  })),
+  [{ fieldName: "产品材质", rawValue: "B 1.2311A" }],
+);
+assert.equal(selectionSplitResult.items[0].fields.length, 2);
+assert.equal(selectionSplitResult.items[0].fields[1].field_name, "产品材质");
+assert.equal(selectionSplitResult.items[0].fields[1].raw_value, "B 1.2311A");
+assert.equal(
+  selectionSplitResult.warnings.some(
+    (warning) => warning.type === "split_unselected_option_dropped",
+  ),
+  true,
+);
+
+const contradictoryUnselectedService = new ExtractionNormalizationService(
+  {} as any,
+  {
+    async getProductTypeOptions() {
+      return [];
+    },
+    async flushAliasUsageStats() {},
+    async normalizeField() {
+      throw new Error("unselected checkbox fields should not be normalized");
+    },
+  } as any,
+);
+const contradictoryUnselectedResult =
+  await contradictoryUnselectedService.normalizeExtraction({
+    llmResult: {
+      extraction: {
+        document_info: {},
+        items: [
+          {
+            item_index: 1,
+            product_type_hint: { value: "coating_die", confidence: 0.9 },
+            raw_fields: [
+              {
+                field_name: "规格型号与原产品相同未选中",
+                value: "不是",
+                raw_text: "[ ] 是\n[ ] 不是\n[ ] 其他",
+                selected: true,
+                evidence: { text: "[ ] 是\n[ ] 不是\n[ ] 其他" },
+                confidence: 0.5,
+              },
+            ],
+          },
+        ],
+      },
+      warnings: [],
+    },
+  });
+assert.equal(contradictoryUnselectedResult.items[0].fields.length, 1);
+assert.equal(
+  contradictoryUnselectedResult.items[0].fields[0].dictionary.matched,
+  false,
+);
 
 const numberUnitDictionaryService = {
   async getProductTypeOptions() {
@@ -481,10 +690,10 @@ const rangeBoundResult = await rangeBoundService.normalizeExtraction({
           item_index: 1,
           product_type_hint: { value: "metering_pump", confidence: 0.9 },
           raw_fields: [
-            { field_name: "\u4ea7\u91cf\u6700\u5c0f\u503c", value: "104", confidence: 0.9 },
-            { field_name: "\u4ea7\u91cf\u6700\u5927\u503c", value: "936", confidence: 0.9 },
-            { field_name: "\u8f6c\u901f\u6700\u5c0f\u503c", value: "10", confidence: 0.9 },
-            { field_name: "\u8f6c\u901f\u6700\u5927\u503c", value: "90", confidence: 0.9 },
+            { field_name: "\u6700\u5c0f\u4ea7\u91cf", value: "104", confidence: 0.9 },
+            { field_name: "\u6700\u5927\u4ea7\u91cf", value: "936", confidence: 0.9 },
+            { field_name: "\u6700\u5c0f\u8f6c\u901f", value: "10", confidence: 0.9 },
+            { field_name: "\u6700\u5927\u8f6c\u901f", value: "90", confidence: 0.9 },
           ],
         },
       ],
@@ -513,6 +722,1054 @@ assert.deepEqual(
       warningType: "range_bound_fields_merged",
     },
   ],
+);
+
+const numberUnitPartDictionaryService = {
+  async getProductTypeOptions() {
+    return [
+      { canonicalValue: "metering_pump", displayName: "Metering pump", aliases: [] },
+    ];
+  },
+  async flushAliasUsageStats() {},
+  async normalizeField(params: any) {
+    const termType =
+      params.fieldName === "\u8f6c\u901f"
+        ? "rotation_speed"
+        : "pump_displacement";
+    return {
+      matched: true,
+      fieldMatched: true,
+      rawFieldName: params.fieldName,
+      normalizedFieldName: params.fieldName,
+      rawValue: params.rawValue,
+      normalizedValue: params.rawValue,
+      termType,
+      valueKind: "number_unit",
+      matchMethod: "alias_exact",
+      warnings: [],
+    };
+  },
+};
+const numberUnitPartService = new ExtractionNormalizationService(
+  {} as any,
+  numberUnitPartDictionaryService as any,
+);
+const numberUnitPartResult = await numberUnitPartService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "metering_pump", confidence: 0.9 },
+          raw_fields: [
+            { field_name: "\u8f6c\u901f\u6570\u503c", value: "10-70", confidence: 0.9 },
+            {
+              field_name: "\u8f6c\u901f\u5355\u4f4d",
+              value: "\u8f6c\u53ef\u8c03/\u6bcf\u5c0f\u65f6",
+              confidence: 0.9,
+            },
+            { field_name: "\u6392\u91cf\u6570\u503c", value: "600kg\u4ee5\u4e0b", confidence: 0.9 },
+            { field_name: "\u6392\u91cf\u5355\u4f4d", value: "\u6bcf\u5c0f\u65f6", confidence: 0.9 },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.deepEqual(
+  numberUnitPartResult.items[0].fields.map((field) => ({
+    fieldName: field.field_name,
+    rawValue: field.raw_value,
+    termType: field.dictionary.term_type,
+    warningType: field.warnings.at(-1)?.type,
+  })),
+  [
+    {
+      fieldName: "\u8f6c\u901f",
+      rawValue: "10-70\u8f6c\u53ef\u8c03/\u6bcf\u5c0f\u65f6",
+      termType: "rotation_speed",
+      warningType: "number_unit_part_fields_merged",
+    },
+    {
+      fieldName: "\u6392\u91cf",
+      rawValue: "600kg\u4ee5\u4e0b/\u6bcf\u5c0f\u65f6",
+      termType: "pump_displacement",
+      warningType: "number_unit_part_fields_merged",
+    },
+  ],
+);
+
+const structuredFieldDictionaryService = {
+  async getProductTypeOptions() {
+    return [
+      { canonicalValue: "feedblock", displayName: "Feedblock", aliases: [] },
+      { canonicalValue: "flat_die", displayName: "Flat die", aliases: [] },
+    ];
+  },
+  async flushAliasUsageStats() {},
+  async normalizeField(params: any) {
+    if (params.fieldName === "\u0041\u5c42\u6bd4\u4f8b") {
+      return {
+        matched: true,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: "15%",
+        termType: "layer_ratio",
+        valueKind: "text",
+        matchMethod: "term_type_only",
+        warnings: [],
+      };
+    }
+    if (params.fieldName === "\u0044\u5c42\u6324\u51fa\u673a\u578b\u53f7") {
+      return {
+        matched: true,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        termType: "extruder_model",
+        valueKind: "text",
+        matchMethod: "term_type_only",
+        warnings: [],
+      };
+    }
+    if (params.fieldName === "\u0042\u5c42\u4ea7\u91cf") {
+      return {
+        matched: true,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        termType: "capacity",
+        valueKind: "number_unit",
+        matchMethod: "term_type_only",
+        warnings: [],
+      };
+    }
+    if (params.fieldName === "\u0043\u5c42\u539f\u6599") {
+      return {
+        matched: true,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        termType: "plastic_material",
+        valueKind: "text",
+        matchMethod: "term_type_only",
+        warnings: [],
+      };
+    }
+    if (params.fieldName === "\u6cf5\u540e\u538b\u529b") {
+      return {
+        matched: true,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        termType: "pressure",
+        valueKind: "number_unit",
+        matchMethod: "term_type_only",
+        warnings: [],
+      };
+    }
+    if (params.fieldName === "\u6a21\u5507\u6570\u91cf") {
+      return {
+        matched: true,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        termType: "lip_count",
+        valueKind: "number_or_boolean",
+        matchMethod: "term_type_only",
+        warnings: [],
+      };
+    }
+    if (
+      params.fieldName === "\u7b2c\u4e8c\u5957\u6a21\u5507\u539a\u5ea6" ||
+      params.fieldName === "\u7b2c\u4e09\u5957\u6a21\u5507\u539a\u5ea6"
+    ) {
+      return {
+        matched: true,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        termType: "lip_gap",
+        valueKind: "number_unit",
+        matchMethod: "term_type_only",
+        warnings: [],
+      };
+    }
+    if (params.fieldName === "\u0043\u5165\u53e3\u9576\u5757\u6750\u8d28") {
+      return {
+        matched: true,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        termType: "insert_block_material",
+        valueKind: "text",
+        matchMethod: "term_type_only",
+        warnings: [],
+      };
+    }
+    throw new Error(`unexpected field: ${params.fieldName}`);
+  },
+};
+const structuredFieldService = new ExtractionNormalizationService(
+  {} as any,
+  structuredFieldDictionaryService as any,
+);
+const structuredFieldResult = await structuredFieldService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "feedblock", confidence: 0.9 },
+          raw_fields: [
+            { field_name: "\u0041\u5c42\u6bd4\u4f8b", value: "15%", confidence: 0.9 },
+            {
+              field_name: "\u0044\u5c42\u6324\u51fa\u673a\u578b\u53f7",
+              value: "\u914d\u03a6100\u6324\u51fa\u673a\uff0c\u4ea7\u91cf225 kg/h\u4ee5\u4e0b\uff0c\u539f\u6599\uff1a",
+              confidence: 0.9,
+            },
+            {
+              field_name: "\u0042\u5c42\u4ea7\u91cf",
+              value: "225 kg/h\u4ee5\u4e0b",
+              confidence: 0.9,
+            },
+            {
+              field_name: "\u0043\u5c42\u539f\u6599",
+              value: "PS",
+              confidence: 0.9,
+            },
+            {
+              field_name: "\u6cf5\u540e\u538b\u529b",
+              value: "30Mpa",
+              confidence: 0.9,
+            },
+          ],
+        },
+        {
+          item_index: 2,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "\u6a21\u5507\u6570\u91cf",
+              value: "3",
+              confidence: 0.9,
+            },
+            {
+              field_name: "\u7b2c\u4e8c\u5957",
+              value: "8mm",
+              confidence: 0.9,
+            },
+            {
+              field_name: "\u7b2c\u4e09\u5957\u6a21\u5507\u539a\u5ea6",
+              value: "13mm",
+              confidence: 0.9,
+            },
+            {
+              field_name: "\u0043\u5165\u53e3\u9576\u5757\u6750\u8d28",
+              value: "SUS630\u6750\u8d28",
+              confidence: 0.9,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.equal(
+  structuredFieldResult.items[0].fields[0].dictionary.normalized_value,
+  "\u0041\u5c42\u6bd4\u4f8b: 15%",
+);
+assert.equal(
+  structuredFieldResult.items[0].fields[1].dictionary.normalized_value,
+  "\u0044\u5c42\u6324\u51fa\u673a\u578b\u53f7: \u914d\u03a6100\u6324\u51fa\u673a\uff0c\u4ea7\u91cf225 kg/h\u4ee5\u4e0b\uff0c\u539f\u6599\uff1a",
+);
+assert.equal(
+  structuredFieldResult.items[0].fields[2].dictionary.normalized_value,
+  "\u0042\u5c42\u4ea7\u91cf: 225 kg/h\u4ee5\u4e0b",
+);
+assert.equal(
+  structuredFieldResult.items[0].fields[3].dictionary.normalized_value,
+  "\u0043\u5c42\u539f\u6599: PS",
+);
+assert.equal(
+  structuredFieldResult.items[0].fields[4].dictionary.normalized_value,
+  "\u6cf5\u540e\u538b\u529b: 30Mpa",
+);
+assert.equal(
+  structuredFieldResult.items[1].fields[1].field_name,
+  "\u7b2c\u4e8c\u5957\u6a21\u5507\u539a\u5ea6",
+);
+assert.equal(
+  structuredFieldResult.items[1].fields[1].dictionary.normalized_value,
+  "\u7b2c\u4e8c\u5957\u6a21\u5507\u539a\u5ea6: 8mm",
+);
+assert.equal(
+  structuredFieldResult.items[1].fields[2].dictionary.normalized_value,
+  "\u7b2c\u4e09\u5957\u6a21\u5507\u539a\u5ea6: 13mm",
+);
+assert.equal(
+  structuredFieldResult.items[1].fields[3].dictionary.normalized_value,
+  "\u0043\u5165\u53e3\u9576\u5757\u6750\u8d28: SUS630\u6750\u8d28",
+);
+
+const indexedInstanceCalls: string[] = [];
+const indexedInstanceDictionaryService = {
+  async getProductTypeOptions() {
+    return [
+      { canonicalValue: "filter", displayName: "\u6362\u7f51\u5668", aliases: [] },
+    ];
+  },
+  async flushAliasUsageStats() {},
+  async normalizeField(params: any) {
+    indexedInstanceCalls.push(params.fieldName);
+    const termTypes: Record<string, string> = {
+      "\u5c3a\u5bf8": "dimension",
+      "\u91cd\u91cf": "weight",
+      "\u6ee4\u7f51\u76f4\u5f84": "filter_screen_diameter",
+    };
+    const termType = termTypes[params.fieldName];
+    if (!termType) {
+      throw new Error(`unexpected indexed instance field: ${params.fieldName}`);
+    }
+    return {
+      matched: true,
+      fieldMatched: true,
+      rawFieldName: params.fieldName,
+      normalizedFieldName: params.fieldName,
+      rawValue: params.rawValue,
+      normalizedValue: params.rawValue,
+      termType,
+      valueKind: "text",
+      matchMethod: "term_type_only",
+      warnings: [],
+    };
+  },
+};
+const indexedInstanceService = new ExtractionNormalizationService(
+  {} as any,
+  indexedInstanceDictionaryService as any,
+);
+const indexedInstanceResult = await indexedInstanceService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 12,
+          product_type_hint: { value: "filter", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "\u5c3a\u5bf81",
+              value: "L1(125mm), L2(835mm), L3(220mm)",
+              confidence: 0.9,
+            },
+            {
+              field_name: "\u5c3a\u5bf82",
+              value: "L1(165mm), L2(1000mm), L3(270mm)",
+              confidence: 0.9,
+            },
+            {
+              field_name: "\u91cd\u91cf1",
+              value: "700kg",
+              confidence: 0.9,
+            },
+            {
+              field_name: "\u6ee4\u7f51\u76f4\u5f842",
+              value: "145mm",
+              confidence: 0.9,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.deepEqual(indexedInstanceCalls, [
+  "\u5c3a\u5bf8",
+  "\u91cd\u91cf",
+  "\u5c3a\u5bf8",
+  "\u6ee4\u7f51\u76f4\u5f84",
+]);
+assert.deepEqual(
+  indexedInstanceResult.items.map((item) => ({
+    itemIndex: item.item_index,
+    fields: item.fields.map((field) => field.field_name),
+  })),
+  [
+    {
+      itemIndex: 12,
+      fields: ["\u5c3a\u5bf8", "\u91cd\u91cf"],
+    },
+    {
+      itemIndex: 1,
+      fields: ["\u5c3a\u5bf8", "\u6ee4\u7f51\u76f4\u5f84"],
+    },
+  ],
+);
+assert.equal(
+  indexedInstanceResult.warnings.some(
+    (warning) => warning.type === "item_instance_split_from_indexed_fields",
+  ),
+  true,
+);
+
+const indexedInstanceThreeCalls: Array<{ fieldName: string; rawValue: string }> = [];
+const indexedInstanceThreeService = new ExtractionNormalizationService(
+  {} as any,
+  {
+    async getProductTypeOptions() {
+      return [
+        { canonicalValue: "filter", displayName: "\u6362\u7f51\u5668", aliases: [] },
+      ];
+    },
+    async flushAliasUsageStats() {},
+    async normalizeField(params: any) {
+      indexedInstanceThreeCalls.push({
+        fieldName: params.fieldName,
+        rawValue: params.rawValue,
+      });
+      return {
+        matched: true,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        termType: params.fieldName,
+        valueKind: "text",
+        matchMethod: "term_type_only",
+        warnings: [],
+      };
+    },
+  } as any,
+);
+const indexedInstanceThreeResult =
+  await indexedInstanceThreeService.normalizeExtraction({
+    llmResult: {
+      extraction: {
+        document_info: {},
+        items: [
+          {
+            item_index: 2,
+            item_quantity: { value: "3\u5957", confidence: 0.9 },
+            product_type_hint: { value: "filter", confidence: 0.9 },
+            raw_fields: [
+              { field_name: "\u5c3a\u5bf81", value: "A", confidence: 0.9 },
+              { field_name: "\u5c3a\u5bf82", value: "B", confidence: 0.9 },
+              { field_name: "\u5c3a\u5bf83", value: "C", confidence: 0.9 },
+              { field_name: "\u91cd\u91cf1", value: "10kg", confidence: 0.9 },
+              { field_name: "\u91cd\u91cf2", value: "20kg", confidence: 0.9 },
+              { field_name: "\u91cd\u91cf3", value: "30kg", confidence: 0.9 },
+            ],
+          },
+        ],
+      },
+      warnings: [],
+    },
+  });
+assert.deepEqual(
+  indexedInstanceThreeResult.items.map((item) => ({
+    itemIndex: item.item_index,
+    values: item.fields.map((field) => field.raw_value),
+  })),
+  [
+    { itemIndex: 2, values: ["A", "10kg"] },
+    { itemIndex: 1, values: ["B", "20kg"] },
+    { itemIndex: 3, values: ["C", "30kg"] },
+  ],
+);
+assert.deepEqual(
+  indexedInstanceThreeCalls.map((call) => call.fieldName),
+  ["\u5c3a\u5bf8", "\u91cd\u91cf", "\u5c3a\u5bf8", "\u91cd\u91cf", "\u5c3a\u5bf8", "\u91cd\u91cf"],
+);
+
+const indexedInstanceModelSplitCalls: Array<{ fieldName: string; rawValue: string }> = [];
+const indexedInstanceModelSplitService = new ExtractionNormalizationService(
+  {} as any,
+  {
+    async getProductTypeOptions() {
+      return [
+        { canonicalValue: "filter", displayName: "\u6362\u7f51\u5668", aliases: [] },
+      ];
+    },
+    async flushAliasUsageStats() {},
+    async normalizeField(params: any) {
+      indexedInstanceModelSplitCalls.push({
+        fieldName: params.fieldName,
+        rawValue: params.rawValue,
+      });
+      return {
+        matched: true,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        termType: params.fieldName === "\u8fc7\u6ee4\u5668\u578b\u53f7" ? "filter_model" : params.fieldName,
+        valueKind: "text",
+        matchMethod: "term_type_only",
+        warnings: [],
+      };
+    },
+  } as any,
+);
+const indexedInstanceModelSplitResult =
+  await indexedInstanceModelSplitService.normalizeExtraction({
+    llmResult: {
+      extraction: {
+        document_info: {},
+        items: [
+          {
+            item_index: 30,
+            product_type_hint: { value: "filter", confidence: 0.9 },
+            raw_fields: [
+              { field_name: "\u5c3a\u5bf81", value: "A", confidence: 0.9 },
+              { field_name: "\u5c3a\u5bf82", value: "B", confidence: 0.9 },
+              {
+                field_name: "\u6362\u7f51\u5668\u89c4\u683c\u578b\u53f7\u53ca\u6570\u91cf",
+                value: "GD-DP-A-120:1\u5957, GD-DP-A-145:1\u5957",
+                confidence: 0.9,
+                split_fields: [
+                  {
+                    field_name: "\u8fc7\u6ee4\u5668\u578b\u53f7",
+                    value: "GD-DP-A-120",
+                    confidence: 0.9,
+                  },
+                  {
+                    field_name: "\u8fc7\u6ee4\u5668\u578b\u53f7",
+                    value: "GD-DP-A-145",
+                    confidence: 0.9,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      warnings: [],
+    },
+  });
+assert.deepEqual(
+  indexedInstanceModelSplitResult.items.map((item) =>
+    item.fields
+      .filter((field) => field.field_name === "\u8fc7\u6ee4\u5668\u578b\u53f7")
+      .map((field) => field.raw_value),
+  ),
+  [["GD-DP-A-120"], ["GD-DP-A-145"]],
+);
+
+const meteringPumpInstanceCalls: string[] = [];
+const meteringPumpInstanceService = new ExtractionNormalizationService(
+  {} as any,
+  {
+    async getProductTypeOptions() {
+      return [
+        { canonicalValue: "metering_pump", displayName: "\u8ba1\u91cf\u6cf5", aliases: [] },
+      ];
+    },
+    async flushAliasUsageStats() {},
+    async normalizeField(params: any) {
+      meteringPumpInstanceCalls.push(params.fieldName);
+      return {
+        matched: true,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        termType: params.fieldName,
+        valueKind: "number_unit",
+        matchMethod: "term_type_only",
+        warnings: [],
+      };
+    },
+  } as any,
+);
+const meteringPumpInstanceResult =
+  await meteringPumpInstanceService.normalizeExtraction({
+    llmResult: {
+      extraction: {
+        document_info: {},
+        items: [
+          {
+            item_index: 4,
+            item_quantity: { value: "3\u53f0", confidence: 0.9 },
+            product_type_hint: { value: "metering_pump", confidence: 0.9 },
+            raw_fields: [
+              { field_name: "\u6392\u91cf1", value: "10ccm", confidence: 0.9 },
+              { field_name: "\u6392\u91cf2", value: "20ccm", confidence: 0.9 },
+              { field_name: "\u6392\u91cf3", value: "30ccm", confidence: 0.9 },
+              { field_name: "\u8f6c\u901f1", value: "10rpm", confidence: 0.9 },
+              { field_name: "\u8f6c\u901f2", value: "20rpm", confidence: 0.9 },
+              { field_name: "\u8f6c\u901f3", value: "30rpm", confidence: 0.9 },
+            ],
+          },
+        ],
+      },
+      warnings: [],
+    },
+  });
+assert.equal(meteringPumpInstanceResult.items.length, 3);
+assert.deepEqual(meteringPumpInstanceCalls, [
+  "\u6392\u91cf",
+  "\u8f6c\u901f",
+  "\u6392\u91cf",
+  "\u8f6c\u901f",
+  "\u6392\u91cf",
+  "\u8f6c\u901f",
+]);
+
+const indexedInstanceReviewCalls: string[] = [];
+const indexedInstanceReviewService = new ExtractionNormalizationService(
+  {} as any,
+  {
+    async getProductTypeOptions() {
+      return [];
+    },
+    async flushAliasUsageStats() {},
+    async normalizeField(params: any) {
+      indexedInstanceReviewCalls.push(params.fieldName);
+      return {
+        matched: true,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        termType: params.fieldName,
+        valueKind: "text",
+        matchMethod: "term_type_only",
+        warnings: [],
+      };
+    },
+  } as any,
+);
+const indexedInstanceReviewResult =
+  await indexedInstanceReviewService.normalizeExtraction({
+    llmResult: {
+      extraction: {
+        document_info: {},
+        items: [
+          {
+            item_index: 9,
+            product_type_hint: { value: "unknown", confidence: 0.6 },
+            raw_fields: [
+              { field_name: "\u5c3a\u5bf81", value: "A", confidence: 0.9 },
+              { field_name: "\u5c3a\u5bf83", value: "C", confidence: 0.9 },
+            ],
+          },
+          {
+            item_index: 10,
+            product_type_hint: { value: "unknown", confidence: 0.6 },
+            raw_fields: [
+              { field_name: "\u5c3a\u5bf83", value: "C", confidence: 0.9 },
+            ],
+          },
+        ],
+      },
+      warnings: [],
+    },
+  });
+assert.equal(indexedInstanceReviewResult.items.length, 2);
+assert.deepEqual(indexedInstanceReviewCalls, [
+  "\u5c3a\u5bf8",
+  "\u5c3a\u5bf8",
+  "\u5c3a\u5bf8",
+]);
+assert.equal(
+  indexedInstanceReviewResult.warnings.filter(
+    (warning) => warning.type === "possible_indexed_instance_fields_needs_review",
+  ).length,
+  2,
+);
+assert.equal(
+  indexedInstanceReviewResult.items[1].fields[0].warnings[0].type,
+  "indexed_instance_field_normalized",
+);
+
+const indexedInstanceCandidateService = new ExtractionNormalizationService(
+  {} as any,
+  {
+    async getProductTypeOptions() {
+      return [];
+    },
+    async flushAliasUsageStats() {},
+    async normalizeField(params: any) {
+      return {
+        matched: false,
+        fieldMatched: false,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        matchMethod: "none",
+        warnings: [],
+        termTypeCandidate: {
+          id: "candidate-1",
+          rawFieldName: params.fieldName,
+          sourceProductType: params.itemProductTypeHint,
+          itemIndex: params.itemIndex,
+          status: "pending",
+        },
+      };
+    },
+  } as any,
+);
+const indexedInstanceCandidateResult =
+  await indexedInstanceCandidateService.normalizeExtraction({
+    llmResult: {
+      extraction: {
+        document_info: {},
+        items: [
+          {
+            item_index: 20,
+            product_type_hint: { value: "unknown", confidence: 0.6 },
+            raw_fields: [
+              { field_name: "\u672a\u77e5\u5b57\u6bb51", value: "A", confidence: 0.9 },
+            ],
+          },
+        ],
+      },
+      warnings: [],
+    },
+  });
+assert.equal(indexedInstanceCandidateResult.items[0].fields[0].candidate, undefined);
+assert.equal(
+  indexedInstanceCandidateResult.items[0].fields[0].warnings.some(
+    (warning) => warning.type === "indexed_instance_field_normalized",
+  ),
+  true,
+);
+
+function attributeMatchService(params: {
+  normalizeField: (input: any) => any;
+  matchModelByAttributes: (input: any) => any;
+}) {
+  return new ExtractionNormalizationService(
+    {} as any,
+    {
+      async getProductTypeOptions() {
+        return [
+          { canonicalValue: "filter", displayName: "\u6362\u7f51\u5668", aliases: [] },
+          { canonicalValue: "metering_pump", displayName: "\u8ba1\u91cf\u6cf5", aliases: [] },
+        ];
+      },
+      async flushAliasUsageStats() {},
+      async normalizeField(input: any) {
+        return params.normalizeField(input);
+      },
+    } as any,
+    {
+      async matchModelByAttributes(input: any) {
+        return params.matchModelByAttributes(input);
+      },
+    } as any,
+  );
+}
+
+const missingModelAttributeService = attributeMatchService({
+  normalizeField(input) {
+    const termTypeByFieldName: Record<string, string> = {
+      "\u5c3a\u5bf8": "dimension",
+      "\u91cd\u91cf": "weight",
+      "\u6ee4\u7f51\u76f4\u5f84": "filter_diameter",
+      "\u6709\u6548\u8fc7\u6ee4\u9762\u79ef": "effective_filter_area",
+    };
+    return {
+      matched: true,
+      fieldMatched: true,
+      rawFieldName: input.fieldName,
+      normalizedFieldName: input.fieldName,
+      rawValue: input.rawValue,
+      normalizedValue: input.rawValue,
+      termType: termTypeByFieldName[input.fieldName],
+      valueKind: "text",
+      matchMethod: "term_type_only",
+      warnings: [],
+    };
+  },
+  matchModelByAttributes(input) {
+    assert.equal(input.termType, "filter_model");
+    return {
+      reason: "matched",
+      matchedAttributes: ["dimension", "weight"],
+      candidateCount: 1,
+      candidates: [],
+      masterDataMatch: {
+        matched: true,
+        source: "crm_product_filter",
+        id: "1",
+        model: "GD-DP-A-120",
+        rawValue: "GD-DP-A-120",
+        matchMethod: "attributes_unique_exact",
+        details: { matchedAttributes: ["dimension", "weight"] },
+      },
+    };
+  },
+});
+const missingModelAttributeResult =
+  await missingModelAttributeService.normalizeExtraction({
+    llmResult: {
+      extraction: {
+        document_info: {},
+        items: [
+          {
+            item_index: 1,
+            product_type_hint: { value: "filter", confidence: 0.9 },
+            raw_fields: [
+              { field_name: "\u5c3a\u5bf8", value: "L1(125mm)", confidence: 0.9 },
+              { field_name: "\u91cd\u91cf", value: "305kg", confidence: 0.9 },
+              { field_name: "\u6ee4\u7f51\u76f4\u5f84", value: "\u03a6100mm", confidence: 0.9 },
+              { field_name: "\u6709\u6548\u8fc7\u6ee4\u9762\u79ef", value: "2\u00d778CM2", confidence: 0.9 },
+            ],
+          },
+        ],
+      },
+      warnings: [],
+    },
+  });
+assert.equal(
+  missingModelAttributeResult.items[0].masterDataMatch?.model,
+  "GD-DP-A-120",
+);
+assert.equal(
+  missingModelAttributeResult.items[0].warnings.some(
+    (warning) => warning.type === "master_data_attribute_match_applied",
+  ),
+  true,
+);
+
+let failedModelAttributeCalled = false;
+const failedModelAttributeService = attributeMatchService({
+  normalizeField(input) {
+    const termTypeByFieldName: Record<string, string> = {
+      "\u8fc7\u6ee4\u5668\u578b\u53f7": "filter_model",
+      "\u5c3a\u5bf8": "dimension",
+      "\u91cd\u91cf": "weight",
+    };
+    const termType = termTypeByFieldName[input.fieldName];
+    return {
+      matched: termType !== "filter_model",
+      fieldMatched: true,
+      rawFieldName: input.fieldName,
+      normalizedFieldName: input.fieldName,
+      rawValue: input.rawValue,
+      normalizedValue: input.rawValue,
+      termType,
+      valueKind: "text",
+      matchMethod: "term_type_only",
+      masterDataMatch:
+        termType === "filter_model"
+          ? {
+              matched: false,
+              source: "crm_product_filter",
+              rawValue: input.rawValue,
+            }
+          : undefined,
+      warnings:
+        termType === "filter_model"
+          ? [
+              {
+                type: "master_data_no_match",
+                message: "no model",
+                rawValue: input.rawValue,
+                termType,
+                source: "crm_product_filter",
+              },
+            ]
+          : [],
+    };
+  },
+  matchModelByAttributes() {
+    failedModelAttributeCalled = true;
+    return {
+      reason: "matched",
+      matchedAttributes: ["dimension", "weight"],
+      candidateCount: 1,
+      candidates: [],
+      masterDataMatch: {
+        matched: true,
+        source: "crm_product_filter",
+        id: "2",
+        model: "GD-DP-A-145",
+        rawValue: "GD-DP-A-145",
+        matchMethod: "attributes_unique_exact",
+        details: {},
+      },
+    };
+  },
+});
+const failedModelAttributeResult =
+  await failedModelAttributeService.normalizeExtraction({
+    llmResult: {
+      extraction: {
+        document_info: {},
+        items: [
+          {
+            item_index: 2,
+            product_type_hint: { value: "filter", confidence: 0.9 },
+            raw_fields: [
+              { field_name: "\u8fc7\u6ee4\u5668\u578b\u53f7", value: "UNKNOWN-MODEL", confidence: 0.9 },
+              { field_name: "\u5c3a\u5bf8", value: "L1(165mm)", confidence: 0.9 },
+              { field_name: "\u91cd\u91cf", value: "490kg", confidence: 0.9 },
+            ],
+          },
+        ],
+      },
+      warnings: [],
+    },
+  });
+assert.equal(failedModelAttributeCalled, true);
+const failedModelField = failedModelAttributeResult.items[0].fields.find(
+  (field) => field.dictionary.term_type === "filter_model",
+);
+assert.equal(failedModelField?.dictionary.masterDataMatch?.model, "GD-DP-A-145");
+assert.equal(
+  failedModelField?.warnings.some(
+    (warning) => warning.type === "master_data_no_match",
+  ),
+  false,
+);
+
+const duplicateAttributeService = attributeMatchService({
+  normalizeField(input) {
+    return {
+      matched: true,
+      fieldMatched: true,
+      rawFieldName: input.fieldName,
+      normalizedFieldName: input.fieldName,
+      rawValue: input.rawValue,
+      normalizedValue: input.rawValue,
+      termType: input.fieldName === "\u5c3a\u5bf8" ? "dimension" : "weight",
+      valueKind: "text",
+      matchMethod: "term_type_only",
+      warnings: [],
+    };
+  },
+  matchModelByAttributes() {
+    return {
+      reason: "multiple_matches",
+      matchedAttributes: [],
+      candidateCount: 2,
+      candidates: [
+        { id: "1", model: "A", source: "crm_product_filter", matchedAttributes: ["dimension", "weight"], details: {} },
+        { id: "2", model: "B", source: "crm_product_filter", matchedAttributes: ["dimension", "weight"], details: {} },
+      ],
+      masterDataMatch: {
+        matched: false,
+        source: "crm_product_filter",
+        rawValue: "",
+      },
+    };
+  },
+});
+const duplicateAttributeResult = await duplicateAttributeService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 3,
+          product_type_hint: { value: "filter", confidence: 0.9 },
+          raw_fields: [
+            { field_name: "\u5c3a\u5bf8", value: "100mm", confidence: 0.9 },
+            { field_name: "\u91cd\u91cf", value: "10kg", confidence: 0.9 },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.equal(duplicateAttributeResult.items[0].masterDataMatch, undefined);
+assert.equal(
+  duplicateAttributeResult.warnings.some(
+    (warning) => warning.type === "master_data_attribute_match_needs_review",
+  ),
+  true,
+);
+
+let exactModelAttributeCalled = false;
+const exactModelService = attributeMatchService({
+  normalizeField(input) {
+    const termType =
+      input.fieldName === "\u8fc7\u6ee4\u5668\u578b\u53f7"
+        ? "filter_model"
+        : "dimension";
+    return {
+      matched: true,
+      fieldMatched: true,
+      rawFieldName: input.fieldName,
+      normalizedFieldName: input.fieldName,
+      rawValue: input.rawValue,
+      normalizedValue: input.rawValue,
+      termType,
+      valueKind: "text",
+      matchMethod: "term_type_only",
+      masterDataMatch:
+        termType === "filter_model"
+          ? {
+              matched: true,
+              source: "crm_product_filter",
+              id: "1",
+              model: "GD-DP-A-120",
+              rawValue: input.rawValue,
+              matchMethod: "model_exact",
+            }
+          : undefined,
+      warnings: [],
+    };
+  },
+  matchModelByAttributes() {
+    exactModelAttributeCalled = true;
+    throw new Error("attribute match should not run when model already matched");
+  },
+});
+const exactModelResult = await exactModelService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 4,
+          product_type_hint: { value: "filter", confidence: 0.9 },
+          raw_fields: [
+            { field_name: "\u8fc7\u6ee4\u5668\u578b\u53f7", value: "GD-DP-A-120", confidence: 0.9 },
+            { field_name: "\u5c3a\u5bf8", value: "L1(125mm)", confidence: 0.9 },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.equal(exactModelAttributeCalled, false);
+assert.equal(
+  exactModelResult.items[0].fields.find(
+    (field) => field.dictionary.term_type === "filter_model",
+  )?.dictionary.masterDataMatch?.matchMethod,
+  "model_exact",
 );
 
 console.log("productConfigAgent extraction normalization tests passed");

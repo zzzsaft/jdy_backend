@@ -18,9 +18,6 @@ class ApiClient {
     this.appid = XftConfig.appid;
     this.appSecret = XftConfig.appSecret;
     this.enterpriseId = XftConfig.enterpriseId;
-    if (this.appid == "" || this.appSecret == "") {
-      logger.error("请配置XFT_APPID和XFT_AUTHORITY_SECRET");
-    }
   }
 
   /**
@@ -34,7 +31,7 @@ class ApiClient {
   async doRequest(
     options: IRequestOptions,
     userId: string = "A0001",
-    platformUserId: string = "AUTO0001"
+    platformUserId: string = "AUTO0001",
   ) {
     const query = options.query || {};
     const timestamp = Math.floor(Date.now() / 1000);
@@ -49,10 +46,10 @@ class ApiClient {
       timestamp,
       options.payload || {},
       `${options.path}${queryString}`,
-      httpMethod
+      httpMethod,
     );
     // console.log(JSON.stringify(options.payload));
-    const axiosRequestConfig = {
+    const axiosRequestConfig: any = {
       method: httpMethod,
       url: `${this.host}${options.path}${queryString}`,
       // data: options.payload || {},
@@ -77,12 +74,12 @@ class ApiClient {
           logger.error(
             `请求错误！Error Code: ${data.returnCode}, Error Msg: ${
               data.errorMsg
-            },body: ${JSON.stringify(options.payload)}`
+            },body: ${JSON.stringify(options.payload)}`,
           );
         }
       }
       return response.data;
-    } catch (e) {
+    } catch (e: any) {
       logger.error(e);
       response = e.response;
       if (response) {
@@ -91,7 +88,7 @@ class ApiClient {
           throw new Error(
             `请求错误！Error Code: ${data.code}, Error Msg: ${
               data.msg
-            },body: ${JSON.stringify(options.payload)}`
+            },body: ${JSON.stringify(options.payload)}`,
           );
         }
       }
@@ -103,7 +100,7 @@ class ApiClient {
     timestamp: number,
     requestBody: any,
     requestPath: string,
-    method: string
+    method: string,
   ) {
     requestBody = JSON.stringify(requestBody);
     const bodyDigest = sm3(requestBody);
@@ -117,7 +114,7 @@ class ApiClient {
     const signature = sm2.doSignature(signContent, this.appSecret, {
       hash: true,
     });
-    const header = {
+    const header: any = {
       "Content-Type": "application/json; charset=utf-8",
       appid: this.appid,
       // "x-alb-digest": bodyDigest,

@@ -1,6 +1,6 @@
 import type { ProductConfigAgentRepository } from "../db.service.js";
 
-export const DEFAULT_PARSER_VERSION = "v1";
+export const DEFAULT_PARSER_VERSION = "v2";
 export const DEFAULT_PROMPT_VERSION = "v2";
 export const DEFAULT_DICTIONARY_VERSION = 1;
 export const DEFAULT_LLM_MODEL = "gemma4:12b";

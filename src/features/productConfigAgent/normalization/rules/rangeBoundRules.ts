@@ -3,6 +3,8 @@ import { createWarning } from "../warnings.js";
 
 const RANGE_BOUND_FIELD_PATTERN =
   /^(\u4ea7\u91cf|\u8f6c\u901f)(\u6700\u5c0f\u503c|\u6700\u5927\u503c|\u6700\u5c0f|\u6700\u5927)$/u;
+const PREFIX_RANGE_BOUND_FIELD_PATTERN =
+  /^(\u6700\u5c0f\u503c|\u6700\u5927\u503c|\u6700\u5c0f|\u6700\u5927)(\u4ea7\u91cf|\u8f6c\u901f)$/u;
 
 export function mergeRangeBoundFields(
   fields: DictionaryExtractionField[],
@@ -89,11 +91,20 @@ export function parseRangeBoundFieldName(
 ): { baseFieldName: string; bound: "min" | "max" } | null {
   const compact = String(fieldName ?? "").replace(/\s+/g, "");
   const match = compact.match(RANGE_BOUND_FIELD_PATTERN);
-  if (!match) {
+  if (match) {
+    return {
+      baseFieldName: match[1],
+      bound: match[2].includes("\u5c0f") ? "min" : "max",
+    };
+  }
+
+  const prefixMatch = compact.match(PREFIX_RANGE_BOUND_FIELD_PATTERN);
+  if (!prefixMatch) {
     return null;
   }
+
   return {
-    baseFieldName: match[1],
-    bound: match[2].includes("\u5c0f") ? "min" : "max",
+    baseFieldName: prefixMatch[2],
+    bound: prefixMatch[1].includes("\u5c0f") ? "min" : "max",
   };
 }

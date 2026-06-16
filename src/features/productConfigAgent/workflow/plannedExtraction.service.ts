@@ -10,7 +10,9 @@ import type {
 } from "../extraction/index.js";
 import type { ProductConfigAgentRepository } from "../db.service.js";
 import type { DictionaryService, LlmDictionaryContext } from "../dictionary/dictionary.service.js";
+import type { LlmExtractionResult } from "../extraction/types.js";
 import type { NormalizationRefreshService } from "../normalization/normalizationRefresh.service.js";
+import { parseIndexedInstanceFieldName } from "../normalization/rules/index.js";
 import {
   DEFAULT_DICTIONARY_VERSION,
   DEFAULT_LLM_MODEL,
@@ -45,6 +47,126 @@ function mergeExtractionJson(existing: any, next: any) {
       (a, b) => Number(a.item_index) - Number(b.item_index),
     ),
   };
+}
+
+function resultProductType(item: any): string {
+  return String(item?.product_type_hint?.value ?? item?.item_type_hint?.value ?? "unknown");
+}
+
+function nextUnusedIndex(usedIndexes: Set<number>): number {
+  let next = 1;
+  while (usedIndexes.has(next)) {
+    next += 1;
+  }
+  usedIndexes.add(next);
+  return next;
+}
+
+function buildDuplicateIndexWarning(params: {
+  parentItemIndex: number;
+  assignedItemIndexes: number[];
+  items: any[];
+}) {
+  const sourceFields = params.items.flatMap((item) =>
+    (Array.isArray(item?.raw_fields) ? item.raw_fields : []).map((field: any) => ({
+      fieldName: String(field?.field_name ?? ""),
+      rawValue: field?.value,
+      parsed: parseIndexedInstanceFieldName(String(field?.field_name ?? "")),
+    })),
+  );
+  const baseFieldNames = [
+    ...new Set(
+      sourceFields
+        .map((field) => field.parsed?.baseFieldName)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
+  const instanceIndexes = [
+    ...new Set(
+      sourceFields
+        .map((field) => field.parsed?.instanceIndex)
+        .filter((value): value is number => Number.isFinite(value)),
+    ),
+  ].sort((a, b) => a - b);
+
+  return {
+    type: "item_instance_split_from_indexed_fields",
+    message:
+      "同一 planned item 返回了多个 items，已为后续 item 分配未占用 item_index，避免合并覆盖",
+    evidence: {
+      productType: resultProductType(params.items[0]),
+      parentItemIndex: params.parentItemIndex,
+      assignedItemIndexes: params.assignedItemIndexes,
+      instanceIndexes,
+      baseFieldNames,
+      sourceFieldNames: sourceFields.map((field) => field.fieldName),
+      rawValues: sourceFields.map((field) => ({
+        fieldName: field.fieldName,
+        value: field.rawValue,
+      })),
+      confidenceReason:
+        "multiple extracted items shared the same planned parent item_index",
+    },
+  };
+}
+
+function reindexDuplicateResultItems(params: {
+  llmResult: LlmExtractionResult;
+  existingExtractionJson?: any;
+}): LlmExtractionResult {
+  const items = params.llmResult.extraction.items;
+  const usedIndexes = new Set<number>();
+  for (const item of [
+    ...(Array.isArray(params.existingExtractionJson?.items)
+      ? params.existingExtractionJson.items
+      : []),
+    ...items,
+  ]) {
+    const itemIndex = Number(item?.item_index);
+    if (Number.isFinite(itemIndex)) {
+      usedIndexes.add(itemIndex);
+    }
+  }
+
+  const duplicateGroups = new Map<number, any[]>();
+  for (const item of items) {
+    const itemIndex = Number(item.item_index);
+    duplicateGroups.set(itemIndex, [
+      ...(duplicateGroups.get(itemIndex) ?? []),
+      item,
+    ]);
+  }
+
+  const warnings = (params.llmResult.warnings ??= []);
+  const reindexedItems: any[] = [];
+  for (const [parentItemIndex, groupItems] of duplicateGroups.entries()) {
+    if (groupItems.length <= 1) {
+      reindexedItems.push(groupItems[0]);
+      continue;
+    }
+
+    const assignedItemIndexes = groupItems.map((item, offset) => {
+      if (offset === 0) {
+        return parentItemIndex;
+      }
+      const assigned = nextUnusedIndex(usedIndexes);
+      item.item_index = assigned;
+      return assigned;
+    });
+    warnings.push(
+      buildDuplicateIndexWarning({
+        parentItemIndex,
+        assignedItemIndexes,
+        items: groupItems,
+      }),
+    );
+    reindexedItems.push(...groupItems);
+  }
+
+  params.llmResult.extraction.items = reindexedItems.sort(
+    (left, right) => Number(left.item_index) - Number(right.item_index),
+  );
+  return params.llmResult;
 }
 
 type BatchItemStatus = {
@@ -263,6 +385,10 @@ export class PlannedExtractionService {
       },
       params.llmModel ?? extraction.llmModel,
     );
+    reindexDuplicateResultItems({
+      llmResult,
+      existingExtractionJson: extraction.extractionJson,
+    });
 
     const pendingItemIndexes = pendingItems.map((item: any) =>
       Number(item.item_index),
@@ -468,16 +594,34 @@ export class PlannedExtractionService {
     productType?: string;
   }): Promise<PreparedBatchItem[]> {
     const preparedItems: PreparedBatchItem[] = [];
+    const documentIds = [
+      ...new Set(
+        params.extractions
+          .filter((extraction) => extraction.llmPlanJson?.items?.length)
+          .map((extraction) => Number(extraction.documentId))
+          .filter((documentId) => Number.isFinite(documentId)),
+      ),
+    ];
+    const [documents, blocksRows] = await Promise.all([
+      this.repository.findDocumentsByIds(documentIds),
+      this.repository.findBlocksByDocumentIds(documentIds),
+    ]);
+    const documentMap = new Map(
+      documents.map((document) => [Number(document.id), document]),
+    );
+    const blocksMap = new Map(
+      blocksRows.map((blocks) => [Number(blocks.documentId), blocks]),
+    );
 
     for (const extraction of params.extractions) {
       if (!extraction.llmPlanJson?.items?.length) {
         continue;
       }
-      const document = await this.repository.findDocumentById(extraction.documentId);
+      const document = documentMap.get(Number(extraction.documentId));
       if (!document) {
         continue;
       }
-      const blocks = await this.repository.findBlocksByDocumentId(extraction.documentId);
+      const blocks = blocksMap.get(Number(extraction.documentId));
       if (!blocks) {
         continue;
       }
@@ -548,16 +692,14 @@ export class PlannedExtractionService {
       }
 
       const middle = Math.ceil(params.items.length / 2);
-      const [left, right] = await Promise.all([
-        this.extractBatchWithSplit({
-          ...params,
-          items: params.items.slice(0, middle),
-        }),
-        this.extractBatchWithSplit({
-          ...params,
-          items: params.items.slice(middle),
-        }),
-      ]);
+      const left = await this.extractBatchWithSplit({
+        ...params,
+        items: params.items.slice(0, middle),
+      });
+      const right = await this.extractBatchWithSplit({
+        ...params,
+        items: params.items.slice(middle),
+      });
       return {
         successes: [...left.successes, ...right.successes],
         failures: [...left.failures, ...right.failures],
@@ -603,6 +745,12 @@ export class PlannedExtractionService {
         const plannedItems = Array.isArray(extraction.llmPlanJson?.items)
           ? extraction.llmPlanJson.items
           : [];
+        for (const result of results) {
+          reindexDuplicateResultItems({
+            llmResult: result.result,
+            existingExtractionJson: extraction.extractionJson,
+          });
+        }
         const blockedItemIndexes = new Set<number>();
         for (const result of results) {
           for (const itemIndex of boundaryWarningItemIndexes(
