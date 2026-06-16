@@ -43,6 +43,38 @@ export class NormalizationRefreshService {
     return { document, extraction, dictionary };
   }
 
+  async generateDictionaryForExtractionId(extractionResultId: number) {
+    const startedAt = Date.now();
+    const extraction = await this.repository.findExtractionById(extractionResultId);
+    if (!extraction) {
+      throw new Error(`Extraction not found: ${extractionResultId}`);
+    }
+
+    const documentId = Number(extraction.documentId);
+    if (!Number.isFinite(documentId) || documentId <= 0) {
+      throw new Error(
+        `Extraction has invalid documentId: ${extractionResultId}`,
+      );
+    }
+
+    const document = await this.repository.findDocumentById(documentId);
+    if (!document) {
+      throw new Error(`Document not found for extraction: ${extractionResultId}`);
+    }
+
+    const dictionary = await this.generateDictionaryForExtraction({
+      documentId,
+      extraction,
+    });
+    logger.info(
+      `[productConfigAgent:refreshAffectedDocuments:extraction] extractionResultId=${extractionResultId} totalMs=${elapsedMs(startedAt)} ` +
+        `documentId=${documentId} items=${dictionary.summary?.item_count ?? dictionary.items?.length ?? 0} ` +
+        `warnings=${dictionary.summary?.warning_count ?? dictionary.warnings?.length ?? 0}`,
+    );
+
+    return { document, extraction, dictionary };
+  }
+
   async renormalizeExistingExtractions(params?: {
     limit?: number;
     onlyMissingNormalized?: boolean;

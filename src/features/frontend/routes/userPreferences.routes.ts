@@ -1,9 +1,7 @@
 import type { Request, Response } from "express";
-import { authService } from "../../../services/authService.js";
 import { userPreferencesService } from "../userPreferences.service.js";
 import type { UserPreferencesService } from "../userPreferences.service.js";
-
-const LOCAL_DEV_PORT = 2001;
+import { resolveUserIdOrLocalDev } from "../../shared/routeAuth.js";
 
 type FrontendRouteAction = (
   request: Request,
@@ -16,26 +14,6 @@ type UserPreferenceRouteService = Pick<
 >;
 
 type ResolveUserId = (request: Request) => Promise<string | null>;
-
-function effectivePort(): number {
-  return Number(
-    process.env.PORT ??
-      (process.env.NODE_ENV === "production" ? 2000 : LOCAL_DEV_PORT),
-  );
-}
-
-async function getFrontendUserId(request: Request): Promise<string | null> {
-  if (effectivePort() === LOCAL_DEV_PORT) {
-    const localUser =
-      typeof request.headers["x-user-id"] === "string"
-        ? request.headers["x-user-id"].trim()
-        : "";
-    return localUser || "local-dev";
-  }
-
-  const user = await authService.verifyToken(request);
-  return user?.userId || null;
-}
 
 function decodePreferenceKey(rawKey: unknown): string {
   if (typeof rawKey !== "string" || rawKey.trim() === "") {
@@ -117,7 +95,7 @@ function createSaveUserPreference(service: UserPreferenceRouteService) {
 
 export function createUserPreferenceRoutes(
   service: UserPreferenceRouteService = userPreferencesService,
-  resolveUserId: ResolveUserId = getFrontendUserId,
+  resolveUserId: ResolveUserId = resolveUserIdOrLocalDev,
 ) {
   return [
     {

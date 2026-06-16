@@ -62,6 +62,55 @@ type PreparedBatchItem = BatchPlanItemInput & {
   extraction: any;
 };
 
+const BLOCKING_ITEM_BOUNDARY_WARNING_TYPES = new Set([
+  "plan_range_suspected_misaligned",
+  "current_item_blocks_mismatch",
+]);
+
+function warningItemIndex(warning: unknown): number | null {
+  if (!warning || typeof warning !== "object" || Array.isArray(warning)) {
+    return null;
+  }
+  const evidence = (warning as Record<string, unknown>).evidence;
+  const itemIndex =
+    evidence && typeof evidence === "object" && !Array.isArray(evidence)
+      ? Number((evidence as Record<string, unknown>).item_index)
+      : Number((warning as Record<string, unknown>).item_index);
+  return Number.isFinite(itemIndex) ? itemIndex : null;
+}
+
+function boundaryWarningItemIndexes(
+  warnings: unknown,
+  fallbackItemIndexes: number[],
+): Set<number> {
+  if (!Array.isArray(warnings)) {
+    return new Set();
+  }
+  const result = new Set<number>();
+  let hasUnscopedBoundaryWarning = false;
+  for (const warning of warnings) {
+    const type =
+      warning && typeof warning === "object" && !Array.isArray(warning)
+        ? String((warning as Record<string, unknown>).type ?? "")
+        : "";
+    if (!BLOCKING_ITEM_BOUNDARY_WARNING_TYPES.has(type)) {
+      continue;
+    }
+    const itemIndex = warningItemIndex(warning);
+    if (itemIndex === null) {
+      hasUnscopedBoundaryWarning = true;
+    } else {
+      result.add(itemIndex);
+    }
+  }
+  if (hasUnscopedBoundaryWarning && !result.size) {
+    for (const itemIndex of fallbackItemIndexes) {
+      result.add(itemIndex);
+    }
+  }
+  return result;
+}
+
 export class PlannedExtractionService {
   constructor(
     private readonly repository: ProductConfigAgentRepository,
@@ -215,26 +264,52 @@ export class PlannedExtractionService {
       params.llmModel ?? extraction.llmModel,
     );
 
+    const pendingItemIndexes = pendingItems.map((item: any) =>
+      Number(item.item_index),
+    );
+    const blockedItemIndexes = boundaryWarningItemIndexes(
+      llmResult.warnings,
+      pendingItemIndexes,
+    );
     const extractedItemIndexes = new Set(
-      llmResult.extraction.items.map((item) => item.item_index),
+      llmResult.extraction.items
+        .map((item) => item.item_index)
+        .filter((itemIndex) => !blockedItemIndexes.has(Number(itemIndex))),
     );
     const now = new Date().toISOString();
     const nextPlan = {
       ...extraction.llmPlanJson,
-      items: plannedItems.map((item: any) =>
-        extractedItemIndexes.has(Number(item.item_index))
+      items: plannedItems.map((item: any) => {
+        const itemIndex = Number(item.item_index);
+        if (blockedItemIndexes.has(itemIndex)) {
+          return {
+            ...item,
+            extraction_status: "needs_reextract",
+            extraction_error:
+              "item boundary mismatch; replan, recut, or fallback extraction required",
+          };
+        }
+        return extractedItemIndexes.has(itemIndex)
           ? {
               ...item,
               extraction_status: "extracted",
               extracted_at: now,
+              extraction_error: undefined,
             }
-          : item,
-      ),
+          : item;
+      }),
     };
-    const allItemsExtracted = nextPlan.items.every((item: any) => item?.extracted_at);
+    const hasBoundaryBlock = blockedItemIndexes.size > 0;
+    const allItemsExtracted =
+      !hasBoundaryBlock && nextPlan.items.every((item: any) => item?.extracted_at);
     const mergedExtractionJson = mergeExtractionJson(
       extraction.extractionJson,
-      llmResult.extraction,
+      {
+        ...llmResult.extraction,
+        items: llmResult.extraction.items.filter(
+          (item) => !blockedItemIndexes.has(Number(item.item_index)),
+        ),
+      },
     );
 
     const updatedExtraction = await this.repository.updateExtractionAfterLlm({
@@ -242,8 +317,30 @@ export class PlannedExtractionService {
       extractionJson: mergedExtractionJson,
       warnings: llmResult.warnings ?? [],
       llmPlanJson: nextPlan,
-      status: allItemsExtracted ? "parsed" : "planned_partial",
+      status: hasBoundaryBlock
+        ? "planned_needs_reextract"
+        : allItemsExtracted
+          ? "parsed"
+          : "planned_partial",
     });
+
+    if (hasBoundaryBlock) {
+      await updateDocumentStatus(
+        this.repository,
+        document,
+        "planned_needs_reextract",
+      );
+      updatedExtraction.status = "planned_needs_reextract";
+      return {
+        document,
+        extraction: updatedExtraction,
+        dictionary: null,
+        skipped: false,
+        extractedItemCount: extractedItemIndexes.size,
+        allItemsExtracted: false,
+        needsReextract: true,
+      };
+    }
 
     const dictionary =
       await this.normalizationRefreshService.generateDictionaryForExtraction({
@@ -506,30 +603,57 @@ export class PlannedExtractionService {
         const plannedItems = Array.isArray(extraction.llmPlanJson?.items)
           ? extraction.llmPlanJson.items
           : [];
-        const extractedItemIndexes = new Set(results.map((result) => result.itemIndex));
+        const blockedItemIndexes = new Set<number>();
+        for (const result of results) {
+          for (const itemIndex of boundaryWarningItemIndexes(
+            result.result.warnings,
+            [result.itemIndex],
+          )) {
+            blockedItemIndexes.add(itemIndex);
+          }
+        }
+        const validResults = results.filter(
+          (result) => !blockedItemIndexes.has(result.itemIndex),
+        );
+        const extractedItemIndexes = new Set(
+          validResults.map((result) => result.itemIndex),
+        );
         const now = new Date().toISOString();
         const nextPlan = {
           ...extraction.llmPlanJson,
-          items: plannedItems.map((item: any) =>
-            extractedItemIndexes.has(Number(item.item_index))
+          items: plannedItems.map((item: any) => {
+            const itemIndex = Number(item.item_index);
+            if (blockedItemIndexes.has(itemIndex)) {
+              return {
+                ...item,
+                extraction_status: "needs_reextract",
+                extraction_error:
+                  "item boundary mismatch; replan, recut, or fallback extraction required",
+              };
+            }
+            return extractedItemIndexes.has(itemIndex)
               ? {
                   ...item,
                   extraction_status: "extracted",
                   extracted_at: now,
+                  extraction_error: undefined,
                 }
-              : item,
-          ),
+              : item;
+          }),
         };
-        const allItemsExtracted = nextPlan.items.every((item: any) => item?.extracted_at);
+        const hasBoundaryBlock = blockedItemIndexes.size > 0;
+        const allItemsExtracted =
+          !hasBoundaryBlock &&
+          nextPlan.items.every((item: any) => item?.extracted_at);
         const combinedExtraction = {
-          document_info: results.reduce(
+          document_info: validResults.reduce(
             (documentInfo, result) => ({
               ...documentInfo,
               ...(result.result.extraction.document_info ?? {}),
             }),
             {},
           ),
-          items: results.flatMap((result) => result.result.extraction.items),
+          items: validResults.flatMap((result) => result.result.extraction.items),
         };
         const mergedExtractionJson = mergeExtractionJson(
           extraction.extractionJson,
@@ -540,8 +664,39 @@ export class PlannedExtractionService {
           extractionJson: mergedExtractionJson,
           warnings: results.flatMap((result) => result.result.warnings ?? []),
           llmPlanJson: nextPlan,
-          status: allItemsExtracted ? "parsed" : "planned_partial",
+          status: hasBoundaryBlock
+            ? "planned_needs_reextract"
+            : allItemsExtracted
+              ? "parsed"
+              : "planned_partial",
         });
+
+        if (hasBoundaryBlock) {
+          await updateDocumentStatus(
+            this.repository,
+            document,
+            "planned_needs_reextract",
+          );
+          failures.push(
+            ...results
+              .filter((result) => blockedItemIndexes.has(result.itemIndex))
+              .map((result) => ({
+                documentId: result.documentId,
+                extractionResultId: result.extractionResultId,
+                itemIndex: result.itemIndex,
+                productType: String(
+                  result.result.extraction.items[0]?.product_type_hint?.value ??
+                    "unknown",
+                ),
+                status: "failed" as const,
+                error:
+                  "item boundary mismatch; replan, recut, or fallback extraction required",
+              })),
+          );
+          updatedExtraction.status = "planned_needs_reextract";
+          updatedExtractionCount += 1;
+          continue;
+        }
 
         const dictionary =
           await this.normalizationRefreshService.generateDictionaryForExtraction({

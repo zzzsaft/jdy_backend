@@ -6,6 +6,8 @@ function createService(params?: {
   documents?: Map<number, any>;
   blocks?: Map<number, any>;
   onUpdate?: (data: any) => void;
+  onDocumentStatus?: (documentId: number, status: string) => void;
+  onNormalize?: () => void;
 }) {
   const repository = {
     findDocumentById: async (documentId: number) =>
@@ -28,6 +30,9 @@ function createService(params?: {
         status: data.status,
       };
     },
+    updateDocumentStatus: async (documentId: number, status: string) => {
+      params?.onDocumentStatus?.(documentId, status);
+    },
   };
   const dictionaryService = {
     getLlmDictionaryContext: async () => ({
@@ -38,10 +43,13 @@ function createService(params?: {
     }),
   };
   const normalizationRefreshService = {
-    generateDictionaryForExtraction: async () => ({
-      extraction_json: {},
-      summary: {},
-    }),
+    generateDictionaryForExtraction: async () => {
+      params?.onNormalize?.();
+      return {
+        extraction_json: {},
+        summary: {},
+      };
+    },
   };
 
   return new PlannedExtractionService(
@@ -153,7 +161,67 @@ async function testUpdateExtractionsFromBatchResultsWritesMultipleExtractions() 
   assert.equal(updates[1].llmPlanJson.items[0].extraction_status, "extracted");
 }
 
+async function testBoundaryMismatchMarksItemForReextract() {
+  const updates: any[] = [];
+  const documentStatuses: Array<{ documentId: number; status: string }> = [];
+  let normalizeCount = 0;
+  const service = createService({
+    onUpdate: (data) => updates.push(data),
+    onDocumentStatus: (documentId, status) =>
+      documentStatuses.push({ documentId, status }),
+    onNormalize: () => {
+      normalizeCount += 1;
+    },
+  });
+  const extractionMap = new Map<number, any>([
+    [
+      30,
+      {
+        id: 30,
+        documentId: 3,
+        extractionJson: { items: [] },
+        llmPlanJson: { items: [{ item_index: 2, product_type_hint: "filter" }] },
+      },
+    ],
+  ]);
+  const documentMap = new Map<number, any>([
+    [3, { id: 3, fileName: "c.xlsx" }],
+  ]);
+
+  const result = await service.updateExtractionsFromBatchResults({
+    extractionMap,
+    documentMap,
+    successResults: [
+      {
+        documentId: 3,
+        extractionResultId: 30,
+        itemIndex: 2,
+        result: {
+          extraction: {
+            items: [],
+          },
+          warnings: [
+            {
+              type: "current_item_blocks_mismatch",
+              message: "wrong item text",
+              evidence: { item_index: 2 },
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  assert.equal(result.updatedExtractionCount, 1);
+  assert.equal(result.failures.length, 1);
+  assert.equal(updates[0].status, "planned_needs_reextract");
+  assert.equal(updates[0].llmPlanJson.items[0].extraction_status, "needs_reextract");
+  assert.equal(documentStatuses[0].status, "planned_needs_reextract");
+  assert.equal(normalizeCount, 0);
+}
+
 await testCollectPendingBatchItemsFiltersExtractedAndProductType();
 await testUpdateExtractionsFromBatchResultsWritesMultipleExtractions();
+await testBoundaryMismatchMarksItemForReextract();
 
 console.log("planned extraction service tests passed");

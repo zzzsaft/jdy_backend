@@ -56,11 +56,15 @@ function assertRouteShape() {
   routeSignature("/quoteAgent/dictionary-dirty/refresh/start", "post");
   routeSignature("/quoteAgent/dictionary-dirty/refresh/status", "get");
   routeSignature("/quoteAgent/extractions/renormalize-batch", "post");
+  routeSignature(
+    "/quoteAgent/extraction-results/:extractionResultId/renormalize",
+    "post",
+  );
   routeSignature("/quoteAgent/candidates/clusters/review-prompt", "get");
   routeSignature("/quoteAgent/candidates/clusters", "get");
   routeSignature("/quoteAgent/candidates/clusters/suggestions/batch", "post");
   routeSignature("/quoteAgent/candidates/reviews/batch", "post");
-  routeSignature("/quoteAgent/candidates/reviews/batch/jobs/:jobId", "get");
+  routeSignature("/quoteAgent/jobs/:jobId", "get");
   routeSignature("/quoteAgent/candidates", "get");
   routeSignature("/quoteAgent/dictionary/term-types", "get");
   routeSignature("/quoteAgent/dictionary/term-types", "post");
@@ -81,6 +85,12 @@ function assertRouteShape() {
 
   assertRegisteredBefore({
     firstPath: "/quoteAgent/extractions/renormalize-batch",
+    firstMethod: "post",
+    secondPath: "/quoteAgent/extractions/:documentId/renormalize",
+    secondMethod: "post",
+  });
+  assertRegisteredBefore({
+    firstPath: "/quoteAgent/extraction-results/:extractionResultId/renormalize",
     firstMethod: "post",
     secondPath: "/quoteAgent/extractions/:documentId/renormalize",
     secondMethod: "post",
@@ -163,11 +173,19 @@ function assertProductConfigAgentRouteAliases() {
   productConfigRouteSignature("/productConfigAgent/product-configs/search", "get");
   productConfigRouteSignature("/productConfigAgent/dictionary-dirty/refresh/start", "post");
   productConfigRouteSignature("/productConfigAgent/dictionary-dirty/refresh/status", "get");
+  productConfigRouteSignature(
+    "/productConfigAgent/extraction-results/:extractionResultId/renormalize",
+    "post",
+  );
   productConfigRouteSignature("/productConfigAgent/dictionary/unit-aliases", "get");
   productConfigRouteSignature("/productConfigAgent/candidates/units", "get");
   productConfigRouteSignature("/productConfigAgent/candidates/units/review-prompt", "get");
-  productConfigRouteSignature("/productConfigAgent/candidates/reviews/batch/jobs/:jobId", "get");
+  productConfigRouteSignature("/productConfigAgent/jobs/:jobId", "get");
   productConfigRouteSignature("/productConfigAgent/dictionary/product-types", "get");
+  productConfigRouteSignature(
+    "/productConfigAgent/candidates/term-type/:candidateId/mark-as-doc-info",
+    "post",
+  );
 
   assert.equal(
     ProductConfigAgentRoutes.some((route) => route.path.startsWith("/quoteAgent/")),
@@ -334,6 +352,24 @@ function testBatchReviewOperationValidation() {
         payload: {
           splits: [{ termType: "voltage", rawValue: "220V" }],
         },
+      },
+    ],
+  );
+
+  assert.deepEqual(
+    normalizeBatchReviewOperations([
+      {
+        candidateType: "term_type",
+        candidateId: "2",
+        action: "mark_term_type_as_doc_info",
+      },
+    ]),
+    [
+      {
+        candidateType: "term_type",
+        candidateId: "2",
+        action: "mark_term_type_as_doc_info",
+        payload: {},
       },
     ],
   );

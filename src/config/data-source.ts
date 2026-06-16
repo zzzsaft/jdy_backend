@@ -48,6 +48,14 @@ const entitiesGlob = useCompiledPaths
         __dirname,
         "..",
         "features",
+        "backgroundJob",
+        "entity",
+        "*.js"
+      ),
+      path.join(
+        __dirname,
+        "..",
+        "features",
         "frontend",
         "entity",
         "*.js"
@@ -97,6 +105,7 @@ const entitiesGlob = useCompiledPaths
       "src/features/bestsign/entity/*.ts",
       "src/features/fbt/entity/*.ts",
       "src/features/log/entity/*.ts",
+      "src/features/backgroundJob/entity/*.ts",
       "src/features/frontend/entity/*.ts",
       "src/features/agentRuntime/entity/*.ts",
       "src/features/productConfigAgent/workflow/entity/*.ts",

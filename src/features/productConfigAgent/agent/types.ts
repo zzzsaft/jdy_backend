@@ -112,6 +112,8 @@ export type ProductConfigAgentGeneratedConfigSummary = {
   config: unknown;
   validation: unknown;
   shareToken: string | null;
+  shareTokenExpiresAt: Date | null;
+  shareTokenRevokedAt: Date | null;
   ownerUserId: string | null;
   createdAt?: Date;
   updatedAt?: Date;

@@ -24,6 +24,10 @@ import { productConfigAgentService } from "../service.js";
 import { productConfigAgentRuntimeService } from "../agent/index.js";
 import { productConfigAgentRepository } from "../db.service.js";
 import {
+  isLocalDevRoute,
+  resolveUserIdOrLocalDev,
+} from "../../shared/routeAuth.js";
+import {
   optionalBoolean,
   optionalString,
   optionalStringArray,
@@ -41,7 +45,6 @@ const dictionarySuggestionService = new DictionarySuggestionService(PgDataSource
 const dictionaryService = new DictionaryService(PgDataSource);
 const masterDataService = new ProductConfigAgentMasterDataService(PgDataSource);
 const execFileAsync = promisify(execFile);
-const QUOTE_AGENT_LOCAL_DEV_PORT = 2001;
 const MAX_RENORMALIZE_LIMIT = 1000;
 const MAX_RENORMALIZE_BATCH_SIZE = 100;
 const MAX_DIRTY_REFRESH_LIMIT = 1000;
@@ -51,21 +54,12 @@ const MAX_BATCH_REVIEW_OPERATIONS = 200;
 
 type ProductConfigAgentRouteAction = (request: Request, response: Response) => Promise<void>;
 
-function effectivePort(): number {
-  return Number(process.env.PORT ?? (process.env.NODE_ENV === "production" ? 2000 : 2001));
-}
-
 async function getProductConfigAgentUserId(request: Request): Promise<string | null> {
-  if (effectivePort() === QUOTE_AGENT_LOCAL_DEV_PORT) {
-    const localUser =
-      typeof request.headers["x-user-id"] === "string"
-        ? request.headers["x-user-id"].trim()
-        : "";
-    return localUser || "local-dev";
+  const resolvedUserId = (request as Request & { userId?: string }).userId;
+  if (resolvedUserId) {
+    return resolvedUserId;
   }
-
-  const user = await authService.verifyToken(request);
-  return user?.userId || null;
+  return resolveUserIdOrLocalDev(request);
 }
 
 async function resolveExistingDocumentFilePath(filePath: string): Promise<string> {
@@ -104,8 +98,7 @@ export async function requireProductConfigAgentAdmin(
   request: Request,
   response: Response,
 ): Promise<boolean> {
-  const port = effectivePort();
-  if (port === QUOTE_AGENT_LOCAL_DEV_PORT) {
+  if (isLocalDevRoute()) {
     return true;
   }
 
@@ -127,6 +120,7 @@ export async function requireProductConfigAgentAdmin(
     response.status(403).json({ error: "Forbidden" });
     return false;
   }
+  (request as Request & { userId?: string }).userId = user.userId;
   return true;
 }
 
@@ -134,16 +128,16 @@ export async function requireProductConfigAgentToken(
   request: Request,
   response: Response,
 ): Promise<boolean> {
-  const port = effectivePort();
-  if (port === QUOTE_AGENT_LOCAL_DEV_PORT) {
+  if (isLocalDevRoute()) {
     return true;
   }
 
-  const user = await authService.verifyToken(request);
-  if (!user?.userId) {
+  const userId = await getProductConfigAgentUserId(request);
+  if (!userId) {
     response.status(401).json({ error: "Unauthorized" });
     return false;
   }
+  (request as Request & { userId?: string }).userId = userId;
   return true;
 }
 
@@ -276,6 +270,7 @@ export function normalizeBatchReviewOperations(value: unknown) {
     "split_value",
     "move_value_to_other_term_type",
     "update_term_type_value_kind",
+    "mark_term_type_as_doc_info",
     "reject",
   ]);
 
@@ -292,6 +287,7 @@ export function normalizeBatchReviewOperations(value: unknown) {
       "create_term_type",
       "approve_term_type_as_alias",
       "split_term_type",
+      "mark_term_type_as_doc_info",
       "reject",
     ]);
     const valueActions = new Set([
@@ -510,6 +506,26 @@ const createAgentGeneratedConfigShareToken = async (
       await productConfigAgentRuntimeService.createShareToken({
         id: requireString(request.params.id, "id"),
         ownerUserId: await getProductConfigAgentUserId(request),
+        expiresInDays: optionalPositiveInt(
+          request.body?.expiresInDays,
+          "expiresInDays",
+        ),
+      }),
+    );
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const revokeAgentGeneratedConfigShareToken = async (
+  request: Request,
+  response: Response,
+) => {
+  try {
+    response.json(
+      await productConfigAgentRuntimeService.revokeShareToken({
+        id: requireString(request.params.id, "id"),
+        ownerUserId: await getProductConfigAgentUserId(request),
       }),
     );
   } catch (error) {
@@ -674,6 +690,23 @@ const renormalizeExtraction = async (request: Request, response: Response) => {
     const documentId = Number(request.params.documentId);
     if (!documentId) throw new Error("documentId is required");
     response.json(await productConfigAgentService.generateDictionaryForDocument(documentId));
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const renormalizeExtractionResult = async (
+  request: Request,
+  response: Response,
+) => {
+  try {
+    const extractionResultId = Number(request.params.extractionResultId);
+    if (!extractionResultId) throw new Error("extractionResultId is required");
+    response.json(
+      await productConfigAgentService.generateDictionaryForExtractionId(
+        extractionResultId,
+      ),
+    );
   } catch (error) {
     sendError(response, error);
   }
@@ -1540,6 +1573,26 @@ const splitTermType = async (request: Request, response: Response) => {
   }
 };
 
+const markTermTypeAsDocInfo = async (request: Request, response: Response) => {
+  try {
+    response.json(
+      await productConfigAgentService.reviewCandidateAndRefresh({
+        candidateType: "term_type",
+        candidateId: request.params.candidateId,
+        refreshAffectedDocuments: shouldRefreshAffectedDocuments(request),
+        deferCandidateRecheck: shouldDeferCandidateRecheck(request),
+        action: "mark_term_type_as_doc_info",
+        payload: {
+          reviewedBy: request.body.reviewedBy,
+          reason: request.body.reason,
+        },
+      }),
+    );
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
 const createValue = async (request: Request, response: Response) => {
   try {
     response.json(
@@ -1688,7 +1741,7 @@ const reviewCandidatesBatch = async (request: Request, response: Response) => {
     if (shouldRunCandidateReviewBatchAsync(request)) {
       response.status(202).json({
         async: true,
-        job: productConfigAgentService.startCandidateReviewBatchJob({
+        job: await productConfigAgentService.startCandidateReviewBatchJob({
           refreshAffectedDocuments: shouldRefreshAffectedDocuments(request),
           deferCandidateRecheck: shouldDeferCandidateRecheck(request),
           operations,
@@ -1709,13 +1762,13 @@ const reviewCandidatesBatch = async (request: Request, response: Response) => {
   }
 };
 
-const getCandidateReviewBatchJob = async (request: Request, response: Response) => {
+const getProductConfigAgentBackgroundJob = async (request: Request, response: Response) => {
   try {
-    const job = productConfigAgentService.getCandidateReviewBatchJob(
-      optionalString(request.params.jobId) ?? undefined,
+    const job = await productConfigAgentService.getBackgroundJob(
+      requireString(request.params.jobId, "jobId"),
     );
     if (!job) {
-      response.status(404).json({ error: "candidate review batch job not found" });
+      response.status(404).json({ error: "background job not found" });
       return;
     }
     response.json(job);
@@ -1744,6 +1797,11 @@ export const ProductConfigAgentRoutes = [
     path: "/productConfigAgent/agent/configs/:id/share-token",
     method: "post",
     action: withProductConfigAgentToken(createAgentGeneratedConfigShareToken),
+  },
+  {
+    path: "/productConfigAgent/agent/configs/:id/share-token/revoke",
+    method: "post",
+    action: withProductConfigAgentToken(revokeAgentGeneratedConfigShareToken),
   },
   {
     path: "/productConfigAgent/agent/configs/:id",
@@ -1807,6 +1865,11 @@ export const ProductConfigAgentRoutes = [
     action: withProductConfigAgentAdmin(renormalizeExtractionsBatch),
   },
   {
+    path: "/productConfigAgent/extraction-results/:extractionResultId/renormalize",
+    method: "post",
+    action: withProductConfigAgentAdmin(renormalizeExtractionResult),
+  },
+  {
     path: "/productConfigAgent/extractions/:documentId",
     method: "get",
     action: withProductConfigAgentToken(getExtractionDetail),
@@ -1835,6 +1898,11 @@ export const ProductConfigAgentRoutes = [
     path: "/api/extractions/:documentId/renormalize",
     method: "post",
     action: withProductConfigAgentAdmin(renormalizeExtraction),
+  },
+  {
+    path: "/api/extraction-results/:extractionResultId/renormalize",
+    method: "post",
+    action: withProductConfigAgentAdmin(renormalizeExtractionResult),
   },
   {
     path: "/productConfigAgent/documents/:documentId/open-file",
@@ -1872,9 +1940,9 @@ export const ProductConfigAgentRoutes = [
     action: withProductConfigAgentAdmin(reviewCandidatesBatch),
   },
   {
-    path: "/productConfigAgent/candidates/reviews/batch/jobs/:jobId",
+    path: "/productConfigAgent/jobs/:jobId",
     method: "get",
-    action: withProductConfigAgentToken(getCandidateReviewBatchJob),
+    action: withProductConfigAgentToken(getProductConfigAgentBackgroundJob),
   },
   {
     path: "/productConfigAgent/dictionary/term-types",
@@ -1985,6 +2053,11 @@ export const ProductConfigAgentRoutes = [
     path: "/productConfigAgent/candidates/term-type/:candidateId/split",
     method: "post",
     action: withProductConfigAgentAdmin(splitTermType),
+  },
+  {
+    path: "/productConfigAgent/candidates/term-type/:candidateId/mark-as-doc-info",
+    method: "post",
+    action: withProductConfigAgentAdmin(markTermTypeAsDocInfo),
   },
   {
     path: "/productConfigAgent/candidates/value/:candidateId/create-value",

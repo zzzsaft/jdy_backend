@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS quote_agent.agent_generated_configs (
   config_jsonb jsonb NOT NULL DEFAULT '{}'::jsonb,
   validation_jsonb jsonb NOT NULL DEFAULT '{}'::jsonb,
   share_token text NULL,
+  share_token_expires_at timestamp NULL,
+  share_token_revoked_at timestamp NULL,
   owner_user_id text NULL,
   created_at timestamp NOT NULL DEFAULT now(),
   updated_at timestamp NOT NULL DEFAULT now(),
@@ -17,3 +19,9 @@ CREATE INDEX IF NOT EXISTS idx_agent_generated_configs_run_id ON quote_agent.age
 CREATE INDEX IF NOT EXISTS idx_agent_generated_configs_session_id ON quote_agent.agent_generated_configs(session_id);
 CREATE INDEX IF NOT EXISTS idx_agent_generated_configs_owner_user_id ON quote_agent.agent_generated_configs(owner_user_id);
 CREATE INDEX IF NOT EXISTS idx_agent_generated_configs_status ON quote_agent.agent_generated_configs(status);
+
+ALTER TABLE quote_agent.agent_generated_configs
+  ADD COLUMN IF NOT EXISTS share_token_expires_at timestamp NULL,
+  ADD COLUMN IF NOT EXISTS share_token_revoked_at timestamp NULL;
+
+CREATE INDEX IF NOT EXISTS idx_agent_generated_configs_share_token_expires_at ON quote_agent.agent_generated_configs(share_token_expires_at);

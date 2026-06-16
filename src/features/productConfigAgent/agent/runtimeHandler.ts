@@ -14,6 +14,9 @@ import type {
   ProductConfigAgentSaveGeneratedConfigInput,
 } from "./types.js";
 
+const DEFAULT_SHARE_TOKEN_TTL_DAYS = 30;
+const MAX_SHARE_TOKEN_TTL_DAYS = 365;
+
 export function createProductConfigAgentRuntimeHandler(): AgentRuntimeAgentHandler {
   return {
     agentType: "productConfigAgent",
@@ -44,7 +47,7 @@ export function createProductConfigAgentRuntimeHandler(): AgentRuntimeAgentHandl
           generatedConfig: context.savedConfig,
         },
         assistantMessage: {
-          content: buildAssistantSummary(context),
+          content: buildAssistantSummaryText(context),
           contentJsonb: {
             generatedConfigId: context.savedConfig?.id ?? null,
             warnings: context.warnings,
@@ -66,7 +69,7 @@ export function createProductConfigAgentRuntimeHandler(): AgentRuntimeAgentHandl
             (config) =>
               !config.ownerUserId || config.ownerUserId === params.ownerUserId,
           )
-          .map(mapGeneratedConfig),
+          .map((config) => mapGeneratedConfig(config)),
       };
     },
   };
@@ -91,6 +94,7 @@ export async function createGeneratedConfigShareToken(params: {
   dataSource: DataSource;
   id: string;
   ownerUserId?: string | null;
+  expiresInDays?: number;
 }) {
   const config = await params.dataSource
     .getRepository(AgentGeneratedConfig)
@@ -99,7 +103,32 @@ export async function createGeneratedConfigShareToken(params: {
     throw new Error(`Generated config not found: ${params.id}`);
   }
   assertOwner(config.ownerUserId, params.ownerUserId);
+  const expiresInDays = Math.min(
+    MAX_SHARE_TOKEN_TTL_DAYS,
+    Math.max(1, Math.floor(params.expiresInDays ?? DEFAULT_SHARE_TOKEN_TTL_DAYS)),
+  );
   config.shareToken = crypto.randomBytes(24).toString("base64url");
+  config.shareTokenExpiresAt = new Date(
+    Date.now() + expiresInDays * 24 * 60 * 60 * 1000,
+  );
+  config.shareTokenRevokedAt = null;
+  await params.dataSource.getRepository(AgentGeneratedConfig).save(config);
+  return mapGeneratedConfig(config);
+}
+
+export async function revokeGeneratedConfigShareToken(params: {
+  dataSource: DataSource;
+  id: string;
+  ownerUserId?: string | null;
+}) {
+  const config = await params.dataSource
+    .getRepository(AgentGeneratedConfig)
+    .findOne({ where: { id: params.id } });
+  if (!config) {
+    throw new Error(`Generated config not found: ${params.id}`);
+  }
+  assertOwner(config.ownerUserId, params.ownerUserId);
+  config.shareTokenRevokedAt = new Date();
   await params.dataSource.getRepository(AgentGeneratedConfig).save(config);
   return mapGeneratedConfig(config);
 }
@@ -114,7 +143,16 @@ export async function getSharedGeneratedConfig(params: {
   if (!config) {
     throw new Error("Shared generated config not found");
   }
-  return mapGeneratedConfig(config);
+  if (config.shareTokenRevokedAt) {
+    throw new Error("Shared generated config not found");
+  }
+  if (
+    config.shareTokenExpiresAt &&
+    config.shareTokenExpiresAt.getTime() <= Date.now()
+  ) {
+    throw new Error("Shared generated config not found");
+  }
+  return mapGeneratedConfig(config, { includePrivateShareFields: false });
 }
 
 async function saveGeneratedConfig(
@@ -141,7 +179,11 @@ async function saveGeneratedConfig(
 
 function mapGeneratedConfig(
   config: AgentGeneratedConfig,
+  options?: {
+    includePrivateShareFields?: boolean;
+  },
 ): ProductConfigAgentGeneratedConfigSummary {
+  const includePrivateShareFields = options?.includePrivateShareFields !== false;
   return {
     id: Number(config.id),
     runId: Number(config.runId),
@@ -150,8 +192,14 @@ function mapGeneratedConfig(
     status: config.status,
     config: config.configJsonb,
     validation: config.validationJsonb,
-    shareToken: config.shareToken,
-    ownerUserId: config.ownerUserId,
+    shareToken: includePrivateShareFields ? config.shareToken : null,
+    shareTokenExpiresAt: includePrivateShareFields
+      ? config.shareTokenExpiresAt
+      : null,
+    shareTokenRevokedAt: includePrivateShareFields
+      ? config.shareTokenRevokedAt
+      : null,
+    ownerUserId: includePrivateShareFields ? config.ownerUserId : null,
     createdAt: config.createdAt,
     updatedAt: config.updatedAt,
   };
@@ -168,6 +216,16 @@ function summarizeProductConfigContext(context: ProductConfigAgentContext) {
 }
 
 function buildAssistantSummary(context: ProductConfigAgentContext): string {
+  if (context.savedConfig) {
+    return `已生成产品配置表：${context.savedConfig.title ?? context.savedConfig.id}`;
+  }
+  if (context.draftConfig) {
+    return "已生成产品配置表草稿，但未保存为配置工件。";
+  }
+  return "已完成 productConfigAgent 运行。";
+}
+
+function buildAssistantSummaryText(context: ProductConfigAgentContext): string {
   if (context.savedConfig) {
     return `已生成产品配置表：${context.savedConfig.title ?? context.savedConfig.id}`;
   }

@@ -1121,8 +1121,8 @@ Body:
 ```
 
 Set `asyncReview: true` (or query `?asyncReview=true`) for large batches. The
-endpoint validates the request, enqueues an in-memory background job, and returns
-HTTP `202` immediately.
+endpoint validates the request, enqueues a persistent `public.background_jobs`
+job, and returns HTTP `202` immediately.
 
 `BatchReviewOperation`:
 
@@ -1133,6 +1133,7 @@ HTTP `202` immediately.
   action:
     | "create_term_type"
     | "approve_term_type_as_alias"
+    | "mark_term_type_as_doc_info"
     | "create_value"
     | "approve_value_as_alias"
     | "split_value"
@@ -1167,14 +1168,15 @@ Async response:
 ```ts
 {
   async: true,
-  job: CandidateReviewBatchJob
+  job: BackgroundJob
 }
 ```
 
-### `GET /productConfigAgent/candidates/reviews/batch/jobs/:jobId`
+### `GET /productConfigAgent/jobs/:jobId`
 
-Returns the queued/running/completed/failed background review job. Completed jobs
-include `result`, which has the same shape as the synchronous batch response.
+Returns the queued/running/completed/failed persistent background job. Completed
+candidate review jobs include `result`, which has the same shape as the
+synchronous batch response.
 
 ### `POST /productConfigAgent/candidates/term-type/:candidateId/create-term-type`
 
@@ -1224,6 +1226,23 @@ Body:
   valueAliasNames?: string[],
   appendApplicableProductType?: boolean,
   reviewedBy?: string,
+  refreshAffectedDocuments?: boolean,
+  deferCandidateRecheck?: boolean
+}
+```
+
+### `POST /productConfigAgent/candidates/term-type/:candidateId/mark-as-doc-info`
+
+Marks a term type candidate as document-level information instead of a product
+item field. The candidate is stored as `rejected` with reason
+`document_info_field_not_product_term_type`.
+
+Body:
+
+```ts
+{
+  reviewedBy?: string,
+  reason?: string,
   refreshAffectedDocuments?: boolean,
   deferCandidateRecheck?: boolean
 }

@@ -323,6 +323,12 @@ function numberLlmText(llmText: string): string {
     .join("\n");
 }
 
+type ItemInputTextResult = {
+  text: string;
+  warnings: Warning[];
+  rangeSource: "physical_line" | "excel_row_mapped" | "block_ids" | "fallback";
+};
+
 function sliceLlmTextByRanges(
   llmText: string,
   ranges: DocumentPlanItem["llm_text_ranges"],
@@ -349,6 +355,94 @@ function sliceLlmTextByRanges(
     .join("\n");
 }
 
+function buildExcelRowLineIndex(llmText: string): Map<number, number> {
+  const rowToLineIndex = new Map<number, number>();
+  llmText.split(/\r?\n/).forEach((line, index) => {
+    const match = line.match(/^Row\s+(\d+)\s*:/i);
+    if (!match) return;
+    const rowNumber = Number(match[1]);
+    if (Number.isFinite(rowNumber) && !rowToLineIndex.has(rowNumber)) {
+      rowToLineIndex.set(rowNumber, index + 1);
+    }
+  });
+  return rowToLineIndex;
+}
+
+function mapExcelRowRangesToPhysicalRanges(
+  llmText: string,
+  ranges: DocumentPlanItem["llm_text_ranges"],
+): DocumentPlanItem["llm_text_ranges"] {
+  const rowToLineIndex = buildExcelRowLineIndex(llmText);
+  const sortedRows = [...rowToLineIndex.keys()].sort((a, b) => a - b);
+  const nextMappedLineAfter = (rowNumber: number): number | undefined => {
+    const nextRow = sortedRows.find((candidateRow) => candidateRow > rowNumber);
+    return nextRow === undefined ? undefined : rowToLineIndex.get(nextRow);
+  };
+  return (ranges ?? []).map((range) => {
+    const start = Number(range.start_line);
+    const end = Number(range.end_line);
+    const mappedStart = rowToLineIndex.get(start);
+    const mappedEnd = rowToLineIndex.get(end + 1);
+    const fallbackEnd = rowToLineIndex.get(end);
+    const nextRowEnd = nextMappedLineAfter(end);
+    const startNextRowEnd = nextMappedLineAfter(start);
+    return {
+      start_line: mappedStart ?? start,
+      end_line:
+        mappedEnd !== undefined
+          ? mappedEnd - 1
+          : fallbackEnd !== undefined
+            ? fallbackEnd
+            : nextRowEnd !== undefined
+              ? nextRowEnd - 1
+              : startNextRowEnd !== undefined
+                ? startNextRowEnd - 1
+                : end,
+    };
+  });
+}
+
+function normalizeForRangeMatch(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+/g, "")
+    .toLowerCase();
+}
+
+function itemRangeAnchors(item: DocumentPlanItem): string[] {
+  return [
+    item.item_name,
+    item.product_type_raw,
+  ]
+    .map(normalizeForRangeMatch)
+    .filter((value) => value.length >= 2);
+}
+
+function textMatchesItemRange(text: string, item: DocumentPlanItem): boolean {
+  const normalizedText = normalizeForRangeMatch(text);
+  return itemRangeAnchors(item).some((anchor) => normalizedText.includes(anchor));
+}
+
+function rangeWarning(params: {
+  type: string;
+  message: string;
+  item: DocumentPlanItem;
+  evidence?: unknown;
+}): Warning {
+  return {
+    type: params.type,
+    message: params.message,
+    evidence: {
+      item_index: params.item.item_index,
+      item_name: params.item.item_name,
+      product_type_hint: params.item.product_type_hint,
+      ...(params.evidence && typeof params.evidence === "object"
+        ? params.evidence
+        : {}),
+    },
+  };
+}
+
 function selectBlocksByIds(blocksJson: any, blockIds: string[] | undefined) {
   const ids = new Set(blockIds ?? []);
   if (!ids.size || !Array.isArray(blocksJson?.blocks)) {
@@ -357,24 +451,101 @@ function selectBlocksByIds(blocksJson: any, blockIds: string[] | undefined) {
   return blocksJson.blocks.filter((block: any) => ids.has(block?.block_id));
 }
 
-function buildItemInputText(
+export function buildItemInputText(
   llmText: string,
   blocksJson: any,
   item: DocumentPlanItem,
-): string {
+): ItemInputTextResult {
   const byRange = sliceLlmTextByRanges(llmText, item.llm_text_ranges);
+  const mappedRanges = mapExcelRowRangesToPhysicalRanges(
+    llmText,
+    item.llm_text_ranges,
+  );
+  const mappedByRange = sliceLlmTextByRanges(llmText, mappedRanges);
   if (byRange.trim()) {
-    return byRange;
+    if (textMatchesItemRange(byRange, item)) {
+      return { text: byRange, warnings: [], rangeSource: "physical_line" };
+    }
+
+    if (mappedByRange.trim() && textMatchesItemRange(mappedByRange, item)) {
+      return {
+        text: mappedByRange,
+        rangeSource: "excel_row_mapped",
+        warnings: [
+          rangeWarning({
+            type: "plan_range_excel_row_mapped",
+            message:
+              "planner range looked like Excel Row numbers and was mapped to numbered_llm_text physical line numbers",
+            item,
+            evidence: {
+              original_ranges: item.llm_text_ranges,
+              mapped_ranges: mappedRanges,
+            },
+          }),
+        ],
+      };
+    }
+
+    return {
+      text: byRange,
+      rangeSource: "physical_line",
+      warnings: [
+        rangeWarning({
+          type: "plan_range_suspected_misaligned",
+          message:
+            "planner range did not appear to include the planned item anchor; using original range with warning",
+          item,
+          evidence: {
+            original_ranges: item.llm_text_ranges,
+            mapped_ranges: mappedRanges,
+          },
+        }),
+      ],
+    };
+  }
+
+  if (mappedByRange.trim() && textMatchesItemRange(mappedByRange, item)) {
+    return {
+      text: mappedByRange,
+      rangeSource: "excel_row_mapped",
+      warnings: [
+        rangeWarning({
+          type: "plan_range_excel_row_mapped",
+          message:
+            "planner range looked like Excel Row numbers and was mapped to numbered_llm_text physical line numbers",
+          item,
+          evidence: {
+            original_ranges: item.llm_text_ranges,
+            mapped_ranges: mappedRanges,
+          },
+        }),
+      ],
+    };
   }
 
   const byBlocks = selectBlocksByIds(blocksJson, item.block_ids);
   if (byBlocks.length) {
-    return byBlocks
-      .map((block: any) => `[${block.block_id}]\n${block.text ?? block.raw_text ?? ""}`)
-      .join("\n\n");
+    return {
+      text: byBlocks
+        .map((block: any) => `[${block.block_id}]\n${block.text ?? block.raw_text ?? ""}`)
+        .join("\n\n"),
+      warnings: [],
+      rangeSource: "block_ids",
+    };
   }
 
-  return llmText;
+  return {
+    text: llmText,
+    warnings: [
+      rangeWarning({
+        type: "plan_range_suspected_misaligned",
+        message:
+          "planner item had no usable llm_text_ranges or block_ids; falling back to full text",
+        item,
+      }),
+    ],
+    rangeSource: "fallback",
+  };
 }
 
 export function filterDictionaryContextForProductType(
@@ -462,6 +633,10 @@ function buildItemMessages(params: {
         sheet_name: params.sheetName ?? "",
         document_info: params.plan.document_info ?? {},
         global_context: params.plan.global_context ?? null,
+        boundary_guard: buildBoundaryGuardPayload({
+          mode: "single",
+          item: params.item,
+        }),
         current_item: params.item,
         current_item_blocks: params.itemText,
         related_item_summaries: params.relatedItemSummaries,
@@ -469,6 +644,32 @@ function buildItemMessages(params: {
       }),
     },
   ];
+}
+
+function buildBoundaryGuardPayload(params: {
+  mode: "single" | "batch";
+  item: DocumentPlanItem;
+}) {
+  return {
+    instruction:
+      "Use only current_item_blocks for raw_fields. If current_item_blocks is clearly for another planned item or mostly contains previous/next item text, return an empty extraction and report current_item_blocks_mismatch.",
+    mismatch_warning: {
+      type: "current_item_blocks_mismatch",
+      message:
+        "current_item_blocks does not match the planned item; backend should replan, recut, or fall back",
+      evidence: {
+        item_index: params.item.item_index,
+        expected_item_name: params.item.item_name ?? null,
+        expected_product_type: params.item.product_type_hint ?? null,
+        expected_product_type_raw: params.item.product_type_raw ?? null,
+        mode: params.mode,
+      },
+    },
+    empty_extraction_shape:
+      params.mode === "batch"
+        ? { document_info: {}, items: [] }
+        : { extraction: { document_info: {}, items: [] }, warnings: [] },
+  };
 }
 
 function buildBatchItemMessages(params: {
@@ -497,12 +698,16 @@ function buildBatchItemMessages(params: {
           global_context: input.plan.global_context ?? null,
           item_index: input.item.item_index,
           product_type_hint: input.item.product_type_hint ?? params.productTypeHint,
+          boundary_guard: buildBoundaryGuardPayload({
+            mode: "batch",
+            item: input.item,
+          }),
           current_item: input.item,
           current_item_blocks: buildItemInputText(
             input.llmText,
             input.blocksJson,
             input.item,
-          ),
+          ).text,
           related_item_summaries: relatedPlanItems(input),
         })),
         dictionary_context: params.dictionaryContext,
@@ -608,7 +813,7 @@ export async function extractItemsFromPlanWithXh(
         params.dictionaryContext,
         productType,
       );
-      const itemText = buildItemInputText(llmText, params.blocksJson, item);
+      const itemInputText = buildItemInputText(llmText, params.blocksJson, item);
       const content = await requestXhChatJson({
         client,
         model,
@@ -618,7 +823,7 @@ export async function extractItemsFromPlanWithXh(
           sheetName: params.sheetName,
           plan,
           item,
-          itemText,
+          itemText: itemInputText.text,
           relatedItemSummaries,
           dictionaryContext: filteredDictionaryContext,
         }),
@@ -633,6 +838,10 @@ export async function extractItemsFromPlanWithXh(
       });
 
       const result = validateXhExtractionContent(content);
+      result.warnings = [
+        ...(itemInputText.warnings ?? []),
+        ...(result.warnings ?? []),
+      ];
       return result;
     },
   );
@@ -826,7 +1035,8 @@ function buildDocumentPlanSystemPrompt(
 
 只输出一个合法 JSON object，不要 Markdown、解释、代码块或注释。
 
-输入是带行号的 numbered_llm_text。每行前缀形如 "0001: ..."。你的 block/range 输出要尽量引用这些行号。
+输入是带行号的 numbered_llm_text。每行前缀形如 "0001: ..."。你的 block/range 输出必须引用这些四位数物理行号。
+注意：文本内容里的 "Row 67:" 是 Excel 原始行号，不是 llm_text_ranges 行号。不要把 Excel Row 号直接填入 start_line/end_line；除非它左侧前缀也正好是同一个四位数物理行号。
 
 必须输出：
 {
@@ -864,10 +1074,10 @@ ${formatProductTypeOptions(dictionaryContext)}
 2. 不要输出 raw_fields，不要抽配置字段，不要输出 term_type/canonical_value/parsed_value。
 3. 如果文件包含“模头 + 定型模 + 分配器 + 连接器/联结器/换网器/计量泵/液压站”等多个可报价对象，必须拆成多个 items。
 4. 如果多个 item 属于一套系统，用 related_item_indexes 和 relation_note 表达，不要把它们合并成一个 item。
-5. document_info 只放当前产品编号、合同编号、订单号、客户、日期、业务人员等文档级信息。当前产品编号统一使用 product_number；模头编号、制品编号、配件编号、die_number、parts_number 都归入 product_number。
+5. document_info 只放当前产品编号、合同编号、订单号、客户、日期、业务人员、使用地、使用地点、使用地区、使用区域、国内使用/出口使用、国内使用或出口使用、出口国家等文档级信息。当前产品编号统一使用 product_number；模头编号、制品编号、配件编号、die_number、parts_number 都归入 product_number；国内/出口类写入 usage_market，国家/出口国家类写入 country。
 6. “原产品编号 / 参考产品编号 / 历史产品编号 / 互配产品编号”不是当前产品编号，不要放入 document_info.product_number；它属于 item 配置字段 reference_product，应留给 item 抽取阶段处理。
 7. global_context 保留会影响后续 item 抽取的共用备注、系统关系、整套说明。
-8. llm_text_ranges 要覆盖当前 item 的标题、字段区和备注区；宁可稍宽，不要漏掉同一 item 的上下文。
+8. llm_text_ranges 要覆盖当前 item 的标题、字段区和备注区；start_line/end_line 必须使用 numbered_llm_text 左侧的四位物理行号（例如 "0067:"），不能使用 Excel "Row 67:" 的 67；宁可稍宽，不要漏掉同一 item 的上下文。
 9. 定型模、二级定型模、sizing die 应作为 sizing_die item；不要合并到平模头、涂布模头或其他模头 item。
 10. 风刀、气刀、贴辊风刀、真空箱、负压箱、air knife、vacuum box 等位于模头和冷却辊/滚筒之间、用于吹风或负压吸附使薄膜贴紧滚筒的装置，优先作为 air_knife item。
 11. 静态混合器、喷丝板/喷丝组件、单体抽吸、IBC 气泡冷却单元、开车阀/换向阀、热风管道、保温罩、控温系统等，如果以独立标题、产品编号、数量或独立配置块出现，应拆成独立 item；如果只在主产品配置项、勾选项或备注里出现，则作为当前 item 的配置字段。
@@ -920,13 +1130,14 @@ function buildItemExtractSystemPrompt(
 7. 每个 raw_field 必须有 field_name、value、raw_text、evidence、confidence。
 8. 如果字段值明显包含多个业务属性，在该 raw_field 上输出 split_fields；split_fields 也只能用中文 field_name 和原文 value。
 9. 只输出属于当前 product_type 或 current_item 的配置字段；不要把 related_item_summaries 里的字段误放到 current item。
-10. document_info 可以带回阶段一已有文档级信息，但不要把业务员、制单人等人员字段放进 raw_fields。
+10. document_info 可以带回阶段一已有文档级信息，但不要把业务员、制单人、使用地、使用地点、使用地区、使用区域、国内使用、出口使用、国内使用/出口使用、国内使用或出口使用、出口国家、国家等文档级字段放进 raw_fields；这些只能写入 document_info。
 11. dictionary_context 只用于理解字段边界和字段适用产品范围；不要输出其中的 term_type 或 canonical value。
 12. [SEL]、■、☑、✔、✓ 表示选中；[ ]、□ 表示未选中。多选字段只输出选中的选项。
 13. 如果 current_item_blocks 中同时包含当前 item 和隐藏的配套 item 配置，可以输出多个 items 来保留边界。典型场景：换网器配置块里写“配液压站”、液压站型号、功率、油箱容量、液压压力、控制方式等，这些字段必须放入 product_type_hint.value = "hydraulic_station" 的 item，不要混入 filter item。
 14. 如果当前 product_type_hint 是 sizing_die，应抽取定型模/二级定型模/sizing die 自身配置；不要因为它属于模具体系就改成 flat_die 或 coating_die。
 15. 如果当前 product_type_hint 是 air_knife，应抽取风刀/气刀/贴辊风刀/真空箱/负压箱自身配置；不要因为它安装在模头和滚筒之间就合并到 flat_die 或冷却辊 item。
-16. 如果 current_item_blocks 里出现静态混合器、喷丝板/喷丝组件、单体抽吸、IBC 气泡冷却单元、开车阀/换向阀、热风管道、保温罩、控温系统等独立标题、产品编号、数量或配置块，可以输出对应独立 item；如果只是当前产品的勾选配置或备注，不要拆 item。
+16. “模头有效宽度 / 口模宽度 / 口模有效宽度”属于模头 item，不要放入 feedblock/分配器 item；如果 current_item_blocks 同时覆盖分配器和模头字段，应拆出或归回模头 item。
+17. 如果 current_item_blocks 里出现静态混合器、喷丝板/喷丝组件、单体抽吸、IBC 气泡冷却单元、开车阀/换向阀、热风管道、保温罩、控温系统等独立标题、产品编号、数量或配置块，可以输出对应独立 item；如果只是当前产品的勾选配置或备注，不要拆 item。
 
 输出示例：
 {
@@ -988,12 +1199,14 @@ function buildBatchItemExtractSystemPrompt(
 10. 每个 raw_field 必须有 field_name、value、raw_text、evidence、confidence。
 11. 如果字段值明显包含多个业务属性，在该 raw_field 上输出 split_fields；split_fields 也只能用中文 field_name 和原文 value。
 12. 只输出属于当前 product_type 或 current_item 的配置字段；不要把 related_item_summaries 里的字段误放到 current item。
-13. dictionary_context 只用于理解字段边界和字段适用产品范围；不要输出其中的 term_type 或 canonical value。
-14. [SEL]、■、☑、✔、✓ 表示选中；[ ]、□ 表示未选中。多选字段只输出选中的选项。
-15. 如果 current_item_blocks 中同时包含当前 item 和隐藏的配套 item 配置，可以输出多个 items 来保留边界。典型场景：换网器配置块里写“配液压站”、液压站型号、功率、油箱容量、液压压力、控制方式等，这些字段必须放入 product_type_hint.value = "hydraulic_station" 的 item，不要混入 filter item。
-16. 如果当前 product_type_hint 是 sizing_die，应抽取定型模/二级定型模/sizing die 自身配置；不要因为它属于模具体系就改成 flat_die 或 coating_die。
-17. 如果当前 product_type_hint 是 air_knife，应抽取风刀/气刀/贴辊风刀/真空箱/负压箱自身配置；不要因为它安装在模头和滚筒之间就合并到 flat_die 或冷却辊 item。
-18. 如果 current_item_blocks 里出现静态混合器、喷丝板/喷丝组件、单体抽吸、IBC 气泡冷却单元、开车阀/换向阀、热风管道、保温罩、控温系统等独立标题、产品编号、数量或配置块，可以输出对应独立 item；如果只是当前产品的勾选配置或备注，不要拆 item。
+13. 禁止把“使用地 / 使用地点 / 使用地区 / 使用区域 / 国内使用 / 出口使用 / 国内使用/出口使用 / 国内使用或出口使用 / 出口国家 / 出口国别 / 国家”放入 raw_fields；这些字段只属于 document_info。国内/出口类写入 document_info.usage_market，出口国家/国家类写入 document_info.country。
+14. dictionary_context 只用于理解字段边界和字段适用产品范围；不要输出其中的 term_type 或 canonical value。
+15. [SEL]、■、☑、✔、✓ 表示选中；[ ]、□ 表示未选中。多选字段只输出选中的选项。
+16. 如果 current_item_blocks 中同时包含当前 item 和隐藏的配套 item 配置，可以输出多个 items 来保留边界。典型场景：换网器配置块里写“配液压站”、液压站型号、功率、油箱容量、液压压力、控制方式等，这些字段必须放入 product_type_hint.value = "hydraulic_station" 的 item，不要混入 filter item。
+17. 如果当前 product_type_hint 是 sizing_die，应抽取定型模/二级定型模/sizing die 自身配置；不要因为它属于模具体系就改成 flat_die 或 coating_die。
+18. 如果当前 product_type_hint 是 air_knife，应抽取风刀/气刀/贴辊风刀/真空箱/负压箱自身配置；不要因为它安装在模头和滚筒之间就合并到 flat_die 或冷却辊 item。
+19. “模头有效宽度 / 口模宽度 / 口模有效宽度”属于模头 item，不要放入 feedblock/分配器 item；如果 current_item_blocks 同时覆盖分配器和模头字段，应拆出或归回模头 item。
+20. 如果 current_item_blocks 里出现静态混合器、喷丝板/喷丝组件、单体抽吸、IBC 气泡冷却单元、开车阀/换向阀、热风管道、保温罩、控温系统等独立标题、产品编号、数量或配置块，可以输出对应独立 item；如果只是当前产品的勾选配置或备注，不要拆 item。
 
 输出示例：
 {

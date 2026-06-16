@@ -112,8 +112,8 @@ product_type_hint 规则：
    * contract_number / 合同编号
    * order_number / 订单编号
    * customer_id / 客户ID
-   * usage_market / 国内使用、出口使用
-   * country / 国家
+   * usage_market / 国内使用、出口使用、使用地、使用地点、使用地区、使用区域、国内使用/出口使用、国内使用或出口使用
+   * country / 国家、出口国家、出口国别、目的国家
    * order_date / 下单日期
    * delivery_date / 交货日期
    * completion_date / 完工日期
@@ -122,6 +122,9 @@ product_type_hint 规则：
    * contract_creator / 合同制作人
 
 2. items[].raw_fields 放产品配置类字段：
+
+   * 禁止把“使用地 / 使用地点 / 使用地区 / 使用区域 / 国内使用 / 出口使用 / 国内使用/出口使用 / 国内使用或出口使用 / 出口国家 / 出口国别 / 国家”放入 items[].raw_fields；这些字段只属于 document_info。国内/出口类写入 document_info.usage_market，出口国家/国家类写入 document_info.country。
+   * “模头有效宽度 / 口模宽度 / 口模有效宽度”属于模头 item（flat_die/coating_die/blown_film_die 等），即使它出现在分配器/连接器附近，也不要放入 feedblock item。
 
    * 产品材质、模头材料选用
    * 模头宽度调节方式

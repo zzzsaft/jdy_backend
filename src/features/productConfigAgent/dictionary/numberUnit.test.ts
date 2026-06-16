@@ -11,6 +11,8 @@ const aliases = new Map([
   ["℃", { id: "7", canonicalUnit: "℃", displayUnit: "℃" }],
   ["m", { id: "8", canonicalUnit: "m", displayUnit: "m" }],
   ["转/分钟", { id: "9", canonicalUnit: "rpm", displayUnit: "rpm" }],
+  ["cm3/rev", { id: "10", canonicalUnit: "cm3/rev", displayUnit: "cm3/rev" }],
+  ["um", { id: "11", canonicalUnit: "um", displayUnit: "um" }],
 ]);
 
 assert.equal(normalizeUnitAliasText("cm³/rev"), "cm3/rev");
@@ -181,6 +183,83 @@ assert.deepEqual(pick(normalizeNumberUnit("0.4-5mm，开口1-6mm", aliases)), {
   trailingFieldName: "开口",
   trailingRawValue: "1-6mm",
   normalizedValue: "0.4-5 mm",
+});
+
+assert.deepEqual(
+  pick(
+    normalizeNumberUnit(
+      "700mm\u6700\u7ec8\u5236\u54c1\u5bbd\u5ea6\u7531\u9700\u65b9\u5de5\u827a\u51b3\u5b9a",
+      aliases,
+    ),
+  ),
+  {
+    numericText: "700",
+    numberKind: "single",
+    value: "700",
+    unitRaw: "mm",
+    unitCanonical: "mm",
+    trailingText:
+      "\u6700\u7ec8\u5236\u54c1\u5bbd\u5ea6\u7531\u9700\u65b9\u5de5\u827a\u51b3\u5b9a",
+    normalizedValue: "700 mm",
+  },
+);
+
+assert.deepEqual(
+  pick(normalizeNumberUnit("460 kg/h\u6309\u8fd9\u4e2a\u8bbe\u8ba1", aliases)),
+  {
+    numericText: "460",
+    numberKind: "single",
+    value: "460",
+    unitRaw: "kg/h",
+    unitCanonical: "kg/h",
+    trailingText: "\u6309\u8fd9\u4e2a\u8bbe\u8ba1",
+    normalizedValue: "460 kg/h",
+  },
+);
+
+assert.deepEqual(
+  pick(
+    normalizeNumberUnit(
+      "10.2mm\u6c34\u5957\u6574\u4f53\u7ed3\u6784\uff0c\u6a21\u5507\u53e3\u5012\u89d2R1.3mm",
+      aliases,
+    ),
+  ),
+  {
+    numericText: "10.2",
+    numberKind: "single",
+    value: "10.2",
+    unitRaw: "mm",
+    unitCanonical: "mm",
+    trailingText:
+      "\u6c34\u5957\u6574\u4f53\u7ed3\u6784,\u6a21\u5507\u53e3\u5012\u89d2R1.3mm",
+    normalizedValue: "10.2 mm",
+  },
+);
+
+assert.deepEqual(
+  pick(normalizeNumberUnit("0.4-5mm\u5f00\u53e31-6mm", aliases)),
+  {
+    numericText: "0.4-5",
+    numberKind: "range",
+    rangeStart: "0.4",
+    rangeEnd: "5",
+    rangeMin: "0.4",
+    rangeMax: "5",
+    unitRaw: "mm",
+    unitCanonical: "mm",
+    trailingText: "\u5f00\u53e31-6mm",
+    trailingFieldName: "\u5f00\u53e3",
+    trailingRawValue: "1-6mm",
+    normalizedValue: "0.4-5 mm",
+  },
+);
+
+assert.deepEqual(pick(normalizeNumberUnit("1920mmmm", aliases)), {
+  numericText: "1920",
+  numberKind: "single",
+  value: "1920",
+  unitRaw: "mmmm",
+  normalizedValue: "1920 mmmm",
 });
 
 const malformed = normalizeNumberUnit("0.010-0.0.04mm", aliases);

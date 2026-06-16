@@ -11,6 +11,7 @@ import { logger } from "./config/logger.js";
 import { schedule } from "./schedule/index.js";
 import { autoParse, expressLog, requestLimiter } from "./config/autoParse.js";
 import { DatabaseTransport } from "./config/database-transport.js";
+import { backgroundJobService } from "./features/backgroundJob/index.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -52,6 +53,7 @@ PgDataSource.initialize()
     app.listen(port, () => {
       logger.info(`[server]: Server is running at http://localhost:${port}`);
     });
+    backgroundJobService.startWorker();
     // console.log(a);
   })
   .catch((err) => {

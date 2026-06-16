@@ -4,6 +4,7 @@ import {
   DictionaryCandidate,
   DictionaryTermTypeCandidate,
   DictionaryTerm,
+  DictionaryAlias,
   DictionaryCandidateOccurrence,
   DictionaryUnitAlias,
   DictionaryUnitCandidate,
@@ -30,6 +31,7 @@ import { normalizeMultiEnumValues, buildEnumsFieldResult, extractMultiValueToken
 import type {
   CreateTermTypeCandidateParams,
   CreateValueCandidateParams,
+  CachedValueAlias,
   DictionaryValueKind,
   LlmDictionaryContext,
   NormalizedFieldResult,
@@ -39,6 +41,7 @@ import type {
 } from "./dictionary.types.js";
 import {
   buildMatchedFieldResult,
+  formatStructuredTextNormalizedValue,
   normalizeText,
   termTypeSpecificityScore,
   valueAliasKey,
@@ -106,15 +109,25 @@ export class DictionaryService {
   }
 
   async getProductTypeOptions(): Promise<
-    Array<{ canonicalValue: string; displayName: string }>
+    Array<{ canonicalValue: string; displayName: string; aliases: string[] }>
   > {
     const terms = await this.dataSource.getRepository(DictionaryTerm).find({
       where: { termType: "product_type", isActive: true },
       order: { displayName: "ASC" },
     });
+    const aliases = await this.dataSource.getRepository(DictionaryAlias).find({
+      where: { termType: "product_type", isActive: true },
+    });
+    const aliasesByTermId = new Map<string, string[]>();
+    for (const alias of aliases) {
+      const values = aliasesByTermId.get(alias.termId) ?? [];
+      values.push(alias.aliasValue);
+      aliasesByTermId.set(alias.termId, values);
+    }
     return terms.map((term) => ({
       canonicalValue: term.canonicalValue,
       displayName: term.displayName ?? term.canonicalValue,
+      aliases: aliasesByTermId.get(term.id) ?? [],
     }));
   }
 
@@ -652,18 +665,76 @@ export class DictionaryService {
     const itemProductTypeHint = normalizeProductTypeHintForMatch(
       params.itemProductTypeHint,
     );
-    const termTypeMatch = await this.matchTermType(params.fieldName, {
+    const rangeBoundField = normalizeRangeBoundFieldName(params.fieldName);
+    const fieldNameForMatch = rangeBoundField?.baseFieldName ?? params.fieldName;
+    const termTypeMatch = await this.matchTermType(fieldNameForMatch, {
       itemProductTypeHint,
     });
     const normalizedValue = this.normalizeText(params.rawValue);
 
     if (!termTypeMatch.matched || termTypeMatch.crossProductFallback) {
+      const valueLikeFieldName = this.detectValueLikeFieldName({
+        fieldName: params.fieldName,
+        rawValue: params.rawValue,
+        itemProductTypeHint,
+      });
+      if (!termTypeMatch.crossProductFallback && valueLikeFieldName) {
+        const valueLikeRawValue = this.pickValueLikeFieldNameRawValue({
+          fieldName: params.fieldName,
+          rawValue: params.rawValue,
+        });
+        const valueCandidate = valueLikeFieldName.termType
+          ? await this.createValueCandidate({
+              documentId: params.documentId,
+              extractionResultId: params.extractionResultId,
+              itemIndex: params.itemIndex,
+              sourceProductType: itemProductTypeHint,
+              termType: valueLikeFieldName.termType,
+              rawValue: valueLikeRawValue,
+              reason: "value_like_field_name",
+              evidence: {
+                ...(params.evidence && typeof params.evidence === "object"
+                  ? (params.evidence as Record<string, unknown>)
+                  : {}),
+                rawFieldName: params.fieldName,
+                sourceRawValue: params.rawValue,
+                valueLikeFieldNameReason: valueLikeFieldName.reason,
+              },
+            })
+          : null;
+
+        return {
+          matched: false,
+          fieldMatched: false,
+          rawFieldName: params.fieldName,
+          normalizedFieldName: termTypeMatch.normalizedFieldName,
+          rawValue: params.rawValue,
+          normalizedValue,
+          termType: valueLikeFieldName.termType,
+          itemIndex: params.itemIndex,
+          itemProductTypeHint,
+          valueCandidate: valueCandidate ?? undefined,
+          warnings: [
+            {
+              type: valueCandidate
+                ? "value_like_field_name_moved_to_value_candidate"
+                : "value_like_field_name_not_term_type",
+              message: valueCandidate
+                ? "字段名看起来是枚举值，已按字段值候选处理，未生成字段 Key 候选"
+                : "字段名看起来是枚举值，不应作为字段 Key 候选",
+              rawValue: params.rawValue,
+              termType: valueLikeFieldName.termType,
+            },
+          ],
+        };
+      }
+
       const termTypeCandidate = await this.createTermTypeCandidate({
         documentId: params.documentId,
         extractionResultId: params.extractionResultId,
         itemIndex: params.itemIndex,
         sourceProductType: itemProductTypeHint,
-        rawFieldName: params.fieldName,
+        rawFieldName: fieldNameForMatch,
         rawValue: params.rawValue,
         proposedTermType: termTypeMatch.crossProductTermTypes?.[0],
         reason: termTypeMatch.crossProductFallback
@@ -922,6 +993,19 @@ export class DictionaryService {
     reason?: string;
   }): Promise<void> {
     await rejectTermTypeCandidateRecord(this.dataSource, params);
+  }
+
+  async markTermTypeCandidateAsDocumentInfo(params: {
+    candidateId: string;
+    reviewedBy?: string;
+    reason?: string;
+  }): Promise<void> {
+    await rejectTermTypeCandidateRecord(this.dataSource, {
+      candidateId: params.candidateId,
+      reviewedBy: params.reviewedBy,
+      reason:
+        params.reason ?? "document_info_field_not_product_term_type",
+    });
   }
 
   async listUnitAliases() {
@@ -1399,6 +1483,131 @@ export class DictionaryService {
     };
   }
 
+  private pickValueLikeFieldNameRawValue(params: {
+    fieldName: string;
+    rawValue: string;
+  }): string {
+    const normalizedFieldName = this.normalizeText(params.fieldName);
+    const normalizedValue = this.normalizeText(params.rawValue);
+    if (
+      normalizedValue &&
+      normalizedFieldName &&
+      (normalizedValue === normalizedFieldName ||
+        normalizedValue.startsWith(normalizedFieldName))
+    ) {
+      return params.rawValue || params.fieldName;
+    }
+
+    return params.fieldName || params.rawValue;
+  }
+
+  private detectValueLikeFieldName(params: {
+    fieldName: string;
+    rawValue: string;
+    itemProductTypeHint: string;
+  }): { termType?: string; reason: string } | null {
+    const normalizedFieldName = this.normalizeText(params.fieldName);
+    const normalizedValue = this.normalizeText(params.rawValue);
+    if (!normalizedFieldName) {
+      return null;
+    }
+
+    const valueAliasMatches = this.findValueAliasesByNormalizedValue(
+      normalizedFieldName,
+      params.itemProductTypeHint,
+    );
+    if (valueAliasMatches.length) {
+      return {
+        termType: valueAliasMatches[0].termType,
+        reason: "raw_field_name_matches_dictionary_value_alias",
+      };
+    }
+
+    const fieldEqualsValue =
+      normalizedValue === normalizedFieldName ||
+      (normalizedValue.length > normalizedFieldName.length &&
+        normalizedValue.startsWith(normalizedFieldName));
+    const surfacePlatingValueLike = this.detectSurfacePlatingValueLikeFieldName({
+      fieldEqualsValue,
+      normalizedFieldName,
+    });
+    if (surfacePlatingValueLike) {
+      return surfacePlatingValueLike;
+    }
+
+    if (
+      fieldEqualsValue &&
+      normalizedFieldName.length <= 12 &&
+      /(?:式|型|有|无|内置|外置|自动|手动|是|否)$/u.test(params.fieldName.trim())
+    ) {
+      return { reason: "raw_field_name_equals_value_like_token" };
+    }
+
+    return null;
+  }
+
+  private detectSurfacePlatingValueLikeFieldName(params: {
+    fieldEqualsValue: boolean;
+    normalizedFieldName: string;
+  }): { termType: string; reason: string } | null {
+    if (!params.fieldEqualsValue) {
+      return null;
+    }
+
+    const text = params.normalizedFieldName;
+    const hasPlatingAction =
+      text.includes("\u7535\u9540") ||
+      text.includes("\u9540\u94ec") ||
+      text.includes("\u9540\u5c42") ||
+      text.includes("\u9540\u5904\u7406");
+    if (!hasPlatingAction) {
+      return null;
+    }
+
+    const hasRequirementContext =
+      text.includes("\u9700\u8981") ||
+      text.includes("\u9700") ||
+      text.includes("\u8981\u6c42") ||
+      text.includes("\u5904\u7406") ||
+      text.includes("\u8868\u9762") ||
+      text.includes("\u6d41\u9053");
+    if (!hasRequirementContext) {
+      return null;
+    }
+
+    return {
+      termType: "surface_plating_type",
+      reason: "raw_field_name_is_surface_plating_value_phrase",
+    };
+  }
+
+  private findValueAliasesByNormalizedValue(
+    normalizedValue: string,
+    itemProductTypeHint: string,
+  ): CachedValueAlias[] {
+    const matches: CachedValueAlias[] = [];
+    for (const [key, alias] of this.cache.valueAliasMap.entries()) {
+      if (!key.endsWith(`:${normalizedValue}`)) {
+        continue;
+      }
+      const termType = this.cache.termTypeMap.get(alias.termType);
+      const applicable = termType?.applicableProductTypes ?? [];
+      if (
+        applicable.length &&
+        !applicable.includes("common") &&
+        !applicable.includes(itemProductTypeHint)
+      ) {
+        continue;
+      }
+      matches.push(alias);
+    }
+    return matches.sort((left, right) => {
+      const leftTerm = this.cache.termTypeMap.get(left.termType);
+      const rightTerm = this.cache.termTypeMap.get(right.termType);
+      return (leftTerm?.sortOrder ?? 1000) - (rightTerm?.sortOrder ?? 1000);
+    });
+  }
+
   private async normalizeEnumsField(
     params: NormalizeFieldParams,
     termTypeMatch: TermTypeMatchResult,
@@ -1622,13 +1831,22 @@ export class DictionaryService {
     termType: string,
     valueKind: DictionaryValueKind,
   ): NormalizedFieldResult {
+    const normalizedValue =
+      valueKind === "text"
+        ? formatStructuredTextNormalizedValue({
+            termType,
+            rawFieldName: params.fieldName,
+            rawValue: params.rawValue,
+          })
+        : this.normalizeText(params.rawValue);
+
     return {
       matched: true,
       fieldMatched: true,
       rawFieldName: params.fieldName,
       normalizedFieldName: termTypeMatch.normalizedFieldName,
       rawValue: params.rawValue,
-      normalizedValue: this.normalizeText(params.rawValue),
+      normalizedValue,
       termType,
       candidateTermTypes:
         termTypeMatch.termTypes.length > 1 ? termTypeMatch.termTypes : undefined,
@@ -1858,6 +2076,22 @@ export class DictionaryService {
 function normalizeProductTypeHintForMatch(value: unknown): string {
   const normalized = String(value ?? "").trim();
   return normalized || "unknown";
+}
+
+function normalizeRangeBoundFieldName(
+  fieldName: string,
+): { baseFieldName: string; bound: "min" | "max" } | null {
+  const compact = String(fieldName ?? "").replace(/\s+/g, "");
+  const match = compact.match(
+    /^(\u4ea7\u91cf|\u8f6c\u901f)(\u6700\u5c0f\u503c|\u6700\u5927\u503c|\u6700\u5c0f|\u6700\u5927)$/u,
+  );
+  if (!match) {
+    return null;
+  }
+  return {
+    baseFieldName: match[1],
+    bound: match[2].includes("\u5c0f") ? "min" : "max",
+  };
 }
 
 function isExplicitNumberUnitSplitField(value: string): boolean {

@@ -1,10 +1,12 @@
 import type { LlmExtractionItem } from "../extraction/types.js";
 import type { DictionaryExtractionWarning } from "./types.js";
+import { normalizeText } from "../dictionary/dictionary.utils.js";
 import { createWarning } from "./warnings.js";
 
 type ProductTypeOption = {
   canonicalValue: string;
   displayName: string;
+  aliases?: string[];
 };
 
 export function resolveItemProductTypeHint(params: {
@@ -33,6 +35,19 @@ export function resolveItemProductTypeHint(params: {
   }
 
   if (!value || value === "unknown") {
+    const itemNameMatch = matchProductTypeByItemName({
+      item: params.item,
+      productTypeOptions: [...params.productTypeMap.values()],
+    });
+    if (itemNameMatch) {
+      return {
+        itemProductTypeHint: itemNameMatch.canonicalValue,
+        rawValue: params.item.item_name?.value,
+        displayName: itemNameMatch.displayName,
+        confidence: hint?.confidence,
+        warnings: [],
+      };
+    }
     return {
       itemProductTypeHint: "unknown",
       rawValue,
@@ -57,4 +72,28 @@ export function resolveItemProductTypeHint(params: {
       }),
     ],
   };
+}
+
+function matchProductTypeByItemName(params: {
+  item: LlmExtractionItem;
+  productTypeOptions: ProductTypeOption[];
+}): ProductTypeOption | null {
+  const itemName = normalizeText(params.item.item_name?.value);
+  if (!itemName) return null;
+
+  const aliasMatches = params.productTypeOptions
+    .flatMap((option) =>
+      [
+        option.canonicalValue,
+        option.displayName,
+        ...(option.aliases ?? []),
+      ].map((alias) => ({
+        option,
+        alias: normalizeText(alias),
+      })),
+    )
+    .filter(({ alias }) => alias && itemName.includes(alias))
+    .sort((left, right) => right.alias.length - left.alias.length);
+
+  return aliasMatches[0]?.option ?? null;
 }

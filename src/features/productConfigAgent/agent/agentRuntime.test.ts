@@ -39,6 +39,8 @@ const context = await executeProductConfigPlan(
           config: input.config,
           validation: input.validation,
           shareToken: null,
+          shareTokenExpiresAt: null,
+          shareTokenRevokedAt: null,
           ownerUserId: "tester",
         };
       },

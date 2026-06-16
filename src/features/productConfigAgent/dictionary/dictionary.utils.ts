@@ -90,3 +90,75 @@ export function buildMatchedFieldResult(
     warnings,
   };
 }
+
+export function formatStructuredTextNormalizedValue(params: {
+  termType: string;
+  rawFieldName: string;
+  rawValue: string;
+}): string {
+  const rawFieldName = String(params.rawFieldName ?? "").trim();
+  const rawValue = String(params.rawValue ?? "").trim();
+  if (!rawValue) {
+    return rawValue;
+  }
+
+  if (
+    params.termType === "layer_ratio" &&
+    isLayerRatioStructuredFieldName(rawFieldName)
+  ) {
+    return `${rawFieldName}: ${rawValue}`;
+  }
+
+  if (
+    params.termType === "extruder_model" &&
+    isExtruderModelStructuredFieldName(rawFieldName)
+  ) {
+    return `${rawFieldName}: ${rawValue}`;
+  }
+
+  return rawValue;
+}
+
+function isLayerRatioStructuredFieldName(rawFieldName: string): boolean {
+  const compact = rawFieldName.replace(/\s+/g, "");
+  if (!compact) {
+    return false;
+  }
+
+  if (/(复合比例|层比例|层配比|层占比)/i.test(compact)) {
+    return true;
+  }
+
+  if (
+    /(?:[A-Ea-e]|[一二三四五六七八九十]|表|芯|中间|内|外|上|下)[层]/.test(compact)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function isExtruderModelStructuredFieldName(rawFieldName: string): boolean {
+  const compact = rawFieldName.replace(/\s+/g, "");
+  if (!compact) {
+    return false;
+  }
+
+  if (!/挤出机/.test(compact)) {
+    return false;
+  }
+
+  if (/型号/.test(compact)) {
+    return true;
+  }
+
+  if (
+    /(?:[A-Ea-e]|[一二三四五六七八九十]|主|副|表|芯|中间|内|外|上|下)[层]?挤出机/.test(
+      compact,
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}

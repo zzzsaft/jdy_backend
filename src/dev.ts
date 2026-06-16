@@ -50,6 +50,7 @@ import _ from "lodash";
 import { bestSignContractService } from "./features/bestsign/service/bestSignContractService.js";
 import { bestSignMaintenanceService } from "./features/bestsign/service/bestSignMaintenanceService.js";
 import { main } from "./features/hr/service/test.js";
+import { backgroundJobService } from "./features/backgroundJob/index.js";
 const { uniqueId } = _;
 // main();
 
@@ -221,6 +222,7 @@ PgDataSource.initialize()
     app.listen(port, () => {
       logger.info(`[server]: Server is running at http://localhost:${port}`);
     });
+    backgroundJobService.startWorker();
     // console.log(a);
   })
   .catch((err) => {

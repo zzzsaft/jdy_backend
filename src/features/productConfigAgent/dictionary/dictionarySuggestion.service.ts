@@ -370,6 +370,12 @@ const BATCH_REVIEW_SYSTEM_PROMPT = `你是 productConfigAgent 字典候选批量
    * 液压站类型如果稳定有限，可以是 enum，例如 hydraulic_station_type。
    * 不要把“液压”单独错误归入 product_type。
 
+10. 分配器层比例规则：
+
+   * feedblock 场景下，“A层比例”“B层比例”“C层比例”等字段可以归入 layer_ratio。
+   * 但不要把它理解成无标签的单个“比例”字段；层位信息是有效业务信息，必须保留。
+   * 如果推荐 approve_as_alias 到 layer_ratio，reason 中应明确说明会保留原始层位标签，例如 “A层比例: 15%”。
+
 输出 JSON 格式：
 
 {

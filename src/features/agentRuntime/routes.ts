@@ -1,52 +1,25 @@
 import type { Request, Response } from "express";
-import { authService } from "../../services/authService.js";
 import { agentRuntimeService } from "./defaultRuntime.js";
-
-const LOCAL_DEV_PORT = 2001;
+import {
+  resolveUserIdOrLocalDev,
+  withRequiredUser,
+} from "../shared/routeAuth.js";
 
 type AgentRuntimeRouteAction = (
   request: Request,
   response: Response,
 ) => Promise<void>;
 
-function effectivePort(): number {
-  return Number(process.env.PORT ?? (process.env.NODE_ENV === "production" ? 2000 : LOCAL_DEV_PORT));
-}
-
-async function requireAgentRuntimeToken(
-  request: Request,
-  response: Response,
-): Promise<boolean> {
-  if (effectivePort() === LOCAL_DEV_PORT) {
-    return true;
-  }
-  const user = await authService.verifyToken(request);
-  if (!user?.userId) {
-    response.status(401).json({ error: "Unauthorized" });
-    return false;
-  }
-  return true;
-}
-
 function withAgentRuntimeToken(action: AgentRuntimeRouteAction): AgentRuntimeRouteAction {
-  return async (request, response) => {
-    if (!(await requireAgentRuntimeToken(request, response))) {
-      return;
-    }
-    await action(request, response);
-  };
+  return withRequiredUser(action);
 }
 
 async function getAgentRuntimeUserId(request: Request): Promise<string | null> {
-  if (effectivePort() === LOCAL_DEV_PORT) {
-    const localUser =
-      typeof request.headers["x-user-id"] === "string"
-        ? request.headers["x-user-id"].trim()
-        : "";
-    return localUser || "local-dev";
+  const resolvedUserId = (request as Request & { userId?: string }).userId;
+  if (resolvedUserId) {
+    return resolvedUserId;
   }
-  const user = await authService.verifyToken(request);
-  return user?.userId || null;
+  return resolveUserIdOrLocalDev(request);
 }
 
 const createSession = async (request: Request, response: Response) => {

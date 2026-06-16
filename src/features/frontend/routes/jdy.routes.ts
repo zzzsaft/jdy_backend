@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { appApiClient } from "../../jdy/api/app.js";
 import { formApiClient } from "../../jdy/api/form.js";
+import { withRequiredUser } from "../../shared/routeAuth.js";
 
 const getAppList = async (_request: Request, response: Response) => {
   response.send(await appApiClient.appList());
@@ -23,21 +24,21 @@ export const FrontendJdyRoutes = [
   {
     path: "/frontend/jdy/getAppList",
     method: "get",
-    action: getAppList,
+    action: withRequiredUser(getAppList),
   },
   {
     path: "/frontend/jdy/getEntryList/:app_id",
     method: "get",
-    action: getEntryList,
+    action: withRequiredUser(getEntryList),
   },
   {
     path: "/frontend/jdy/getFormWidgets",
     method: "get",
-    action: getFormWidgets,
+    action: withRequiredUser(getFormWidgets),
   },
   {
     path: "/frontend/company",
     method: "get",
-    action: getFormWidgets,
+    action: withRequiredUser(getFormWidgets),
   },
 ];

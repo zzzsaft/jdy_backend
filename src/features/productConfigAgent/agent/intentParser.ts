@@ -17,13 +17,18 @@ const REFERENCE_KEYWORDS: Array<{
 
 export function parseProductConfigAgentIntent(
   userMessage: string,
-): Pick<ProductConfigAgentPlan, "intent" | "entities" | "missingRequiredFields"> {
+): Pick<
+  ProductConfigAgentPlan,
+  "intent" | "entities" | "missingRequiredFields"
+> {
   const message = userMessage.trim();
   const lowerMessage = message.toLowerCase();
   const intent = inferIntent(lowerMessage);
   const entities = inferEntities(message);
   const missingRequiredFields =
-    intent === "generate_config" && !entities.productType && !entities.productNumber
+    intent === "generate_config" &&
+    !entities.productType &&
+    !entities.productNumber
       ? ["productType_or_productNumber"]
       : [];
 
@@ -35,16 +40,31 @@ export function parseProductConfigAgentIntent(
 }
 
 function inferIntent(message: string): ProductConfigAgentIntent {
-  if (["?", "？", "什么", "如何", "解释", "说明", "why", "explain"].some((item) => message.includes(item))) {
+  if (
+    ["?", "？", "什么", "如何", "解释", "说明", "why", "explain"].some((item) =>
+      message.includes(item),
+    )
+  ) {
     return "explain_config";
   }
-  if (["查找", "查询", "搜索", "找一下", "历史", "案例", "search"].some((item) => message.includes(item))) {
+  if (
+    ["查找", "查询", "搜索", "找一下", "历史", "案例", "search"].some((item) =>
+      message.includes(item),
+    )
+  ) {
     return "search_cases";
   }
-  if (["修改", "改成", "调整", "更新", "modify", "update"].some((item) => message.includes(item))) {
+  if (
+    ["修改", "改成", "调整", "更新", "modify", "update"].some((item) =>
+      message.includes(item),
+    )
+  ) {
     return "modify_config";
   }
-  if (!message || ["不确定", "再问", "澄清", "clarify"].some((item) => message.includes(item))) {
+  if (
+    !message ||
+    ["不确定", "再问", "澄清", "clarify"].some((item) => message.includes(item))
+  ) {
     return "clarify";
   }
   return "generate_config";
@@ -82,7 +102,11 @@ function inferEntities(message: string): ProductConfigAgentEntities {
   }
 
   for (const reference of REFERENCE_KEYWORDS) {
-    if (reference.keywords.some((keyword) => message.toLowerCase().includes(keyword.toLowerCase()))) {
+    if (
+      reference.keywords.some((keyword) =>
+        message.toLowerCase().includes(keyword.toLowerCase()),
+      )
+    ) {
       entities.referenceMode = reference.mode;
       break;
     }

@@ -17,6 +17,7 @@ export type AgentGeneratedConfigStatus = "draft" | "confirmed" | "archived";
 @Index(["sessionId"])
 @Index(["ownerUserId"])
 @Index(["status"])
+@Index(["shareTokenExpiresAt"])
 export class AgentGeneratedConfig extends BaseEntity {
   @PrimaryGeneratedColumn({ type: "bigint" })
   id: string;
@@ -41,6 +42,12 @@ export class AgentGeneratedConfig extends BaseEntity {
 
   @Column({ name: "share_token", type: "text", nullable: true })
   shareToken: string | null;
+
+  @Column({ name: "share_token_expires_at", type: "timestamp", nullable: true })
+  shareTokenExpiresAt: Date | null;
+
+  @Column({ name: "share_token_revoked_at", type: "timestamp", nullable: true })
+  shareTokenRevokedAt: Date | null;
 
   @Column({ name: "owner_user_id", type: "text", nullable: true })
   ownerUserId: string | null;

@@ -139,4 +139,5 @@ export type CandidateReviewAction =
   | "split_value"
   | "move_value_to_other_term_type"
   | "update_term_type_value_kind"
+  | "mark_term_type_as_doc_info"
   | "reject";

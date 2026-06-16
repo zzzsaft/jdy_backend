@@ -25,6 +25,11 @@ import { PendingLlmJobService } from "./workflow/pendingLlmJob.service.js";
 import { DirtyDataRefreshJobService } from "./workflow/dirtyDataRefreshJob.service.js";
 import { PlannedExtractionService } from "./workflow/plannedExtraction.service.js";
 import { productConfigAgentArchiveService } from "./archive/contractArchive.service.js";
+import {
+  backgroundJobService,
+  type BackgroundJobHandlerContext,
+} from "../backgroundJob/index.js";
+import type { BackgroundJob } from "../backgroundJob/index.js";
 import type {
   CandidateReviewAction,
   DirtyDataRefreshJob,
@@ -115,6 +120,11 @@ export class ProductConfigAgentService {
       this.dictionaryService,
       (documentId) => this.generateDictionaryForDocument(documentId),
     );
+    backgroundJobService.registerHandler({
+      type: "productConfigAgent.reviewCandidatesBatch",
+      run: (job, context) =>
+        this.runCandidateReviewBatchBackgroundJob(job, context),
+    });
   }
 
   async process(
@@ -341,6 +351,12 @@ export class ProductConfigAgentService {
     );
   }
 
+  async generateDictionaryForExtractionId(extractionResultId: number) {
+    return this.normalizationRefreshService.generateDictionaryForExtractionId(
+      extractionResultId,
+    );
+  }
+
   async countRenormalizationTargets(params?: {
     onlyMissingNormalized?: boolean;
     withPendingCandidates?: boolean;
@@ -414,11 +430,39 @@ export class ProductConfigAgentService {
       action: CandidateReviewAction;
       payload: any;
     }>;
+    completedOperationResults?: Array<{
+      index: number;
+      result: {
+        candidateType: "term_type" | "value";
+        candidateId: string;
+        action: string;
+        status: "ok" | "failed";
+        error?: string;
+      };
+      affectedDocumentIds?: number[];
+    }>;
+    onOperationProcessed?: (event: {
+      operation: {
+        candidateType: "term_type" | "value";
+        candidateId: string;
+        action: CandidateReviewAction;
+        payload: any;
+      };
+      index: number;
+      affectedDocumentIds: number[];
+      result: {
+        candidateType: "term_type" | "value";
+        candidateId: string;
+        action: string;
+        status: "ok" | "failed";
+        error?: string;
+      };
+    }) => void | Promise<void>;
   }) {
     return this.candidateReviewWorkflowService.reviewCandidatesBatch(params);
   }
 
-  startCandidateReviewBatchJob(params: {
+  async startCandidateReviewBatchJob(params: {
     refreshAffectedDocuments?: boolean;
     deferCandidateRecheck?: boolean;
     operations: Array<{
@@ -428,13 +472,97 @@ export class ProductConfigAgentService {
       payload: any;
     }>;
   }) {
-    return this.candidateReviewWorkflowService.startCandidateReviewBatchJob(
-      params,
-    );
+    if (params.operations.length > 200) {
+      throw new Error("operations length must be <= 200");
+    }
+    return backgroundJobService.enqueue({
+      type: "productConfigAgent.reviewCandidatesBatch",
+      payload: params,
+      progress: {
+        requestedCount: params.operations.length,
+        processedCount: 0,
+        successCount: 0,
+        failedCount: 0,
+        operationResults: [],
+      },
+      maxAttempts: 3,
+    });
   }
 
-  getCandidateReviewBatchJob(jobId?: string) {
-    return this.candidateReviewWorkflowService.getCandidateReviewBatchJob(jobId);
+  async getBackgroundJob(jobId: string) {
+    return backgroundJobService.getJob(jobId);
+  }
+
+  private async runCandidateReviewBatchBackgroundJob(
+    job: BackgroundJob,
+    context: BackgroundJobHandlerContext,
+  ) {
+    const payload = job.payload ?? {};
+    const operations = Array.isArray(payload.operations)
+      ? payload.operations
+      : [];
+    const existingOperationResults = Array.isArray(
+      job.progress?.operationResults,
+    )
+      ? job.progress.operationResults
+      : [];
+    const operationResultsByIndex = new Map<number, any>();
+    for (const item of existingOperationResults) {
+      if (typeof item?.index === "number") {
+        operationResultsByIndex.set(item.index, item);
+      }
+    }
+
+    const writeProgress = async (patch?: Record<string, any>) => {
+      const operationResults = [...operationResultsByIndex.values()].sort(
+        (a, b) => a.index - b.index,
+      );
+      const successCount = operationResults.filter(
+        (item) => item.result?.status === "ok",
+      ).length;
+      const failedCount = operationResults.filter(
+        (item) => item.result?.status === "failed",
+      ).length;
+      await context.updateProgress({
+        requestedCount: operations.length,
+        processedCount: operationResults.length,
+        successCount,
+        failedCount,
+        operationResults,
+        ...(patch ?? {}),
+      });
+    };
+
+    await writeProgress();
+    const result = await this.reviewCandidatesBatch({
+      refreshAffectedDocuments: payload.refreshAffectedDocuments === true,
+      deferCandidateRecheck: payload.deferCandidateRecheck === true,
+      operations,
+      completedOperationResults: [...operationResultsByIndex.values()],
+      onOperationProcessed: async ({ operation, index, result, affectedDocumentIds }) => {
+        operationResultsByIndex.set(index, {
+          index,
+          candidateType: operation.candidateType,
+          candidateId: operation.candidateId,
+          action: operation.action,
+          affectedDocumentIds,
+          result,
+        });
+        await writeProgress({
+          currentIndex: index,
+          currentCandidateType: operation.candidateType,
+          currentCandidateId: operation.candidateId,
+          currentAction: operation.action,
+        });
+      },
+    });
+    await writeProgress({
+      currentIndex: null,
+      currentCandidateType: null,
+      currentCandidateId: null,
+      currentAction: null,
+    });
+    return result;
   }
 
   private async extractBlocksWithLlm(params: {

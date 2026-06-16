@@ -84,7 +84,7 @@ export function normalizeNumberUnit(
 ): NormalizedNumberUnit {
   const value = String(rawValue ?? "").trim();
   const compact = normalizeNumberUnitPunctuation(value);
-  const parsed = parseNumberUnitParts(compact);
+  const parsed = parseNumberUnitParts(compact, aliasMap);
   if (!parsed || parsed.malformed) {
     return {
       rawValue: value,
@@ -155,7 +155,10 @@ function normalizeNumberUnitPunctuation(value: string): string {
     .trim();
 }
 
-function parseNumberUnitParts(value: string):
+function parseNumberUnitParts(
+  value: string,
+  aliasMap: Map<string, CachedUnitAlias>,
+):
   | {
       first: string;
       second?: string;
@@ -171,7 +174,7 @@ function parseNumberUnitParts(value: string):
 
   const first = firstMatch[1];
   let rest = firstMatch[2] ?? "";
-  const firstUnit = readUnitToken(rest);
+  const firstUnit = readUnitToken(rest, aliasMap);
   rest = firstUnit.rest;
 
   let second: string | undefined;
@@ -185,7 +188,7 @@ function parseNumberUnitParts(value: string):
       if (MALFORMED_DECIMAL_TAIL_PATTERN.test(rest)) {
         return { first, unitRaw: firstUnit.unitRaw, malformed: true };
       }
-      const parsedSecondUnit = readUnitToken(rest);
+      const parsedSecondUnit = readUnitToken(rest, aliasMap);
       secondUnit = parsedSecondUnit.unitRaw;
       rest = parsedSecondUnit.rest;
     }
@@ -196,7 +199,7 @@ function parseNumberUnitParts(value: string):
   }
 
   const unitRaw = cleanUnitToken(secondUnit || firstUnit.unitRaw);
-  const trailingText = cleanTrailingText(rest);
+  const trailingText = stripBoundaryPunctuation(cleanTrailingText(rest));
   const trailingSplit = trailingText.match(TRAILING_SPLIT_PATTERN);
 
   return {
@@ -209,7 +212,10 @@ function parseNumberUnitParts(value: string):
   };
 }
 
-function readUnitToken(input: string): { unitRaw: string; rest: string } {
+function readUnitToken(
+  input: string,
+  aliasMap: Map<string, CachedUnitAlias>,
+): { unitRaw: string; rest: string } {
   const trimmedStart = input.trimStart();
   let index = 0;
   while (index < trimmedStart.length) {
@@ -236,10 +242,60 @@ function readUnitToken(input: string): { unitRaw: string; rest: string } {
     index += 1;
   }
 
+  const greedyUnitRaw = trimmedStart.slice(0, index);
+  const greedyRest = trimmedStart.slice(index);
+  const knownPrefix = findKnownUnitPrefix(greedyUnitRaw, aliasMap);
+  if (knownPrefix && knownPrefix.length < greedyUnitRaw.length) {
+    const rest = `${greedyUnitRaw.slice(knownPrefix.length)}${greedyRest}`;
+    if (shouldSplitKnownUnitPrefix(knownPrefix, rest)) {
+      return {
+        unitRaw: knownPrefix,
+        rest,
+      };
+    }
+  }
+
   return {
-    unitRaw: trimmedStart.slice(0, index),
-    rest: trimmedStart.slice(index),
+    unitRaw: greedyUnitRaw,
+    rest: greedyRest,
   };
+}
+
+function findKnownUnitPrefix(
+  value: string,
+  aliasMap: Map<string, CachedUnitAlias>,
+): string | undefined {
+  if (!value || aliasMap.size === 0) return undefined;
+
+  let best: string | undefined;
+  for (let length = 1; length <= value.length; length += 1) {
+    const prefix = value.slice(0, length);
+    const normalized = normalizeUnitAliasText(prefix);
+    if (aliasMap.has(normalized)) {
+      best = prefix;
+    }
+  }
+  return best;
+}
+
+function shouldSplitKnownUnitPrefix(prefix: string, rest: string): boolean {
+  if (!prefix || !rest) return false;
+  const first = rest.trimStart()[0];
+  if (!first) return false;
+  if (isAsciiUnitContinuation(first)) return false;
+  return true;
+}
+
+function isAsciiUnitContinuation(char: string): boolean {
+  return /[a-zA-Z]/u.test(char);
+}
+
+function stripBoundaryPunctuation(value: string): string {
+  return value
+    .trim()
+    .replace(/^[,;，、。；+<(\s]+/u, "")
+    .replace(/[)>，、。；\]\s]+$/u, "")
+    .trim();
 }
 
 function cleanUnitToken(value: string): string {

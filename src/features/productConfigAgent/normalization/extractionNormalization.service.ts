@@ -4,12 +4,7 @@ import { SplitResolution } from "./entity/splitResolution.entity.js";
 import { DictionaryService } from "../dictionary/dictionary.service.js";
 import type { LlmExtractionResult, LlmRawField } from "../extraction/types.js";
 import { resolveItemProductTypeHint } from "./productTypeRouting.js";
-import {
-  getFieldConfidence,
-  getFieldValue,
-  normalizeDocInfo,
-  normalizeDocInfoKey,
-} from "../archive/utils/docInfo.js";
+import { normalizeDocInfo } from "../archive/utils/docInfo.js";
 import {
   createBaseField,
   hasSplitFields,
@@ -29,6 +24,13 @@ import type {
   DictionaryExtractionWarning,
 } from "./types.js";
 import { createWarning, mapDictionaryWarnings } from "./warnings.js";
+import {
+  applyStructuredFieldLabels,
+  getRawFieldProductTypeRedirect,
+  mergeRangeBoundFields,
+  moveRawFieldToDocumentInfo,
+  parseRangeBoundFieldName,
+} from "./rules/index.js";
 
 export class ExtractionNormalizationService {
   constructor(
@@ -59,6 +61,21 @@ export class ExtractionNormalizationService {
     const productTypeMap = new Map(
       productTypeOptions.map((item) => [item.canonicalValue, item]),
     );
+    const itemRoutes = params.llmResult.extraction.items.map((item) => ({
+      item,
+      route: resolveItemProductTypeHint({ item, productTypeMap }),
+    }));
+    const flatDieRoute = itemRoutes.find(
+      (item) => item.route.itemProductTypeHint === "flat_die",
+    );
+    const hydraulicStationRoute = itemRoutes.find(
+      (item) => item.route.itemProductTypeHint === "hydraulic_station",
+    );
+    const itemsByIndex = new Map<number, DictionaryExtractionItem>();
+    const pendingRedirectedFields = new Map<
+      number,
+      DictionaryExtractionField[]
+    >();
 
     if (params.documentId && params.extractionResultId) {
       const splitResolutionRepo = this.dataSource.getRepository(SplitResolution);
@@ -90,11 +107,12 @@ export class ExtractionNormalizationService {
       });
     }
 
-    for (const item of params.llmResult.extraction.items) {
-      const route = resolveItemProductTypeHint({ item, productTypeMap });
+    for (const { item, route } of itemRoutes) {
       warnings.push(...route.warnings);
       rawFieldCount += item.raw_fields.length;
-      const fields: DictionaryExtractionField[] = [];
+      const fields: DictionaryExtractionField[] =
+        pendingRedirectedFields.get(item.item_index) ?? [];
+      pendingRedirectedFields.delete(item.item_index);
       const rewrittenRawFields: LlmRawField[] = [];
 
       for (const rawField of item.raw_fields) {
@@ -186,12 +204,25 @@ export class ExtractionNormalizationService {
           const fieldsToBuild =
             nestedRawFieldsToNormalize?.fieldsToNormalize ?? [normalizedRawField];
           for (const fieldToBuild of fieldsToBuild) {
+            if (moveRawFieldToDocumentInfo(documentInfo, fieldToBuild)) {
+              continue;
+            }
+
+            const redirectRoute = getRawFieldProductTypeRedirect({
+              rawField: fieldToBuild,
+              itemIndex: item.item_index,
+              itemProductTypeHint: route.itemProductTypeHint,
+              flatDieRoute,
+              hydraulicStationRoute,
+            });
             const field = await this.buildField({
               rawField: fieldToBuild,
-            itemIndex: item.item_index,
-            itemProductTypeHint: route.itemProductTypeHint,
-            documentId: stringifyOptionalId(params.documentId),
-            extractionResultId: stringifyOptionalId(params.extractionResultId),
+              itemIndex: redirectRoute?.item.item_index ?? item.item_index,
+              itemProductTypeHint:
+                redirectRoute?.route.itemProductTypeHint ??
+                route.itemProductTypeHint,
+              documentId: stringifyOptionalId(params.documentId),
+              extractionResultId: stringifyOptionalId(params.extractionResultId),
             });
 
             if (field.dictionary.matched) {
@@ -207,13 +238,40 @@ export class ExtractionNormalizationService {
             }
 
             warnings.push(...field.warnings);
-            fields.push(field);
+            if (redirectRoute) {
+              const redirectWarning = createWarning({
+                type: "field_product_type_redirected",
+                message:
+                  "字段名指向其它产品配置，已从当前 item 归入同一 extraction 中更匹配的 item",
+                itemIndex: item.item_index,
+                fieldName: fieldToBuild.field_name,
+                rawValue: fieldToBuild.value,
+                evidence: fieldToBuild.evidence,
+              });
+              field.warnings.push(redirectWarning);
+              warnings.push(redirectWarning);
+              if (itemsByIndex.has(redirectRoute.item.item_index)) {
+                itemsByIndex.get(redirectRoute.item.item_index)?.fields.push(field);
+              } else {
+                const redirectedFields =
+                  pendingRedirectedFields.get(redirectRoute.item.item_index) ??
+                  [];
+                redirectedFields.push(field);
+                pendingRedirectedFields.set(
+                  redirectRoute.item.item_index,
+                  redirectedFields,
+                );
+              }
+            } else {
+              fields.push(field);
+            }
           }
         }
       }
 
       rewrittenFieldCount += rewrittenRawFields.length;
-      items.push({
+      const structuredFields = applyStructuredFieldLabels(fields);
+      const normalizedItem: DictionaryExtractionItem = {
         item_index: item.item_index,
         item_name: item.item_name?.value,
         item_quantity: item.item_quantity?.value,
@@ -222,8 +280,10 @@ export class ExtractionNormalizationService {
         itemProductTypeHintDisplayName: route.displayName,
         itemProductTypeHintConfidence: route.confidence,
         warnings: route.warnings,
-        fields,
-      });
+        fields: mergeRangeBoundFields(structuredFields, item.item_index),
+      };
+      items.push(normalizedItem);
+      itemsByIndex.set(item.item_index, normalizedItem);
     }
 
     const llmWarnings = (params.llmResult.warnings ?? []).map((warning) =>
@@ -408,12 +468,13 @@ export class ExtractionNormalizationService {
       ? params.rawField.split_fields!.map((sf) => sf.value)
       : undefined;
 
+    const rangeBoundField = parseRangeBoundFieldName(params.rawField.field_name);
     const normalized = await this.dictionaryService.normalizeField({
       documentId: params.documentId,
       extractionResultId: params.extractionResultId,
       itemIndex: params.itemIndex,
       itemProductTypeHint: params.itemProductTypeHint,
-      fieldName: params.rawField.field_name,
+      fieldName: rangeBoundField?.baseFieldName ?? params.rawField.field_name,
       rawValue: params.rawField.value,
       splitRawValues: splitValues,
       evidence: params.rawField.evidence,
@@ -581,35 +642,6 @@ export class ExtractionNormalizationService {
       ],
     );
   }
-}
-
-function moveRawFieldToDocumentInfo(
-  documentInfo: Record<string, unknown>,
-  rawField: LlmRawField,
-): boolean {
-  const canonicalKey = normalizeDocInfoKey(rawField.field_name);
-  if (!canonicalKey) {
-    return false;
-  }
-
-  const existing = documentInfo[canonicalKey];
-  const existingValue = getFieldValue(existing);
-  const existingConfidence = getFieldConfidence(existing);
-  if (
-    existingValue &&
-    rawField.confidence < (existingConfidence ?? 0)
-  ) {
-    return true;
-  }
-
-  documentInfo[canonicalKey] = {
-    value: rawField.value,
-    evidence: rawField.evidence,
-    confidence: rawField.confidence,
-    rawKey: rawField.field_name,
-    canonicalKey,
-  };
-  return true;
 }
 
 export { ExtractionNormalizationService as DictionaryExtractionService };

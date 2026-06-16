@@ -6,6 +6,7 @@ import {
   createGeneratedConfigShareToken,
   getGeneratedConfig,
   getSharedGeneratedConfig,
+  revokeGeneratedConfigShareToken,
 } from "./runtimeHandler.js";
 
 export class ProductConfigAgentRuntimeService {
@@ -49,6 +50,7 @@ export class ProductConfigAgentRuntimeService {
   createShareToken(params: {
     id: string;
     ownerUserId?: string | null;
+    expiresInDays?: number;
   }) {
     return createGeneratedConfigShareToken({
       dataSource: this.dataSource,
@@ -60,6 +62,16 @@ export class ProductConfigAgentRuntimeService {
     return getSharedGeneratedConfig({
       dataSource: this.dataSource,
       shareToken,
+    });
+  }
+
+  revokeShareToken(params: {
+    id: string;
+    ownerUserId?: string | null;
+  }) {
+    return revokeGeneratedConfigShareToken({
+      dataSource: this.dataSource,
+      ...params,
     });
   }
 }
