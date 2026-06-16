@@ -13,6 +13,7 @@ import {
   parseWorkbook,
 } from "../parsers/parseWorkbook.js";
 import { buildLlmText as buildLlmTextFromResult } from "./buildLlmText.js";
+import { sanitizeExcelText } from "../parsers/sanitizeText.js";
 
 export type ExcelSourceType = "url" | "local";
 
@@ -131,7 +132,9 @@ export async function parseExcelFile(params: {
     });
 
     const data: ExcelParseSuccess["data"] = {
-      file_name: params.fileName || path.basename(params.filePath),
+      file_name: sanitizeExcelText(
+        params.fileName || path.basename(params.filePath)
+      ),
       source_type: params.sourceType,
       blocks,
     };

@@ -2,6 +2,7 @@ import axios from "axios";
 import fs from "fs";
 import path from "path";
 import { createExcelTempDir, ExcelParserError } from "../../../../utils/excelFileUtils.js";
+import { sanitizeExcelText } from "../parsers/sanitizeText.js";
 
 function filenameFromContentDisposition(contentDisposition?: string) {
   if (!contentDisposition) return null;
@@ -29,7 +30,7 @@ function isExcelContentType(contentType?: string) {
 }
 
 function safeFileName(fileName: string) {
-  return fileName.replace(/[\\/:*?"<>|]/g, "_");
+  return sanitizeExcelText(fileName).replace(/[\\/:*?"<>|]/g, "_");
 }
 
 export async function downloadExcelFile(url: string) {

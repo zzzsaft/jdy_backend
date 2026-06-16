@@ -19,6 +19,43 @@ import type {
   ProductConfigAgentProcessParams,
 } from "./types.js";
 
+const DEFAULT_BATCH_HASH_CONCURRENCY = positiveIntegerFromEnv(
+  "PRODUCT_CONFIG_AGENT_BATCH_HASH_CONCURRENCY",
+  8,
+);
+const DEFAULT_BATCH_PARSE_CONCURRENCY = positiveIntegerFromEnv(
+  "PRODUCT_CONFIG_AGENT_BATCH_PARSE_CONCURRENCY",
+  4,
+);
+
+function positiveIntegerFromEnv(name: string, fallback: number) {
+  const value = Number(process.env[name]);
+  if (!Number.isFinite(value) || value <= 0) return fallback;
+  return Math.floor(value);
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>,
+) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  const workers = Array.from(
+    { length: Math.min(Math.max(1, concurrency), items.length) },
+    async () => {
+      while (nextIndex < items.length) {
+        const index = nextIndex++;
+        results[index] = await worker(items[index], index);
+      }
+    },
+  );
+
+  await Promise.all(workers);
+  return results;
+}
+
 export async function calculateFileSha256(filePath: string) {
   const fileBuffer = await fs.readFile(filePath);
   return crypto.createHash("sha256").update(fileBuffer).digest("hex");
@@ -48,6 +85,29 @@ function createBatchError(params: ProductConfigAgentProcessParams, data: {
     stage: data.stage,
     errorCode: data.errorCode,
     errorMessage: getErrorMessage(data.error),
+  };
+}
+
+function documentFromParseState(state: any) {
+  return {
+    id: Number(state.documentId),
+    fileName: state.fileName,
+    fileHash: state.fileHash,
+    filePath: state.filePath,
+    source: state.source,
+    status: state.status,
+    createdAt: state.createdAt,
+  };
+}
+
+function blocksMetadataFromParseState(state: any) {
+  if (!state.blocksId) return null;
+
+  return {
+    id: Number(state.blocksId),
+    documentId: Number(state.documentId),
+    parserVersion: state.parserVersion,
+    createdAt: state.blocksCreatedAt,
   };
 }
 
@@ -133,19 +193,38 @@ export class BlockParsingService {
       fileHash: string;
     }> = [];
 
-    for (const params of paramsList) {
-      try {
-        hashedItems.push({
-          params,
-          fileName: params.fileName ?? path.basename(params.filePath),
-          fileHash: await calculateFileSha256(params.filePath),
-        });
-      } catch (error) {
+    const hashResults = await mapWithConcurrency(
+      paramsList,
+      DEFAULT_BATCH_HASH_CONCURRENCY,
+      async (params) => {
+        try {
+          return {
+            success: true as const,
+            item: {
+              params,
+              fileName: params.fileName ?? path.basename(params.filePath),
+              fileHash: await calculateFileSha256(params.filePath),
+            },
+          };
+        } catch (error) {
+          return {
+            success: false as const,
+            params,
+            error,
+          };
+        }
+      },
+    );
+
+    for (const result of hashResults) {
+      if (result.success) {
+        hashedItems.push(result.item);
+      } else {
         errors.push(
-          createBatchError(params, {
+          createBatchError(result.params, {
             stage: "productConfigAgent:hash",
             errorCode: "QUOTE_AGENT_HASH_FAILED",
-            error,
+            error: result.error,
           }),
         );
       }
@@ -164,14 +243,21 @@ export class BlockParsingService {
 
     const fileHashes = [...firstItemByHash.keys()];
     let documentByHash = new Map<string, any>();
+    let blocksByDocumentId = new Map<number, any>();
 
     try {
-      const existingDocuments = await this.repository.findDocumentsByHashes(
+      const existingStates = await this.repository.findDocumentParseStatesByHashes(
         fileHashes,
       );
-      documentByHash = new Map(
-        existingDocuments.map((document: any) => [document.fileHash, document]),
-      );
+      for (const state of existingStates) {
+        const document = documentFromParseState(state);
+        documentByHash.set(document.fileHash, document);
+
+        const blocks = blocksMetadataFromParseState(state);
+        if (blocks) {
+          blocksByDocumentId.set(Number(blocks.documentId), blocks);
+        }
+      }
 
       const missingDocuments = fileHashes
         .filter((fileHash) => !documentByHash.has(fileHash))
@@ -188,10 +274,21 @@ export class BlockParsingService {
 
       if (missingDocuments.length > 0) {
         await this.repository.createDocuments(missingDocuments);
-        const documents = await this.repository.findDocumentsByHashes(fileHashes);
-        documentByHash = new Map(
-          documents.map((document: any) => [document.fileHash, document]),
+        const states = await this.repository.findDocumentParseStatesByHashes(
+          fileHashes,
         );
+        documentByHash = new Map();
+        blocksByDocumentId = new Map();
+
+        for (const state of states) {
+          const document = documentFromParseState(state);
+          documentByHash.set(document.fileHash, document);
+
+          const blocks = blocksMetadataFromParseState(state);
+          if (blocks) {
+            blocksByDocumentId.set(Number(blocks.documentId), blocks);
+          }
+        }
       }
     } catch (error) {
       for (const item of hashedItems) {
@@ -232,35 +329,6 @@ export class BlockParsingService {
     const uniqueDocumentIds = [
       ...new Set(itemsWithDocuments.map((item) => Number(item.document.id))),
     ];
-    const blocksByDocumentId = new Map<number, any>();
-
-    try {
-      const documentIdsToFind = [
-        ...new Set(
-          itemsWithDocuments
-            .filter((item) => item.params.forceReparse !== true)
-            .map((item) => Number(item.document.id)),
-        ),
-      ];
-      const existingBlocks = await this.repository.findBlocksByDocumentIds(
-        documentIdsToFind,
-      );
-
-      for (const blocks of existingBlocks) {
-        blocksByDocumentId.set(Number(blocks.documentId), blocks);
-      }
-    } catch (error) {
-      for (const item of itemsWithDocuments) {
-        errors.push(
-          createBatchError(item.params, {
-            stage: "productConfigAgent:findBlocks",
-            errorCode: "QUOTE_AGENT_FIND_BLOCKS_FAILED",
-            error,
-          }),
-        );
-      }
-      return { successes, errors };
-    }
 
     const itemsByDocumentId = new Map<number, typeof itemsWithDocuments>();
     for (const item of itemsWithDocuments) {
@@ -289,34 +357,58 @@ export class BlockParsingService {
       parserVersion?: string;
     }> = [];
 
-    for (const [documentId, needsParse] of needsParseByDocumentId) {
-      if (!needsParse) continue;
+    const documentIdsToParse = Array.from(needsParseByDocumentId.entries())
+      .filter(([, needsParse]) => needsParse)
+      .map(([documentId]) => documentId);
 
-      const items = itemsByDocumentId.get(documentId) ?? [];
-      const item = items[0];
-      if (!item) continue;
+    const parseResults = await mapWithConcurrency(
+      documentIdsToParse,
+      DEFAULT_BATCH_PARSE_CONCURRENCY,
+      async (documentId) => {
+        const items = itemsByDocumentId.get(documentId) ?? [];
+        const item = items[0];
+        if (!item) return { documentId, blocksRecord: null, error: null };
 
-      try {
-        upsertRecords.push({
-          documentId,
-          blocksJson: await parseExcelToBlocks(
-            item.params.filePath,
-            item.params.parserOptions,
-          ),
-          parserVersion: item.params.parserVersion ?? DEFAULT_PARSER_VERSION,
-        });
-      } catch (error) {
-        failedDocumentIds.add(documentId);
-        await markFailed(this.repository, documentId);
-        for (const failedItem of items) {
-          errors.push(
-            createBatchError(failedItem.params, {
-              stage: "productConfigAgent:parseBlocks",
-              errorCode: "QUOTE_AGENT_PARSE_BLOCKS_FAILED",
-              error,
-            }),
-          );
+        try {
+          return {
+            documentId,
+            blocksRecord: {
+              documentId,
+              blocksJson: await parseExcelToBlocks(
+                item.params.filePath,
+                item.params.parserOptions,
+              ),
+              parserVersion:
+                item.params.parserVersion ?? DEFAULT_PARSER_VERSION,
+            },
+            error: null,
+          };
+        } catch (error) {
+          return { documentId, blocksRecord: null, error };
         }
+      },
+    );
+
+    for (const result of parseResults) {
+      if (!result.error && result.blocksRecord) {
+        upsertRecords.push(result.blocksRecord);
+        continue;
+      }
+
+      if (!result.error) continue;
+
+      failedDocumentIds.add(result.documentId);
+      await markFailed(this.repository, result.documentId);
+
+      const items = itemsByDocumentId.get(result.documentId) ?? [];
+      for (const failedItem of items) {
+        errors.push(
+          createBatchError(failedItem.params, {
+            stage: "productConfigAgent:parseBlocks",
+            errorCode: "QUOTE_AGENT_PARSE_BLOCKS_FAILED",
+            error: result.error,
+          }),
+        );
       }
     }
 

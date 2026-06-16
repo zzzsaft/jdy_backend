@@ -25,6 +25,7 @@ import { PendingLlmJobService } from "./workflow/pendingLlmJob.service.js";
 import { DirtyDataRefreshJobService } from "./workflow/dirtyDataRefreshJob.service.js";
 import { PlannedExtractionService } from "./workflow/plannedExtraction.service.js";
 import { productConfigAgentArchiveService } from "./archive/contractArchive.service.js";
+import { buildDuplicateDocumentReport } from "./workflow/documentDuplicateAnalysis.js";
 import type {
   CandidateReviewAction,
   DirtyDataRefreshJob,
@@ -233,13 +234,72 @@ export class ProductConfigAgentService {
   async parseAndSaveBlocks(
     params: ProductConfigAgentProcessParams,
   ): Promise<ProductConfigAgentParseAndSaveBlocksResult> {
-    return this.blockParsingService.parseAndSaveBlocks(params);
+    const result = await this.blockParsingService.parseAndSaveBlocks(params);
+    await this.applyDuplicateMappingsForFileNames([result.document.fileName]);
+    return result;
   }
 
   async parseAndSaveBlocksBatch(
     paramsList: ProductConfigAgentProcessParams[],
   ): Promise<ProductConfigAgentParseAndSaveBlocksBatchResult> {
-    return this.blockParsingService.parseAndSaveBlocksBatch(paramsList);
+    const result = await this.blockParsingService.parseAndSaveBlocksBatch(
+      paramsList,
+    );
+    await this.applyDuplicateMappingsForFileNames(
+      result.successes.map((item) => item.fileName),
+    );
+    return result;
+  }
+
+  private async applyDuplicateMappingsForFileNames(fileNames: string[]) {
+    const uniqueFileNames = [
+      ...new Set(fileNames.filter((fileName) => fileName?.trim())),
+    ];
+    if (uniqueFileNames.length === 0) return;
+
+    try {
+      const candidates = await this.repository.findDuplicateDocumentCandidates({
+        fileNames: uniqueFileNames,
+      });
+      const hydratedCandidates = candidates.map((candidate) => ({
+        ...candidate,
+        blocksJson: candidate.llmText
+          ? { llm_text: candidate.llmText }
+          : candidate.blocksJson,
+      }));
+      const missingLlmTextDocumentIds = hydratedCandidates
+        .filter((candidate) => candidate.blocksId && !candidate.blocksJson)
+        .map((candidate) => Number(candidate.documentId));
+
+      if (missingLlmTextDocumentIds.length > 0) {
+        const blocks = await this.repository.findBlocksByDocumentIds(
+          missingLlmTextDocumentIds,
+        );
+        const blocksByDocumentId = new Map(
+          blocks.map((block) => [Number(block.documentId), block.blocksJson]),
+        );
+
+        for (const candidate of hydratedCandidates) {
+          if (!candidate.blocksJson) {
+            candidate.blocksJson = blocksByDocumentId.get(
+              Number(candidate.documentId),
+            );
+          }
+        }
+      }
+
+      const report = buildDuplicateDocumentReport(hydratedCandidates);
+      const mappings = report.flatMap((group) => group.duplicateMappings);
+      if (mappings.length === 0) return;
+
+      await this.repository.upsertDocumentDuplicates(mappings);
+    } catch (error) {
+      console.warn(
+        `[productConfigAgent:documentDuplicates] apply failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   async extract(
