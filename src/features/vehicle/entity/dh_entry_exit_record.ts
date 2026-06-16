@@ -3,6 +3,7 @@ import {
   Between,
   Column,
   Entity,
+  Index,
   Like,
   PrimaryColumn,
   PrimaryGeneratedColumn,
@@ -35,6 +36,10 @@ const locationMap = {
 };
 
 @Entity({ name: "entry_exit_records" })
+@Index(["recordId"])
+@Index(["recordId", "enterOrExit"])
+@Index(["userId", "time"])
+@Index(["carNum", "time"])
 export class EntryExistRecords extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;

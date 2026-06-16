@@ -121,14 +121,16 @@ export async function createTermTypeCandidate(
 
   const sourceProductType = normalizeSourceProductType(params.sourceProductType);
   const candidateRepo = dataSource.getRepository(DictionaryTermTypeCandidate);
-  const rejectedCandidate = await candidateRepo.findOne({
-    where: {
-      normalizedFieldName,
-      status: "rejected",
-    },
-  });
-  if (rejectedCandidate) {
-    return null;
+  if (params.ignoreRejected !== true) {
+    const rejectedCandidate = await candidateRepo.findOne({
+      where: {
+        normalizedFieldName,
+        status: "rejected",
+      },
+    });
+    if (rejectedCandidate) {
+      return null;
+    }
   }
 
   const existingCandidate = await candidateRepo.findOne({

@@ -21,6 +21,7 @@ import {
 } from "../masterData.service.js";
 import { createProductConfigAgentArchiveRoutes } from "../archive/contractArchive.routes.js";
 import { productConfigAgentService } from "../service.js";
+import { productConfigAgentRuntimeService } from "../agent/index.js";
 import { productConfigAgentRepository } from "../db.service.js";
 import {
   optionalBoolean,
@@ -40,7 +41,6 @@ const dictionarySuggestionService = new DictionarySuggestionService(PgDataSource
 const dictionaryService = new DictionaryService(PgDataSource);
 const masterDataService = new ProductConfigAgentMasterDataService(PgDataSource);
 const execFileAsync = promisify(execFile);
-const QUOTE_AGENT_PRODUCTION_PORT = 2000;
 const QUOTE_AGENT_LOCAL_DEV_PORT = 2001;
 const MAX_RENORMALIZE_LIMIT = 1000;
 const MAX_RENORMALIZE_BATCH_SIZE = 100;
@@ -53,6 +53,19 @@ type ProductConfigAgentRouteAction = (request: Request, response: Response) => P
 
 function effectivePort(): number {
   return Number(process.env.PORT ?? (process.env.NODE_ENV === "production" ? 2000 : 2001));
+}
+
+async function getProductConfigAgentUserId(request: Request): Promise<string | null> {
+  if (effectivePort() === QUOTE_AGENT_LOCAL_DEV_PORT) {
+    const localUser =
+      typeof request.headers["x-user-id"] === "string"
+        ? request.headers["x-user-id"].trim()
+        : "";
+    return localUser || "local-dev";
+  }
+
+  const user = await authService.verifyToken(request);
+  return user?.userId || null;
 }
 
 async function resolveExistingDocumentFilePath(filePath: string): Promise<string> {
@@ -95,9 +108,6 @@ export async function requireProductConfigAgentAdmin(
   if (port === QUOTE_AGENT_LOCAL_DEV_PORT) {
     return true;
   }
-  if (port !== QUOTE_AGENT_PRODUCTION_PORT) {
-    return true;
-  }
 
   const adminUserIds = productConfigAgentAdminUserIds();
   if (adminUserIds.size === 0) {
@@ -126,9 +136,6 @@ export async function requireProductConfigAgentToken(
 ): Promise<boolean> {
   const port = effectivePort();
   if (port === QUOTE_AGENT_LOCAL_DEV_PORT) {
-    return true;
-  }
-  if (port !== QUOTE_AGENT_PRODUCTION_PORT) {
     return true;
   }
 
@@ -199,6 +206,15 @@ function shouldRefreshAffectedDocuments(request: Request): boolean {
 
 function shouldDeferCandidateRecheck(request: Request): boolean {
   return request.body?.deferCandidateRecheck === true;
+}
+
+function shouldRunCandidateReviewBatchAsync(request: Request): boolean {
+  return (
+    request.body?.asyncReview === true ||
+    request.body?.async === true ||
+    request.query?.asyncReview === "true" ||
+    request.query?.async === "true"
+  );
 }
 
 function optionalPositiveInt(value: unknown, name: string): number | undefined {
@@ -413,6 +429,104 @@ const uploadContract = async (request: Request, response: Response) => {
       items: result.dictionary?.items ?? [],
       warnings: result.dictionary?.warnings ?? [],
     });
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const createAgentSession = async (request: Request, response: Response) => {
+  try {
+    response.json(
+      await productConfigAgentRuntimeService.createSession({
+        ownerUserId: await getProductConfigAgentUserId(request),
+        title: optionalString(request.body?.title),
+        metadata:
+          request.body?.metadata && typeof request.body.metadata === "object"
+            ? request.body.metadata
+            : {},
+      }),
+    );
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const runProductConfigAgentNaturalLanguage = async (
+  request: Request,
+  response: Response,
+) => {
+  try {
+    response.json(
+      await productConfigAgentRuntimeService.run({
+        sessionId: optionalString(request.body?.sessionId) ?? undefined,
+        message: requireString(request.body?.message, "message"),
+        confirmed: request.body?.confirmed === true,
+        referenceConfigId:
+          optionalString(request.body?.referenceConfigId) ?? undefined,
+        llmModel: optionalString(request.body?.llmModel) ?? undefined,
+        ownerUserId: await getProductConfigAgentUserId(request),
+      }),
+    );
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const getAgentSession = async (request: Request, response: Response) => {
+  try {
+    response.json(
+      await productConfigAgentRuntimeService.getSessionDetail({
+        sessionId: requireString(request.params.sessionId, "sessionId"),
+        ownerUserId: await getProductConfigAgentUserId(request),
+      }),
+    );
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const getAgentGeneratedConfig = async (
+  request: Request,
+  response: Response,
+) => {
+  try {
+    response.json(
+      await productConfigAgentRuntimeService.getGeneratedConfig({
+        id: requireString(request.params.id, "id"),
+        ownerUserId: await getProductConfigAgentUserId(request),
+      }),
+    );
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const createAgentGeneratedConfigShareToken = async (
+  request: Request,
+  response: Response,
+) => {
+  try {
+    response.json(
+      await productConfigAgentRuntimeService.createShareToken({
+        id: requireString(request.params.id, "id"),
+        ownerUserId: await getProductConfigAgentUserId(request),
+      }),
+    );
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const getSharedAgentGeneratedConfig = async (
+  request: Request,
+  response: Response,
+) => {
+  try {
+    response.json(
+      await productConfigAgentRuntimeService.getSharedGeneratedConfig(
+        requireString(request.params.shareToken, "shareToken"),
+      ),
+    );
   } catch (error) {
     sendError(response, error);
   }
@@ -1091,12 +1205,7 @@ const approveUnitCandidate = async (request: Request, response: Response) => {
       aliasValue: optionalString(request.body?.aliasValue) ?? undefined,
       reviewedBy: optionalString(request.body?.reviewedBy) ?? undefined,
     });
-    const documentId = result.candidate.documentId
-      ? Number(result.candidate.documentId)
-      : undefined;
-    if (documentId) {
-      await productConfigAgentRepository.markDocumentsDictionaryDirty([documentId]);
-    }
+    await productConfigAgentRepository.markAllDocumentsDictionaryDirty();
     response.json(result);
   } catch (error) {
     sendError(response, error);
@@ -1575,11 +1684,24 @@ const rejectCandidate = async (request: Request, response: Response) => {
 
 const reviewCandidatesBatch = async (request: Request, response: Response) => {
   try {
+    const operations = normalizeBatchReviewOperations(request.body?.operations);
+    if (shouldRunCandidateReviewBatchAsync(request)) {
+      response.status(202).json({
+        async: true,
+        job: productConfigAgentService.startCandidateReviewBatchJob({
+          refreshAffectedDocuments: shouldRefreshAffectedDocuments(request),
+          deferCandidateRecheck: shouldDeferCandidateRecheck(request),
+          operations,
+        }),
+      });
+      return;
+    }
+
     response.json(
       await productConfigAgentService.reviewCandidatesBatch({
         refreshAffectedDocuments: shouldRefreshAffectedDocuments(request),
         deferCandidateRecheck: shouldDeferCandidateRecheck(request),
-        operations: normalizeBatchReviewOperations(request.body?.operations),
+        operations,
       }),
     );
   } catch (error) {
@@ -1587,7 +1709,52 @@ const reviewCandidatesBatch = async (request: Request, response: Response) => {
   }
 };
 
+const getCandidateReviewBatchJob = async (request: Request, response: Response) => {
+  try {
+    const job = productConfigAgentService.getCandidateReviewBatchJob(
+      optionalString(request.params.jobId) ?? undefined,
+    );
+    if (!job) {
+      response.status(404).json({ error: "candidate review batch job not found" });
+      return;
+    }
+    response.json(job);
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
 export const ProductConfigAgentRoutes = [
+  {
+    path: "/productConfigAgent/agent/sessions",
+    method: "post",
+    action: withProductConfigAgentToken(createAgentSession),
+  },
+  {
+    path: "/productConfigAgent/agent/run",
+    method: "post",
+    action: withProductConfigAgentToken(runProductConfigAgentNaturalLanguage),
+  },
+  {
+    path: "/productConfigAgent/agent/sessions/:sessionId",
+    method: "get",
+    action: withProductConfigAgentToken(getAgentSession),
+  },
+  {
+    path: "/productConfigAgent/agent/configs/:id/share-token",
+    method: "post",
+    action: withProductConfigAgentToken(createAgentGeneratedConfigShareToken),
+  },
+  {
+    path: "/productConfigAgent/agent/configs/:id",
+    method: "get",
+    action: withProductConfigAgentToken(getAgentGeneratedConfig),
+  },
+  {
+    path: "/productConfigAgent/agent/shared/:shareToken",
+    method: "get",
+    action: getSharedAgentGeneratedConfig,
+  },
   {
     path: "/productConfigAgent/contracts/upload",
     method: "post",
@@ -1703,6 +1870,11 @@ export const ProductConfigAgentRoutes = [
     path: "/productConfigAgent/candidates/reviews/batch",
     method: "post",
     action: withProductConfigAgentAdmin(reviewCandidatesBatch),
+  },
+  {
+    path: "/productConfigAgent/candidates/reviews/batch/jobs/:jobId",
+    method: "get",
+    action: withProductConfigAgentToken(getCandidateReviewBatchJob),
   },
   {
     path: "/productConfigAgent/dictionary/term-types",
@@ -1857,8 +2029,10 @@ function legacyProductConfigAgentRoutePath(path: string): string {
     : path;
 }
 
-export const LegacyProductConfigAgentRoutes = ProductConfigAgentRoutes.filter((route) =>
-  route.path.startsWith("/productConfigAgent/"),
+export const LegacyProductConfigAgentRoutes = ProductConfigAgentRoutes.filter(
+  (route) =>
+    route.path.startsWith("/productConfigAgent/") &&
+    !route.path.startsWith("/productConfigAgent/agent/"),
 ).map((route) => ({
   ...route,
   path: legacyProductConfigAgentRoutePath(route.path),

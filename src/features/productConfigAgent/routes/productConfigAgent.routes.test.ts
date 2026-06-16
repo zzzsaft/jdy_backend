@@ -60,6 +60,7 @@ function assertRouteShape() {
   routeSignature("/quoteAgent/candidates/clusters", "get");
   routeSignature("/quoteAgent/candidates/clusters/suggestions/batch", "post");
   routeSignature("/quoteAgent/candidates/reviews/batch", "post");
+  routeSignature("/quoteAgent/candidates/reviews/batch/jobs/:jobId", "get");
   routeSignature("/quoteAgent/candidates", "get");
   routeSignature("/quoteAgent/dictionary/term-types", "get");
   routeSignature("/quoteAgent/dictionary/term-types", "post");
@@ -145,6 +146,18 @@ async function assertProductionRouteRequiresToken(path: string, method: string) 
 }
 
 function assertProductConfigAgentRouteAliases() {
+  productConfigRouteSignature("/productConfigAgent/agent/sessions", "post");
+  productConfigRouteSignature("/productConfigAgent/agent/run", "post");
+  productConfigRouteSignature("/productConfigAgent/agent/sessions/:sessionId", "get");
+  productConfigRouteSignature("/productConfigAgent/agent/configs/:id", "get");
+  productConfigRouteSignature(
+    "/productConfigAgent/agent/configs/:id/share-token",
+    "post",
+  );
+  productConfigRouteSignature(
+    "/productConfigAgent/agent/shared/:shareToken",
+    "get",
+  );
   productConfigRouteSignature("/productConfigAgent/contracts/upload", "post");
   productConfigRouteSignature("/productConfigAgent/contracts/summary", "get");
   productConfigRouteSignature("/productConfigAgent/product-configs/search", "get");
@@ -153,10 +166,17 @@ function assertProductConfigAgentRouteAliases() {
   productConfigRouteSignature("/productConfigAgent/dictionary/unit-aliases", "get");
   productConfigRouteSignature("/productConfigAgent/candidates/units", "get");
   productConfigRouteSignature("/productConfigAgent/candidates/units/review-prompt", "get");
+  productConfigRouteSignature("/productConfigAgent/candidates/reviews/batch/jobs/:jobId", "get");
   productConfigRouteSignature("/productConfigAgent/dictionary/product-types", "get");
 
   assert.equal(
     ProductConfigAgentRoutes.some((route) => route.path.startsWith("/quoteAgent/")),
+    false,
+  );
+  assert.equal(
+    LegacyProductConfigAgentRoutes.some((route) =>
+      route.path.startsWith("/quoteAgent/agent/"),
+    ),
     false,
   );
 }

@@ -226,13 +226,17 @@ export function normalizeClusterReviewSuggestion(
       ? rawAction
       : "needs_human_review";
   const riskLevel = String(value?.riskLevel ?? "").trim();
-  const batchOperationsPreview =
+  const normalizedBatchOperationsPreview =
     recommendedAction === "needs_human_review"
       ? []
       : normalizeBatchOperationsPreview(value?.batchOperationsPreview, {
           candidateType: cluster.candidateType,
           candidateIds: cluster.candidateIds,
         });
+  const batchOperationsPreview = expandClusterBatchOperationsPreview(
+    normalizedBatchOperationsPreview,
+    cluster,
+  );
 
   return {
     clusterId: cluster.clusterId,
@@ -393,7 +397,12 @@ function normalizeBatchOperationsPreview(
     candidateType: "term_type" | "value";
     candidateIds: string[];
   },
-) {
+): Array<{
+  candidateType: "term_type" | "value";
+  candidateId: string;
+  action: string;
+  payload: any;
+}> {
   const expectedCandidateIds = new Set(expected?.candidateIds ?? []);
   return asArray(value)
     .map((item) => {
@@ -414,7 +423,7 @@ function normalizeBatchOperationsPreview(
         return null;
       }
       return {
-        candidateType,
+        candidateType: candidateType as "term_type" | "value",
         candidateId,
         action,
         payload:
@@ -423,8 +432,54 @@ function normalizeBatchOperationsPreview(
             : {},
       };
     })
-    .filter(Boolean)
+    .filter((item): item is {
+      candidateType: "term_type" | "value";
+      candidateId: string;
+      action: string;
+      payload: any;
+    } => Boolean(item))
     .slice(0, 100);
+}
+
+function expandClusterBatchOperationsPreview(
+  operations: Array<{
+    candidateType: "term_type" | "value";
+    candidateId: string;
+    action: string;
+    payload: any;
+  }>,
+  cluster: CandidateClusterInput,
+) {
+  if (operations.length === 0 || operations.length >= cluster.candidateIds.length) {
+    return operations;
+  }
+
+  const actionSet = new Set(operations.map((operation) => operation.action));
+  if (actionSet.size !== 1) {
+    return operations;
+  }
+
+  const operationByCandidateId = new Map(
+    operations.map((operation) => [operation.candidateId, operation]),
+  );
+  const template = operations[0];
+  return cluster.candidateIds.slice(0, 100).map((candidateId) => {
+    const existing = operationByCandidateId.get(candidateId);
+    if (existing) return existing;
+    return {
+      candidateType: cluster.candidateType,
+      candidateId,
+      action: template.action,
+      payload: cloneJsonObject(template.payload),
+    };
+  });
+}
+
+function cloneJsonObject(value: unknown): any {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+  return JSON.parse(JSON.stringify(value));
 }
 
 function normalizeBatchOperationAction(

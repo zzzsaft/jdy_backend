@@ -1,12 +1,13 @@
 import {
   Entity,
   Column,
-  BaseEntity,
-  PrimaryColumn,
-  CreateDateColumn,
+  Index,
 } from "typeorm";
 import AbstractContent from "../../../entity/AbstractContent.js";
 @Entity({ name: "log_message" })
+@Index(["taskId"])
+@Index(["eventId", "eventType", "created_at"])
+@Index(["msgId"])
 export class WechatMessage extends AbstractContent {
   @Column({ name: "msg_id" })
   msgId: string;

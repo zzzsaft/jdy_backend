@@ -5,6 +5,9 @@ import type {
   DirtyDataRefreshJob,
 } from "./types.js";
 import { logger } from "../../../config/logger.js";
+import { PgDataSource } from "../../../config/data-source.js";
+
+const DIRTY_DATA_REFRESH_ADVISORY_LOCK_KEY = 2001001;
 
 export class DirtyDataRefreshJobService {
   private dirtyDataRefreshJob: DirtyDataRefreshJob | null = null;
@@ -61,7 +64,17 @@ export class DirtyDataRefreshJobService {
 
   private async runDirtyDataRefreshJob(job: DirtyDataRefreshJob) {
     const startedAt = Date.now();
+    let lockAcquired = false;
     try {
+      const lockRows = await PgDataSource.query(
+        "SELECT pg_try_advisory_lock($1) AS locked",
+        [DIRTY_DATA_REFRESH_ADVISORY_LOCK_KEY],
+      );
+      lockAcquired = lockRows?.[0]?.locked === true;
+      if (!lockAcquired) {
+        throw new Error("another dictionary dirty refresh job is already running");
+      }
+
       const documents = await this.repository.findDictionaryDirtyDocuments({
         limit: job.limit,
       });
@@ -131,6 +144,13 @@ export class DirtyDataRefreshJobService {
         `[productConfigAgent:dirtyDataRefresh:failed] jobId=${job.id} totalMs=${elapsedMs(startedAt)} ` +
           `error=${error instanceof Error ? error.message : String(error)}`,
       );
+    } finally {
+      if (lockAcquired) {
+        await PgDataSource.query(
+          "SELECT pg_advisory_unlock($1)",
+          [DIRTY_DATA_REFRESH_ADVISORY_LOCK_KEY],
+        );
+      }
     }
   }
 }

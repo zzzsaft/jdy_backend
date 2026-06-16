@@ -944,12 +944,18 @@ export async function splitValueCandidate(
     splits: Array<{
       termType: string;
       rawValue?: string;
+      canonicalValue?: string;
+      displayName?: string;
+      aliasNames?: string[];
+      applicableProductTypes?: string[];
     }>;
     reviewedBy?: string;
   },
 ): Promise<void> {
   const candidateRepo = dataSource.getRepository(DictionaryCandidate);
   const termTypeRepo = dataSource.getRepository(DictionaryTermType);
+  const termRepo = dataSource.getRepository(DictionaryTerm);
+  const aliasRepo = dataSource.getRepository(DictionaryAlias);
 
   const candidate = await candidateRepo.findOne({
     where: { id: params.candidateId },
@@ -958,21 +964,70 @@ export async function splitValueCandidate(
     throw new Error(`DictionaryCandidate not found: ${params.candidateId}`);
   }
 
-  for (const split of params.splits) {
-    const termType = String(split.termType ?? "").trim();
-    const rawValue = String(split.rawValue ?? "").trim();
-    if (!termType || !rawValue) continue;
+  const normalizedSplits = params.splits
+    .map((split) => {
+      const canonicalValue = String(split.canonicalValue ?? "").trim();
+      const displayName = String(split.displayName ?? "").trim();
+      const rawValue =
+        String(split.rawValue ?? "").trim() || displayName || canonicalValue;
+      return {
+        termType: String(split.termType ?? "").trim(),
+        rawValue,
+        canonicalValue,
+        displayName,
+        aliasNames: compactStringArray(split.aliasNames),
+        applicableProductTypes: normalizeApplicableProductTypes(
+          split.applicableProductTypes,
+          candidate.sourceProductType,
+        ),
+      };
+    })
+    .filter((split) => split.termType && split.rawValue);
 
+  if (normalizedSplits.length === 0) {
+    throw new Error("splits is required");
+  }
+
+  for (const split of normalizedSplits) {
     const termTypeRecord = await termTypeRepo.findOne({
-      where: { termType },
+      where: { termType: split.termType },
     });
     if (!termTypeRecord) {
-      throw new Error(`DictionaryTermType not found: ${termType}`);
+      throw new Error(`DictionaryTermType not found: ${split.termType}`);
+    }
+
+    const valueKind = termTypeRecord.valueKind;
+    if (
+      (valueKind === "enum" || valueKind === "enums") &&
+      split.canonicalValue
+    ) {
+      const term = await ensureDictionaryTermValue({
+        termRepo,
+        termType: split.termType,
+        canonicalValue: split.canonicalValue,
+        displayName: split.displayName || split.rawValue,
+        fallbackDisplayName: split.displayName || split.rawValue,
+      });
+      const valueAliases = new Set<string>();
+      valueAliases.add(split.rawValue);
+      if (split.displayName) valueAliases.add(split.displayName);
+      for (const aliasName of split.aliasNames) {
+        valueAliases.add(aliasName);
+      }
+      for (const aliasValue of valueAliases) {
+        await ensureValueAliasByRaw({
+          aliasRepo,
+          term,
+          termType: split.termType,
+          aliasValue,
+          confidence: candidate.confidence,
+        });
+      }
     }
   }
 
   candidate.proposedTermId = null;
-  candidate.proposedCanonicalValue = params.splits
+  candidate.proposedCanonicalValue = normalizedSplits
     .map((item) => `${item.termType}:${item.rawValue}`)
     .join("|");
   candidate.reviewedBy = params.reviewedBy ?? null;
@@ -985,24 +1040,36 @@ export async function splitValueCandidate(
   const occurrences = await occurrenceRepo.find({
     where: { candidateType: "value", candidateId: candidate.id },
   });
-  const splitFields = params.splits
+  const splitFields = normalizedSplits
     .map((split) => ({
       field_name: split.termType,
-      value: String(split.rawValue ?? "").trim(),
+      value: split.rawValue,
       raw_text: candidate.rawValue,
       confidence: candidate.confidence ? Number(candidate.confidence) : undefined,
     }))
     .filter((item) => item.field_name && item.value);
 
+  if (splitFields.length === 0) {
+    throw new Error("splits is required");
+  }
+
   for (const occurrence of occurrences) {
+    const rawValue = occurrence.rawValue ?? candidate.rawValue;
+    await splitResolutionRepo.delete({
+      extractionResultId: occurrence.extractionResultId,
+      itemIndex: occurrence.itemIndex,
+      rawFieldName: occurrence.fieldName,
+      rawValue,
+      source: "candidate_review",
+    });
     await splitResolutionRepo.save(
       splitResolutionRepo.create({
         documentId: occurrence.documentId,
         extractionResultId: occurrence.extractionResultId,
         itemIndex: occurrence.itemIndex,
         rawFieldName: occurrence.fieldName,
-        rawValue: occurrence.rawValue ?? candidate.rawValue,
-        rawText: occurrence.rawValue ?? candidate.rawValue,
+        rawValue,
+        rawText: rawValue,
         splitFields,
         evidence: occurrence.evidence ?? candidate.evidence ?? null,
         source: "candidate_review",

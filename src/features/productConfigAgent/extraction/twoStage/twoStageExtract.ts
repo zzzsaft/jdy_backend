@@ -22,9 +22,23 @@ const FALLBACK_PRODUCT_TYPE_HINTS = [
   "melt_pipe",
   "blown_film_die",
   "coating_die",
+  "sizing_die",
+  "thickness_gauge",
+  "manifold",
+  "air_knife",
+  "static_mixer",
+  "spinneret_plate",
+  "monomer_extraction",
+  "ibc_cooling_unit",
+  "valve",
+  "hot_air_pipe",
+  "insulation_cover",
+  "temperature_control_system",
   "die_cart",
   "unknown",
 ];
+
+const MAX_ITEM_DICTIONARY_TERM_TYPES = 120;
 
 type Warning = NonNullable<LlmExtractResult["warnings"]>[number];
 type ProductTypeContext = NonNullable<LlmDictionaryContext["product_types"]>[number];
@@ -54,6 +68,24 @@ export type DocumentPlanItem = {
 export type TwoStageParams = LlmExtractParams & {
   blocksJson?: any;
   maxItemConcurrency?: number;
+};
+
+export type BatchPlanItemInput = {
+  documentId: number;
+  extractionResultId: number;
+  fileName?: string;
+  sheetName?: string;
+  plan: DocumentPlan;
+  item: DocumentPlanItem;
+  llmText: string;
+  blocksJson?: any;
+};
+
+export type BatchItemExtractResult = {
+  documentId: number;
+  extractionResultId: number;
+  itemIndex: number;
+  result: LlmExtractResult;
 };
 
 function normalizeWarningArray(value: unknown, defaultType: string): Warning[] {
@@ -111,6 +143,75 @@ function validateXhExtractionContent(content: string): LlmExtractResult {
   return validateLlmExtractionResult(
     normalizeLlmExtractionShape(parseJsonContent(content)),
   );
+}
+
+function validateXhBatchExtractionContent(
+  content: string,
+  inputs: BatchPlanItemInput[],
+  dictionaryContext: LlmDictionaryContext,
+): BatchItemExtractResult[] {
+  const parsed = parseJsonContent(content);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Batch extraction JSON result must be an object");
+  }
+
+  const root = parsed as Record<string, any>;
+  if (!Array.isArray(root.results)) {
+    throw new Error('Batch extraction JSON result is missing required field "results"');
+  }
+
+  const inputKeys = new Set(inputs.map(batchInputKey));
+  const inputsByKey = new Map(inputs.map((input) => [batchInputKey(input), input]));
+  const seenKeys = new Set<string>();
+  const results: BatchItemExtractResult[] = [];
+
+  for (const [index, item] of root.results.entries()) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new Error(`results[${index}] must be an object`);
+    }
+    const documentId = Number(item.documentId);
+    const extractionResultId = Number(item.extractionResultId);
+    const itemIndex = Number(item.item_index ?? item.itemIndex);
+    if (!Number.isFinite(documentId) || !Number.isFinite(extractionResultId) || !Number.isFinite(itemIndex)) {
+      throw new Error(`results[${index}] must include numeric documentId, extractionResultId, and item_index`);
+    }
+
+    const key = batchResultKey({ documentId, extractionResultId, itemIndex });
+    if (!inputKeys.has(key)) {
+      throw new Error(`results[${index}] does not match any requested batch item: ${key}`);
+    }
+    if (seenKeys.has(key)) {
+      throw new Error(`Duplicate batch result for ${key}`);
+    }
+    seenKeys.add(key);
+
+    const input = inputsByKey.get(key);
+    const result = validateLlmExtractionResult(
+      normalizeLlmExtractionShape({
+        extraction: item.extraction,
+        warnings: item.warnings,
+      }),
+    );
+    result.extraction.items = normalizeMergedItems(
+      result.extraction.items,
+      input ? [input.item, ...relatedPlanItems(input)] : [],
+      dictionaryContext,
+    );
+    results.push({
+      documentId,
+      extractionResultId,
+      itemIndex,
+      result,
+    });
+  }
+
+  for (const key of inputKeys) {
+    if (!seenKeys.has(key)) {
+      throw new Error(`Batch extraction result is missing requested item: ${key}`);
+    }
+  }
+
+  return results;
 }
 
 function getProductTypeContexts(
@@ -281,14 +382,40 @@ export function filterDictionaryContextForProductType(
   productTypeHint: string | null | undefined,
 ): LlmDictionaryContext {
   const productType = normalizeProductTypeHint(productTypeHint, dictionaryContext);
-  return {
-    product_types: dictionaryContext.product_types,
-    term_types: dictionaryContext.term_types.filter((termType) => {
+  const termTypes = dictionaryContext.term_types
+    .filter((termType) => {
       const applicable = termType.applicable_product_types ?? [];
       if (!applicable.length) return true;
       return applicable.includes("common") || applicable.includes(productType);
-    }),
+    })
+    .sort((left, right) =>
+      dictionaryTermTypePromptScore(right, productType) -
+      dictionaryTermTypePromptScore(left, productType),
+    )
+    .slice(0, MAX_ITEM_DICTIONARY_TERM_TYPES);
+
+  return {
+    product_types: dictionaryContext.product_types,
+    term_types: termTypes,
   };
+}
+
+function dictionaryTermTypePromptScore(
+  termType: LlmDictionaryContext["term_types"][number],
+  productType: string,
+): number {
+  const applicable = termType.applicable_product_types ?? [];
+  const productScore = applicable.includes(productType)
+    ? 100
+    : applicable.includes("common")
+      ? 60
+      : applicable.length === 0
+        ? 40
+        : 0;
+  const aliasScore = Math.min(12, termType.aliases?.length ?? 0);
+  const valueKindScore =
+    termType.value_kind === "enum" || termType.value_kind === "enums" ? 8 : 4;
+  return productScore + aliasScore + valueKindScore;
 }
 
 function buildPlanMessages(params: TwoStageParams): LlmChatMessage[] {
@@ -338,6 +465,46 @@ function buildItemMessages(params: {
         current_item: params.item,
         current_item_blocks: params.itemText,
         related_item_summaries: params.relatedItemSummaries,
+        dictionary_context: params.dictionaryContext,
+      }),
+    },
+  ];
+}
+
+function buildBatchItemMessages(params: {
+  productTypeHint: string;
+  inputs: BatchPlanItemInput[];
+  dictionaryContext: LlmDictionaryContext;
+}): LlmChatMessage[] {
+  return [
+    {
+      role: "system",
+      content: buildBatchItemExtractSystemPrompt(
+        params.productTypeHint,
+        params.dictionaryContext,
+      ),
+    },
+    {
+      role: "user",
+      content: JSON.stringify({
+        product_type_hint: params.productTypeHint,
+        batch_items: params.inputs.map((input) => ({
+          documentId: input.documentId,
+          extractionResultId: input.extractionResultId,
+          file_name: input.fileName ?? "",
+          sheet_name: input.sheetName ?? "",
+          document_info: input.plan.document_info ?? {},
+          global_context: input.plan.global_context ?? null,
+          item_index: input.item.item_index,
+          product_type_hint: input.item.product_type_hint ?? params.productTypeHint,
+          current_item: input.item,
+          current_item_blocks: buildItemInputText(
+            input.llmText,
+            input.blocksJson,
+            input.item,
+          ),
+          related_item_summaries: relatedPlanItems(input),
+        })),
         dictionary_context: params.dictionaryContext,
       }),
     },
@@ -494,6 +661,55 @@ export async function extractItemsFromPlanWithXh(
   };
 }
 
+export async function extractItemBatchFromPlansWithXh(
+  params: {
+    productTypeHint: string;
+    inputs: BatchPlanItemInput[];
+    dictionaryContext: LlmDictionaryContext;
+  },
+  model?: string,
+): Promise<BatchItemExtractResult[]> {
+  if (!params.inputs.length) {
+    return [];
+  }
+
+  const client = getXhClient();
+  const productType = normalizeProductTypeHint(
+    params.productTypeHint,
+    params.dictionaryContext,
+  );
+  const filteredDictionaryContext = filterDictionaryContextForProductType(
+    params.dictionaryContext,
+    productType,
+  );
+  const content = await requestXhChatJson({
+    client,
+    model,
+    purpose: `product_config_agent_item_extract_batch_${productType}`,
+    messages: buildBatchItemMessages({
+      productTypeHint: productType,
+      inputs: params.inputs,
+      dictionaryContext: filteredDictionaryContext,
+    }),
+    input: {
+      productType,
+      itemCount: params.inputs.length,
+      extractionResultIds: [
+        ...new Set(params.inputs.map((item) => item.extractionResultId)),
+      ],
+      dictionaryTermTypeCount: filteredDictionaryContext.term_types.length,
+    },
+    responseFormat: "json_object",
+    maxTokens: 60000,
+  });
+
+  return validateXhBatchExtractionContent(
+    content,
+    params.inputs,
+    filteredDictionaryContext,
+  );
+}
+
 export async function extractProductConfigWithTwoStageXh(
   params: TwoStageParams,
   model?: string,
@@ -563,6 +779,28 @@ function normalizeMergedItems(
   });
 }
 
+function relatedPlanItems(input: BatchPlanItemInput): DocumentPlanItem[] {
+  return input.plan.items.filter((other) =>
+    input.item.related_item_indexes?.includes(other.item_index),
+  );
+}
+
+function batchInputKey(input: BatchPlanItemInput): string {
+  return batchResultKey({
+    documentId: input.documentId,
+    extractionResultId: input.extractionResultId,
+    itemIndex: input.item.item_index,
+  });
+}
+
+function batchResultKey(params: {
+  documentId: number;
+  extractionResultId: number;
+  itemIndex: number;
+}): string {
+  return `${params.documentId}:${params.extractionResultId}:${params.itemIndex}`;
+}
+
 function formatProductTypeOptions(
   dictionaryContext?: LlmDictionaryContext,
 ): string {
@@ -624,12 +862,16 @@ ${formatProductTypeOptions(dictionaryContext)}
 规则：
 1. 只判断文档级信息、产品 item、产品类型、数量、文本范围和 item 之间关系。
 2. 不要输出 raw_fields，不要抽配置字段，不要输出 term_type/canonical_value/parsed_value。
-3. 如果文件包含“模头 + 分配器 + 连接器/联结器/换网器/计量泵”等多个可报价对象，必须拆成多个 items。
+3. 如果文件包含“模头 + 定型模 + 分配器 + 连接器/联结器/换网器/计量泵/液压站”等多个可报价对象，必须拆成多个 items。
 4. 如果多个 item 属于一套系统，用 related_item_indexes 和 relation_note 表达，不要把它们合并成一个 item。
 5. document_info 只放当前产品编号、合同编号、订单号、客户、日期、业务人员等文档级信息。当前产品编号统一使用 product_number；模头编号、制品编号、配件编号、die_number、parts_number 都归入 product_number。
 6. “原产品编号 / 参考产品编号 / 历史产品编号 / 互配产品编号”不是当前产品编号，不要放入 document_info.product_number；它属于 item 配置字段 reference_product，应留给 item 抽取阶段处理。
 7. global_context 保留会影响后续 item 抽取的共用备注、系统关系、整套说明。
 8. llm_text_ranges 要覆盖当前 item 的标题、字段区和备注区；宁可稍宽，不要漏掉同一 item 的上下文。
+9. 定型模、二级定型模、sizing die 应作为 sizing_die item；不要合并到平模头、涂布模头或其他模头 item。
+10. 风刀、气刀、贴辊风刀、真空箱、负压箱、air knife、vacuum box 等位于模头和冷却辊/滚筒之间、用于吹风或负压吸附使薄膜贴紧滚筒的装置，优先作为 air_knife item。
+11. 静态混合器、喷丝板/喷丝组件、单体抽吸、IBC 气泡冷却单元、开车阀/换向阀、热风管道、保温罩、控温系统等，如果以独立标题、产品编号、数量或独立配置块出现，应拆成独立 item；如果只在主产品配置项、勾选项或备注里出现，则作为当前 item 的配置字段。
+12. 如果某个配套产品的配置藏在另一个产品块里，也必须拆出独立 item，并用 related_item_indexes 关联原块。例如换网器块内出现“配液压站/液压站功率/油箱容量/液压压力/液压站控制方式”等，应额外输出 hydraulic_station item，文本范围覆盖这些液压站相关行；换网器 item 保留自身过滤/换网字段。
 `;
 }
 
@@ -681,6 +923,10 @@ function buildItemExtractSystemPrompt(
 10. document_info 可以带回阶段一已有文档级信息，但不要把业务员、制单人等人员字段放进 raw_fields。
 11. dictionary_context 只用于理解字段边界和字段适用产品范围；不要输出其中的 term_type 或 canonical value。
 12. [SEL]、■、☑、✔、✓ 表示选中；[ ]、□ 表示未选中。多选字段只输出选中的选项。
+13. 如果 current_item_blocks 中同时包含当前 item 和隐藏的配套 item 配置，可以输出多个 items 来保留边界。典型场景：换网器配置块里写“配液压站”、液压站型号、功率、油箱容量、液压压力、控制方式等，这些字段必须放入 product_type_hint.value = "hydraulic_station" 的 item，不要混入 filter item。
+14. 如果当前 product_type_hint 是 sizing_die，应抽取定型模/二级定型模/sizing die 自身配置；不要因为它属于模具体系就改成 flat_die 或 coating_die。
+15. 如果当前 product_type_hint 是 air_knife，应抽取风刀/气刀/贴辊风刀/真空箱/负压箱自身配置；不要因为它安装在模头和滚筒之间就合并到 flat_die 或冷却辊 item。
+16. 如果 current_item_blocks 里出现静态混合器、喷丝板/喷丝组件、单体抽吸、IBC 气泡冷却单元、开车阀/换向阀、热风管道、保温罩、控温系统等独立标题、产品编号、数量或配置块，可以输出对应独立 item；如果只是当前产品的勾选配置或备注，不要拆 item。
 
 输出示例：
 {
@@ -712,6 +958,80 @@ function buildItemExtractSystemPrompt(
     ]
   },
   "warnings": []
+}
+`;
+}
+
+function buildBatchItemExtractSystemPrompt(
+  productTypeHint: string,
+  dictionaryContext?: LlmDictionaryContext,
+): string {
+  const productFocus = buildProductTypeFocus(productTypeHint, dictionaryContext);
+  return `
+你是企业级生产明细表 Batch Item Raw Extraction 专家。你现在会收到多个不同 document/extraction 中、相同 product_type_hint 的待抽取 item。
+
+当前批次 product_type_hint = ${productTypeHint}
+抽取重点：${productFocus}
+
+你只做 raw extraction，不做 normalization。
+
+必须遵守：
+1. 只输出一个合法 JSON object，不输出 Markdown、解释、代码块或注释。
+2. 输出结构必须是 {"results":[...]}。
+3. results 中必须为每个输入 batch_items 输出一个结果，不能漏项、不能重复、不能输出输入之外的 document/extraction/item。
+4. 每个 result 必须带回输入中的 documentId、extractionResultId、item_index。
+5. 每个 result.extraction 必须使用现有兼容格式：{"document_info":{},"items":[...]}；每个 result 也必须有 warnings 数组。
+6. result.extraction.items 通常只输出当前 item；如果 current_item_blocks 显示当前 item 必须和隐藏配套 item 成组才能解释，可以输出多个 items，但不要重复抽无关 item。
+7. raw_fields 中禁止出现 term_type、canonical_value、parsed_value、dictionary_proposals。
+8. value/raw_text 必须保留原文，不要翻译、标准化或改写。
+9. 每个 item 必须有 item_index、product_type_hint、raw_fields。
+10. 每个 raw_field 必须有 field_name、value、raw_text、evidence、confidence。
+11. 如果字段值明显包含多个业务属性，在该 raw_field 上输出 split_fields；split_fields 也只能用中文 field_name 和原文 value。
+12. 只输出属于当前 product_type 或 current_item 的配置字段；不要把 related_item_summaries 里的字段误放到 current item。
+13. dictionary_context 只用于理解字段边界和字段适用产品范围；不要输出其中的 term_type 或 canonical value。
+14. [SEL]、■、☑、✔、✓ 表示选中；[ ]、□ 表示未选中。多选字段只输出选中的选项。
+15. 如果 current_item_blocks 中同时包含当前 item 和隐藏的配套 item 配置，可以输出多个 items 来保留边界。典型场景：换网器配置块里写“配液压站”、液压站型号、功率、油箱容量、液压压力、控制方式等，这些字段必须放入 product_type_hint.value = "hydraulic_station" 的 item，不要混入 filter item。
+16. 如果当前 product_type_hint 是 sizing_die，应抽取定型模/二级定型模/sizing die 自身配置；不要因为它属于模具体系就改成 flat_die 或 coating_die。
+17. 如果当前 product_type_hint 是 air_knife，应抽取风刀/气刀/贴辊风刀/真空箱/负压箱自身配置；不要因为它安装在模头和滚筒之间就合并到 flat_die 或冷却辊 item。
+18. 如果 current_item_blocks 里出现静态混合器、喷丝板/喷丝组件、单体抽吸、IBC 气泡冷却单元、开车阀/换向阀、热风管道、保温罩、控温系统等独立标题、产品编号、数量或配置块，可以输出对应独立 item；如果只是当前产品的勾选配置或备注，不要拆 item。
+
+输出示例：
+{
+  "results": [
+    {
+      "documentId": 100,
+      "extractionResultId": 200,
+      "item_index": 1,
+      "extraction": {
+        "document_info": {},
+        "items": [
+          {
+            "item_index": 1,
+            "item_name": {"value":"原文产品名","evidence":{},"confidence":0.9},
+            "item_quantity": {"value":"1套","evidence":{},"confidence":0.9},
+            "product_type_hint": {
+              "value": "${productTypeHint}",
+              "raw_value": "支持判断产品类型的原文",
+              "display_name": "中文产品类型",
+              "evidence": {},
+              "confidence": 0.9
+            },
+            "raw_fields": [
+              {
+                "field_name": "中文字段名",
+                "value": "原文值",
+                "selected": true,
+                "raw_text": "支持抽取的原文片段",
+                "evidence": {},
+                "confidence": 0.95
+              }
+            ]
+          }
+        ]
+      },
+      "warnings": []
+    }
+  ]
 }
 `;
 }

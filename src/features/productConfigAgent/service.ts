@@ -230,6 +230,18 @@ export class ProductConfigAgentService {
     return this.plannedExtractionService.extractPlannedItemsWithLlm(params);
   }
 
+  async extractPlannedItemsBatchWithLlm(params: {
+    llmModel?: string;
+    promptVersion?: string;
+    dictionaryVersion?: number;
+    itemProductType?: string;
+    limit?: number;
+    batchSize?: number;
+    concurrency?: number;
+  }): Promise<any> {
+    return this.plannedExtractionService.extractPlannedItemsBatchWithLlm(params);
+  }
+
   async parseAndSaveBlocks(
     params: ProductConfigAgentProcessParams,
   ): Promise<ProductConfigAgentParseAndSaveBlocksResult> {
@@ -404,6 +416,25 @@ export class ProductConfigAgentService {
     }>;
   }) {
     return this.candidateReviewWorkflowService.reviewCandidatesBatch(params);
+  }
+
+  startCandidateReviewBatchJob(params: {
+    refreshAffectedDocuments?: boolean;
+    deferCandidateRecheck?: boolean;
+    operations: Array<{
+      candidateType: "term_type" | "value";
+      candidateId: string;
+      action: CandidateReviewAction;
+      payload: any;
+    }>;
+  }) {
+    return this.candidateReviewWorkflowService.startCandidateReviewBatchJob(
+      params,
+    );
+  }
+
+  getCandidateReviewBatchJob(jobId?: string) {
+    return this.candidateReviewWorkflowService.getCandidateReviewBatchJob(jobId);
   }
 
   private async extractBlocksWithLlm(params: {

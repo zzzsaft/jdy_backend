@@ -21,6 +21,11 @@ const firstValidDate = (...values: unknown[]) => {
   return null;
 };
 
+const buildDateTime = (dateValue: unknown, timeValue: unknown) => {
+  if (!dateValue || !timeValue) return null;
+  return `${dateValue} ${timeValue}`;
+};
+
 export class OutGoingEvent {
   task: XftTaskEvent;
 
@@ -99,13 +104,23 @@ export class OutGoingEvent {
       formData?.beginTime,
       outgoingAddDto?.beginTime,
       outgoingAddDto?.startTime,
-      outgoingAddDto?.beginDateTime
+      outgoingAddDto?.beginDateTime,
+      buildDateTime(outgoingAddDto?.beginDate, outgoingAddDto?.beginTime),
+      buildDateTime(
+        outgoingAddDto?.outGoingTime?.begDate,
+        outgoingAddDto?.outGoingTime?.begTime
+      )
     );
     const endTime = firstValidDate(
       this.endTime,
       formData?.endTime,
       outgoingAddDto?.endTime,
-      outgoingAddDto?.endDateTime
+      outgoingAddDto?.endDateTime,
+      buildDateTime(outgoingAddDto?.endDate, outgoingAddDto?.endTime),
+      buildDateTime(
+        outgoingAddDto?.outGoingTime?.endDate,
+        outgoingAddDto?.outGoingTime?.endTime
+      )
     );
 
     if (!beginTime || !endTime) {
@@ -115,7 +130,9 @@ export class OutGoingEvent {
         }, formData=${JSON.stringify({
           startTime: formData?.startTime,
           beginTime: formData?.beginTime,
+          beginDate: formData?.beginDate,
           endTime: formData?.endTime,
+          endDate: formData?.endDate,
         })}, outgoingAddDto=${JSON.stringify(outgoingAddDto)}`
       );
       return;

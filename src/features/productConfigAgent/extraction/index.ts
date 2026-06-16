@@ -60,6 +60,7 @@ export { extractProductConfigWithInferAiChat } from "./providers/inferAiChatExtr
 export { extractProductConfigWithLocalModel } from "./providers/localExtract.js";
 export { extractProductConfigWithXh } from "./providers/xhExtract.js";
 export {
+  extractItemBatchFromPlansWithXh,
   extractItemsFromPlanWithXh,
   extractProductConfigWithTwoStageXh,
   filterDictionaryContextForProductType,
@@ -82,3 +83,7 @@ export type {
   LlmExtractParams,
   LlmExtractResult,
 } from "./types.js";
+export type {
+  BatchItemExtractResult,
+  BatchPlanItemInput,
+} from "./twoStage/twoStageExtract.js";

@@ -19,30 +19,63 @@ export type NormalizedNumberUnit = {
   unitCanonical?: string;
   displayUnit?: string;
   matchedAliasId?: string;
+  trailingText?: string;
+  trailingFieldName?: string;
+  trailingRawValue?: string;
   normalizedValue: string;
   warnings: string[];
 };
 
 const NUMBER_PATTERN = String.raw`[+-]?(?:\d+(?:\.\d+)?|\.\d+)`;
-const RANGE_SEPARATOR_PATTERN = String.raw`(?:-|~|～|—|－|至|到)`;
-const NUMBER_UNIT_PATTERN = new RegExp(
-  String.raw`^\s*(${NUMBER_PATTERN})(?:\s*${RANGE_SEPARATOR_PATTERN}\s*(${NUMBER_PATTERN}))?\s*([^\d\s].*)?\s*$`,
+const RANGE_SEPARATOR_PATTERN = String.raw`(?:-|~|～|－|—|–|至|到|锝瀨鈥攟锛峾鑷硘鍒?)`;
+const NUMBER_AT_START_PATTERN = new RegExp(
+  String.raw`^\s*(${NUMBER_PATTERN})(.*)$`,
   "u",
 );
+const RANGE_SEPARATOR_AT_START_PATTERN = new RegExp(
+  String.raw`^\s*${RANGE_SEPARATOR_PATTERN}\s*(.*)$`,
+  "u",
+);
+const NUMBER_WITH_REST_PATTERN = new RegExp(
+  String.raw`^\s*(${NUMBER_PATTERN})(.*)$`,
+  "u",
+);
+const TRAILING_SPLIT_PATTERN = new RegExp(
+  String.raw`^\s*([^0-9.,，;；:：+()（）<>【】\[\]\s]+)\s*(${NUMBER_PATTERN}.*)$`,
+  "u",
+);
+const MALFORMED_DECIMAL_TAIL_PATTERN = /^\s*\.\d/;
 
 export function normalizeUnitAliasText(value: unknown): string {
-  return String(value ?? "")
+  let normalized = String(value ?? "")
     .trim()
+    .replace(/鲁/g, "3")
+    .replace(/虏/g, "2")
     .replace(/³/g, "3")
     .replace(/²/g, "2")
-    .replace(/μ/g, "u")
+    .replace(/渭/g, "u")
+    .replace(/碌/g, "u")
     .replace(/µ/g, "u")
+    .replace(/μ/g, "u")
     .replace(/（/g, "(")
     .replace(/）/g, ")")
     .replace(/／/g, "/")
-    .replace(/每/g, "/")
+    .replace(/姣/g, "/")
+    .replace(/以内|以下|左右|约|大约|可调/g, "")
+    .replace(/\/每小时/g, "/h")
+    .replace(/\/小时/g, "/h")
+    .replace(/每小时/g, "/h")
+    .replace(/\/每分钟/g, "/分钟")
+    .replace(/\/分钟/g, "/分钟")
+    .replace(/\/hr\b/gi, "/h")
+    .replace(/\/hour\b/gi, "/h")
+    .replace(/\/+/g, "/")
     .replace(/\s+/g, "")
     .toLowerCase();
+
+  if (normalized === "米") normalized = "m";
+  if (normalized === "°" || normalized === "°c") normalized = "℃";
+  return normalized;
 }
 
 export function normalizeNumberUnit(
@@ -50,9 +83,9 @@ export function normalizeNumberUnit(
   aliasMap: Map<string, CachedUnitAlias> = new Map(),
 ): NormalizedNumberUnit {
   const value = String(rawValue ?? "").trim();
-  const compact = value.replace(/，/g, ",").trim();
-  const match = compact.match(NUMBER_UNIT_PATTERN);
-  if (!match) {
+  const compact = normalizeNumberUnitPunctuation(value);
+  const parsed = parseNumberUnitParts(compact);
+  if (!parsed || parsed.malformed) {
     return {
       rawValue: value,
       numberKind: "none",
@@ -61,49 +94,167 @@ export function normalizeNumberUnit(
     };
   }
 
-  const first = match[1];
-  const second = match[2];
-  const unitRaw = String(match[3] ?? "").trim();
-  const normalizedUnitRaw = unitRaw ? normalizeUnitAliasText(unitRaw) : undefined;
+  const normalizedUnitRaw = parsed.unitRaw
+    ? normalizeUnitAliasText(parsed.unitRaw)
+    : undefined;
   const alias = normalizedUnitRaw ? aliasMap.get(normalizedUnitRaw) : undefined;
   const unitCanonical = alias?.canonicalUnit;
   const displayUnit = alias?.displayUnit || alias?.canonicalUnit;
-  const renderedUnit = displayUnit || unitRaw;
-  const numberKind = second ? "range" : "single";
-  const numericText = second ? `${first}-${second}` : first;
+  const renderedUnit = displayUnit || parsed.unitRaw;
+  const numberKind = parsed.second ? "range" : "single";
+  const numericText = parsed.second ? `${parsed.first}-${parsed.second}` : parsed.first;
   const normalizedValue = [numericText, renderedUnit].filter(Boolean).join(" ");
   const result: NormalizedNumberUnit = {
     rawValue: value,
     numericText,
     numberKind,
-    unitRaw: unitRaw || undefined,
+    unitRaw: parsed.unitRaw || undefined,
     normalizedUnitRaw,
     unitCanonical,
     displayUnit: displayUnit ?? undefined,
     matchedAliasId: alias?.id,
+    trailingText: parsed.trailingText,
+    trailingFieldName: parsed.trailingFieldName,
+    trailingRawValue: parsed.trailingRawValue,
     normalizedValue,
     warnings: [],
   };
 
-  if (second) {
-    result.rangeStart = first;
-    result.rangeEnd = second;
-    const a = Number(first);
-    const b = Number(second);
+  if (parsed.second) {
+    result.rangeStart = parsed.first;
+    result.rangeEnd = parsed.second;
+    const a = Number(parsed.first);
+    const b = Number(parsed.second);
     if (Number.isFinite(a) && Number.isFinite(b)) {
       result.rangeMin = String(Math.min(a, b));
       result.rangeMax = String(Math.max(a, b));
     }
   } else {
-    result.value = first;
+    result.value = parsed.first;
   }
 
-  if (unitRaw && !alias) {
+  if (parsed.unitRaw && !alias) {
     result.warnings.push("unit_alias_no_match");
   }
-  if (!unitRaw) {
+  if (!parsed.unitRaw) {
     result.warnings.push("unit_missing");
+  }
+  if (parsed.trailingText) {
+    result.warnings.push("number_unit_trailing_text");
   }
 
   return result;
+}
+
+function normalizeNumberUnitPunctuation(value: string): string {
+  return value
+    .replace(/，/g, ",")
+    .replace(/（/g, "(")
+    .replace(/）/g, ")")
+    .replace(/－|—|–/g, "-")
+    .trim();
+}
+
+function parseNumberUnitParts(value: string):
+  | {
+      first: string;
+      second?: string;
+      unitRaw: string;
+      trailingText?: string;
+      trailingFieldName?: string;
+      trailingRawValue?: string;
+      malformed?: boolean;
+    }
+  | undefined {
+  const firstMatch = value.match(NUMBER_AT_START_PATTERN);
+  if (!firstMatch) return undefined;
+
+  const first = firstMatch[1];
+  let rest = firstMatch[2] ?? "";
+  const firstUnit = readUnitToken(rest);
+  rest = firstUnit.rest;
+
+  let second: string | undefined;
+  let secondUnit = "";
+  const rangeMatch = rest.match(RANGE_SEPARATOR_AT_START_PATTERN);
+  if (rangeMatch) {
+    const secondMatch = (rangeMatch[1] ?? "").match(NUMBER_WITH_REST_PATTERN);
+    if (secondMatch) {
+      second = secondMatch[1];
+      rest = secondMatch[2] ?? "";
+      if (MALFORMED_DECIMAL_TAIL_PATTERN.test(rest)) {
+        return { first, unitRaw: firstUnit.unitRaw, malformed: true };
+      }
+      const parsedSecondUnit = readUnitToken(rest);
+      secondUnit = parsedSecondUnit.unitRaw;
+      rest = parsedSecondUnit.rest;
+    }
+  }
+
+  if (!second && MALFORMED_DECIMAL_TAIL_PATTERN.test(rest)) {
+    return { first, unitRaw: firstUnit.unitRaw, malformed: true };
+  }
+
+  const unitRaw = cleanUnitToken(secondUnit || firstUnit.unitRaw);
+  const trailingText = cleanTrailingText(rest);
+  const trailingSplit = trailingText.match(TRAILING_SPLIT_PATTERN);
+
+  return {
+    first,
+    second,
+    unitRaw,
+    trailingText: trailingText || undefined,
+    trailingFieldName: trailingSplit?.[1]?.trim(),
+    trailingRawValue: trailingSplit?.[2]?.trim(),
+  };
+}
+
+function readUnitToken(input: string): { unitRaw: string; rest: string } {
+  const trimmedStart = input.trimStart();
+  let index = 0;
+  while (index < trimmedStart.length) {
+    const char = trimmedStart[index];
+    const next = trimmedStart.slice(index);
+    if (
+      char === "," ||
+      char === ";" ||
+      char === "+" ||
+      char === "<" ||
+      char === "(" ||
+      char === "[" ||
+      char === "【" ||
+      /\s/u.test(char)
+    ) {
+      break;
+    }
+    if (RANGE_SEPARATOR_AT_START_PATTERN.test(next)) {
+      break;
+    }
+    if (/\d/u.test(char) && !(index > 0 && (char === "2" || char === "3"))) {
+      break;
+    }
+    index += 1;
+  }
+
+  return {
+    unitRaw: trimmedStart.slice(0, index),
+    rest: trimmedStart.slice(index),
+  };
+}
+
+function cleanUnitToken(value: string): string {
+  return value
+    .trim()
+    .replace(/以内|以下|左右|约|大约/g, "")
+    .replace(/可调/g, "")
+    .replace(/\/每/g, "/")
+    .trim();
+}
+
+function cleanTrailingText(value: string): string {
+  return value
+    .trim()
+    .replace(/^[,;，；+<(\s]+/u, "")
+    .replace(/[)>）】\]\s]+$/u, "")
+    .trim();
 }

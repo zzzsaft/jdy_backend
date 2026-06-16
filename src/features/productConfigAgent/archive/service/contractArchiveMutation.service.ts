@@ -1,4 +1,4 @@
-import { DataSource, EntityManager } from "typeorm";
+import { DataSource, EntityManager, In } from "typeorm";
 import { Documents } from "../../workflow/entity/documents.entity.js";
 import { ExtractionResults } from "../../extraction/entity/extractionResults.entity.js";
 import {
@@ -63,6 +63,10 @@ export class ContractArchiveMutationService {
       const readiness = this.readinessService.checkExtraction(
         params.documentId,
         extraction,
+        await this.readinessService.countPendingCandidates(
+          extraction.id,
+          manager,
+        ),
       );
       if (!readiness.canArchive && params.force !== true) {
         throw new Error(
@@ -216,6 +220,7 @@ export class ContractArchiveMutationService {
       await this.persistSnapshot(params.archiveId, nextSnapshot, manager);
       const archive = await manager.getRepository(ContractArchive).findOne({
         where: { id: String(params.archiveId) },
+        lock: { mode: "pessimistic_write" },
       });
       if (!archive) {
         throw new Error(`Contract archive not found: ${params.archiveId}`);
@@ -307,6 +312,7 @@ export class ContractArchiveMutationService {
 
       const archive = await manager.getRepository(ContractArchive).findOne({
         where: { id: String(params.archiveId) },
+        lock: { mode: "pessimistic_write" },
       });
       if (!archive) {
         throw new Error(`Contract archive not found: ${params.archiveId}`);
@@ -385,6 +391,7 @@ export class ContractArchiveMutationService {
       const beforeSnapshot = cloneJson(beforeDetail.archive);
       const archive = await manager.getRepository(ContractArchive).findOne({
         where: { id: String(params.archiveId) },
+        lock: { mode: "pessimistic_write" },
       });
       if (!archive) {
         throw new Error(`Contract archive not found: ${params.archiveId}`);
@@ -464,8 +471,12 @@ export class ContractArchiveMutationService {
       ? normalizedJson.items
       : [];
     const itemRepo = params.manager.getRepository(ContractArchiveItem);
+    const productRepo = params.manager.getRepository(ContractArchiveItemProduct);
+    const normalizedItemIndexes = new Set<number>();
+    const multipleItems = rawItems.length > 1;
     for (const rawItem of rawItems) {
       const itemIndex = Number(rawItem?.item_index ?? 0);
+      normalizedItemIndexes.add(itemIndex);
       const existing = await itemRepo.findOne({
         where: {
           archiveId: params.archive.id,
@@ -484,25 +495,86 @@ export class ContractArchiveMutationService {
         productTypeDisplayName:
           normalizeOptionalString(rawItem?.itemProductTypeHintDisplayName),
         sourceProductNumber: summary.productNumber,
+        productNumberStatus: summary.productNumber
+          ? multipleItems
+            ? "inherited"
+            : "bound"
+          : "missing",
         fieldsJsonb: Array.isArray(rawItem?.fields) ? rawItem.fields : [],
         warningsJsonb: Array.isArray(rawItem?.warnings) ? rawItem.warnings : [],
       };
 
+      let savedItem: ContractArchiveItem;
       if (existing) {
         await itemRepo.update(
           { id: existing.id },
           patch as any,
         );
+        savedItem = {
+          ...existing,
+          ...patch,
+        } as ContractArchiveItem;
       } else {
-        await itemRepo.save(
-          itemRepo.create({
-            archiveId: params.archive.id,
-            productNumberStatus: summary.productNumber ? "inherited" : "missing",
-            ...patch,
-          } as any),
-        );
+        const createdItem = itemRepo.create({
+          archiveId: params.archive.id,
+          ...patch,
+        } as Partial<ContractArchiveItem>);
+        savedItem = await itemRepo.save(createdItem);
       }
+      await this.syncSystemProductBinding({
+        manager: params.manager,
+        item: savedItem,
+        sourceProductNumber: summary.productNumber,
+        multipleItems,
+        docInfo,
+      });
     }
+
+    const staleItems = await itemRepo
+      .createQueryBuilder("item")
+      .where("item.archive_id = :archiveId", { archiveId: params.archive.id })
+      .andWhere(
+        normalizedItemIndexes.size > 0
+          ? "item.item_index NOT IN (:...itemIndexes)"
+          : "1 = 1",
+        { itemIndexes: [...normalizedItemIndexes] },
+      )
+      .getMany();
+    if (staleItems.length > 0) {
+      const staleItemIds = staleItems.map((item) => item.id);
+      await productRepo.delete({ archiveItemId: In(staleItemIds) });
+      await itemRepo.delete({ id: In(staleItemIds) });
+    }
+  }
+
+  private async syncSystemProductBinding(params: {
+    manager: EntityManager;
+    item: ContractArchiveItem;
+    sourceProductNumber: string | null;
+    multipleItems: boolean;
+    docInfo: Record<string, any>;
+  }) {
+    const productRepo = params.manager.getRepository(ContractArchiveItemProduct);
+    await productRepo.delete({
+      archiveItemId: params.item.id,
+      bindingSource: In(["document", "inherited"]),
+    });
+    if (!params.sourceProductNumber) {
+      return;
+    }
+    await productRepo.save(
+      productRepo.create({
+        archiveId: params.item.archiveId,
+        archiveItemId: params.item.id,
+        productNumber: params.sourceProductNumber,
+        role: "primary",
+        quantity: params.item.itemQuantity,
+        bindingSource: params.multipleItems ? "inherited" : "document",
+        confidence: getFieldConfidence(params.docInfo.product_number),
+        erpMatchStatus: "unmatched",
+        evidenceJsonb: params.docInfo.product_number?.evidence ?? null,
+      }),
+    );
   }
 
   private dictionaryRefreshSnapshot(snapshot: any) {

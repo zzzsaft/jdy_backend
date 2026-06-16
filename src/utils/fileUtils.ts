@@ -177,6 +177,9 @@ export const appAxios = async (config: AxiosRequestConfig) => {
       }
       if (error.response) {
         await saveToDb(config, error.response, error);
+        if (error.response.status >= 400 && error.response.status < 500) {
+          throw error;
+        }
       }
       attempt++;
       console.warn(
