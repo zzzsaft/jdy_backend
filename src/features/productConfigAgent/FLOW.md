@@ -1,4 +1,4 @@
-# productConfigAgent Flow
+﻿# productConfigAgent Flow
 
 This directory is the historical implementation location for productConfigAgent.
 New code, prompts, docs, and frontend calls should use the productConfigAgent
@@ -127,7 +127,7 @@ If a step fails, document status is set to `failed`.
 
 ## Two Stage Extraction
 
-Two stage extraction is used when `promptVersion = "v3-plan-item"`.
+Two stage extraction is used when `promptVersion = "v3-plan-item-20260616"`.
 
 Runtime code:
 
@@ -163,7 +163,7 @@ One-shot modes also exist:
 
 ```text
 --mode=batch --twoStage
---mode=one --documentId=<id> --promptVersion=v3-plan-item
+--mode=one --documentId=<id> --promptVersion=v3-plan-item-20260616
 ```
 
 ## Normalization Rerun Flow
@@ -273,3 +273,4 @@ src/features/productConfigAgent/dictionary/
 src/features/productConfigAgent/archive/
 src/features/productConfigAgent/query/productConfigAgentQuery.service.ts
 ```
+

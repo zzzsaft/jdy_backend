@@ -13,10 +13,65 @@ type CandidateReviewOperation = {
   payload: any;
 };
 
+type CandidateReviewBatchResult = {
+  requestedCount: number;
+  processedCount: number;
+  successCount: number;
+  failedCount: number;
+  affectedDocumentIds: number[];
+  refreshDeferred: boolean;
+  candidateRecheckDeferred: boolean;
+  candidateRecheck: any;
+  refreshed: any[];
+  results: Array<{
+    candidateType: CandidateType;
+    candidateId: string;
+    action: string;
+    status: "ok" | "failed";
+    error?: string;
+  }>;
+};
+
+type CandidateReviewBatchJobStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "failed";
+
+export type CandidateReviewBatchJob = {
+  id: string;
+  status: CandidateReviewBatchJobStatus;
+  refreshAffectedDocuments: boolean;
+  deferCandidateRecheck: boolean;
+  requestedCount: number;
+  processedCount: number;
+  successCount: number;
+  failedCount: number;
+  currentCandidateId?: string;
+  currentCandidateType?: CandidateType;
+  currentAction?: string;
+  startedAt: string;
+  runningAt?: string;
+  finishedAt?: string;
+  totalMs?: number;
+  result?: CandidateReviewBatchResult;
+  error?: string;
+};
+
 export class CandidateReviewWorkflowService {
   private candidateRecheckJobRunning = false;
   private candidateRecheckJobPending = false;
   private candidateRecheckTimer: NodeJS.Timeout | null = null;
+  private candidateReviewBatchJobs = new Map<string, CandidateReviewBatchJob>();
+  private candidateReviewBatchQueue: Array<{
+    job: CandidateReviewBatchJob;
+    params: {
+      refreshAffectedDocuments?: boolean;
+      deferCandidateRecheck?: boolean;
+      operations: CandidateReviewOperation[];
+    };
+  }> = [];
+  private candidateReviewBatchWorkerRunning = false;
 
   constructor(
     private readonly repository: ProductConfigAgentRepository,
@@ -129,7 +184,18 @@ export class CandidateReviewWorkflowService {
     refreshAffectedDocuments?: boolean;
     deferCandidateRecheck?: boolean;
     operations: CandidateReviewOperation[];
-  }) {
+    onOperationProcessed?: (event: {
+      operation: CandidateReviewOperation;
+      index: number;
+      result: {
+        candidateType: CandidateType;
+        candidateId: string;
+        action: string;
+        status: "ok" | "failed";
+        error?: string;
+      };
+    }) => void;
+  }): Promise<CandidateReviewBatchResult> {
     const startedAt = Date.now();
     if (params.operations.length > 200) {
       throw new Error("operations length must be <= 200");
@@ -199,6 +265,17 @@ export class CandidateReviewWorkflowService {
           status: result.status,
           error: result.error,
         });
+        params.onOperationProcessed?.({
+          operation,
+          index,
+          result: {
+            candidateType: operation.candidateType,
+            candidateId: operation.candidateId,
+            action: operation.action,
+            status: result.status,
+            error: result.error,
+          },
+        });
         logger.info(
           `[productConfigAgent:reviewCandidatesBatch:operation] index=${index + 1}/${operations.length} status=${result.status} ` +
             `candidateType=${operation.candidateType} candidateId=${operation.candidateId} action=${operation.action} ` +
@@ -250,6 +327,16 @@ export class CandidateReviewWorkflowService {
           action: operation.action,
           status: "ok",
         });
+        params.onOperationProcessed?.({
+          operation,
+          index,
+          result: {
+            candidateType: operation.candidateType,
+            candidateId: operation.candidateId,
+            action: operation.action,
+            status: "ok",
+          },
+        });
         logger.info(
           `[productConfigAgent:reviewCandidatesBatch:operation] index=${index + 1}/${operations.length} status=ok ` +
             `candidateType=${operation.candidateType} candidateId=${operation.candidateId} action=${operation.action} ` +
@@ -263,6 +350,17 @@ export class CandidateReviewWorkflowService {
           action: operation.action,
           status: "failed",
           error: error instanceof Error ? error.message : String(error),
+        });
+        params.onOperationProcessed?.({
+          operation,
+          index,
+          result: {
+            candidateType: operation.candidateType,
+            candidateId: operation.candidateId,
+            action: operation.action,
+            status: "failed",
+            error: error instanceof Error ? error.message : String(error),
+          },
         });
         logger.info(
           `[productConfigAgent:reviewCandidatesBatch:operation] index=${index + 1}/${operations.length} status=failed ` +
@@ -343,6 +441,132 @@ export class CandidateReviewWorkflowService {
       refreshed,
       results,
     };
+  }
+
+  startCandidateReviewBatchJob(params: {
+    refreshAffectedDocuments?: boolean;
+    deferCandidateRecheck?: boolean;
+    operations: CandidateReviewOperation[];
+  }): CandidateReviewBatchJob {
+    if (params.operations.length > 200) {
+      throw new Error("operations length must be <= 200");
+    }
+
+    const job: CandidateReviewBatchJob = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      status: "queued",
+      refreshAffectedDocuments: params.refreshAffectedDocuments === true,
+      deferCandidateRecheck: params.deferCandidateRecheck === true,
+      requestedCount: params.operations.length,
+      processedCount: 0,
+      successCount: 0,
+      failedCount: 0,
+      startedAt: new Date().toISOString(),
+    };
+
+    this.candidateReviewBatchJobs.set(job.id, job);
+    this.candidateReviewBatchQueue.push({ job, params });
+    this.trimCandidateReviewBatchJobs();
+    setImmediate(() => {
+      void this.runCandidateReviewBatchQueue();
+    });
+
+    logger.info(
+      `[productConfigAgent:reviewCandidatesBatch:queued] jobId=${job.id} requestedCount=${job.requestedCount} ` +
+        `refreshAffectedDocuments=${job.refreshAffectedDocuments} deferCandidateRecheck=${job.deferCandidateRecheck}`,
+    );
+    return job;
+  }
+
+  getCandidateReviewBatchJob(jobId?: string): CandidateReviewBatchJob | null {
+    if (jobId) {
+      return this.candidateReviewBatchJobs.get(jobId) ?? null;
+    }
+    const jobs = [...this.candidateReviewBatchJobs.values()];
+    return jobs.at(-1) ?? null;
+  }
+
+  private async runCandidateReviewBatchQueue() {
+    if (this.candidateReviewBatchWorkerRunning) {
+      return;
+    }
+
+    this.candidateReviewBatchWorkerRunning = true;
+    try {
+      while (this.candidateReviewBatchQueue.length > 0) {
+        const next = this.candidateReviewBatchQueue.shift();
+        if (!next) {
+          continue;
+        }
+        await this.runCandidateReviewBatchJob(next.job, next.params);
+      }
+    } finally {
+      this.candidateReviewBatchWorkerRunning = false;
+    }
+  }
+
+  private async runCandidateReviewBatchJob(
+    job: CandidateReviewBatchJob,
+    params: {
+      refreshAffectedDocuments?: boolean;
+      deferCandidateRecheck?: boolean;
+      operations: CandidateReviewOperation[];
+    },
+  ) {
+    const startedAt = Date.now();
+    job.status = "running";
+    job.runningAt = new Date().toISOString();
+    try {
+      const result = await this.reviewCandidatesBatch({
+        ...params,
+        onOperationProcessed: ({ operation, result }) => {
+          job.currentCandidateId = operation.candidateId;
+          job.currentCandidateType = operation.candidateType;
+          job.currentAction = operation.action;
+          job.processedCount += 1;
+          if (result.status === "ok") {
+            job.successCount += 1;
+          } else {
+            job.failedCount += 1;
+          }
+        },
+      });
+      job.status = "completed";
+      job.result = result;
+      job.processedCount = result.processedCount;
+      job.successCount = result.successCount;
+      job.failedCount = result.failedCount;
+      job.currentCandidateId = undefined;
+      job.currentCandidateType = undefined;
+      job.currentAction = undefined;
+      job.finishedAt = new Date().toISOString();
+      job.totalMs = elapsedMs(startedAt);
+      logger.info(
+        `[productConfigAgent:reviewCandidatesBatch:job:end] jobId=${job.id} status=${job.status} ` +
+          `requestedCount=${job.requestedCount} successCount=${job.successCount} failedCount=${job.failedCount} totalMs=${job.totalMs}`,
+      );
+    } catch (error) {
+      job.status = "failed";
+      job.error = error instanceof Error ? error.message : String(error);
+      job.finishedAt = new Date().toISOString();
+      job.totalMs = elapsedMs(startedAt);
+      logger.error(
+        `[productConfigAgent:reviewCandidatesBatch:job:failed] jobId=${job.id} requestedCount=${job.requestedCount} ` +
+          `processedCount=${job.processedCount} totalMs=${job.totalMs} error=${job.error}`,
+      );
+    }
+  }
+
+  private trimCandidateReviewBatchJobs() {
+    const jobs = [...this.candidateReviewBatchJobs.entries()];
+    const completedJobs = jobs.filter(([, job]) => job.status !== "running" && job.status !== "queued");
+    const extraCount = completedJobs.length - 20;
+    if (extraCount <= 0) {
+      return;
+    }
+    for (const [jobId] of completedJobs.slice(0, extraCount)) {
+      this.candidateReviewBatchJobs.delete(jobId);
+    }
   }
 
   private async applyCandidateReviewAction(params: CandidateReviewOperation & {

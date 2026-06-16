@@ -304,15 +304,20 @@ export class MessageService {
   };
   static updateResponseCode = async (taskId: string, responseCode: string) => {
     const msg = await WechatMessage.findOne({ where: { taskId: taskId } });
-    if (msg) {
+    if (!msg) return null;
+
+    if (msg.responseCode !== responseCode) {
       msg.responseCode = responseCode;
       await msg.save();
-      if (msg.responseCodeExpired && msg.replaceName) {
-        await new MessageService(msg.userid ?? []).disableButton(
-          msg,
-          msg.replaceName
-        );
-      }
     }
+
+    if (msg.responseCodeExpired && msg.replaceName) {
+      await new MessageService(msg.userid ?? []).disableButton(
+        msg,
+        msg.replaceName
+      );
+    }
+
+    return msg;
   };
 }

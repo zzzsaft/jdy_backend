@@ -365,12 +365,14 @@ class CustomerServices {
   };
 
   setCollaborator = async (erpId, userid) => {
+    if (!erpId || !userid) return;
     const cus = await Customer.findOne({
       where: { erpId },
-      select: ["collaboratorId", "jdyId"],
+      select: ["id", "collaboratorId", "jdyId"],
     });
     if (!cus) return;
-    if (!cus?.collaboratorId?.includes(userid)) {
+    cus.collaboratorId = cus.collaboratorId ?? [];
+    if (!cus.collaboratorId.includes(userid)) {
       cus.collaboratorId.push(userid);
       await jdyFormDataApiClient.singleDataUpdate(
         this.appid,
@@ -380,7 +382,7 @@ class CustomerServices {
           collaborator: JdyUtil.setCombos(cus.collaboratorId),
         }
       );
-      await Customer.update({ erpId }, { collaboratorId: cus.collaboratorId });
+      await cus.save();
     }
   };
 

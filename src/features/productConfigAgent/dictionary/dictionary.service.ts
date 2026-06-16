@@ -197,7 +197,6 @@ export class DictionaryService {
     if (matchedAlias.aliasId) {
       this.markValueAliasSeen(matchedAlias.aliasId);
     }
-
     return {
       matched: true,
       termType: params.termType,
@@ -345,6 +344,9 @@ export class DictionaryService {
     );
     const valueCandidateRepo = this.dataSource.getRepository(DictionaryCandidate);
     const splitResolutionRepo = this.dataSource.getRepository(SplitResolution);
+    const occurrenceRepo = this.dataSource.getRepository(
+      DictionaryCandidateOccurrence,
+    );
     const [termTypeCandidates, valueCandidates] = await Promise.all([
       termTypeCandidateRepo.find({
         where: { status: "pending" },
@@ -357,8 +359,27 @@ export class DictionaryService {
         take: limit,
       }),
     ]);
+    const valueCandidateOccurrences = valueCandidates.length
+      ? await occurrenceRepo.find({
+          where: {
+            candidateType: "value",
+            candidateId: In(valueCandidates.map((candidate) => candidate.id)),
+          },
+        })
+      : [];
+    const valueOccurrencesByCandidateId = new Map<
+      string,
+      DictionaryCandidateOccurrence[]
+    >();
+    for (const occurrence of valueCandidateOccurrences) {
+      valueOccurrencesByCandidateId.set(occurrence.candidateId, [
+        ...(valueOccurrencesByCandidateId.get(occurrence.candidateId) ?? []),
+        occurrence,
+      ]);
+    }
     const splitResolutionLookup = await this.buildCandidateReviewSplitResolutionLookup(
       valueCandidates,
+      valueCandidateOccurrences,
       splitResolutionRepo,
     );
 
@@ -393,13 +414,10 @@ export class DictionaryService {
         candidate.extractionResultId &&
         candidate.itemIndex !== null
       ) {
-        const splitResolution = splitResolutionLookup.get(
-          this.splitResolutionLookupKey({
-            documentId: candidate.documentId,
-            extractionResultId: candidate.extractionResultId,
-            itemIndex: candidate.itemIndex,
-            rawValue: candidate.rawValue,
-          }),
+        const splitResolution = this.findCandidateSplitResolution(
+          candidate,
+          valueOccurrencesByCandidateId.get(candidate.id) ?? [],
+          splitResolutionLookup,
         );
         if (splitResolution) {
           candidate.status = "auto_resolved";
@@ -473,9 +491,6 @@ export class DictionaryService {
       }
     }
 
-    const occurrenceRepo = this.dataSource.getRepository(
-      DictionaryCandidateOccurrence,
-    );
     const occurrenceQueries = await Promise.all([
       resolvedTermTypeCandidateIds.length
         ? occurrenceRepo.find({
@@ -518,13 +533,15 @@ export class DictionaryService {
 
   private async buildCandidateReviewSplitResolutionLookup(
     candidates: DictionaryCandidate[],
+    occurrences: DictionaryCandidateOccurrence[],
     splitResolutionRepo: Repository<SplitResolution>,
   ): Promise<Map<string, SplitResolution>> {
     const extractionResultIds = [
       ...new Set(
-        candidates
-          .map((candidate) => candidate.extractionResultId)
-          .filter((id): id is string => Boolean(id)),
+        [
+          ...candidates.map((candidate) => candidate.extractionResultId),
+          ...occurrences.map((occurrence) => occurrence.extractionResultId),
+        ].filter((id): id is string => Boolean(id)),
       ),
     ];
     if (extractionResultIds.length === 0) {
@@ -548,6 +565,71 @@ export class DictionaryService {
         row,
       ]),
     );
+  }
+
+  private findCandidateSplitResolution(
+    candidate: DictionaryCandidate,
+    occurrences: DictionaryCandidateOccurrence[],
+    splitResolutionLookup: Map<string, SplitResolution>,
+  ): SplitResolution | undefined {
+    const rawValues = this.candidateSplitResolutionRawValues(candidate);
+    const occurrenceInputs =
+      occurrences.length > 0
+        ? occurrences.map((occurrence) => ({
+            documentId: occurrence.documentId,
+            extractionResultId: occurrence.extractionResultId,
+            itemIndex: occurrence.itemIndex,
+            rawValues: [
+              occurrence.rawValue,
+              ...rawValues,
+            ],
+          }))
+        : [
+            {
+              documentId: candidate.documentId,
+              extractionResultId: candidate.extractionResultId,
+              itemIndex: candidate.itemIndex,
+              rawValues,
+            },
+          ];
+
+    for (const input of occurrenceInputs) {
+      if (!input.documentId || !input.extractionResultId || input.itemIndex === null) {
+        continue;
+      }
+      for (const rawValue of input.rawValues) {
+        if (!rawValue) continue;
+        const splitResolution = splitResolutionLookup.get(
+          this.splitResolutionLookupKey({
+            documentId: input.documentId,
+            extractionResultId: input.extractionResultId,
+            itemIndex: input.itemIndex,
+            rawValue,
+          }),
+        );
+        if (splitResolution) {
+          return splitResolution;
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  private candidateSplitResolutionRawValues(
+    candidate: DictionaryCandidate,
+  ): string[] {
+    const evidence =
+      candidate.evidence && typeof candidate.evidence === "object"
+        ? (candidate.evidence as Record<string, unknown>)
+        : {};
+    return [
+      candidate.rawValue,
+      evidence.sourceRawValue,
+      evidence.splitFromRawValue,
+    ]
+      .map((value) => String(value ?? "").trim())
+      .filter(Boolean);
   }
 
   private splitResolutionLookupKey(params: {
@@ -688,6 +770,7 @@ export class DictionaryService {
       rawValue?: string;
       displayName?: string;
       aliasNames?: string[];
+      applicableProductTypes?: string[];
     }>;
     reviewedBy?: string;
     bumpVersion?: boolean;
@@ -1007,6 +1090,7 @@ export class DictionaryService {
     candidateId: string;
     termType: string;
     rawValue?: string;
+    movedRawValue?: string;
     reviewedBy?: string;
     reason?: string;
     bumpVersion?: boolean;
@@ -1030,12 +1114,15 @@ export class DictionaryService {
       throw new Error(`DictionaryCandidate not found: ${params.candidateId}`);
     }
 
-    const rawValue = String(params.rawValue ?? candidate.rawValue).trim();
+    const rawValue = String(
+      params.movedRawValue ?? params.rawValue ?? candidate.rawValue,
+    ).trim();
     if (!rawValue) {
       throw new Error("rawValue is required");
     }
 
     const normalizedRawValue = this.normalizeText(rawValue);
+    const targetMatch = await this.matchValue({ termType, rawValue });
     const existing = await candidateRepo
       .createQueryBuilder("candidate")
       .where("candidate.termType = :termType", { termType })
@@ -1054,16 +1141,44 @@ export class DictionaryService {
     candidate.reason =
       params.reason ??
       `moved_to_other_term_type:${candidate.termType}->${termType}`;
+    candidate.proposedCanonicalValue =
+      targetMatch.matched && targetMatch.canonicalValue
+        ? `${termType}:${targetMatch.canonicalValue}`
+        : `${termType}:${rawValue}`;
+    candidate.proposedTermId = targetMatch.termId ?? candidate.proposedTermId;
+
+    if (targetMatch.matched) {
+      candidate.reason =
+        params.reason ??
+        `moved_to_other_term_type_resolved:${candidate.termType}->${termType}`;
+      await this.saveMovedValueCandidateResolved(candidateRepo, candidate);
+      await this.saveMoveValueSplitResolution({
+        candidate,
+        targetTermType: termType,
+        movedRawValue: rawValue,
+      });
+      return;
+    }
 
     if (existing) {
       candidate.reason =
         params.reason ??
         `moved_to_existing_candidate:${existing.termType}:${existing.id}`;
       await this.saveMovedValueCandidateResolved(candidateRepo, candidate);
+      await this.saveMoveValueSplitResolution({
+        candidate,
+        targetTermType: termType,
+        movedRawValue: rawValue,
+      });
       return;
     }
 
     await this.saveMovedValueCandidateResolved(candidateRepo, candidate);
+    await this.saveMoveValueSplitResolution({
+      candidate,
+      targetTermType: termType,
+      movedRawValue: rawValue,
+    });
     await createValueCandidateRecord(
       this.dataSource,
       {
@@ -1080,6 +1195,54 @@ export class DictionaryService {
       },
       normalizedRawValue,
     );
+  }
+
+  private async saveMoveValueSplitResolution(params: {
+    candidate: DictionaryCandidate;
+    targetTermType: string;
+    movedRawValue: string;
+  }): Promise<void> {
+    const occurrenceRepo = this.dataSource.getRepository(
+      DictionaryCandidateOccurrence,
+    );
+    const splitResolutionRepo = this.dataSource.getRepository(SplitResolution);
+    const occurrences = await occurrenceRepo.find({
+      where: { candidateType: "value", candidateId: params.candidate.id },
+    });
+    const splitFields = [
+      {
+        field_name: params.targetTermType,
+        value: params.movedRawValue,
+        raw_text: params.candidate.rawValue,
+        confidence: params.candidate.confidence
+          ? Number(params.candidate.confidence)
+          : undefined,
+      },
+    ];
+
+    for (const occurrence of occurrences) {
+      const rawValue = occurrence.rawValue ?? params.candidate.rawValue;
+      await splitResolutionRepo.delete({
+        extractionResultId: occurrence.extractionResultId,
+        itemIndex: occurrence.itemIndex,
+        rawFieldName: occurrence.fieldName,
+        rawValue,
+        source: "candidate_review",
+      });
+      await splitResolutionRepo.save(
+        splitResolutionRepo.create({
+          documentId: occurrence.documentId,
+          extractionResultId: occurrence.extractionResultId,
+          itemIndex: occurrence.itemIndex,
+          rawFieldName: occurrence.fieldName,
+          rawValue,
+          rawText: rawValue,
+          splitFields,
+          evidence: occurrence.evidence ?? params.candidate.evidence ?? null,
+          source: "candidate_review",
+        }),
+      );
+    }
   }
 
   private async saveMovedValueCandidateResolved(
@@ -1523,6 +1686,34 @@ export class DictionaryService {
         evidence: params.evidence,
       });
     }
+    const trailingSplit = this.resolveNumberUnitTrailingSplit({
+      numberUnit,
+      itemProductTypeHint: normalizeProductTypeHintForMatch(
+        params.itemProductTypeHint,
+      ),
+    });
+    const trailingTermTypeCandidate = trailingSplit
+      ? await this.createTermTypeCandidate({
+          documentId: params.documentId,
+          extractionResultId: params.extractionResultId,
+          itemIndex: params.itemIndex,
+          sourceProductType: params.itemProductTypeHint,
+          rawFieldName: trailingSplit.rawFieldName,
+          rawValue: trailingSplit.rawValue,
+          proposedTermType: trailingSplit.proposedTermType,
+          ignoreRejected: true,
+          reason: trailingSplit.proposedTermType
+            ? "number_unit_trailing_split_candidate"
+            : "number_unit_trailing_split_needs_review",
+          evidence: {
+            ...(params.evidence && typeof params.evidence === "object"
+              ? params.evidence
+              : {}),
+            sourceRawValue: params.rawValue,
+            sourceTermType: termType,
+          },
+        })
+      : null;
 
     return {
       matched: true,
@@ -1542,6 +1733,7 @@ export class DictionaryService {
       ),
       numberUnit,
       unitCandidate,
+      termTypeCandidate: trailingTermTypeCandidate ?? undefined,
       warnings: numberUnit.warnings.map((warning) => ({
         type: warning,
         message:
@@ -1552,6 +1744,52 @@ export class DictionaryService {
         termType,
       })),
     };
+  }
+
+  private resolveNumberUnitTrailingSplit(params: {
+    numberUnit: ReturnType<typeof normalizeNumberUnit>;
+    itemProductTypeHint?: string;
+  }): { rawFieldName: string; rawValue: string; proposedTermType?: string } | undefined {
+    const rawFieldName = String(params.numberUnit.trailingFieldName ?? "").trim();
+    const rawValue = String(params.numberUnit.trailingRawValue ?? "").trim();
+    if (!rawFieldName || !rawValue) {
+      return undefined;
+    }
+
+    const proposedTermType = this.proposeTrailingSplitTermType({
+      rawFieldName,
+      itemProductTypeHint: params.itemProductTypeHint,
+    });
+    if (!proposedTermType && !isExplicitNumberUnitSplitField(rawFieldName)) {
+      return undefined;
+    }
+
+    return {
+      rawFieldName,
+      rawValue,
+      proposedTermType,
+    };
+  }
+
+  private proposeTrailingSplitTermType(params: {
+    rawFieldName: string;
+    itemProductTypeHint?: string;
+  }): string | undefined {
+    const normalized = this.normalizeText(params.rawFieldName);
+    const candidates: Record<string, string> = {
+      "\u5f00\u53e3": "lower_lip_gap",
+      "\u5f00\u6863": "lower_lip_gap",
+      "\u4e0b\u6a21\u5507\u5f00\u6863": "lower_lip_gap",
+    };
+    const termType = candidates[normalized];
+    if (
+      termType &&
+      this.cache.termTypeMap.has(termType) &&
+      this.isTermTypeApplicableToProduct(termType, params.itemProductTypeHint)
+    ) {
+      return termType;
+    }
+    return undefined;
   }
 
   private async normalizeMasterDataModelField(
@@ -1620,4 +1858,12 @@ export class DictionaryService {
 function normalizeProductTypeHintForMatch(value: unknown): string {
   const normalized = String(value ?? "").trim();
   return normalized || "unknown";
+}
+
+function isExplicitNumberUnitSplitField(value: string): boolean {
+  return [
+    "\u5f00\u53e3",
+    "\u5f00\u6863",
+    "\u4e0b\u6a21\u5507\u5f00\u6863",
+  ].includes(value.trim());
 }

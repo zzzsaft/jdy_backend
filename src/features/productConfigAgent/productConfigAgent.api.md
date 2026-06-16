@@ -1115,9 +1115,14 @@ Body:
 {
   refreshAffectedDocuments?: boolean,
   deferCandidateRecheck?: boolean,
+  asyncReview?: boolean,
   operations: BatchReviewOperation[]
 }
 ```
+
+Set `asyncReview: true` (or query `?asyncReview=true`) for large batches. The
+endpoint validates the request, enqueues an in-memory background job, and returns
+HTTP `202` immediately.
 
 `BatchReviewOperation`:
 
@@ -1156,6 +1161,20 @@ Response:
   candidateRecheckDeferred?: boolean
 }
 ```
+
+Async response:
+
+```ts
+{
+  async: true,
+  job: CandidateReviewBatchJob
+}
+```
+
+### `GET /productConfigAgent/candidates/reviews/batch/jobs/:jobId`
+
+Returns the queued/running/completed/failed background review job. Completed jobs
+include `result`, which has the same shape as the synchronous batch response.
 
 ### `POST /productConfigAgent/candidates/term-type/:candidateId/create-term-type`
 

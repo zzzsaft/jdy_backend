@@ -161,6 +161,7 @@ export interface CreateTermTypeCandidateParams {
   reason?: string;
   evidence?: unknown;
   confidence?: number;
+  ignoreRejected?: boolean;
 }
 
 export interface NormalizeFieldParams {

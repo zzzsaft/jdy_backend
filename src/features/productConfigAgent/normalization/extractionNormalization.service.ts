@@ -155,28 +155,60 @@ export class ExtractionNormalizationService {
         rewrittenRawFields.push(...rawFieldsToNormalize.rewrittenRawFields);
 
         for (const normalizedRawField of rawFieldsToNormalize.fieldsToNormalize) {
-          const field = await this.buildField({
-            rawField: normalizedRawField,
+          const nestedManualSplitFields = manualSplitMap.get(
+            manualSplitKey({
+              itemIndex: item.item_index,
+              fieldName: normalizedRawField.field_name,
+              rawValue: normalizedRawField.value,
+            }),
+          );
+          const nestedRawFieldsToNormalize =
+            nestedManualSplitFields && nestedManualSplitFields.length > 0
+              ? await this.expandRawField({
+                  rawField: {
+                    ...normalizedRawField,
+                    split_fields: nestedManualSplitFields,
+                  },
+                  itemIndex: item.item_index,
+                  documentId: stringifyOptionalId(params.documentId),
+                  extractionResultId: stringifyOptionalId(
+                    params.extractionResultId,
+                  ),
+                  fields,
+                  warnings,
+                })
+              : null;
+          if (nestedRawFieldsToNormalize) {
+            splitResolutionCount += nestedRawFieldsToNormalize.splitResolutionCount;
+            rewrittenRawFields.push(...nestedRawFieldsToNormalize.rewrittenRawFields);
+          }
+
+          const fieldsToBuild =
+            nestedRawFieldsToNormalize?.fieldsToNormalize ?? [normalizedRawField];
+          for (const fieldToBuild of fieldsToBuild) {
+            const field = await this.buildField({
+              rawField: fieldToBuild,
             itemIndex: item.item_index,
             itemProductTypeHint: route.itemProductTypeHint,
             documentId: stringifyOptionalId(params.documentId),
             extractionResultId: stringifyOptionalId(params.extractionResultId),
-          });
+            });
 
-          if (field.dictionary.matched) {
-            dictionaryMatchedCount += 1;
+            if (field.dictionary.matched) {
+              dictionaryMatchedCount += 1;
+            }
+
+            if (field.candidate?.candidate_type === "value") {
+              valueCandidateCount += 1;
+            }
+
+            if (field.candidate?.candidate_type === "term_type") {
+              termTypeCandidateCount += 1;
+            }
+
+            warnings.push(...field.warnings);
+            fields.push(field);
           }
-
-          if (field.candidate?.candidate_type === "value") {
-            valueCandidateCount += 1;
-          }
-
-          if (field.candidate?.candidate_type === "term_type") {
-            termTypeCandidateCount += 1;
-          }
-
-          warnings.push(...field.warnings);
-          fields.push(field);
         }
       }
 

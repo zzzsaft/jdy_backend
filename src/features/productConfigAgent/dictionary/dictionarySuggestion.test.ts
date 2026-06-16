@@ -224,6 +224,59 @@ function testClusterSuggestionShapeAndOperationMapping() {
   ]);
 }
 
+function testClusterSuggestionExpandsSingleOperationToClusterCandidates() {
+  const suggestion = normalizeClusterReviewSuggestion(
+    {
+      recommendedAction: "split_value",
+      confidence: 0.9,
+      riskLevel: "low",
+      humanReviewSummary: "按同簇拆分",
+      reason: "同簇候选语义一致",
+      batchOperationsPreview: [
+        {
+          candidateType: "value",
+          candidateId: "21",
+          action: "split_value",
+          payload: {
+            splits: [
+              { termType: "plastic_material", canonicalValue: "POE" },
+            ],
+          },
+        },
+      ],
+    },
+    {
+      clusterId: "value:plastic_material:poe-film:flat_die:value_no_match",
+      readableClusterId: "value:plastic_material:poe-film:flat_die:value_no_match",
+      clusterLabel: "字段值候选 / plastic_material / poe-film / flat_die / value_no_match",
+      clusterKey: "value\u0000plastic_material\u0000poe-film\u0000flat_die\u0000value_no_match",
+      candidateType: "value",
+      candidateIds: ["21", "22"],
+      termType: "plastic_material",
+      normalizedRawValue: "poe-film",
+      rawValueSamples: ["POE膜"],
+      rawFieldNameSamples: ["材料"],
+      normalizedFieldNameSamples: ["材料"],
+      sourceProductType: "flat_die",
+      reason: "value_no_match",
+      occurrenceCount: 2,
+      documentCount: 2,
+      commonContexts: [],
+      sampleOccurrences: [],
+    },
+  );
+
+  assert.equal(suggestion.batchOperationsPreview.length, 2);
+  assert.deepEqual(
+    suggestion.batchOperationsPreview.map((item) => item.candidateId).sort(),
+    ["21", "22"],
+  );
+  assert.deepEqual(
+    suggestion.batchOperationsPreview[1].payload,
+    suggestion.batchOperationsPreview[0].payload,
+  );
+}
+
 function testClusterSuggestionRejectsIncompatibleOperationPreview() {
   const suggestion = normalizeClusterReviewSuggestion(
     {
@@ -301,6 +354,7 @@ async function main() {
   await testCandidateClustersAreNotGroupedByDocument();
   await testDictionaryCacheReloadsWhenVersionChanges();
   testClusterSuggestionShapeAndOperationMapping();
+  testClusterSuggestionExpandsSingleOperationToClusterCandidates();
   testClusterSuggestionRejectsIncompatibleOperationPreview();
   testClusterReviewPromptIsCopyReady();
   testUnitCandidateReviewPromptIsCopyReady();

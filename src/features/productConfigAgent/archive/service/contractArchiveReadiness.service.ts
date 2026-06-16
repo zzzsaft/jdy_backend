@@ -1,7 +1,16 @@
 import { DataSource, EntityManager } from "typeorm";
+import {
+  DictionaryCandidate,
+  DictionaryTermTypeCandidate,
+} from "../../dictionary/entity/index.js";
 import { ExtractionResults } from "../../extraction/entity/extractionResults.entity.js";
 import type { ArchiveReadiness, JsonObject } from "../types.js";
 import { extractDocInfoValue, normalizeDocInfo } from "../utils/docInfo.js";
+
+type PendingCandidateCounts = {
+  termTypeCandidateCount: number;
+  valueCandidateCount: number;
+};
 
 function getSummaryNumber(
   extraction: ExtractionResults,
@@ -77,12 +86,38 @@ export class ContractArchiveReadinessService {
       documentId,
       manager,
     );
-    return this.checkExtraction(documentId, extraction);
+    const pendingCandidateCounts = extraction
+      ? await this.countPendingCandidates(extraction.id, manager)
+      : undefined;
+    return this.checkExtraction(documentId, extraction, pendingCandidateCounts);
+  }
+
+  async countPendingCandidates(
+    extractionResultId: number,
+    manager?: EntityManager,
+  ): Promise<PendingCandidateCounts> {
+    const entityManager = manager ?? this.dataSource.manager;
+    const [termTypeCandidateCount, valueCandidateCount] = await Promise.all([
+      entityManager.getRepository(DictionaryTermTypeCandidate).count({
+        where: {
+          extractionResultId: String(extractionResultId),
+          status: "pending",
+        },
+      }),
+      entityManager.getRepository(DictionaryCandidate).count({
+        where: {
+          extractionResultId: String(extractionResultId),
+          status: "pending",
+        },
+      }),
+    ]);
+    return { termTypeCandidateCount, valueCandidateCount };
   }
 
   checkExtraction(
     documentId: number,
     extraction: ExtractionResults | null,
+    pendingCandidateCounts?: PendingCandidateCounts,
   ): ArchiveReadiness {
     if (!extraction) {
       return {
@@ -108,14 +143,12 @@ export class ContractArchiveReadinessService {
     }
 
     const items = getNormalizedItems(extraction);
-    const termTypeCandidateCount = getSummaryNumber(
-      extraction,
-      "term_type_candidate_count",
-    );
-    const valueCandidateCount = getSummaryNumber(
-      extraction,
-      "value_candidate_count",
-    );
+    const termTypeCandidateCount =
+      pendingCandidateCounts?.termTypeCandidateCount ??
+      getSummaryNumber(extraction, "term_type_candidate_count");
+    const valueCandidateCount =
+      pendingCandidateCounts?.valueCandidateCount ??
+      getSummaryNumber(extraction, "value_candidate_count");
     const { docInfo, source } = getDocInfoWithSource(extraction);
     const productNumber = extractDocInfoValue(docInfo, "product_number");
     const blockers: ArchiveReadiness["blockers"] = [];

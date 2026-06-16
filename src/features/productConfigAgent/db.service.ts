@@ -45,6 +45,7 @@ export interface ProductConfigAgentRepository {
   updateDocumentStatus(documentId: number, status: string): Promise<void>;
   updateDocumentsStatus(documentIds: number[], status: string): Promise<void>;
   markDocumentsDictionaryDirty(documentIds: number[]): Promise<void>;
+  markAllDocumentsDictionaryDirty(): Promise<void>;
   findDocumentById(documentId: number): Promise<any | null>;
   listDocuments(params?: {
     page?: number;
@@ -60,6 +61,12 @@ export interface ProductConfigAgentRepository {
   findDocumentsMissingExtraction(params?: { limit?: number }): Promise<any[]>;
   findDictionaryDirtyDocuments(params?: { limit?: number }): Promise<any[]>;
   findDocumentsMissingPlan(params: {
+    limit?: number;
+    promptVersion: string;
+    dictionaryVersion: number;
+    llmModel: string;
+  }): Promise<any[]>;
+  findDocumentsNeedingPlanRefresh(params: {
     limit?: number;
     promptVersion: string;
     dictionaryVersion: number;
@@ -461,6 +468,27 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
     }
   }
 
+  async markAllDocumentsDictionaryDirty(): Promise<void> {
+    try {
+      await PgDataSource.transaction(async (manager) => {
+        await manager
+          .getRepository(Documents)
+          .createQueryBuilder()
+          .update(Documents)
+          .set({ status: "dictionary_dirty" })
+          .execute();
+        await manager
+          .getRepository(ContractArchive)
+          .createQueryBuilder()
+          .update(ContractArchive)
+          .set({ status: "dictionary_dirty" })
+          .execute();
+      });
+    } catch (error) {
+      throw wrapDbError("markAllDocumentsDictionaryDirty", error);
+    }
+  }
+
   async findDocumentById(documentId: number): Promise<any | null> {
     try {
       return await this.documentsRepo.findOne({
@@ -627,17 +655,10 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
 
   async findDictionaryDirtyDocuments(params?: { limit?: number }): Promise<any[]> {
     try {
-      return await this.documentsRepo
+      const limit = Math.max(1, params?.limit ?? 100);
+      const dirtyDocuments = await this.documentsRepo
         .createQueryBuilder("document")
-        .leftJoin(
-          ContractArchive,
-          "archive",
-          "archive.document_id = document.id",
-        )
         .where("document.status = :dirtyStatus", {
-          dirtyStatus: "dictionary_dirty",
-        })
-        .orWhere("archive.status = :dirtyStatus", {
           dirtyStatus: "dictionary_dirty",
         })
         .select([
@@ -649,10 +670,42 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
           "document.status",
           "document.createdAt",
         ])
-        .distinct(true)
         .orderBy("document.createdAt", "ASC")
-        .limit(Math.max(1, params?.limit ?? 100))
+        .limit(limit)
         .getMany();
+      const dirtyArchiveDocuments = await this.documentsRepo
+        .createQueryBuilder("document")
+        .innerJoin(
+          ContractArchive,
+          "archive",
+          "archive.document_id = document.id",
+        )
+        .where("archive.status = :dirtyStatus", {
+          dirtyStatus: "dictionary_dirty",
+        })
+        .select([
+          "document.id",
+          "document.fileName",
+          "document.fileHash",
+          "document.filePath",
+          "document.source",
+          "document.status",
+          "document.createdAt",
+        ])
+        .orderBy("document.createdAt", "ASC")
+        .limit(limit)
+        .getMany();
+      const byId = new Map<string, Documents>();
+      for (const document of [...dirtyDocuments, ...dirtyArchiveDocuments]) {
+        byId.set(String(document.id), document);
+      }
+      return [...byId.values()]
+        .sort((a, b) => {
+          const left = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const right = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return left - right || Number(a.id) - Number(b.id);
+        })
+        .slice(0, limit);
     } catch (error) {
       throw wrapDbError("findDictionaryDirtyDocuments", error);
     }
@@ -702,6 +755,74 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
       return await query.getMany();
     } catch (error) {
       throw wrapDbError("findDocumentsMissingPlan", error);
+    }
+  }
+
+  async findDocumentsNeedingPlanRefresh(params: {
+    limit?: number;
+    promptVersion: string;
+    dictionaryVersion: number;
+    llmModel: string;
+  }): Promise<any[]> {
+    try {
+      const query = this.documentsRepo
+        .createQueryBuilder("document")
+        .innerJoin(
+          DocumentBlocks,
+          "blocks",
+          "blocks.document_id = document.id",
+        )
+        .leftJoin(
+          ExtractionResults,
+          "latestExtraction",
+          `latestExtraction.id = (
+            SELECT latest.id
+            FROM quote_agent.extraction_results latest
+            WHERE latest.document_id = document.id
+            ORDER BY latest.created_at DESC
+            LIMIT 1
+          )`,
+        )
+        .leftJoin(
+          ExtractionResults,
+          "currentPlan",
+          `currentPlan.id = (
+            SELECT planned.id
+            FROM quote_agent.extraction_results planned
+            WHERE planned.document_id = document.id
+              AND planned.prompt_version = :promptVersion
+              AND planned.dictionary_version = :dictionaryVersion
+              AND planned.llm_model = :llmModel
+              AND planned.llm_plan_json IS NOT NULL
+            ORDER BY planned.created_at DESC
+            LIMIT 1
+          )`,
+          {
+            promptVersion: params.promptVersion,
+            dictionaryVersion: params.dictionaryVersion,
+            llmModel: params.llmModel,
+          },
+        )
+        .where(
+          new Brackets((where) => {
+            where
+              .where("latestExtraction.id IS NULL")
+              .orWhere("latestExtraction.extraction_json IS NULL")
+              .orWhere("latestExtraction.status NOT IN (:...completeStatuses)", {
+                completeStatuses: ["normalized", "parsed"],
+              });
+          }),
+        )
+        .andWhere("currentPlan.id IS NULL")
+        .orderBy("document.id", "ASC");
+
+      if (params?.limit && params.limit > 0) {
+        query.limit(params.limit);
+      }
+
+      return await query.getMany();
+    } catch (error) {
+      throw wrapDbError("findDocumentsNeedingPlanRefresh", error);
     }
   }
 

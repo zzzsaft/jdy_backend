@@ -9,8 +9,7 @@ export const handleMessageEvent = async (msg: any) => {
   const taskId = msg["TaskId"]["value"];
   const responseCode = msg["ResponseCode"]["value"];
   const user = msg["FromUserName"]["value"];
-  await MessageService.updateResponseCode(taskId, responseCode);
-  const msgId = await WechatMessage.findOne({ where: { taskId: taskId } });
+  const msgId = await MessageService.updateResponseCode(taskId, responseCode);
   // if (msgId?.disabled) return;
   if (msgId?.eventType == "xft") {
     await xftMsg(msgId, eventKey);

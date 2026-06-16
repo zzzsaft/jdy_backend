@@ -18,26 +18,37 @@ import { normalizeText, valueAliasKey } from "./dictionary.utils.js";
 export class DictionaryCache {
   readonly termTypeAliasMap = new Map<string, string[]>();
   readonly termTypeAliasIdMap = new Map<string, string[]>();
-  readonly termTypePromptAliasMap = new Map<string, Set<string>>();
+  readonly termTypePromptAliasMap = new Map<string, PromptAlias[]>();
   readonly valueAliasMap = new Map<string, CachedValueAlias>();
   readonly unitAliasMap = new Map<string, CachedUnitAlias>();
   readonly termTypeMap = new Map<string, CachedTermType>();
 
   private loadedVersion: number | null = null;
   private lastLoadedAt = 0;
+  private ensureFreshPromise: Promise<void> | null = null;
 
   constructor(
     private readonly dataSource: DataSource,
-    private readonly cacheTtlMs = 60000,
+    _cacheTtlMs = 60000,
   ) {}
 
   async ensureFresh(): Promise<void> {
-    if (this.loadedVersion === null) {
-      await this.reload();
+    if (this.ensureFreshPromise) {
+      await this.ensureFreshPromise;
       return;
     }
 
-    if (Date.now() - this.lastLoadedAt < this.cacheTtlMs) {
+    this.ensureFreshPromise = this.ensureFreshOnce();
+    try {
+      await this.ensureFreshPromise;
+    } finally {
+      this.ensureFreshPromise = null;
+    }
+  }
+
+  private async ensureFreshOnce(): Promise<void> {
+    if (this.loadedVersion === null) {
+      await this.reload();
       return;
     }
 
@@ -111,10 +122,11 @@ export class DictionaryCache {
       this.termTypeAliasMap.set(alias.normalizedAliasName, existingTermTypes);
       this.registerTermTypeAliasId(alias.normalizedAliasName, alias.id);
 
-      const aliases =
-        this.termTypePromptAliasMap.get(alias.termType) ?? new Set();
-      aliases.add(alias.aliasName);
-      this.termTypePromptAliasMap.set(alias.termType, aliases);
+      this.registerTermTypePromptAlias(alias.termType, {
+        value: alias.aliasName,
+        usageCount: alias.usageCount,
+        source: alias.source,
+      });
     }
 
     const valueAliases = await this.dataSource
@@ -203,7 +215,7 @@ export class DictionaryCache {
     await this.ensureFresh();
 
     const toAliases = (termType: string) =>
-      [...(this.termTypePromptAliasMap.get(termType) ?? [])].sort().slice(0, 8);
+      selectPromptAliases(this.termTypePromptAliasMap.get(termType) ?? [], 6);
     const productTypeTerms = await this.dataSource
       .getRepository(DictionaryTerm)
       .find({
@@ -213,10 +225,16 @@ export class DictionaryCache {
     const productTypeAliases = await this.dataSource
       .getRepository(DictionaryAlias)
       .find({ where: { termType: "product_type", isActive: true } });
-    const aliasesByTermId = new Map<string, string[]>();
+    const aliasesByTermId = new Map<string, PromptAlias[]>();
     for (const alias of productTypeAliases) {
       const aliases = aliasesByTermId.get(alias.termId) ?? [];
-      aliases.push(alias.aliasValue);
+      aliases.push({
+        value: alias.aliasValue,
+        usageCount: alias.usageCount,
+        source: alias.source,
+        confidence: Number(alias.confidence),
+        riskLevel: alias.riskLevel,
+      });
       aliasesByTermId.set(alias.termId, aliases);
     }
 
@@ -225,9 +243,7 @@ export class DictionaryCache {
         canonical_value: term.canonicalValue,
         display_name: term.displayName ?? term.canonicalValue,
         description: term.description ?? null,
-        aliases: [...new Set(aliasesByTermId.get(term.id) ?? [])]
-          .sort()
-          .slice(0, 12),
+        aliases: selectPromptAliases(aliasesByTermId.get(term.id) ?? [], 8),
       })),
       term_types: [...this.termTypeMap.values()]
         .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -261,14 +277,24 @@ export class DictionaryCache {
 
   private registerTermTypePromptAlias(
     termType: string,
-    aliasName: string | null,
+    alias: PromptAlias | string | null,
   ): void {
-    if (!aliasName) {
+    const promptAlias =
+      typeof alias === "string" ? { value: alias } : alias;
+    if (!promptAlias?.value) {
       return;
     }
 
-    const aliases = this.termTypePromptAliasMap.get(termType) ?? new Set();
-    aliases.add(aliasName);
+    const aliases = this.termTypePromptAliasMap.get(termType) ?? [];
+    const existing = aliases.find((item) => item.value === promptAlias.value);
+    if (existing) {
+      existing.usageCount = Math.max(
+        Number(existing.usageCount ?? 0),
+        Number(promptAlias.usageCount ?? 0),
+      );
+    } else {
+      aliases.push(promptAlias);
+    }
     this.termTypePromptAliasMap.set(termType, aliases);
   }
 
@@ -300,4 +326,36 @@ export class DictionaryCache {
       this.valueAliasMap.set(key, value);
     }
   }
+}
+
+type PromptAlias = {
+  value: string;
+  usageCount?: number;
+  source?: string | null;
+  confidence?: number;
+  riskLevel?: string | null;
+};
+
+function selectPromptAliases(aliases: PromptAlias[], limit: number): string[] {
+  const seen = new Set<string>();
+  return aliases
+    .filter((alias) => {
+      const value = alias.value?.trim();
+      if (!value || seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    })
+    .sort((left, right) => promptAliasScore(right) - promptAliasScore(left))
+    .slice(0, limit)
+    .map((alias) => alias.value);
+}
+
+function promptAliasScore(alias: PromptAlias): number {
+  const sourceScore =
+    alias.source === "manual" ? 20 : alias.source === "system" ? 10 : 0;
+  const riskPenalty = alias.riskLevel && alias.riskLevel !== "normal" ? -20 : 0;
+  const confidenceScore = Math.round(Number(alias.confidence ?? 1) * 10);
+  const usageScore = Math.min(50, Number(alias.usageCount ?? 0));
+  const lengthPenalty = Math.max(0, alias.value.length - 24) * 0.1;
+  return sourceScore + riskPenalty + confidenceScore + usageScore - lengthPenalty;
 }

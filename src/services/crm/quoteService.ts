@@ -24,6 +24,7 @@ import { ruleService } from "./ruleService.js";
 import { similarity } from "../../utils/stringUtils.js";
 import { jdyFormDataApiClient } from "../../features/jdy/api/form_data.js";
 import { workflowApiClient } from "../../features/jdy/api/workflow.js";
+import { logger } from "../../config/logger.js";
 
 class QuoteService {
   appid = "6191e49fc6c18500070f60ca";
@@ -123,7 +124,19 @@ class QuoteService {
   };
   getFlow = async (id) => {
     if (!id) return null;
-    const flow = await workflowApiClient.workflowInstanceGet(id);
+    let flow;
+    try {
+      flow = await workflowApiClient.workflowInstanceGet(id);
+    } catch (error) {
+      const response = error?.response;
+      logger.warn(
+        `QuoteService.getFlow skipped: jdyId=${id}, status=${
+          response?.status ?? "unknown"
+        }, data=${JSON.stringify(response?.data ?? error?.message ?? error)}`
+      );
+      return null;
+    }
+    if (!flow?.tasks) return null;
     const currentNode = flow.tasks.find((task) => task.status == 0);
     const docNode = flow.tasks.find((task) => task.flow_name == "报价单节点");
     return {

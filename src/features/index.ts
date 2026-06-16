@@ -27,6 +27,9 @@ import { OrderRoutes } from "./crm/routes/order.js";
 import { RuleRoutes } from "./crm/routes/rule.js";
 import { TemplateRoutes } from "./crm/routes/template.js";
 import { UserRoutes } from "./crm/routes/user.js";
+import { AgentRuntimeRoutes } from "./agentRuntime/routes.js";
+import { FrontendRoutes } from "./frontend/routes/index.js";
+import { QuoteRuntimeRoutes } from "./quoteRuntime/routes.js";
 import {
   LegacyProductConfigAgentRoutes,
   ProductConfigAgentRoutes,
@@ -49,6 +52,9 @@ export const FeatureRoutes = [
   ...RuleRoutes,
   ...TemplateRoutes,
   ...UserRoutes,
+  ...AgentRuntimeRoutes,
+  ...FrontendRoutes,
+  ...QuoteRuntimeRoutes,
   ...ProductConfigAgentRoutes,
   ...LegacyProductConfigAgentRoutes,
 ];
