@@ -6,6 +6,7 @@ import {
   DictionaryTermTypeCandidate,
 } from "./dictionary/entity/index.js";
 import { DocumentBlocks } from "./workflow/entity/documentBlocks.entity.js";
+import { DocumentDuplicate } from "./workflow/entity/documentDuplicate.entity.js";
 import { Documents } from "./workflow/entity/documents.entity.js";
 import { ExtractionResults } from "./extraction/entity/extractionResults.entity.js";
 import { ContractArchive } from "./archive/entity/index.js";
@@ -14,6 +15,16 @@ import { buildExtractionItemNameMap } from "./extractionItemNames.js";
 export interface ProductConfigAgentRepository {
   findDocumentByHash(fileHash: string): Promise<any | null>;
   findDocumentsByHashes(fileHashes: string[]): Promise<any[]>;
+  findDocumentParseStatesByHashes(fileHashes: string[]): Promise<any[]>;
+  findDuplicateDocumentCandidates(params?: { fileNames?: string[] }): Promise<any[]>;
+  upsertDocumentDuplicates(
+    data: Array<{
+      duplicateDocumentId: number;
+      canonicalDocumentId: number;
+      reason: string;
+      contentHash: string;
+    }>
+  ): Promise<any[]>;
   createDocument(data: {
     fileName?: string;
     fileHash: string;
@@ -195,11 +206,13 @@ function pendingCandidateRenormalizationWhereSql(): string {
 export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRepository {
   private documentsRepo: Repository<Documents>;
   private blocksRepo: Repository<DocumentBlocks>;
+  private duplicateRepo: Repository<DocumentDuplicate>;
   private extractionRepo: Repository<ExtractionResults>;
 
   constructor() {
     this.documentsRepo = PgDataSource.getRepository(Documents);
     this.blocksRepo = PgDataSource.getRepository(DocumentBlocks);
+    this.duplicateRepo = PgDataSource.getRepository(DocumentDuplicate);
     this.extractionRepo = PgDataSource.getRepository(ExtractionResults);
   }
 
@@ -217,11 +230,146 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
     if (fileHashes.length === 0) return [];
 
     try {
-      return await this.documentsRepo.find({
-        where: { fileHash: In(fileHashes) },
-      });
+      return await PgDataSource.query(
+        `
+          SELECT
+            id,
+            file_name AS "fileName",
+            file_hash AS "fileHash",
+            file_path AS "filePath",
+            source,
+            status,
+            created_at AS "createdAt"
+          FROM quote_agent.documents
+          WHERE file_hash = ANY($1::text[])
+        `,
+        [fileHashes],
+      );
     } catch (error) {
       throw wrapDbError("findDocumentsByHashes", error);
+    }
+  }
+
+  async findDocumentParseStatesByHashes(fileHashes: string[]): Promise<any[]> {
+    if (fileHashes.length === 0) return [];
+
+    try {
+      return await PgDataSource.query(
+        `
+          SELECT
+            document.id AS "documentId",
+            document.file_name AS "fileName",
+            document.file_hash AS "fileHash",
+            document.file_path AS "filePath",
+            document.source AS source,
+            document.status AS status,
+            document.created_at AS "createdAt",
+            blocks.id AS "blocksId",
+            blocks.parser_version AS "parserVersion",
+            blocks.created_at AS "blocksCreatedAt"
+          FROM quote_agent.documents document
+          LEFT JOIN quote_agent.document_blocks blocks
+            ON blocks.document_id = document.id
+          WHERE document.file_hash = ANY($1::text[])
+        `,
+        [fileHashes],
+      );
+    } catch (error) {
+      throw wrapDbError("findDocumentParseStatesByHashes", error);
+    }
+  }
+
+  async findDuplicateDocumentCandidates(params?: { fileNames?: string[] }): Promise<any[]> {
+    const fileNames = params?.fileNames
+      ? [...new Set(params.fileNames.filter((fileName) => fileName.trim()))]
+      : undefined;
+
+    if (params?.fileNames && fileNames?.length === 0) return [];
+
+    try {
+      return await PgDataSource.query(
+        `
+          WITH duplicate_names AS (
+            SELECT file_name
+            FROM quote_agent.documents
+            WHERE ($1::text[] IS NULL OR file_name = ANY($1::text[]))
+            GROUP BY file_name
+            HAVING COUNT(DISTINCT file_hash) > 1
+          )
+          SELECT
+            document.id AS "documentId",
+            document.file_name AS "fileName",
+            document.file_hash AS "fileHash",
+            document.file_path AS "filePath",
+            document.source AS source,
+            document.status AS status,
+            document.created_at AS "createdAt",
+            blocks.id AS "blocksId",
+            blocks.blocks_json ->> 'llm_text' AS "llmText",
+            latest_extraction.id AS "latestExtractionId",
+            latest_extraction.status AS "latestExtractionStatus",
+            latest_extraction.created_at AS "latestExtractionCreatedAt"
+          FROM quote_agent.documents document
+          JOIN duplicate_names
+            ON duplicate_names.file_name = document.file_name
+          LEFT JOIN quote_agent.document_blocks blocks
+            ON blocks.document_id = document.id
+          LEFT JOIN LATERAL (
+            SELECT
+              extraction.id,
+              extraction.status,
+              extraction.created_at
+            FROM quote_agent.extraction_results extraction
+            WHERE extraction.document_id = document.id
+            ORDER BY
+              CASE
+                WHEN extraction.status = 'normalized' THEN 0
+                WHEN extraction.status = 'parsed' THEN 1
+                ELSE 2
+              END,
+              extraction.created_at DESC
+            LIMIT 1
+          ) latest_extraction ON true
+          ORDER BY document.file_name ASC, document.id ASC
+        `,
+        [fileNames ?? null],
+      );
+    } catch (error) {
+      throw wrapDbError("findDuplicateDocumentCandidates", error);
+    }
+  }
+
+  async upsertDocumentDuplicates(
+    data: Array<{
+      duplicateDocumentId: number;
+      canonicalDocumentId: number;
+      reason: string;
+      contentHash: string;
+    }>
+  ): Promise<any[]> {
+    if (data.length === 0) return [];
+
+    try {
+      await this.duplicateRepo.upsert(
+        data.map((item) => ({
+          duplicateDocumentId: item.duplicateDocumentId,
+          canonicalDocumentId: item.canonicalDocumentId,
+          reason: item.reason,
+          contentHash: item.contentHash,
+        })) as any,
+        {
+          conflictPaths: ["duplicateDocumentId"],
+          skipUpdateIfNoValuesChanged: true,
+        },
+      );
+
+      return await this.duplicateRepo.find({
+        where: {
+          duplicateDocumentId: In(data.map((item) => item.duplicateDocumentId)),
+        },
+      });
+    } catch (error) {
+      throw wrapDbError("upsertDocumentDuplicates", error);
     }
   }
 
@@ -476,13 +624,23 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
             LIMIT 1
           )`
         )
-        .where("latestExtraction.id IS NULL")
-        .orWhere("document.status = :failedStatus", {
-          failedStatus: "failed",
-        })
-        .orWhere("latestExtraction.status = :failedStatus", {
-          failedStatus: "failed",
-        })
+        .leftJoin(
+          DocumentDuplicate,
+          "duplicateDocument",
+          "duplicateDocument.duplicate_document_id = document.id",
+        )
+        .where("duplicateDocument.id IS NULL")
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where("latestExtraction.id IS NULL")
+              .orWhere("document.status = :failedStatus", {
+                failedStatus: "failed",
+              })
+              .orWhere("latestExtraction.status = :failedStatus", {
+                failedStatus: "failed",
+              });
+          }),
+        )
         .orderBy("document.id", "ASC");
 
       if (params?.limit && params.limit > 0) {
@@ -682,9 +840,19 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
     if (documentIds.length === 0) return [];
 
     try {
-      return await this.blocksRepo.find({
-        where: { documentId: In(documentIds) },
-      });
+      return await PgDataSource.query(
+        `
+          SELECT
+            id,
+            document_id AS "documentId",
+            blocks_json AS "blocksJson",
+            parser_version AS "parserVersion",
+            created_at AS "createdAt"
+          FROM quote_agent.document_blocks
+          WHERE document_id = ANY($1::int[])
+        `,
+        [documentIds],
+      );
     } catch (error) {
       throw wrapDbError("findBlocksByDocumentIds", error);
     }
@@ -738,9 +906,18 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
         }
       );
 
-      return await this.blocksRepo.find({
-        where: { documentId: In(data.map((item) => item.documentId)) },
-      });
+      return await PgDataSource.query(
+        `
+          SELECT
+            id,
+            document_id AS "documentId",
+            parser_version AS "parserVersion",
+            created_at AS "createdAt"
+          FROM quote_agent.document_blocks
+          WHERE document_id = ANY($1::int[])
+        `,
+        [data.map((item) => item.documentId)],
+      );
     } catch (error) {
       throw wrapDbError("upsertBlocksMany", error);
     }

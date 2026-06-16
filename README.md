@@ -71,3 +71,6 @@ The implementation now lives under `src/features/productConfigAgent`.
 
 Normalization rerun commands are documented in
 `src/features/productConfigAgent/scripts/normalization.README.md`.
+
+Production detail Excel batch parse commands are documented in
+`src/features/productConfigAgent/scripts/parseProductionDetailExcels.README.md`.

@@ -5,6 +5,7 @@ import {
   parseOptionsFromText,
   ParsedOption,
 } from "./parseOptions.js";
+import { sanitizeExcelText } from "./sanitizeText.js";
 
 export type TextboxBlock = {
   block_id: string;
@@ -126,7 +127,9 @@ export async function parseTextboxes(filePath: string): Promise<TextboxBlock[]> 
       const shapeNodes = collectShapeNodes(parsed);
 
       for (const shapeNode of shapeNodes) {
-        const rawText = collectTexts(shapeNode).join("").trim();
+        const rawText = sanitizeExcelText(
+          collectTexts(shapeNode).join("")
+        ).trim();
         if (!rawText) continue;
 
         const optionResult = parseOptionsFromText(rawText);

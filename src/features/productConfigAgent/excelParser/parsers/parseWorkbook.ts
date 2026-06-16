@@ -8,6 +8,7 @@ import {
 import { parseTextboxes, TextboxBlock } from "./parseTextboxes.js";
 import { ExcelParserError } from "../../../../utils/excelFileUtils.js";
 import type { BuildLlmTextOptions } from "../services/buildLlmText.js";
+import { sanitizeExcelText } from "./sanitizeText.js";
 
 export type ExcelParserOptions = {
   parseTextboxes?: boolean;
@@ -58,13 +59,16 @@ export type RowBlock = {
 export type ExcelBlock = CellBlock | RowBlock | TextboxBlock;
 
 function safeSheetNameForId(sheetName: string) {
-  return sheetName.replace(/[^\w\u4e00-\u9fa5]+/g, "_") || "Sheet";
+  return (
+    sanitizeExcelText(sheetName).replace(/[^\w\u4e00-\u9fa5]+/g, "_") ||
+    "Sheet"
+  );
 }
 
 function cellText(cell: XLSX.CellObject) {
   const formatted = XLSX.utils.format_cell(cell);
   const value = formatted || cell.w || cell.v;
-  return value === undefined || value === null ? "" : String(value).trim();
+  return sanitizeExcelText(value).trim();
 }
 
 function mergeRangeForCell(
@@ -95,7 +99,8 @@ function makeCellBlock(params: {
   mergeRange: string | null;
 }): CellBlock {
   const optionResult = parseOptionsFromText(params.rawText);
-  const safeSheetName = safeSheetNameForId(params.sheetName);
+  const sheetName = sanitizeExcelText(params.sheetName);
+  const safeSheetName = safeSheetNameForId(sheetName);
 
   return {
     block_id: `${safeSheetName}_${params.cellAddress}`,
@@ -106,7 +111,7 @@ function makeCellBlock(params: {
     raw_text: params.rawText,
     options: optionResult.options,
     source: {
-      sheet_name: params.sheetName,
+      sheet_name: sheetName,
       kind: "cell",
       cell: params.cellAddress,
       row: params.rowIndex + 1,

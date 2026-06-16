@@ -1,5 +1,8 @@
 import path from "path";
-import { DictionaryService, type LlmDictionaryContext } from "./dictionary/dictionary.service.js";
+import {
+  DictionaryService,
+  type LlmDictionaryContext,
+} from "./dictionary/dictionary.service.js";
 import { CandidateReviewWorkflowService } from "./dictionary/candidateReviewWorkflow.service.js";
 import { getInferAiChatModel } from "./extraction/index.js";
 import { NormalizationRefreshService } from "./normalization/normalizationRefresh.service.js";
@@ -30,6 +33,7 @@ import {
   type BackgroundJobHandlerContext,
 } from "../backgroundJob/index.js";
 import type { BackgroundJob } from "../backgroundJob/index.js";
+import { buildDuplicateDocumentReport } from "./workflow/documentDuplicateAnalysis.js";
 import type {
   CandidateReviewAction,
   DirtyDataRefreshJob,
@@ -136,9 +140,8 @@ export class ProductConfigAgentService {
     const llmModel = params.llmModel ?? DEFAULT_LLM_MODEL;
     const fileName = params.fileName ?? path.basename(params.filePath);
 
-    const { document, blocks, reusedBlocks } = await this.parseAndSaveBlocks(
-      params,
-    );
+    const { document, blocks, reusedBlocks } =
+      await this.parseAndSaveBlocks(params);
 
     const { extraction, reusedExtraction } = await this.extractBlocksWithLlm({
       document,
@@ -188,7 +191,9 @@ export class ProductConfigAgentService {
       throw new Error(`Document not found: ${params.documentId}`);
     }
 
-    const blocks = await this.repository.findBlocksByDocumentId(params.documentId);
+    const blocks = await this.repository.findBlocksByDocumentId(
+      params.documentId,
+    );
     if (!blocks) {
       throw new Error(`Document blocks not found: ${params.documentId}`);
     }
@@ -249,19 +254,79 @@ export class ProductConfigAgentService {
     batchSize?: number;
     concurrency?: number;
   }): Promise<any> {
-    return this.plannedExtractionService.extractPlannedItemsBatchWithLlm(params);
+    return this.plannedExtractionService.extractPlannedItemsBatchWithLlm(
+      params,
+    );
   }
 
   async parseAndSaveBlocks(
     params: ProductConfigAgentProcessParams,
   ): Promise<ProductConfigAgentParseAndSaveBlocksResult> {
-    return this.blockParsingService.parseAndSaveBlocks(params);
+    const result = await this.blockParsingService.parseAndSaveBlocks(params);
+    await this.applyDuplicateMappingsForFileNames([result.document.fileName]);
+    return result;
   }
 
   async parseAndSaveBlocksBatch(
     paramsList: ProductConfigAgentProcessParams[],
   ): Promise<ProductConfigAgentParseAndSaveBlocksBatchResult> {
-    return this.blockParsingService.parseAndSaveBlocksBatch(paramsList);
+    const result =
+      await this.blockParsingService.parseAndSaveBlocksBatch(paramsList);
+    await this.applyDuplicateMappingsForFileNames(
+      result.successes.map((item) => item.fileName),
+    );
+    return result;
+  }
+
+  private async applyDuplicateMappingsForFileNames(fileNames: string[]) {
+    const uniqueFileNames = [
+      ...new Set(fileNames.filter((fileName) => fileName?.trim())),
+    ];
+    if (uniqueFileNames.length === 0) return;
+
+    try {
+      const candidates = await this.repository.findDuplicateDocumentCandidates({
+        fileNames: uniqueFileNames,
+      });
+      const hydratedCandidates = candidates.map((candidate) => ({
+        ...candidate,
+        blocksJson: candidate.llmText
+          ? { llm_text: candidate.llmText }
+          : candidate.blocksJson,
+      }));
+      const missingLlmTextDocumentIds = hydratedCandidates
+        .filter((candidate) => candidate.blocksId && !candidate.blocksJson)
+        .map((candidate) => Number(candidate.documentId));
+
+      if (missingLlmTextDocumentIds.length > 0) {
+        const blocks = await this.repository.findBlocksByDocumentIds(
+          missingLlmTextDocumentIds,
+        );
+        const blocksByDocumentId = new Map(
+          blocks.map((block) => [Number(block.documentId), block.blocksJson]),
+        );
+
+        for (const candidate of hydratedCandidates) {
+          if (!candidate.blocksJson) {
+            candidate.blocksJson = blocksByDocumentId.get(
+              Number(candidate.documentId),
+            );
+          }
+        }
+      }
+
+      const report = buildDuplicateDocumentReport(hydratedCandidates);
+      const mappings = report.flatMap((group) => group.duplicateMappings);
+      if (mappings.length === 0) return;
+
+      await this.repository.upsertDocumentDuplicates(mappings);
+    } catch (error) {
+      console.warn(
+        `[productConfigAgent:documentDuplicates] apply failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   async extract(
@@ -418,7 +483,9 @@ export class ProductConfigAgentService {
     action: CandidateReviewAction;
     payload: any;
   }) {
-    return this.candidateReviewWorkflowService.reviewCandidateAndRefresh(params);
+    return this.candidateReviewWorkflowService.reviewCandidateAndRefresh(
+      params,
+    );
   }
 
   async reviewCandidatesBatch(params: {
@@ -539,7 +606,12 @@ export class ProductConfigAgentService {
       deferCandidateRecheck: payload.deferCandidateRecheck === true,
       operations,
       completedOperationResults: [...operationResultsByIndex.values()],
-      onOperationProcessed: async ({ operation, index, result, affectedDocumentIds }) => {
+      onOperationProcessed: async ({
+        operation,
+        index,
+        result,
+        affectedDocumentIds,
+      }) => {
         operationResultsByIndex.set(index, {
           index,
           candidateType: operation.candidateType,
@@ -620,7 +692,11 @@ export class ProductConfigAgentService {
           status: "parsed",
         });
 
-        await updateDocumentStatus(this.repository, params.document, "extracted");
+        await updateDocumentStatus(
+          this.repository,
+          params.document,
+          "extracted",
+        );
       }
     } catch (error) {
       await markFailed(this.repository, params.document.id);
@@ -643,7 +719,11 @@ export class ProductConfigAgentService {
       params.extraction.normalizedExtractionJson = dictionary.extraction_json;
       params.extraction.dictionaryProposals = dictionary;
       params.extraction.status = "normalized";
-      await updateDocumentStatus(this.repository, params.document, "normalized");
+      await updateDocumentStatus(
+        this.repository,
+        params.document,
+        "normalized",
+      );
       return dictionary;
     } catch (error) {
       await markFailed(this.repository, params.document.id);
