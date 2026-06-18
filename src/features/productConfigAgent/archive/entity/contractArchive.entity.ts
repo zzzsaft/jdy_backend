@@ -37,6 +37,21 @@ export class ContractArchive extends BaseEntity {
   @Column({ type: "varchar", length: 50, default: "archived" })
   status: string;
 
+  @Column({ name: "dirty_reason", type: "varchar", length: 80, nullable: true })
+  dirtyReason: string | null;
+
+  @Column({ name: "dirty_source_run_id", type: "bigint", nullable: true })
+  dirtySourceRunId: string | null;
+
+  @Column({ name: "dirty_dictionary_version", type: "bigint", nullable: true })
+  dirtyDictionaryVersion: string | null;
+
+  @Column({ name: "dirty_normalization_rule_version", type: "varchar", length: 50, nullable: true })
+  dirtyNormalizationRuleVersion: string | null;
+
+  @Column({ name: "dirty_resolver_version", type: "varchar", length: 50, nullable: true })
+  dirtyResolverVersion: string | null;
+
   @Column({ name: "product_number", type: "text", nullable: true })
   productNumber: string | null;
 

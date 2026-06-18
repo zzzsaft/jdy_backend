@@ -44,6 +44,7 @@ import {
   parseRangeBoundFieldName,
   splitFieldToSelectionAwareRawField,
 } from "./rules/index.js";
+import { NormalizationRuleRegistry } from "../dictionary/normalizationRuleRegistry.js";
 
 type IndexedInstanceGroup = {
   baseFieldName: string;
@@ -203,6 +204,22 @@ function normalizeContextualLipGapRawField(params: {
     ...params.rawField,
     field_name: `${setName}模唇厚度`,
     value: extractLipGapValue(rawValue) ?? rawValue,
+    evidence: NormalizationRuleRegistry.mergeSignalsIntoEvidence(
+      params.rawField.evidence,
+      [
+        NormalizationRuleRegistry.signal("contextual_lip_gap_rewrite", {
+          confidence: 0.82,
+          before: {
+            fieldName,
+            value: rawValue,
+          },
+          after: {
+            fieldName: `${setName}模唇厚度`,
+            value: extractLipGapValue(rawValue) ?? rawValue,
+          },
+        }),
+      ],
+    ),
   };
 }
 
@@ -643,6 +660,22 @@ export class ExtractionNormalizationService {
 
             warnings.push(...field.warnings);
             if (redirectRoute) {
+              field.evidence = NormalizationRuleRegistry.mergeSignalsIntoEvidence(
+                field.evidence,
+                [
+                  NormalizationRuleRegistry.signal("product_type_redirect", {
+                    confidence: 0.85,
+                    before: {
+                      itemIndex: item.item_index,
+                      productType: route.itemProductTypeHint,
+                    },
+                    after: {
+                      itemIndex: redirectRoute.item.item_index,
+                      productType: redirectRoute.route.itemProductTypeHint,
+                    },
+                  }),
+                ],
+              );
               const redirectWarning = createWarning({
                 type: "field_product_type_redirected",
                 message:
@@ -795,6 +828,19 @@ export class ExtractionNormalizationService {
 
     const originalField = createBaseField(params.rawField);
     originalField.dictionary.note = "复合字段已拆分，原字段仅保留作追溯";
+    originalField.evidence = NormalizationRuleRegistry.mergeSignalsIntoEvidence(
+      originalField.evidence,
+      [
+        NormalizationRuleRegistry.signal("selection_split", {
+          confidence: 0.8,
+          before: {
+            fieldName: params.rawField.field_name,
+            value: params.rawField.value,
+          },
+          after: params.rawField.split_fields,
+        }),
+      ],
+    );
     originalField.warnings.push(
       createWarning({
         type: "split_original_retained",
@@ -1038,12 +1084,38 @@ export class ExtractionNormalizationService {
       : undefined;
 
     const rangeBoundField = parseRangeBoundFieldName(params.rawField.field_name);
-    const numberUnitPartField = parseNumberUnitPartFieldName(
+      const numberUnitPartField = parseNumberUnitPartFieldName(
       params.rawField.field_name,
     );
     const indexedInstanceField = parseIndexedInstanceFieldName(
       params.rawField.field_name,
     );
+    const ruleSignals = [
+      ...(rangeBoundField
+        ? [
+            NormalizationRuleRegistry.signal("range_bound_merge", {
+              confidence: 0.82,
+              evidence: rangeBoundField,
+            }),
+          ]
+        : []),
+      ...(numberUnitPartField
+        ? [
+            NormalizationRuleRegistry.signal("number_unit_part_merge", {
+              confidence: 0.82,
+              evidence: numberUnitPartField,
+            }),
+          ]
+        : []),
+      ...(indexedInstanceField
+        ? [
+            NormalizationRuleRegistry.signal("indexed_instance_normalized", {
+              confidence: 0.9,
+              evidence: indexedInstanceField,
+            }),
+          ]
+        : []),
+    ];
     const normalized = await this.dictionaryService.normalizeField({
       documentId: params.documentId,
       extractionResultId: params.extractionResultId,
@@ -1056,7 +1128,10 @@ export class ExtractionNormalizationService {
         params.rawField.field_name,
       rawValue: params.rawField.value,
       splitRawValues: splitValues,
-      evidence: params.rawField.evidence,
+      evidence: NormalizationRuleRegistry.mergeSignalsIntoEvidence(
+        params.rawField.evidence,
+        ruleSignals,
+      ),
     });
 
     field.dictionary = {

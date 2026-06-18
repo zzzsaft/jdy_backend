@@ -631,6 +631,7 @@
         <div class="status" id="status"></div>
         <div class="job-status" id="pendingLlmUploadStatus">LLM 批处理未启动。</div>
         <div class="job-status" id="dirtyDataRefreshStatus">脏数据更新未启动。</div>
+        <div id="globalLlmSummary" class="muted"></div>
         <div class="document-search">
           <b>解析任务</b>
           <input id="documentSearch" placeholder="搜索文件名" />
@@ -817,6 +818,7 @@
         if (!data.job || data.job.status !== "running") {
           clearInterval(pendingLlmUploadTimer);
           pendingLlmUploadTimer = null;
+          await refreshGlobalLlmSummary();
         }
       }
 
@@ -862,7 +864,7 @@
         if (!data.job || data.job.status !== "running") {
           clearInterval(dirtyDataRefreshTimer);
           dirtyDataRefreshTimer = null;
-          await refreshDocuments();
+          await Promise.all([refreshDocuments(), refreshGlobalLlmSummary()]);
         }
       }
 
@@ -885,6 +887,37 @@
         } finally {
           $("startDirtyDataRefresh").disabled = false;
         }
+      }
+
+      function renderGlobalLlmSummary(data) {
+        if (!data?.summary) {
+          $("globalLlmSummary").innerHTML = "";
+          return;
+        }
+        const summary = data.summary;
+        const modelRows = Array.isArray(summary.byModel) ? summary.byModel : [];
+        const modelText = modelRows.length
+          ? modelRows
+              .slice(0, 3)
+              .map(
+                (item) =>
+                  `${escapeHtml(item.llmModel || "-")}：stage1 ${item.stage1PlannedDocumentCount || 0} / 完整 ${item.completeExtractionDocumentCount || 0}`,
+              )
+              .join("<br>")
+          : "暂无模型记录";
+        $("globalLlmSummary").innerHTML =
+          `<div class="summary" style="margin-top: 10px">` +
+          `<div class="metric"><b>${summary.stage1PlannedDocumentCount || 0}</b><span>Stage1 已规划</span></div>` +
+          `<div class="metric"><b>${summary.completeExtractionDocumentCount || 0}</b><span>完整抽取合同</span></div>` +
+          `</div>` +
+          `<div class="muted" style="margin-top: 6px">Prompt ${escapeHtml(data.promptVersion || "-")}<br>${modelText}</div>`;
+      }
+
+      async function refreshGlobalLlmSummary() {
+        const data = await api(
+          "/productConfigAgent/extractions/llm-summary?promptVersion=v3-plan-item-20260616",
+        );
+        renderGlobalLlmSummary(data);
       }
 
       function renderSummary(summary) {
@@ -2876,7 +2909,7 @@ ${JSON.stringify(input, null, 2)}`;
       });
 
       loadSuggestionDraft();
-      Promise.all([refreshCandidates(), refreshDocuments()]).catch((error) =>
+      Promise.all([refreshCandidates(), refreshDocuments(), refreshGlobalLlmSummary()]).catch((error) =>
         setStatus(error.message),
       );
     </script>

@@ -4,6 +4,10 @@ import {
   type LlmDictionaryContext,
 } from "./dictionary/dictionary.service.js";
 import { CandidateReviewWorkflowService } from "./dictionary/candidateReviewWorkflow.service.js";
+import {
+  DictionaryHealthAuditService,
+  type DictionaryHealthAuditParams,
+} from "./dictionary/dictionaryHealthAudit.service.js";
 import { getInferAiChatModel } from "./extraction/index.js";
 import { NormalizationRefreshService } from "./normalization/normalizationRefresh.service.js";
 import { ProductConfigAgentQueryService } from "./query/productConfigAgentQuery.service.js";
@@ -84,6 +88,7 @@ export class ProductConfigAgentService {
   private readonly pendingLlmJobService: PendingLlmJobService;
   private readonly dirtyDataRefreshJobService: DirtyDataRefreshJobService;
   private readonly candidateReviewWorkflowService: CandidateReviewWorkflowService;
+  private readonly dictionaryHealthAuditService: DictionaryHealthAuditService;
 
   constructor(
     private repository: ProductConfigAgentRepository = productConfigAgentRepository,
@@ -124,10 +129,18 @@ export class ProductConfigAgentService {
       this.dictionaryService,
       (documentId) => this.generateDictionaryForDocument(documentId),
     );
+    this.dictionaryHealthAuditService = new DictionaryHealthAuditService(
+      PgDataSource,
+    );
     backgroundJobService.registerHandler({
       type: "productConfigAgent.reviewCandidatesBatch",
       run: (job, context) =>
         this.runCandidateReviewBatchBackgroundJob(job, context),
+    });
+    backgroundJobService.registerHandler({
+      type: "productConfigAgent.dictionaryHealthAudit",
+      run: (job, context) =>
+        this.runDictionaryHealthAuditBackgroundJob(job, context),
     });
   }
 
@@ -407,6 +420,13 @@ export class ProductConfigAgentService {
     return this.dirtyDataRefreshJobService.startDirtyDataRefreshJob(params);
   }
 
+  runDirtyDataRefreshJobNow(params?: {
+    limit?: number;
+    batchSize?: number;
+  }): Promise<DirtyDataRefreshJob> {
+    return this.dirtyDataRefreshJobService.runDirtyDataRefreshJobNow(params);
+  }
+
   async renormalizeExistingExtractions(params?: {
     limit?: number;
     onlyMissingNormalized?: boolean;
@@ -558,6 +578,51 @@ export class ProductConfigAgentService {
 
   async getBackgroundJob(jobId: string) {
     return backgroundJobService.getJob(jobId);
+  }
+
+  async startDictionaryHealthAuditJob(params?: DictionaryHealthAuditParams) {
+    return backgroundJobService.enqueue({
+      type: "productConfigAgent.dictionaryHealthAudit",
+      payload: params ?? {},
+      progress: {
+        status: "queued",
+        requestedAt: new Date().toISOString(),
+      },
+      maxAttempts: 1,
+    });
+  }
+
+  async listDictionaryHealthReports(params?: {
+    targetKind?: string;
+    minRiskScore?: number;
+    label?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    return this.dictionaryHealthAuditService.listReports(params);
+  }
+
+  private async runDictionaryHealthAuditBackgroundJob(
+    job: BackgroundJob,
+    context: BackgroundJobHandlerContext,
+  ) {
+    await context.updateProgress({
+      status: "running",
+      startedAt: new Date().toISOString(),
+    });
+    const result = await this.dictionaryHealthAuditService.runAudit(
+      {
+        ...((job.payload ?? {}) as DictionaryHealthAuditParams),
+        auditRunId: job.id,
+      },
+    );
+    await context.updateProgress({
+      status: "completed",
+      finishedAt: new Date().toISOString(),
+      generatedCount: result.generatedCount,
+      savedCount: result.savedCount,
+    });
+    return result;
   }
 
   private async runCandidateReviewBatchBackgroundJob(

@@ -28,4 +28,11 @@ export {
   startLlmCallLog,
   type LlmCallLogStartParams,
 } from "./llmCallLogger.js";
+export {
+  getRoutedChatModel,
+  normalizeRoutedChatModel,
+  requestRoutedChatJson,
+  resolveRoutedLlmGateway,
+  type RoutedLlmGateway,
+} from "./routedChatClient.js";
 export { LlmCallLog } from "./entity/llmCallLog.entity.js";

@@ -1,6 +1,6 @@
 ﻿# Quote Agent Scripts
 
-## XH LLM 抽取脚本
+## LLM 抽取脚本
 
 脚本入口：
 
@@ -8,13 +8,26 @@
 node --loader ts-node/esm -r dotenv/config src/features/productConfigAgent/extraction/scripts/runXhLlmExtract.ts
 ```
 
-脚本会读取 `.env` 中的：
+脚本默认兼容 XH 中转站，会读取 `.env` 中的：
 
 - `XH_ADDRESS`
 - `XH_AUTH_TOKEN`
 - `XH_MODEL`，可选，默认使用脚本内配置
 
 XH 请求会通过 `Authorization: Bearer <XH_AUTH_TOKEN>` 发送。
+
+也可以用通用中转站配置，后续换中转站优先改这里，不需要改脚本：
+
+- `LLM_GATEWAY=xh | inferaichat`
+- `LLM_MODEL=deepseek-v4-flash`，可选
+- InferAIChat 读取 `ANTHROPIC_AUTH_TOKEN`
+- InferAIChat 地址默认 `https://inferaichat.com/v1`，可用 `INFERAI_BASE_URL` 覆盖
+
+单次命令也可以用模型前缀覆盖中转站，例如：
+
+```bash
+node --loader ts-node/esm -r dotenv/config src/features/productConfigAgent/extraction/scripts/runXhLlmExtract.ts --mode=ping --model=inferaichat:deepseek-v4-flash
+```
 
 ### 数据库前置条件
 
@@ -24,7 +37,7 @@ XH 请求会通过 `Authorization: Bearer <XH_AUTH_TOKEN>` 发送。
 
 ### 连通性测试
 
-只测试 XH 是否可用，不读写 productConfigAgent 业务表。
+只测试当前中转站是否可用，不读写 productConfigAgent 业务表。
 
 ```bash
 node --loader ts-node/esm -r dotenv/config src/features/productConfigAgent/extraction/scripts/runXhLlmExtract.ts --mode=ping

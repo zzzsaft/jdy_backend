@@ -1,3 +1,12 @@
+import { readBooleanEnv } from "../utils/envParsing.js";
+
+export {
+  readBooleanEnv,
+  readBoundedPositiveIntEnv,
+  readOptionalPositiveIntEnv,
+  readPositiveIntEnv,
+} from "../utils/envParsing.js";
+
 export function readArg(name: string): string | undefined {
   const prefix = `--${name}=`;
   const direct = process.argv.find((arg) => arg.startsWith(prefix));
@@ -25,27 +34,6 @@ export function readOptionalPositiveIntArg(
     throw new Error(`--${name} must be a positive integer`);
   }
   return value;
-}
-
-export function readOptionalPositiveIntEnv(
-  name: string,
-): number | undefined {
-  const raw = process.env[name];
-  if (!raw || raw.trim() === "" || raw.trim().toLowerCase() === "all") {
-    return undefined;
-  }
-
-  const value = Number(raw);
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${name} must be a positive number or all`);
-  }
-  return Math.floor(value);
-}
-
-export function readBooleanEnv(name: string, defaultValue = false): boolean {
-  const raw = process.env[name];
-  if (!raw || raw.trim() === "") return defaultValue;
-  return raw === "1" || raw.toLowerCase() === "true";
 }
 
 export function readApplyFlag(params?: {

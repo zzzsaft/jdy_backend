@@ -10,10 +10,12 @@ import {
   DictionaryTerm,
   DictionaryTermTypeAlias,
   DictionaryTermType,
+  ConceptResolverRun,
 } from "../dictionary/entity/index.js";
 import { DictionaryService } from "../dictionary/dictionary.service.js";
 import { normalizeText } from "../dictionary/dictionary.utils.js";
 import { DictionarySuggestionService } from "../dictionary/dictionarySuggestion.service.js";
+import { ConceptResolverService } from "../dictionary/conceptResolver.service.js";
 import {
   isProductConfigAgentModelTermType,
   ProductConfigAgentMasterDataService,
@@ -23,6 +25,7 @@ import { createProductConfigAgentArchiveRoutes } from "../archive/contractArchiv
 import { productConfigAgentService } from "../service.js";
 import { productConfigAgentRuntimeService } from "../agent/index.js";
 import { productConfigAgentRepository } from "../db.service.js";
+import { TWO_STAGE_PROMPT_VERSION } from "../workflow/common.js";
 import {
   isLocalDevRoute,
   resolveUserIdOrLocalDev,
@@ -43,6 +46,7 @@ const uploadDir = path.join(process.cwd(), "uploads", "product-config-agent");
 const legacyUploadDir = path.join(process.cwd(), "uploads", "quote-agent");
 const dictionarySuggestionService = new DictionarySuggestionService(PgDataSource);
 const dictionaryService = new DictionaryService(PgDataSource);
+const conceptResolverService = new ConceptResolverService(PgDataSource);
 const masterDataService = new ProductConfigAgentMasterDataService(PgDataSource);
 const execFileAsync = promisify(execFile);
 const MAX_RENORMALIZE_LIMIT = 1000;
@@ -670,6 +674,75 @@ const listExtractions = async (request: Request, response: Response) => {
             : undefined,
       }),
     );
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const getLlmExtractionSummary = async (
+  request: Request,
+  response: Response,
+) => {
+  try {
+    const promptVersion =
+      optionalString(request.query.promptVersion) ?? TWO_STAGE_PROMPT_VERSION;
+    const llmModel = optionalString(request.query.llmModel) ?? null;
+    const rows = await PgDataSource.query(
+      `
+      WITH filtered AS (
+        SELECT *
+        FROM quote_agent.extraction_results extraction
+        WHERE extraction.prompt_version = $1
+          AND ($2::text IS NULL OR extraction.llm_model = $2)
+      ),
+      totals AS (
+        SELECT
+          COUNT(DISTINCT document_id) FILTER (
+            WHERE llm_plan_json IS NOT NULL
+          )::int AS "stage1PlannedDocumentCount",
+          COUNT(DISTINCT document_id) FILTER (
+            WHERE status = 'normalized'
+              AND normalized_extraction_json IS NOT NULL
+              AND jsonb_typeof(normalized_extraction_json->'items') = 'array'
+              AND jsonb_array_length(normalized_extraction_json->'items') > 0
+          )::int AS "completeExtractionDocumentCount"
+        FROM filtered
+      ),
+      by_model AS (
+        SELECT
+          llm_model AS "llmModel",
+          COUNT(DISTINCT document_id) FILTER (
+            WHERE llm_plan_json IS NOT NULL
+          )::int AS "stage1PlannedDocumentCount",
+          COUNT(DISTINCT document_id) FILTER (
+            WHERE status = 'normalized'
+              AND normalized_extraction_json IS NOT NULL
+              AND jsonb_typeof(normalized_extraction_json->'items') = 'array'
+              AND jsonb_array_length(normalized_extraction_json->'items') > 0
+          )::int AS "completeExtractionDocumentCount"
+        FROM filtered
+        GROUP BY llm_model
+        ORDER BY "completeExtractionDocumentCount" DESC, "stage1PlannedDocumentCount" DESC, llm_model
+      )
+      SELECT
+        totals."stage1PlannedDocumentCount",
+        totals."completeExtractionDocumentCount",
+        COALESCE(jsonb_agg(to_jsonb(by_model)) FILTER (WHERE by_model."llmModel" IS NOT NULL), '[]'::jsonb) AS "byModel"
+      FROM totals
+      LEFT JOIN by_model ON true
+      GROUP BY totals."stage1PlannedDocumentCount", totals."completeExtractionDocumentCount"
+      `,
+      [promptVersion, llmModel],
+    );
+    response.json({
+      promptVersion,
+      llmModel,
+      summary: rows[0] ?? {
+        stage1PlannedDocumentCount: 0,
+        completeExtractionDocumentCount: 0,
+        byModel: [],
+      },
+    });
   } catch (error) {
     sendError(response, error);
   }
@@ -1762,6 +1835,122 @@ const reviewCandidatesBatch = async (request: Request, response: Response) => {
   }
 };
 
+const runConceptResolver = async (request: Request, response: Response) => {
+  try {
+    const candidateType =
+      typeof request.body?.candidateType === "string"
+        ? request.body.candidateType
+        : "all";
+    if (!["all", "term_type", "value"].includes(candidateType)) {
+      throw new Error("candidateType must be all, term_type, or value");
+    }
+    const status =
+      typeof request.body?.status === "string" ? request.body.status : "pending";
+    const limit = optionalPositiveInt(request.body?.limit, "limit");
+    response.status(202).json({
+      run: await conceptResolverService.runResolver({
+        candidateType: candidateType as any,
+        status,
+        includeReviewed: request.body?.includeReviewed === true,
+        limit,
+        apply: request.body?.apply === true,
+      }),
+    });
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const getConceptResolverRun = async (request: Request, response: Response) => {
+  try {
+    const run = await PgDataSource.getRepository(ConceptResolverRun).findOne({
+      where: { id: requireString(request.params.runId, "runId") },
+    });
+    if (!run) {
+      response.status(404).json({ error: "concept resolver run not found" });
+      return;
+    }
+    response.json({ run });
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const listConceptResolutions = async (request: Request, response: Response) => {
+  try {
+    response.json({
+      resolutions: await conceptResolverService.listResolutions({
+        route: optionalString(request.query.route) ?? undefined,
+        relationType: optionalString(request.query.relationType) ?? undefined,
+        candidateType: optionalString(request.query.candidateType) ?? undefined,
+        limit:
+          typeof request.query.limit === "string"
+            ? optionalPositiveInt(request.query.limit, "limit")
+            : undefined,
+      }),
+    });
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const listConceptPatterns = async (request: Request, response: Response) => {
+  try {
+    response.json({
+      patterns: await conceptResolverService.listPatterns({
+        status: optionalString(request.query.status) ?? undefined,
+        limit:
+          typeof request.query.limit === "string"
+            ? optionalPositiveInt(request.query.limit, "limit")
+            : undefined,
+      }),
+    });
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const reviewConceptPattern = async (request: Request, response: Response) => {
+  try {
+    response.json({
+      review: await conceptResolverService.reviewPattern({
+        patternKey: requireString(
+          request.body?.patternKey ?? request.params.id,
+          "patternKey",
+        ),
+        status: optionalString(request.body?.status) ?? "reviewed",
+        reviewedBy: optionalString(request.body?.reviewedBy) ?? undefined,
+        reviewPayload:
+          request.body?.reviewPayload && typeof request.body.reviewPayload === "object"
+            ? request.body.reviewPayload
+            : request.body ?? {},
+      }),
+    });
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const applyConceptPatternCandidates = async (
+  request: Request,
+  response: Response,
+) => {
+  try {
+    response.json(
+      await conceptResolverService.applyPatternCandidates({
+        patternKey: requireString(
+          request.body?.patternKey ?? request.params.id,
+          "patternKey",
+        ),
+        reviewedBy: optionalString(request.body?.reviewedBy) ?? undefined,
+        limit: optionalPositiveInt(request.body?.limit, "limit"),
+      }),
+    );
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
 const getProductConfigAgentBackgroundJob = async (request: Request, response: Response) => {
   try {
     const job = await productConfigAgentService.getBackgroundJob(
@@ -1772,6 +1961,75 @@ const getProductConfigAgentBackgroundJob = async (request: Request, response: Re
       return;
     }
     response.json(job);
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const startDictionaryHealthAuditJob = async (
+  request: Request,
+  response: Response,
+) => {
+  try {
+    const targetKind =
+      typeof request.body?.targetKind === "string"
+        ? request.body.targetKind
+        : undefined;
+    if (
+      targetKind &&
+      !["all", "termType", "enumValue"].includes(targetKind)
+    ) {
+      throw new Error("targetKind must be all, termType, or enumValue");
+    }
+    response.status(202).json({
+      job: await productConfigAgentService.startDictionaryHealthAuditJob({
+        targetKind: targetKind as any,
+        targetIds: optionalStringArray(request.body?.targetIds) ?? undefined,
+        limit: optionalPositiveInt(request.body?.limit, "limit"),
+        dryRun: optionalBoolean(request.body?.dryRun, "dryRun") ?? false,
+      }),
+    });
+  } catch (error) {
+    sendError(response, error);
+  }
+};
+
+const listDictionaryHealthReports = async (
+  request: Request,
+  response: Response,
+) => {
+  try {
+    const targetKind = optionalString(request.query.targetKind) ?? undefined;
+    if (
+      targetKind &&
+      !["termType", "enumValue"].includes(targetKind)
+    ) {
+      throw new Error("targetKind must be termType or enumValue");
+    }
+    const minRiskScoreRaw = optionalString(request.query.minRiskScore);
+    const minRiskScore =
+      minRiskScoreRaw === undefined ? undefined : Number(minRiskScoreRaw);
+    if (
+      minRiskScore !== undefined &&
+      (!Number.isFinite(minRiskScore) || minRiskScore < 0)
+    ) {
+      throw new Error("minRiskScore must be a non-negative number");
+    }
+    response.json(
+      await productConfigAgentService.listDictionaryHealthReports({
+        targetKind,
+        minRiskScore,
+        label: optionalString(request.query.label) ?? undefined,
+        limit:
+          typeof request.query.limit === "string"
+            ? optionalPositiveInt(request.query.limit, "limit")
+            : undefined,
+        offset:
+          typeof request.query.offset === "string"
+            ? optionalInt(request.query.offset, "offset")
+            : undefined,
+      }),
+    );
   } catch (error) {
     sendError(response, error);
   }
@@ -1855,9 +2113,19 @@ export const ProductConfigAgentRoutes = [
     action: withProductConfigAgentToken(listExtractions),
   },
   {
+    path: "/productConfigAgent/extractions/llm-summary",
+    method: "get",
+    action: withProductConfigAgentToken(getLlmExtractionSummary),
+  },
+  {
     path: "/api/extractions",
     method: "get",
     action: withProductConfigAgentToken(listExtractions),
+  },
+  {
+    path: "/api/extractions/llm-summary",
+    method: "get",
+    action: withProductConfigAgentToken(getLlmExtractionSummary),
   },
   {
     path: "/productConfigAgent/extractions/renormalize-batch",
@@ -1940,9 +2208,54 @@ export const ProductConfigAgentRoutes = [
     action: withProductConfigAgentAdmin(reviewCandidatesBatch),
   },
   {
+    path: "/productConfigAgent/concept-resolver/run",
+    method: "post",
+    action: withProductConfigAgentAdmin(runConceptResolver),
+  },
+  {
+    path: "/productConfigAgent/concept-resolver/runs/:runId",
+    method: "get",
+    action: withProductConfigAgentToken(getConceptResolverRun),
+  },
+  {
+    path: "/productConfigAgent/concept-resolver/resolutions",
+    method: "get",
+    action: withProductConfigAgentToken(listConceptResolutions),
+  },
+  {
+    path: "/productConfigAgent/concept-resolver/patterns",
+    method: "get",
+    action: withProductConfigAgentToken(listConceptPatterns),
+  },
+  {
+    path: "/productConfigAgent/concept-resolver/patterns/:id/review",
+    method: "post",
+    action: withProductConfigAgentAdmin(reviewConceptPattern),
+  },
+  {
+    path: "/productConfigAgent/concept-resolver/patterns/:id/apply-candidates",
+    method: "post",
+    action: withProductConfigAgentAdmin(applyConceptPatternCandidates),
+  },
+  {
     path: "/productConfigAgent/jobs/:jobId",
     method: "get",
     action: withProductConfigAgentToken(getProductConfigAgentBackgroundJob),
+  },
+  {
+    path: "/productConfigAgent/background-jobs/:jobId",
+    method: "get",
+    action: withProductConfigAgentToken(getProductConfigAgentBackgroundJob),
+  },
+  {
+    path: "/productConfigAgent/dictionary/health-audit/jobs",
+    method: "post",
+    action: withProductConfigAgentAdmin(startDictionaryHealthAuditJob),
+  },
+  {
+    path: "/productConfigAgent/dictionary/health-report",
+    method: "get",
+    action: withProductConfigAgentToken(listDictionaryHealthReports),
   },
   {
     path: "/productConfigAgent/dictionary/term-types",

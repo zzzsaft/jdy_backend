@@ -469,7 +469,12 @@ export class ContractArchiveMutationService {
           changeSummaryJsonb: [
             {
               path: "dictionary_refresh",
-              source: "dictionary_dirty_refresh",
+              source: archive.dirtyReason ?? "dictionary_dirty_refresh",
+              dirtyReason: archive.dirtyReason ?? "dictionary_refresh",
+              sourceRunId: archive.dirtySourceRunId,
+              dictionaryVersion: archive.dirtyDictionaryVersion,
+              normalizationRuleVersion: archive.dirtyNormalizationRuleVersion,
+              resolverVersion: archive.dirtyResolverVersion,
               before: this.dictionaryRefreshSnapshot(beforeSnapshot),
               after: this.dictionaryRefreshSnapshot(afterDetail.archive),
             },

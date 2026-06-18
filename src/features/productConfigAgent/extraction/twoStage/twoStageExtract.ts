@@ -1,5 +1,5 @@
 import type { LlmDictionaryContext } from "../../dictionary/dictionary.service.js";
-import { getXhClient, requestXhChatJson } from "../../../../llm/xhClient.js";
+import { requestRoutedChatJson } from "../../../../llm/index.js";
 import {
   parseJsonContent,
   validateLlmExtractionResult,
@@ -743,11 +743,9 @@ export async function planDocumentWithXh(
   params: TwoStageParams,
   model?: string,
 ): Promise<DocumentPlan> {
-  const client = getXhClient();
   const llmText = params.llmText ?? "";
 
-  const planContent = await requestXhChatJson({
-    client,
+  const planContent = await requestRoutedChatJson({
     model,
     purpose: "product_config_agent_plan",
     messages: buildPlanMessages(params),
@@ -770,7 +768,6 @@ export async function extractItemsFromPlanWithXh(
   },
   model?: string,
 ): Promise<LlmExtractResult> {
-  const client = getXhClient();
   const llmText = params.llmText ?? "";
   const plan = params.plan;
   const targetProductType = params.itemProductType
@@ -814,8 +811,7 @@ export async function extractItemsFromPlanWithXh(
         productType,
       );
       const itemInputText = buildItemInputText(llmText, params.blocksJson, item);
-      const content = await requestXhChatJson({
-        client,
+      const content = await requestRoutedChatJson({
         model,
         purpose: `product_config_agent_item_extract_${productType}`,
         messages: buildItemMessages({
@@ -882,7 +878,6 @@ export async function extractItemBatchFromPlansWithXh(
     return [];
   }
 
-  const client = getXhClient();
   const productType = normalizeProductTypeHint(
     params.productTypeHint,
     params.dictionaryContext,
@@ -891,8 +886,7 @@ export async function extractItemBatchFromPlansWithXh(
     params.dictionaryContext,
     productType,
   );
-  const content = await requestXhChatJson({
-    client,
+  const content = await requestRoutedChatJson({
     model,
     purpose: `product_config_agent_item_extract_batch_${productType}`,
     messages: buildBatchItemMessages({

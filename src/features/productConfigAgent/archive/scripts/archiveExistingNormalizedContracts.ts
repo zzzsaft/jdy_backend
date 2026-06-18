@@ -2,7 +2,11 @@ import "../../../../config/env.js";
 import "reflect-metadata";
 import { BaseEntity } from "typeorm";
 import { PgDataSource } from "../../../../config/data-source.js";
+import { TWO_STAGE_PROMPT_VERSION } from "../../workflow/common.js";
 import { productConfigAgentArchiveService } from "../contractArchive.service.js";
+import { readBooleanEnv } from "../../scripts/scriptArgs.js";
+
+const ARCHIVE_EXISTING_ADVISORY_LOCK_KEY = 2001002;
 
 type ArchiveCandidate = {
   documentId: number;
@@ -26,10 +30,6 @@ function readLimit(): number | undefined {
   return Math.floor(value);
 }
 
-function readBooleanEnv(name: string): boolean {
-  return process.env[name] === "1" || process.env[name] === "true";
-}
-
 function readArchivedBy(): string {
   return (
     process.env.QUOTE_AGENT_ARCHIVE_EXISTING_BY?.trim() ||
@@ -50,6 +50,21 @@ async function findArchiveCandidates(limit: number | undefined) {
           AND extraction.normalized_extraction_json IS NOT NULL
           AND jsonb_typeof(extraction.normalized_extraction_json->'items') = 'array'
           AND jsonb_array_length(extraction.normalized_extraction_json->'items') > 0
+          AND (
+            extraction.prompt_version <> $1
+            OR (
+              jsonb_typeof(extraction.llm_plan_json->'items') = 'array'
+              AND jsonb_array_length(extraction.llm_plan_json->'items') > 0
+              AND NOT EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(extraction.llm_plan_json->'items') plan_item
+                WHERE NOT (
+                  plan_item ? 'extracted_at'
+                  OR plan_item->>'extraction_status' = 'extracted'
+                )
+              )
+            )
+          )
         ORDER BY extraction.document_id, extraction.created_at DESC, extraction.id DESC
       )
       SELECT
@@ -65,9 +80,9 @@ async function findArchiveCandidates(limit: number | undefined) {
        AND archive.extraction_result_id = latest.extraction_result_id
       WHERE archive.id IS NULL
       ORDER BY latest.extraction_created_at ASC, latest.extraction_result_id ASC
-      ${limit === undefined ? "" : "LIMIT $1"}
+      ${limit === undefined ? "" : "LIMIT $2"}
     `,
-    limit === undefined ? [] : [limit],
+    limit === undefined ? [TWO_STAGE_PROMPT_VERSION] : [TWO_STAGE_PROMPT_VERSION, limit],
   );
 
   return rows as ArchiveCandidate[];
@@ -87,7 +102,20 @@ async function main() {
   await PgDataSource.initialize();
   BaseEntity.useDataSource(PgDataSource);
 
+  let lockAcquired = false;
   try {
+    const lockRows = await PgDataSource.query(
+      "SELECT pg_try_advisory_lock($1) AS locked",
+      [ARCHIVE_EXISTING_ADVISORY_LOCK_KEY],
+    );
+    lockAcquired = lockRows?.[0]?.locked === true;
+    if (!lockAcquired) {
+      console.log(
+        "[productConfigAgent:archive-existing] skipped: another archive-existing job is already running",
+      );
+      return;
+    }
+
     const candidates = await findArchiveCandidates(limit);
     console.log(
       `[productConfigAgent:archive-existing] found candidates=${candidates.length}`,
@@ -173,6 +201,11 @@ async function main() {
       ),
     );
   } finally {
+    if (lockAcquired) {
+      await PgDataSource.query("SELECT pg_advisory_unlock($1)", [
+        ARCHIVE_EXISTING_ADVISORY_LOCK_KEY,
+      ]);
+    }
     await PgDataSource.destroy();
   }
 }

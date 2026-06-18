@@ -62,6 +62,40 @@ export class DirtyDataRefreshJobService {
     return job;
   }
 
+  async runDirtyDataRefreshJobNow(params?: {
+    limit?: number;
+    batchSize?: number;
+  }): Promise<DirtyDataRefreshJob> {
+    if (this.dirtyDataRefreshJob?.status === "running") {
+      return this.dirtyDataRefreshJob;
+    }
+
+    const limit = Math.max(1, Math.floor(params?.limit ?? 100));
+    const batchSize = Math.min(
+      50,
+      Math.max(1, Math.floor(params?.batchSize ?? 10)),
+    );
+    const job: DirtyDataRefreshJob = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      status: "running",
+      limit,
+      batchSize,
+      startedAt: new Date().toISOString(),
+      total: 0,
+      processed: 0,
+      successCount: 0,
+      failedCount: 0,
+      archiveUpdatedCount: 0,
+      archiveVersionCount: 0,
+      documentProgress: [],
+      errors: [],
+    };
+
+    this.dirtyDataRefreshJob = job;
+    await this.runDirtyDataRefreshJob(job);
+    return job;
+  }
+
   private async runDirtyDataRefreshJob(job: DirtyDataRefreshJob) {
     const startedAt = Date.now();
     let lockAcquired = false;

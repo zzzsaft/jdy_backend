@@ -53,6 +53,12 @@ export class DictionaryAlias extends BaseEntity {
   @Column({ name: "risk_level", type: "varchar", length: 30, default: "normal" })
   riskLevel: string;
 
+  @Column({ name: "baseline_trust_tier", type: "varchar", length: 30, default: "provisional" })
+  baselineTrustTier: string;
+
+  @Column({ name: "baseline_risk_labels", type: "jsonb", default: () => "'[]'::jsonb" })
+  baselineRiskLabels: string[];
+
   @Column({ type: "text", nullable: true })
   note: string | null;
 

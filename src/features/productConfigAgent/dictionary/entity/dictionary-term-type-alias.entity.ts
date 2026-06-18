@@ -38,6 +38,12 @@ export class DictionaryTermTypeAlias extends BaseEntity {
   @Column({ name: "last_seen_at", type: "timestamp", nullable: true })
   lastSeenAt: Date | null;
 
+  @Column({ name: "baseline_trust_tier", type: "varchar", length: 30, default: "provisional" })
+  baselineTrustTier: string;
+
+  @Column({ name: "baseline_risk_labels", type: "jsonb", default: () => "'[]'::jsonb" })
+  baselineRiskLabels: string[];
+
   @Column({ name: "is_active", type: "boolean", default: true })
   isActive: boolean;
 

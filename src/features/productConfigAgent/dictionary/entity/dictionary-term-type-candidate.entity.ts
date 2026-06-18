@@ -67,6 +67,30 @@ export class DictionaryTermTypeCandidate extends BaseEntity {
   @Column({ type: "varchar", length: 30, default: "pending" })
   status: string;
 
+  @Column({ name: "resolver_status", type: "varchar", length: 30, nullable: true })
+  resolverStatus: string | null;
+
+  @Column({ name: "resolver_route", type: "varchar", length: 50, nullable: true })
+  resolverRoute: string | null;
+
+  @Column({
+    name: "resolver_score",
+    type: "numeric",
+    precision: 5,
+    scale: 3,
+    nullable: true,
+  })
+  resolverScore: string | null;
+
+  @Column({ name: "resolver_risk_level", type: "varchar", length: 30, nullable: true })
+  resolverRiskLevel: string | null;
+
+  @Column({ name: "resolver_decision_jsonb", type: "jsonb", nullable: true })
+  resolverDecisionJsonb: unknown | null;
+
+  @Column({ name: "last_resolved_at", type: "timestamp", nullable: true })
+  lastResolvedAt: Date | null;
+
   @Column({ name: "reviewed_by", type: "text", nullable: true })
   reviewedBy: string | null;
 

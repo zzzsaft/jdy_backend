@@ -1,9 +1,13 @@
-﻿import "../../../../config/env.js";
+import "../../../../config/env.js";
 import "reflect-metadata";
 import { fileURLToPath } from "url";
 import { BaseEntity } from "typeorm";
 import { PgDataSource } from "../../../../config/data-source.js";
-import { requestXhChatJson, getXhModel, normalizeXhModel } from "../../../../llm/index.js";
+import {
+  getRoutedChatModel,
+  normalizeRoutedChatModel,
+  requestRoutedChatJson,
+} from "../../../../llm/index.js";
 import { productConfigAgentRepository } from "../../db.service.js";
 import { productConfigAgentService } from "../../service.js";
 
@@ -95,7 +99,7 @@ function readOptions(): CliOptions {
       1,
       Math.min(20, readNumber("batchSize", Number(process.env.XH_EXTRACT_BATCH_SIZE || 5))),
     ),
-    model: getXhModel(readArg("model") || process.env.XH_MODEL),
+    model: getRoutedChatModel(readArg("model")),
     promptVersion,
     productType: readArg("productType") || process.env.XH_EXTRACT_PRODUCT_TYPE,
     forceReextract: hasFlag("force") || process.env.XH_EXTRACT_FORCE === "1",
@@ -110,7 +114,7 @@ async function initializeDatabase() {
 }
 
 async function runPing(options: CliOptions) {
-  const content = await requestXhChatJson({
+  const content = await requestRoutedChatJson({
     model: options.model,
     purpose: "product_config_agent_xh_ping",
     responseFormat: "json_object",
@@ -126,7 +130,7 @@ async function runPing(options: CliOptions) {
     JSON.stringify(
       {
         ok: true,
-        model: normalizeXhModel(options.model),
+        model: normalizeRoutedChatModel(options.model),
         content,
       },
       null,
@@ -204,7 +208,7 @@ async function runBatch(options: CliOptions) {
   );
 
   const summary = {
-    model: normalizeXhModel(options.model),
+    model: normalizeRoutedChatModel(options.model),
     promptVersion: options.promptVersion ?? "default",
     limit: options.limit,
     concurrency: options.concurrency,
@@ -280,7 +284,7 @@ async function runPlan(options: CliOptions) {
       {
         summary: {
           mode: "plan",
-          model: normalizeXhModel(options.model),
+          model: normalizeRoutedChatModel(options.model),
           promptVersion: options.promptVersion ?? "v3-plan-item-20260616",
           limit: options.limit,
           concurrency: options.concurrency,
@@ -375,7 +379,7 @@ async function runItem(options: CliOptions) {
       {
         summary: {
           mode: "item",
-          model: normalizeXhModel(options.model),
+          model: normalizeRoutedChatModel(options.model),
           promptVersion: options.promptVersion ?? "v3-plan-item-20260616",
           productType: options.productType ?? "all",
           limit: options.limit,
@@ -413,7 +417,7 @@ async function runItemBatch(options: CliOptions) {
       {
         summary: {
           mode: "item-batch",
-          model: normalizeXhModel(options.model),
+          model: normalizeRoutedChatModel(options.model),
           promptVersion: options.promptVersion ?? "v3-plan-item-20260616",
           productType: options.productType ?? "all",
           limit: options.limit,
@@ -560,7 +564,7 @@ async function runPlanItemBatch(options: CliOptions) {
       {
         summary: {
           mode: "plan-item-batch",
-          model: normalizeXhModel(options.model),
+          model: normalizeRoutedChatModel(options.model),
           promptVersion: options.promptVersion ?? "v3-plan-item-20260616",
           productType: options.productType ?? "all",
           limit: options.limit,

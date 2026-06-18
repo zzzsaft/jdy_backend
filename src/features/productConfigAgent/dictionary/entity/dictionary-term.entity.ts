@@ -29,6 +29,21 @@ export class DictionaryTerm extends BaseEntity {
   @Column({ type: "text", nullable: true })
   description: string | null;
 
+  @Column({ type: "varchar", length: 50, default: "value" })
+  scope: string;
+
+  @Column({ name: "concept_role", type: "varchar", length: 50, default: "enum_value" })
+  conceptRole: string;
+
+  @Column({ name: "risk_level", type: "varchar", length: 30, default: "normal" })
+  riskLevel: string;
+
+  @Column({ name: "baseline_trust_tier", type: "varchar", length: 30, default: "provisional" })
+  baselineTrustTier: string;
+
+  @Column({ name: "baseline_risk_labels", type: "jsonb", default: () => "'[]'::jsonb" })
+  baselineRiskLabels: string[];
+
   @Column({ name: "is_active", type: "boolean", default: true })
   isActive: boolean;
 

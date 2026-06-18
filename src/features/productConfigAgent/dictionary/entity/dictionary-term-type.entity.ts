@@ -38,6 +38,21 @@ export class DictionaryTermType extends BaseEntity {
   @Column({ name: "value_kind", type: "varchar", length: 50, default: "enum" })
   valueKind: DictionaryValueKind;
 
+  @Column({ type: "varchar", length: 50, default: "item" })
+  scope: string;
+
+  @Column({ name: "concept_role", type: "varchar", length: 50, default: "config_attribute" })
+  conceptRole: string;
+
+  @Column({ name: "risk_level", type: "varchar", length: 30, default: "normal" })
+  riskLevel: string;
+
+  @Column({ name: "baseline_trust_tier", type: "varchar", length: 30, default: "provisional" })
+  baselineTrustTier: string;
+
+  @Column({ name: "baseline_risk_labels", type: "jsonb", default: () => "'[]'::jsonb" })
+  baselineRiskLabels: string[];
+
   @Column({ name: "sort_order", type: "int", default: 100 })
   sortOrder: number;
 

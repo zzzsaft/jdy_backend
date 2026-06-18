@@ -12,3 +12,8 @@ export * from "./dictionary-candidate-review-suggestion.entity.js";
 export * from "./dictionary-unit-alias.entity.js";
 export * from "./dictionary-unit-candidate.entity.js";
 export * from "./splitResolution.entity.js";
+export * from "./concept-resolver-run.entity.js";
+export * from "./concept-resolution.entity.js";
+export * from "./concept-pattern-review.entity.js";
+export * from "./dictionary-change-log.entity.js";
+export * from "./dictionary-health-report.entity.js";

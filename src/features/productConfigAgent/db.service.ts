@@ -11,6 +11,7 @@ import { Documents } from "./workflow/entity/documents.entity.js";
 import { ExtractionResults } from "./extraction/entity/extractionResults.entity.js";
 import { ContractArchive } from "./archive/entity/index.js";
 import { buildExtractionItemNameMap } from "./extractionItemNames.js";
+import { TWO_STAGE_PROMPT_VERSION } from "./workflow/common.js";
 
 export interface ProductConfigAgentRepository {
   findDocumentByHash(fileHash: string): Promise<any | null>;
@@ -44,7 +45,16 @@ export interface ProductConfigAgentRepository {
 
   updateDocumentStatus(documentId: number, status: string): Promise<void>;
   updateDocumentsStatus(documentIds: number[], status: string): Promise<void>;
-  markDocumentsDictionaryDirty(documentIds: number[]): Promise<void>;
+  markDocumentsDictionaryDirty(
+    documentIds: number[],
+    metadata?: {
+      dirtyReason?: "dictionary_refresh" | "normalization_refresh" | "extraction_structure_refresh";
+      sourceRunId?: string | null;
+      dictionaryVersion?: string | number | null;
+      normalizationRuleVersion?: string | null;
+      resolverVersion?: string | null;
+    },
+  ): Promise<void>;
   markAllDocumentsDictionaryDirty(): Promise<void>;
   findDocumentById(documentId: number): Promise<any | null>;
   findDocumentsByIds(documentIds: number[]): Promise<any[]>;
@@ -202,6 +212,81 @@ function pendingCandidateRenormalizationWhereSql(): string {
         AND candidate.status = 'pending'
     )
   )`;
+}
+
+function refreshableExtractionPredicateSql(
+  alias: string,
+  promptVersionParameter = "$1",
+): string {
+  return `(
+    ${alias}.status = 'normalized'
+    AND ${alias}.normalized_extraction_json IS NOT NULL
+    AND jsonb_typeof(${alias}.normalized_extraction_json->'items') = 'array'
+    AND jsonb_array_length(${alias}.normalized_extraction_json->'items') > 0
+    AND (
+      ${alias}.prompt_version <> ${promptVersionParameter}
+      OR (
+        jsonb_typeof(${alias}.llm_plan_json->'items') = 'array'
+        AND jsonb_array_length(${alias}.llm_plan_json->'items') > 0
+        AND NOT EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(${alias}.llm_plan_json->'items') plan_item
+          WHERE NOT (
+            plan_item ? 'extracted_at'
+            OR plan_item->>'extraction_status' = 'extracted'
+          )
+        )
+      )
+    )
+  )`;
+}
+
+function refreshableDirtyDocumentSelectionSql(params: {
+  includeArchiveDirty: boolean;
+  requireDirty: boolean;
+  promptVersionParameter?: string;
+}): string {
+  return `
+    SELECT DISTINCT
+      document.id,
+      document.file_name,
+      document.file_hash,
+      document.file_path,
+      document.source,
+      document.status,
+      document.created_at
+    FROM quote_agent.documents document
+    LEFT JOIN LATERAL (
+      SELECT extraction.*
+      FROM quote_agent.extraction_results extraction
+      WHERE extraction.document_id = document.id
+      ORDER BY
+        CASE WHEN extraction.status IN ('normalized', 'parsed') THEN 0 ELSE 1 END,
+        extraction.created_at DESC,
+        extraction.id DESC
+      LIMIT 1
+    ) latest_extraction ON true
+    ${
+      params.includeArchiveDirty
+        ? `
+          LEFT JOIN quote_agent.contract_archives archive
+            ON archive.document_id = document.id
+        `
+        : ""
+    }
+    WHERE ${refreshableExtractionPredicateSql(
+      "latest_extraction",
+      params.promptVersionParameter ?? "$1",
+    )}
+      ${
+        params.requireDirty
+          ? `AND (
+              document.status = 'dictionary_dirty'
+              ${params.includeArchiveDirty ? "OR archive.status = 'dictionary_dirty'" : ""}
+            )`
+          : ""
+      }
+  `;
 }
 
 export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRepository {
@@ -472,21 +557,88 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
     }
   }
 
-  async markDocumentsDictionaryDirty(documentIds: number[]): Promise<void> {
+  async markDocumentsDictionaryDirty(
+    documentIds: number[],
+    metadata?: {
+      dirtyReason?: "dictionary_refresh" | "normalization_refresh" | "extraction_structure_refresh";
+      sourceRunId?: string | null;
+      dictionaryVersion?: string | number | null;
+      normalizationRuleVersion?: string | null;
+      resolverVersion?: string | null;
+    },
+  ): Promise<void> {
     const uniqueDocumentIds = [...new Set(documentIds)].filter((id) => id > 0);
     if (uniqueDocumentIds.length === 0) return;
 
     try {
       await PgDataSource.transaction(async (manager) => {
-        await manager
-          .getRepository(Documents)
-          .update({ id: In(uniqueDocumentIds) }, { status: "dictionary_dirty" });
-        await manager
-          .getRepository(ContractArchive)
-          .update(
-            { documentId: In(uniqueDocumentIds.map((id) => String(id))) },
-            { status: "dictionary_dirty" },
-          );
+        const dirtyReason = metadata?.dirtyReason ?? "dictionary_refresh";
+        const dirtySourceRunId = metadata?.sourceRunId ?? null;
+        const dirtyDictionaryVersion =
+          metadata?.dictionaryVersion === undefined ||
+          metadata?.dictionaryVersion === null
+            ? null
+            : String(metadata.dictionaryVersion);
+        const dirtyNormalizationRuleVersion =
+          metadata?.normalizationRuleVersion ?? null;
+        const dirtyResolverVersion = metadata?.resolverVersion ?? null;
+
+        await manager.query(
+          `
+            WITH refreshable_documents AS (
+              ${refreshableDirtyDocumentSelectionSql({
+                includeArchiveDirty: false,
+                requireDirty: false,
+                promptVersionParameter: "$7",
+              })}
+            )
+            UPDATE quote_agent.documents document
+            SET
+              status = 'dictionary_dirty',
+              dirty_reason = $2,
+              dirty_source_run_id = $3,
+              dirty_dictionary_version = $4,
+              dirty_normalization_rule_version = $5,
+              dirty_resolver_version = $6
+            FROM refreshable_documents target
+            WHERE document.id = target.id
+              AND document.id = ANY($1::int[])
+          `,
+          [
+            uniqueDocumentIds,
+            dirtyReason,
+            dirtySourceRunId,
+            dirtyDictionaryVersion,
+            dirtyNormalizationRuleVersion,
+            dirtyResolverVersion,
+            TWO_STAGE_PROMPT_VERSION,
+          ],
+        );
+        await manager.query(
+          `
+            UPDATE quote_agent.contract_archives archive
+            SET
+              status = 'dictionary_dirty',
+              dirty_reason = $2,
+              dirty_source_run_id = $3,
+              dirty_dictionary_version = $4,
+              dirty_normalization_rule_version = $5,
+              dirty_resolver_version = $6
+            FROM quote_agent.extraction_results extraction
+            WHERE extraction.id = archive.extraction_result_id::bigint
+              AND archive.document_id = ANY($1::bigint[])
+              AND ${refreshableExtractionPredicateSql("extraction", "$7")}
+          `,
+          [
+            uniqueDocumentIds,
+            dirtyReason,
+            dirtySourceRunId,
+            dirtyDictionaryVersion,
+            dirtyNormalizationRuleVersion,
+            dirtyResolverVersion,
+            TWO_STAGE_PROMPT_VERSION,
+          ],
+        );
       });
     } catch (error) {
       throw wrapDbError("markDocumentsDictionaryDirty", error);
@@ -496,18 +648,43 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
   async markAllDocumentsDictionaryDirty(): Promise<void> {
     try {
       await PgDataSource.transaction(async (manager) => {
-        await manager
-          .getRepository(Documents)
-          .createQueryBuilder()
-          .update(Documents)
-          .set({ status: "dictionary_dirty" })
-          .execute();
-        await manager
-          .getRepository(ContractArchive)
-          .createQueryBuilder()
-          .update(ContractArchive)
-          .set({ status: "dictionary_dirty" })
-          .execute();
+        await manager.query(
+          `
+            WITH refreshable_documents AS (
+              ${refreshableDirtyDocumentSelectionSql({
+                includeArchiveDirty: false,
+                requireDirty: false,
+              })}
+            )
+            UPDATE quote_agent.documents document
+            SET
+              status = 'dictionary_dirty',
+              dirty_reason = 'dictionary_refresh',
+              dirty_source_run_id = NULL,
+              dirty_dictionary_version = NULL,
+              dirty_normalization_rule_version = NULL,
+              dirty_resolver_version = NULL
+            FROM refreshable_documents target
+            WHERE document.id = target.id
+          `,
+          [TWO_STAGE_PROMPT_VERSION],
+        );
+        await manager.query(
+          `
+            UPDATE quote_agent.contract_archives archive
+            SET
+              status = 'dictionary_dirty',
+              dirty_reason = 'dictionary_refresh',
+              dirty_source_run_id = NULL,
+              dirty_dictionary_version = NULL,
+              dirty_normalization_rule_version = NULL,
+              dirty_resolver_version = NULL
+            FROM quote_agent.extraction_results extraction
+            WHERE extraction.id = archive.extraction_result_id::bigint
+              AND ${refreshableExtractionPredicateSql("extraction")}
+          `,
+          [TWO_STAGE_PROMPT_VERSION],
+        );
       });
     } catch (error) {
       throw wrapDbError("markAllDocumentsDictionaryDirty", error);
@@ -681,56 +858,29 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
   async findDictionaryDirtyDocuments(params?: { limit?: number }): Promise<any[]> {
     try {
       const limit = Math.max(1, params?.limit ?? 100);
-      const dirtyDocuments = await this.documentsRepo
-        .createQueryBuilder("document")
-        .where("document.status = :dirtyStatus", {
-          dirtyStatus: "dictionary_dirty",
-        })
-        .select([
-          "document.id",
-          "document.fileName",
-          "document.fileHash",
-          "document.filePath",
-          "document.source",
-          "document.status",
-          "document.createdAt",
-        ])
-        .orderBy("document.createdAt", "ASC")
-        .limit(limit)
-        .getMany();
-      const dirtyArchiveDocuments = await this.documentsRepo
-        .createQueryBuilder("document")
-        .innerJoin(
-          ContractArchive,
-          "archive",
-          "archive.document_id = document.id",
-        )
-        .where("archive.status = :dirtyStatus", {
-          dirtyStatus: "dictionary_dirty",
-        })
-        .select([
-          "document.id",
-          "document.fileName",
-          "document.fileHash",
-          "document.filePath",
-          "document.source",
-          "document.status",
-          "document.createdAt",
-        ])
-        .orderBy("document.createdAt", "ASC")
-        .limit(limit)
-        .getMany();
-      const byId = new Map<string, Documents>();
-      for (const document of [...dirtyDocuments, ...dirtyArchiveDocuments]) {
-        byId.set(String(document.id), document);
-      }
-      return [...byId.values()]
-        .sort((a, b) => {
-          const left = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const right = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return left - right || Number(a.id) - Number(b.id);
-        })
-        .slice(0, limit);
+      const rows = await PgDataSource.query(
+        `
+          WITH refreshable_documents AS (
+            ${refreshableDirtyDocumentSelectionSql({
+              includeArchiveDirty: true,
+              requireDirty: true,
+            })}
+          )
+          SELECT
+            id,
+            file_name AS "fileName",
+            file_hash AS "fileHash",
+            file_path AS "filePath",
+            source,
+            status,
+            created_at AS "createdAt"
+          FROM refreshable_documents
+          ORDER BY created_at ASC, id ASC
+          LIMIT $2
+        `,
+        [TWO_STAGE_PROMPT_VERSION, limit],
+      );
+      return rows;
     } catch (error) {
       throw wrapDbError("findDictionaryDirtyDocuments", error);
     }

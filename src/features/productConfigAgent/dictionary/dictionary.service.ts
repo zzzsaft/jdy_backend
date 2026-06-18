@@ -61,6 +61,7 @@ import {
   isExplicitNumberUnitSplitField,
   normalizeProductTypeHintForMatch,
 } from "./dictionary.service.helpers.js";
+import { ConceptResolverService } from "./conceptResolver.service.js";
 
 export type {
   CachedTermType,
@@ -79,6 +80,7 @@ export class DictionaryService {
   private readonly cache: DictionaryCache;
   private readonly masterDataService: ProductConfigAgentMasterDataService;
   private readonly splitResolutionService: SplitResolutionService;
+  private readonly conceptResolverService: ConceptResolverService;
   private readonly pendingTermTypeAliasUsage = new Map<string, number>();
   private readonly pendingValueAliasUsage = new Map<string, number>();
 
@@ -86,6 +88,7 @@ export class DictionaryService {
     this.cache = new DictionaryCache(dataSource);
     this.masterDataService = new ProductConfigAgentMasterDataService(dataSource);
     this.splitResolutionService = new SplitResolutionService(dataSource);
+    this.conceptResolverService = new ConceptResolverService(dataSource);
   }
 
   normalizeText(input: unknown): string {
@@ -281,21 +284,37 @@ export class DictionaryService {
   async createValueCandidate(
     params: CreateValueCandidateParams,
   ): Promise<DictionaryCandidate | null> {
-    return createValueCandidateRecord(
+    const candidate = await createValueCandidateRecord(
       this.dataSource,
       params,
       this.normalizeText(params.rawValue),
     );
+    if (candidate) {
+      this.conceptResolverService.enqueueCandidate({
+        candidateType: "value",
+        candidateId: candidate.id,
+        force: true,
+      });
+    }
+    return candidate;
   }
 
   async createTermTypeCandidate(
     params: CreateTermTypeCandidateParams,
   ): Promise<DictionaryTermTypeCandidate | null> {
-    return createTermTypeCandidateRecord(
+    const candidate = await createTermTypeCandidateRecord(
       this.dataSource,
       params,
       this.normalizeText(params.rawFieldName),
     );
+    if (candidate) {
+      this.conceptResolverService.enqueueCandidate({
+        candidateType: "term_type",
+        candidateId: candidate.id,
+        force: true,
+      });
+    }
+    return candidate;
   }
 
   async createUnitCandidate(params: {
@@ -1191,22 +1210,18 @@ export class DictionaryService {
       targetTermType: termType,
       movedRawValue: rawValue,
     });
-    await createValueCandidateRecord(
-      this.dataSource,
-      {
-        documentId: candidate.documentId ?? undefined,
-        extractionResultId: candidate.extractionResultId ?? undefined,
-        itemIndex: candidate.itemIndex ?? undefined,
-        sourceProductType: candidate.sourceProductType,
-        termType,
-        rawValue,
-        reason: `moved_from_candidate:${candidate.id}`,
-        evidence: candidate.evidence ?? undefined,
-        confidence:
-          candidate.confidence === null ? undefined : Number(candidate.confidence),
-      },
-      normalizedRawValue,
-    );
+    await this.createValueCandidate({
+      documentId: candidate.documentId ?? undefined,
+      extractionResultId: candidate.extractionResultId ?? undefined,
+      itemIndex: candidate.itemIndex ?? undefined,
+      sourceProductType: candidate.sourceProductType,
+      termType,
+      rawValue,
+      reason: `moved_from_candidate:${candidate.id}`,
+      evidence: candidate.evidence ?? undefined,
+      confidence:
+        candidate.confidence === null ? undefined : Number(candidate.confidence),
+    });
   }
 
   private async saveMovedValueCandidateResolved(
