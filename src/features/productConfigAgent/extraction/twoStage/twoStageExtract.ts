@@ -1101,7 +1101,7 @@ function buildProductTypeFocus(
     .join("；");
 }
 
-function buildItemExtractSystemPrompt(
+export function buildItemExtractSystemPrompt(
   productTypeHint: string,
   dictionaryContext?: LlmDictionaryContext,
 ): string {
@@ -1136,7 +1136,13 @@ function buildItemExtractSystemPrompt(
 19. 如果当前 item 数量大于 1，或多个字段共享连续实例序号 1..N，且能判断这些字段属于同一 product_type 的 N 个配置实例，应拆成 N 个同 product_type items。第一个 item 使用 current_item.item_index；其余 item 可以先使用相同 item_index 或合理新 index，后端会 reindex。
 20. 拆分后的每个 item 只保留对应实例序号的字段，并把字段名还原为基础字段。例如“尺寸2”在第二个 item 中输出为“尺寸”。缺失字段不要编造。
 21. 如果序号不连续或证据不足，例如只有“尺寸3”或只有“尺寸1/尺寸3”，不要自动补齐或强拆；保留原字段，并在 warnings 中输出 possible_indexed_instance_fields_needs_review。
-22. 材料/应用/说明混写时必须拆成各自的 split_fields，不要把产量、工艺参数、设备规格、比例或说明残片误当应用类型。
+22. 材料/应用/说明混写时必须拆成各自的 split_fields。父 raw_field 的 value/raw_text 保留完整原文用于追溯，但 split_fields 必须覆盖所有有业务意义的片段，后续候选只应来自拆分后的单一属性值：
+    - "塑料原料"只能放材料牌号/材料名称本身，不得包含膜、板、片、管、模头、产量、温度、规格、比例或备注。
+    - "应用类型"只能放制品/用途本身；"模头"、"分配器"等产品/部位词不得并入应用类型。
+    - 产量、工艺温度、挤出机规格、比例和备注必须各自拆到对应中文业务字段，不能塞进材料或应用。
+    - split_fields 自身也必须是单一业务属性，不能把第一次拆分后的"原料"子字段继续保留为"基材+填料+制品"复合值。
+    - 基材+填料/助剂+制品混写时，塑料原料只放基材，完整配方放"原料配方"，制品放"应用类型"。例："PE+CaCo3透气膜"拆为"塑料原料"="PE"、"原料配方"="PE+CaCo3"、"应用类型"="透气膜"；禁止输出"适用原料"="PE+CaCo3透气膜"或"应用类型"="CaCo3透气膜"。
+    - 不得在 split_fields 中再次输出完整混填串，也不得把无法分类的说明残片猜成枚举值；无法可靠分类的片段放入"备注"并降低 confidence。
     例："PVC保鲜膜模头（产量500KG/每小时）" 应拆成 "塑料原料"="PVC"、"应用类型"="保鲜膜"、"产量"="500KG/每小时"；"模头" 只是产品/部位词，不要并入应用类型。
     例："CPE（产量：150-200KG左右每小时）" 应拆成 "塑料原料"="CPE"、"产量"="150-200KG左右每小时"，不要输出 "应用类型"="产量150-200KG左右每小时"。
     例："PET（工艺温度：270-280度）" 应拆成 "塑料原料"="PET"、"工艺温度"="270-280度"，不要输出 "应用类型"="工艺温度270-280度"。
@@ -1175,7 +1181,7 @@ function buildItemExtractSystemPrompt(
 `;
 }
 
-function buildBatchItemExtractSystemPrompt(
+export function buildBatchItemExtractSystemPrompt(
   productTypeHint: string,
   dictionaryContext?: LlmDictionaryContext,
 ): string {
@@ -1213,7 +1219,13 @@ function buildBatchItemExtractSystemPrompt(
 22. 如果当前 item 数量大于 1，或多个字段共享连续实例序号 1..N，且能判断这些字段属于同一 product_type 的 N 个配置实例，应拆成 N 个同 product_type items。第一个 item 使用输入 item_index；其余 item 可以先使用相同 item_index 或合理新 index，后端会 reindex。
 23. 拆分后的每个 item 只保留对应实例序号的字段，并把字段名还原为基础字段。例如“尺寸2”在第二个 item 中输出为“尺寸”。缺失字段不要编造。
 24. 如果序号不连续或证据不足，例如只有“尺寸3”或只有“尺寸1/尺寸3”，不要自动补齐或强拆；保留原字段，并在 warnings 中输出 possible_indexed_instance_fields_needs_review。
-25. 材料/应用/说明混写时必须拆成各自的 split_fields，不要把产量、工艺参数、设备规格、比例或说明残片误当应用类型。
+25. 材料/应用/说明混写时必须拆成各自的 split_fields。父 raw_field 的 value/raw_text 保留完整原文用于追溯，但 split_fields 必须覆盖所有有业务意义的片段，后续候选只应来自拆分后的单一属性值：
+    - "塑料原料"只能放材料牌号/材料名称本身，不得包含膜、板、片、管、模头、产量、温度、规格、比例或备注。
+    - "应用类型"只能放制品/用途本身；"模头"、"分配器"等产品/部位词不得并入应用类型。
+    - 产量、工艺温度、挤出机规格、比例和备注必须各自拆到对应中文业务字段，不能塞进材料或应用。
+    - split_fields 自身也必须是单一业务属性，不能把第一次拆分后的"原料"子字段继续保留为"基材+填料+制品"复合值。
+    - 基材+填料/助剂+制品混写时，塑料原料只放基材，完整配方放"原料配方"，制品放"应用类型"。例："PE+CaCo3透气膜"拆为"塑料原料"="PE"、"原料配方"="PE+CaCo3"、"应用类型"="透气膜"；禁止输出"适用原料"="PE+CaCo3透气膜"或"应用类型"="CaCo3透气膜"。
+    - 不得在 split_fields 中再次输出完整混填串，也不得把无法分类的说明残片猜成枚举值；无法可靠分类的片段放入"备注"并降低 confidence。
     例："PVC保鲜膜模头（产量500KG/每小时）" 应拆成 "塑料原料"="PVC"、"应用类型"="保鲜膜"、"产量"="500KG/每小时"；"模头" 只是产品/部位词，不要并入应用类型。
     例："CPE（产量：150-200KG左右每小时）" 应拆成 "塑料原料"="CPE"、"产量"="150-200KG左右每小时"，不要输出 "应用类型"="产量150-200KG左右每小时"。
     例："PET（工艺温度：270-280度）" 应拆成 "塑料原料"="PET"、"工艺温度"="270-280度"，不要输出 "应用类型"="工艺温度270-280度"。

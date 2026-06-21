@@ -133,7 +133,8 @@ export class XftAtdLeave extends BaseEntity {
       });
     }
 
-    return query.getCount();
+    const leaves = await query.select(["leave.begDate"]).getMany();
+    return new Set(leaves.map((leave) => dayKey(leave.begDate))).size;
   }
 
   static async countDepartmentLeaveUsersByDay(

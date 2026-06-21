@@ -86,7 +86,7 @@ curl -X POST 'http://localhost:2001/productConfigAgent/concept-resolver/run' \
 - `status`：candidate 状态，默认 `pending`。
 - `limit`：最多处理多少条。
 - `includeReviewed`：设为 `true` 时不按 `status` 过滤。
-- `apply`：当前服务层会记录 run mode，但 resolve 实现仍不直接自动应用字典变更。
+- `apply`：当前只支持 dry-run；传入 `true` 会返回 400。字典变更继续通过人工审核流程应用。
 
 ## 查看结果
 

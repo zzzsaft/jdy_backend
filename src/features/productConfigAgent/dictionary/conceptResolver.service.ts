@@ -6,15 +6,12 @@ import {
   DictionaryAlias,
   DictionaryCandidate,
   DictionaryCandidateOccurrence,
-  DictionaryChangeLog,
   DictionaryHealthReport,
   DictionaryTerm,
   DictionaryTermType,
   DictionaryTermTypeAlias,
   DictionaryTermTypeCandidate,
-  DictionaryVersion,
 } from "./entity/index.js";
-import { approveValueCandidateAsAlias } from "./dictionary.review.js";
 import { ConceptTargetScoringService } from "./conceptTargetScoring.service.js";
 import { ResolverRoutingService } from "./resolverRouting.service.js";
 import {
@@ -34,6 +31,7 @@ import { detectQualifierConcept } from "./qualifierConcept.js";
 import { normalizeText } from "./dictionary.utils.js";
 import { logger } from "../../../config/logger.js";
 import { readBooleanEnv } from "../utils/envParsing.js";
+import { readDictionaryVersion } from "./dictionaryVersion.service.js";
 
 export const CONCEPT_RESOLVER_VERSION = "v1";
 export const NORMALIZATION_RULE_VERSION = "v1";
@@ -47,7 +45,6 @@ type ResolveParams = {
 
 type ResolverConfig = {
   enabled: boolean;
-  apply: boolean;
   llmEnabled: boolean;
   mode: "sync" | "async";
 };
@@ -75,7 +72,6 @@ function configFromEnv(): ResolverConfig {
     : "async";
   return {
     enabled: readBooleanEnv("QUOTE_AGENT_CONCEPT_RESOLVER_ENABLED", true),
-    apply: readBooleanEnv("QUOTE_AGENT_CONCEPT_RESOLVER_APPLY"),
     llmEnabled: readBooleanEnv("QUOTE_AGENT_CONCEPT_RESOLVER_LLM_ENABLED"),
     mode,
   };
@@ -270,12 +266,15 @@ export class ConceptResolverService {
     limit?: number;
     apply?: boolean;
   }) {
+    if (params?.apply === true) {
+      throw new Error("concept resolver only supports dry-run; apply=true is not allowed");
+    }
     const dictionaryVersion = await this.getDictionaryVersion();
     const runRepo = this.dataSource.getRepository(ConceptResolverRun);
     const run = await runRepo.save(
       runRepo.create({
         scope: "manual_run",
-        mode: params?.apply ? "apply" : "dry_run",
+        mode: "dry_run",
         status: "running",
         dictionaryVersionAtStart: String(dictionaryVersion),
         resolverVersion: CONCEPT_RESOLVER_VERSION,
@@ -367,14 +366,9 @@ export class ConceptResolverService {
     }
 
     const decision = await this.buildDecision(loaded, dictionaryVersion);
-    const shouldApply = false;
-    const saved = await this.saveDecision(decision, params.runId ?? null, shouldApply);
+    await this.saveDecision(decision, params.runId ?? null, false);
     await this.updateCandidateSnapshot(decision);
     await this.upsertPatternReview(decision);
-
-    if (shouldApply && saved?.id) {
-      await this.tryApplyDecision(decision, saved.id);
-    }
 
     return decision;
   }
@@ -542,10 +536,7 @@ export class ConceptResolverService {
   }
 
   private async getDictionaryVersion(): Promise<number> {
-    const version = await this.dataSource
-      .getRepository(DictionaryVersion)
-      .findOne({ where: { versionKey: "dictionary" } });
-    return Number(version?.versionValue ?? 0);
+    return readDictionaryVersion(this.dataSource);
   }
 
   private async buildDecision(
@@ -1261,112 +1252,6 @@ export class ConceptResolverService {
     }
     const keys = await this.knownPatternKeysPromise;
     return keys;
-  }
-
-  private async tryApplyDecision(decision: ConceptResolverDecision, resolutionId: string) {
-    if (
-      decision.candidateType !== "value" ||
-      decision.relationType !== "exact_alias" ||
-      decision.riskLevel !== "low"
-    ) {
-      return;
-    }
-    const targetTermId = decision.matchedTargets.find((target) => target.id)?.id;
-    if (!targetTermId) return;
-    await approveValueCandidateAsAlias(this.dataSource, {
-      candidateId: decision.candidateId,
-      termId: targetTermId,
-      reviewedBy: "concept_resolver",
-    });
-    await this.bumpDictionaryVersion();
-    const nextDictionaryVersion = await this.getDictionaryVersion();
-    await this.dataSource.getRepository(DictionaryChangeLog).save(
-      this.dataSource.getRepository(DictionaryChangeLog).create({
-        dictionaryVersion: String(nextDictionaryVersion),
-        source: "concept_resolver",
-        action: "approve_value_as_alias",
-        candidateType: decision.candidateType,
-        candidateId: decision.candidateId,
-        resolverRunId: null,
-        beforeJsonb: { dictionaryVersion: decision.evidence.dictionaryVersion },
-        afterJsonb: { termId: targetTermId, dictionaryVersion: nextDictionaryVersion },
-        changedBy: "concept_resolver",
-      }),
-    );
-    await this.markCandidateDocumentsDirty(decision, nextDictionaryVersion);
-    await this.dataSource.getRepository(ConceptResolution).update(
-      { id: resolutionId },
-      {
-        appliedAt: new Date(),
-        appliedOperationJsonb: {
-          action: "approve_value_as_alias",
-          candidateId: decision.candidateId,
-          termId: targetTermId,
-        },
-      },
-    );
-  }
-
-  private async bumpDictionaryVersion() {
-    await this.dataSource.query(
-      `
-      INSERT INTO quote_agent.dictionary_versions(version_key, version_value)
-      VALUES ($1, 1)
-      ON CONFLICT(version_key)
-      DO UPDATE SET
-        version_value = quote_agent.dictionary_versions.version_value + 1,
-        updated_at = now()
-      `,
-      ["dictionary"],
-    );
-  }
-
-  private async markCandidateDocumentsDirty(
-    decision: ConceptResolverDecision,
-    dictionaryVersion: number,
-  ) {
-    if (
-      decision.candidateType !== "term_type" &&
-      decision.candidateType !== "value"
-    ) {
-      return;
-    }
-    const rows = await this.dataSource.getRepository(DictionaryCandidateOccurrence).find({
-      where: {
-        candidateType: decision.candidateType,
-        candidateId: decision.candidateId,
-      },
-    });
-    const documentIds = [
-      ...new Set(rows.map((row) => Number(row.documentId)).filter((id) => id > 0)),
-    ];
-    if (documentIds.length === 0) return;
-    await this.dataSource.query(
-      `
-      UPDATE quote_agent.documents
-      SET status = 'dictionary_dirty',
-          dirty_reason = 'dictionary_refresh',
-          dirty_dictionary_version = $2,
-          dirty_resolver_version = $3
-      WHERE id = ANY($1::int[])
-      `,
-      [documentIds, String(dictionaryVersion), CONCEPT_RESOLVER_VERSION],
-    );
-    await this.dataSource.query(
-      `
-      UPDATE quote_agent.contract_archives
-      SET status = 'dictionary_dirty',
-          dirty_reason = 'dictionary_refresh',
-          dirty_dictionary_version = $2,
-          dirty_resolver_version = $3
-      WHERE document_id = ANY($1::text[])
-      `,
-      [
-        documentIds.map((id) => String(id)),
-        String(dictionaryVersion),
-        CONCEPT_RESOLVER_VERSION,
-      ],
-    );
   }
 
   private decisionFromResolution(resolution: ConceptResolution): ConceptResolverDecision {

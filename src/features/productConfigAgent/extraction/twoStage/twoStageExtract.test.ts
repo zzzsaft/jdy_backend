@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { buildItemInputText } from "./twoStageExtract.js";
+import {
+  buildBatchItemExtractSystemPrompt,
+  buildItemExtractSystemPrompt,
+  buildItemInputText,
+} from "./twoStageExtract.js";
 
 const rowMappedText = [
   "File: demo.xlsx",
@@ -40,5 +44,17 @@ assert.equal(
   unsafeResult.warnings[0]?.type,
   "plan_range_suspected_misaligned",
 );
+
+for (const prompt of [
+  buildItemExtractSystemPrompt("flat_die"),
+  buildBatchItemExtractSystemPrompt("flat_die"),
+]) {
+  assert.match(prompt, /split_fields 必须覆盖所有有业务意义的片段/);
+  assert.match(prompt, /塑料原料.*只能放材料牌号\/材料名称本身/);
+  assert.match(prompt, /不得在 split_fields 中再次输出完整混填串/);
+  assert.match(prompt, /产品\/部位词不得并入应用类型/);
+  assert.match(prompt, /split_fields 自身也必须是单一业务属性/);
+  assert.match(prompt, /PE\+CaCo3透气膜.*原料配方.*应用类型/);
+}
 
 console.log("productConfigAgent two-stage extraction tests passed");

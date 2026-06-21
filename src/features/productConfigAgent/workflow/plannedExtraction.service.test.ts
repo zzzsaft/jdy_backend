@@ -270,6 +270,58 @@ async function testBoundaryMismatchMarksItemForReextract() {
   assert.equal(normalizeCount, 0);
 }
 
+async function testSuspectedPlanRangeWarningDoesNotDiscardValidItem() {
+  const updates: any[] = [];
+  let normalizeCount = 0;
+  const service = createService({
+    onUpdate: (data) => updates.push(data),
+    onNormalize: () => {
+      normalizeCount += 1;
+    },
+  });
+  const extractionMap = new Map<number, any>([
+    [
+      31,
+      {
+        id: 31,
+        documentId: 3,
+        extractionJson: { items: [] },
+        llmPlanJson: { items: [{ item_index: 2, product_type_hint: "filter" }] },
+      },
+    ],
+  ]);
+  const documentMap = new Map<number, any>([[3, { id: 3, fileName: "c.xlsx" }]]);
+
+  const result = await service.updateExtractionsFromBatchResults({
+    extractionMap,
+    documentMap,
+    successResults: [
+      {
+        documentId: 3,
+        extractionResultId: 31,
+        itemIndex: 2,
+        result: {
+          extraction: {
+            items: [{ item_index: 2, product_type_hint: { value: "filter" }, raw_fields: [] }],
+          },
+          warnings: [
+            {
+              type: "plan_range_suspected_misaligned",
+              message: "planner anchor was not found; original range was used",
+              evidence: { item_index: 2 },
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  assert.equal(result.failures.length, 0);
+  assert.equal(updates[0].status, "parsed");
+  assert.equal(updates[0].llmPlanJson.items[0].extraction_status, "extracted");
+  assert.equal(normalizeCount, 1);
+}
+
 async function testDuplicateReturnedItemIndexesAreReindexedBeforeMerge() {
   const updates: any[] = [];
   const service = createService({ onUpdate: (data) => updates.push(data) });
@@ -341,6 +393,7 @@ await testCollectPendingBatchItemsFiltersExtractedAndProductType();
 await testCollectPendingBatchItemsUsesBatchFetches();
 await testUpdateExtractionsFromBatchResultsWritesMultipleExtractions();
 await testBoundaryMismatchMarksItemForReextract();
+await testSuspectedPlanRangeWarningDoesNotDiscardValidItem();
 await testDuplicateReturnedItemIndexesAreReindexedBeforeMerge();
 
 console.log("planned extraction service tests passed");

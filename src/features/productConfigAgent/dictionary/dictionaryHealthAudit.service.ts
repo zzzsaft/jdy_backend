@@ -7,7 +7,6 @@ import {
   DictionaryTerm,
   DictionaryTermType,
   DictionaryTermTypeCandidate,
-  DictionaryVersion,
 } from "./entity/index.js";
 import { normalizeNumberUnit } from "./numberUnit.js";
 import { extractMultiValueTokens } from "./multiValue.js";
@@ -16,6 +15,7 @@ import {
   qualifiedTable,
 } from "./dictionaryHealth.schemas.js";
 import { QUALIFIER_CONCEPT_PATTERN } from "./qualifierConcept.js";
+import { readDictionaryVersionValue } from "./dictionaryVersion.service.js";
 
 export type DictionaryHealthAuditTargetKind = DictionaryHealthTargetKind | "all";
 
@@ -754,29 +754,14 @@ export class DictionaryHealthAuditService {
     );
   }
 
-  private async safeQuery<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-    try {
-      return (await this.dataSource.query(sql, params)) as T[];
-    } catch (_error) {
-      return [];
-    }
-  }
-
   private async getDictionaryVersion(): Promise<string | null> {
-    try {
-      const version = await this.dataSource
-        .getRepository(DictionaryVersion)
-        .findOne({ where: { versionKey: "dictionary" } });
-      return version?.versionValue ?? null;
-    } catch (_error) {
-      return null;
-    }
+    return readDictionaryVersionValue(this.dataSource);
   }
 
   private async loadArchivedFields(): Promise<ArchivedFieldObservation[]> {
     const schema = productConfigAgentSourceSchema();
     const itemsTable = qualifiedTable(schema, "contract_archive_items");
-    return this.safeQuery<ArchivedFieldObservation>(
+    return this.dataSource.query(
       `
       SELECT
         field->'dictionary'->>'term_type' AS "termType",
@@ -795,7 +780,7 @@ export class DictionaryHealthAuditService {
       WHERE field->'dictionary'->>'term_type' IS NOT NULL
       LIMIT 50000
       `,
-    );
+    ) as Promise<ArchivedFieldObservation[]>;
   }
 
   private async loadValueCandidatePressure(): Promise<Map<string, CandidatePressure>> {

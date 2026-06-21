@@ -199,3 +199,36 @@ node --loader ts-node/esm -r dotenv/config src/features/productConfigAgent/extra
 - 已经生成过 plan 的 document 默认不会重复 plan，除非加 `--force`。
 - 已经抽过的 item 默认不会重复抽，会根据 `llm_plan_json.items[].extracted_at` 跳过。
 
+### 重抽混填/错概念 Candidate 关联文档
+
+先根据 Concept Resolver 对 `plastic_material` 和 `application` 给出的
+`split_value` 证据筛选关联文档，并把文档标记为
+`planned_needs_reextract`：
+
+```bash
+npm run product-config-agent:reextract-cross-concept -- --mode=mark
+```
+
+标记后直接用 InferAI 强制两阶段重抽、normalization、candidate recheck，并输出
+pending candidate 前后数量：
+
+```bash
+npm run product-config-agent:reextract-cross-concept -- --mode=reextract --concurrency=1 --model=inferaichat:deepseek-v4-flash
+```
+
+如果 InferAI 无响应或中途失败，文档会保留
+`dirty_reason=prompt_cross_concept_reextract`。恢复后只继续这些已标记文档：
+
+```bash
+npm run product-config-agent:reextract-cross-concept -- --mode=resume --concurrency=1 --model=inferaichat:deepseek-v4-flash
+```
+
+大量文档优先复用已有 document plan，只批量重跑 Stage 2 item：
+
+```bash
+npm run product-config-agent:reextract-cross-concept -- --mode=resume-batch --roundLimit=10 --batchSize=2 --concurrency=5 --model=inferaichat:deepseek-v4-flash
+```
+
+`roundLimit` 控制每轮最多处理多少个 staged extraction；每轮结束即落库，适合
+InferAI 长时间批跑和中断续跑。
+

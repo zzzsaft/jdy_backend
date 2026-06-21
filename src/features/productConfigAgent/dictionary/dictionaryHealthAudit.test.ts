@@ -241,10 +241,30 @@ function testEntityTargetsProductConfigAgentSchema() {
   assert.equal(Object.hasOwn(instance, "trustTier"), false);
 }
 
+async function testSnapshotFailureDoesNotSaveReports() {
+  const failingService = new DictionaryHealthAuditService({
+    getRepository: () => ({
+      find: async () => [],
+      findOne: async () => null,
+    }),
+    query: async () => {
+      throw new Error("archive query failed");
+    },
+  } as any) as any;
+  let saved = false;
+  failingService.saveReports = async () => {
+    saved = true;
+  };
+
+  await assert.rejects(failingService.runAudit(), /archive query failed/);
+  assert.equal(saved, false);
+}
+
 testCleanEntryIsLowRisk();
 testAliasCollisionAndCompositePressure();
 testSlashUnitWhitelistForCompositePressure();
 testLayerQualifierRisk();
 testEntityTargetsProductConfigAgentSchema();
+await testSnapshotFailureDoesNotSaveReports();
 
 console.log("dictionary health audit tests passed");

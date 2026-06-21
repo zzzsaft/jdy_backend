@@ -185,7 +185,6 @@ type PreparedBatchItem = BatchPlanItemInput & {
 };
 
 const BLOCKING_ITEM_BOUNDARY_WARNING_TYPES = new Set([
-  "plan_range_suspected_misaligned",
   "current_item_blocks_mismatch",
 ]);
 

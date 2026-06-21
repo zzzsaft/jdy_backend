@@ -1,4 +1,4 @@
-import { DataSource, In, Repository } from "typeorm";
+import { DataSource, EntityManager, In, Repository } from "typeorm";
 import {
   DictionaryTermType,
   DictionaryCandidate,
@@ -63,6 +63,7 @@ import {
   normalizeProductTypeHintForMatch,
 } from "./dictionary.service.helpers.js";
 import { ConceptResolverService } from "./conceptResolver.service.js";
+import { incrementDictionaryVersion } from "./dictionaryVersion.service.js";
 
 export type {
   CachedTermType,
@@ -132,6 +133,18 @@ export class DictionaryService {
     logger.info(
       `[productConfigAgent:dictionary:bumpVersion] totalMs=${Date.now() - startedAt}`,
     );
+  }
+
+  async mutateDictionary<T>(
+    mutation: (manager: EntityManager) => Promise<T>,
+  ): Promise<T> {
+    const result = await this.dataSource.transaction(async (manager) => {
+      const value = await mutation(manager);
+      await incrementDictionaryVersion(manager);
+      return value;
+    });
+    await this.reloadCache();
+    return result;
   }
 
   private syncRuntimeQualifierMatcher(): void {
@@ -718,24 +731,43 @@ export class DictionaryService {
         WITH candidate_refs AS (
           SELECT *
           FROM unnest($1::text[], $2::bigint[]) AS item(candidate_id, extraction_id)
+        ), candidate_documents AS (
+          SELECT DISTINCT candidate_refs.candidate_id, source.document_id
+          FROM candidate_refs
+          JOIN quote_agent.extraction_results source
+            ON source.id = candidate_refs.extraction_id
+        ), current_extractions AS (
+          SELECT candidate_documents.candidate_id, current.id AS extraction_id
+          FROM candidate_documents
+          LEFT JOIN LATERAL (
+            SELECT extraction.id
+            FROM quote_agent.extraction_results extraction
+            WHERE extraction.document_id = candidate_documents.document_id
+              AND extraction.normalized_extraction_json IS NOT NULL
+            ORDER BY
+              CASE WHEN extraction.status IN ('normalized', 'parsed') THEN 0 ELSE 1 END,
+              extraction.created_at DESC,
+              extraction.id DESC
+            LIMIT 1
+          ) current ON true
         )
         SELECT
-          candidate_refs.candidate_id AS "candidateId",
+          current_extractions.candidate_id AS "candidateId",
           COUNT(extraction.id)::int AS "extractionCount",
           BOOL_OR(
             field->'candidate'->>'candidate_type' = 'value'
-            AND field->'candidate'->>'candidate_id' = candidate_refs.candidate_id
+            AND field->'candidate'->>'candidate_id' = current_extractions.candidate_id
           ) AS "isReferenced"
-        FROM candidate_refs
+        FROM current_extractions
         LEFT JOIN quote_agent.extraction_results extraction
-          ON extraction.id = candidate_refs.extraction_id
+          ON extraction.id = current_extractions.extraction_id
         LEFT JOIN LATERAL jsonb_array_elements(
           COALESCE(extraction.normalized_extraction_json->'items', '[]'::jsonb)
         ) item ON true
         LEFT JOIN LATERAL jsonb_array_elements(
           COALESCE(item->'fields', '[]'::jsonb)
         ) field ON true
-        GROUP BY candidate_refs.candidate_id
+        GROUP BY current_extractions.candidate_id
       `,
       [candidateIds, pairedExtractionIds],
     );
@@ -1118,26 +1150,22 @@ export class DictionaryService {
     isActive?: boolean;
     source?: string;
   }) {
-    const repo = this.dataSource.getRepository(DictionaryUnitAlias);
     const normalizedAlias = normalizeUnitAliasText(params.aliasValue);
     if (!normalizedAlias) {
       throw new Error("aliasValue is required");
     }
-    const existing = await repo.findOne({ where: { normalizedAlias } });
-    const row =
-      existing ??
-      repo.create({
-        normalizedAlias,
-      });
-    row.canonicalUnit = params.canonicalUnit.trim();
-    row.displayUnit = params.displayUnit ?? params.canonicalUnit.trim();
-    row.aliasValue = params.aliasValue.trim();
-    row.note = params.note ?? row.note ?? null;
-    row.source = params.source ?? row.source ?? "manual";
-    row.isActive = params.isActive ?? row.isActive ?? true;
-    const alias = await repo.save(row);
-    await this.bumpDictionaryVersion();
-    return alias;
+    return this.mutateDictionary(async (manager) => {
+      const repo = manager.getRepository(DictionaryUnitAlias);
+      const existing = await repo.findOne({ where: { normalizedAlias } });
+      const row = existing ?? repo.create({ normalizedAlias });
+      row.canonicalUnit = params.canonicalUnit.trim();
+      row.displayUnit = params.displayUnit ?? params.canonicalUnit.trim();
+      row.aliasValue = params.aliasValue.trim();
+      row.note = params.note ?? row.note ?? null;
+      row.source = params.source ?? row.source ?? "manual";
+      row.isActive = params.isActive ?? row.isActive ?? true;
+      return repo.save(row);
+    });
   }
 
   async updateUnitAlias(params: {
@@ -1148,30 +1176,24 @@ export class DictionaryService {
     note?: string | null;
     isActive?: boolean;
   }) {
-    const repo = this.dataSource.getRepository(DictionaryUnitAlias);
-    const row = await repo.findOne({ where: { id: params.id } });
-    if (!row) {
-      throw new Error(`DictionaryUnitAlias not found: ${params.id}`);
-    }
-    if (params.canonicalUnit !== undefined) {
-      row.canonicalUnit = params.canonicalUnit.trim();
-    }
-    if (params.displayUnit !== undefined) {
-      row.displayUnit = params.displayUnit;
-    }
-    if (params.aliasValue !== undefined) {
-      row.aliasValue = params.aliasValue.trim();
-      row.normalizedAlias = normalizeUnitAliasText(params.aliasValue);
-    }
-    if (params.note !== undefined) {
-      row.note = params.note;
-    }
-    if (params.isActive !== undefined) {
-      row.isActive = params.isActive;
-    }
-    const alias = await repo.save(row);
-    await this.bumpDictionaryVersion();
-    return alias;
+    return this.mutateDictionary(async (manager) => {
+      const repo = manager.getRepository(DictionaryUnitAlias);
+      const row = await repo.findOne({ where: { id: params.id } });
+      if (!row) {
+        throw new Error(`DictionaryUnitAlias not found: ${params.id}`);
+      }
+      if (params.canonicalUnit !== undefined) {
+        row.canonicalUnit = params.canonicalUnit.trim();
+      }
+      if (params.displayUnit !== undefined) row.displayUnit = params.displayUnit;
+      if (params.aliasValue !== undefined) {
+        row.aliasValue = params.aliasValue.trim();
+        row.normalizedAlias = normalizeUnitAliasText(params.aliasValue);
+      }
+      if (params.note !== undefined) row.note = params.note;
+      if (params.isActive !== undefined) row.isActive = params.isActive;
+      return repo.save(row);
+    });
   }
 
   async listUnitCandidates(params?: { status?: string }) {

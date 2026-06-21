@@ -7,6 +7,7 @@ import {
   readBooleanEnv,
   readPositiveIntEnv,
 } from "../utils/envParsing.js";
+import { withTryAdvisoryLock } from "../utils/advisoryLock.js";
 
 const DAILY_MAINTENANCE_ADVISORY_LOCK_KEY = 2001000;
 const ARCHIVE_EXISTING_ADVISORY_LOCK_KEY = 2001002;
@@ -17,18 +18,6 @@ type ArchiveCandidate = {
   fileName: string | null;
   extractionCreatedAt: string;
 };
-
-async function tryAdvisoryLock(key: number): Promise<boolean> {
-  const rows = await PgDataSource.query(
-    "SELECT pg_try_advisory_lock($1) AS locked",
-    [key],
-  );
-  return rows?.[0]?.locked === true;
-}
-
-async function unlockAdvisoryLock(key: number): Promise<void> {
-  await PgDataSource.query("SELECT pg_advisory_unlock($1)", [key]);
-}
 
 async function findArchiveCandidates(limit: number): Promise<ArchiveCandidate[]> {
   const rows = await PgDataSource.query(
@@ -89,74 +78,73 @@ export class ProductConfigAgentDailyMaintenanceService {
     forceArchive?: boolean;
   }) {
     const startedAt = Date.now();
-    const lockAcquired = await tryAdvisoryLock(
+    const locked = await withTryAdvisoryLock(
+      PgDataSource,
       DAILY_MAINTENANCE_ADVISORY_LOCK_KEY,
+      async () => {
+        const dirtyLimit =
+          params?.dirtyLimit ??
+          readPositiveIntEnv("PRODUCT_CONFIG_AGENT_DAILY_DIRTY_LIMIT", 1000);
+        const dirtyBatchSize =
+          params?.dirtyBatchSize ??
+          readPositiveIntEnv("PRODUCT_CONFIG_AGENT_DAILY_DIRTY_BATCH_SIZE", 10);
+        const archiveLimit =
+          params?.archiveLimit ??
+          readPositiveIntEnv("PRODUCT_CONFIG_AGENT_DAILY_ARCHIVE_LIMIT", 1000);
+        const archivedBy =
+          params?.archivedBy ??
+          process.env.PRODUCT_CONFIG_AGENT_DAILY_ARCHIVED_BY ??
+          "system:daily-product-config-maintenance";
+        const forceArchive =
+          params?.forceArchive ??
+          readBooleanEnv("PRODUCT_CONFIG_AGENT_DAILY_FORCE_ARCHIVE", false);
+
+        logger.info(
+          `[productConfigAgent:daily-maintenance:start] dirtyLimit=${dirtyLimit} ` +
+            `dirtyBatchSize=${dirtyBatchSize} archiveLimit=${archiveLimit} ` +
+            `forceArchive=${forceArchive}`,
+        );
+
+        const dirtyRefresh = await productConfigAgentService.runDirtyDataRefreshJobNow({
+          limit: dirtyLimit,
+          batchSize: dirtyBatchSize,
+        });
+        const archive = await this.archiveExisting({
+          limit: archiveLimit,
+          archivedBy,
+          force: forceArchive,
+        });
+
+        const result = {
+          status: "completed" as const,
+          dirtyRefresh: {
+            total: dirtyRefresh.total,
+            processed: dirtyRefresh.processed,
+            successCount: dirtyRefresh.successCount,
+            failedCount: dirtyRefresh.failedCount,
+            archiveUpdatedCount: dirtyRefresh.archiveUpdatedCount,
+            archiveVersionCount: dirtyRefresh.archiveVersionCount,
+          },
+          archive,
+          elapsedMs: elapsedMs(startedAt),
+        };
+        logger.info(
+          `[productConfigAgent:daily-maintenance:end] ` +
+            `dirtyProcessed=${result.dirtyRefresh.processed} ` +
+            `archiveProcessed=${archive.processedCount} ` +
+            `archiveSuccess=${archive.successCount} archiveFailed=${archive.failedCount} ` +
+            `totalMs=${result.elapsedMs}`,
+        );
+        return result;
+      },
     );
-    if (!lockAcquired) {
+    if (!locked.acquired) {
       logger.warn(
         "[productConfigAgent:daily-maintenance] skipped: another daily maintenance job is already running",
       );
       return { status: "skipped" as const, reason: "lock_not_acquired" };
     }
-
-    try {
-      const dirtyLimit =
-        params?.dirtyLimit ??
-        readPositiveIntEnv("PRODUCT_CONFIG_AGENT_DAILY_DIRTY_LIMIT", 1000);
-      const dirtyBatchSize =
-        params?.dirtyBatchSize ??
-        readPositiveIntEnv("PRODUCT_CONFIG_AGENT_DAILY_DIRTY_BATCH_SIZE", 10);
-      const archiveLimit =
-        params?.archiveLimit ??
-        readPositiveIntEnv("PRODUCT_CONFIG_AGENT_DAILY_ARCHIVE_LIMIT", 1000);
-      const archivedBy =
-        params?.archivedBy ??
-        process.env.PRODUCT_CONFIG_AGENT_DAILY_ARCHIVED_BY ??
-        "system:daily-product-config-maintenance";
-      const forceArchive =
-        params?.forceArchive ??
-        readBooleanEnv("PRODUCT_CONFIG_AGENT_DAILY_FORCE_ARCHIVE", false);
-
-      logger.info(
-        `[productConfigAgent:daily-maintenance:start] dirtyLimit=${dirtyLimit} ` +
-          `dirtyBatchSize=${dirtyBatchSize} archiveLimit=${archiveLimit} ` +
-          `forceArchive=${forceArchive}`,
-      );
-
-      const dirtyRefresh = await productConfigAgentService.runDirtyDataRefreshJobNow({
-        limit: dirtyLimit,
-        batchSize: dirtyBatchSize,
-      });
-      const archive = await this.archiveExisting({
-        limit: archiveLimit,
-        archivedBy,
-        force: forceArchive,
-      });
-
-      const result = {
-        status: "completed" as const,
-        dirtyRefresh: {
-          total: dirtyRefresh.total,
-          processed: dirtyRefresh.processed,
-          successCount: dirtyRefresh.successCount,
-          failedCount: dirtyRefresh.failedCount,
-          archiveUpdatedCount: dirtyRefresh.archiveUpdatedCount,
-          archiveVersionCount: dirtyRefresh.archiveVersionCount,
-        },
-        archive,
-        elapsedMs: elapsedMs(startedAt),
-      };
-      logger.info(
-        `[productConfigAgent:daily-maintenance:end] ` +
-          `dirtyProcessed=${result.dirtyRefresh.processed} ` +
-          `archiveProcessed=${archive.processedCount} ` +
-          `archiveSuccess=${archive.successCount} archiveFailed=${archive.failedCount} ` +
-          `totalMs=${result.elapsedMs}`,
-      );
-      return result;
-    } finally {
-      await unlockAdvisoryLock(DAILY_MAINTENANCE_ADVISORY_LOCK_KEY);
-    }
+    return locked.value;
   }
 
   private async archiveExisting(params: {
@@ -164,8 +152,55 @@ export class ProductConfigAgentDailyMaintenanceService {
     archivedBy: string;
     force: boolean;
   }) {
-    const lockAcquired = await tryAdvisoryLock(ARCHIVE_EXISTING_ADVISORY_LOCK_KEY);
-    if (!lockAcquired) {
+    const locked = await withTryAdvisoryLock(
+      PgDataSource,
+      ARCHIVE_EXISTING_ADVISORY_LOCK_KEY,
+      async () => {
+        const candidates = await findArchiveCandidates(params.limit);
+        const results: Array<{
+          documentId: number;
+          extractionResultId: number;
+          fileName: string | null;
+          status: "archived" | "failed";
+          archiveId?: number;
+          error?: string;
+        }> = [];
+
+        for (const candidate of candidates) {
+          try {
+            const result = await productConfigAgentArchiveService.archiveDocument({
+              documentId: candidate.documentId,
+              archivedBy: params.archivedBy,
+              force: params.force,
+            });
+            results.push({
+              documentId: candidate.documentId,
+              extractionResultId: candidate.extractionResultId,
+              fileName: candidate.fileName,
+              status: "archived",
+              archiveId: Number(result.archive.id),
+            });
+          } catch (error) {
+            results.push({
+              documentId: candidate.documentId,
+              extractionResultId: candidate.extractionResultId,
+              fileName: candidate.fileName,
+              status: "failed",
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+
+        return {
+          status: "completed" as const,
+          processedCount: results.length,
+          successCount: results.filter((item) => item.status === "archived").length,
+          failedCount: results.filter((item) => item.status === "failed").length,
+          failedResults: results.filter((item) => item.status === "failed"),
+        };
+      },
+    );
+    if (!locked.acquired) {
       logger.warn(
         "[productConfigAgent:daily-maintenance:archive] skipped: another archive-existing job is already running",
       );
@@ -177,53 +212,7 @@ export class ProductConfigAgentDailyMaintenanceService {
         failedResults: [],
       };
     }
-
-    try {
-      const candidates = await findArchiveCandidates(params.limit);
-      const results: Array<{
-        documentId: number;
-        extractionResultId: number;
-        fileName: string | null;
-        status: "archived" | "failed";
-        archiveId?: number;
-        error?: string;
-      }> = [];
-
-      for (const candidate of candidates) {
-        try {
-          const result = await productConfigAgentArchiveService.archiveDocument({
-            documentId: candidate.documentId,
-            archivedBy: params.archivedBy,
-            force: params.force,
-          });
-          results.push({
-            documentId: candidate.documentId,
-            extractionResultId: candidate.extractionResultId,
-            fileName: candidate.fileName,
-            status: "archived",
-            archiveId: Number(result.archive.id),
-          });
-        } catch (error) {
-          results.push({
-            documentId: candidate.documentId,
-            extractionResultId: candidate.extractionResultId,
-            fileName: candidate.fileName,
-            status: "failed",
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-
-      return {
-        status: "completed" as const,
-        processedCount: results.length,
-        successCount: results.filter((item) => item.status === "archived").length,
-        failedCount: results.filter((item) => item.status === "failed").length,
-        failedResults: results.filter((item) => item.status === "failed"),
-      };
-    } finally {
-      await unlockAdvisoryLock(ARCHIVE_EXISTING_ADVISORY_LOCK_KEY);
-    }
+    return locked.value;
   }
 }
 

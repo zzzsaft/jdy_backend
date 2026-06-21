@@ -6,6 +6,7 @@ import type {
 } from "./types.js";
 import { logger } from "../../../config/logger.js";
 import { PgDataSource } from "../../../config/data-source.js";
+import { withTryAdvisoryLock } from "../utils/advisoryLock.js";
 
 const DIRTY_DATA_REFRESH_ADVISORY_LOCK_KEY = 2001001;
 
@@ -98,74 +99,15 @@ export class DirtyDataRefreshJobService {
 
   private async runDirtyDataRefreshJob(job: DirtyDataRefreshJob) {
     const startedAt = Date.now();
-    let lockAcquired = false;
     try {
-      const lockRows = await PgDataSource.query(
-        "SELECT pg_try_advisory_lock($1) AS locked",
-        [DIRTY_DATA_REFRESH_ADVISORY_LOCK_KEY],
+      const locked = await withTryAdvisoryLock(
+        PgDataSource,
+        DIRTY_DATA_REFRESH_ADVISORY_LOCK_KEY,
+        () => this.processDirtyDataRefreshJob(job, startedAt),
       );
-      lockAcquired = lockRows?.[0]?.locked === true;
-      if (!lockAcquired) {
+      if (!locked.acquired) {
         throw new Error("another dictionary dirty refresh job is already running");
       }
-
-      const documents = await this.repository.findDictionaryDirtyDocuments({
-        limit: job.limit,
-      });
-      job.total = documents.length;
-
-      for (const document of documents) {
-        const documentId = Number(document.id);
-        const progress: DirtyDataRefreshDocumentProgress = {
-          documentId,
-          fileName: document.fileName,
-          status: "running",
-          archiveUpdatedCount: 0,
-          archiveVersionCount: 0,
-        };
-        job.currentDocumentId = documentId;
-        job.documentProgress = [
-          progress,
-          ...job.documentProgress.filter((item) => item.documentId !== documentId),
-        ].slice(0, job.batchSize);
-
-        try {
-          await this.refreshDocumentDictionary(documentId);
-          const archiveResult = await this.refreshArchivesForDocument(documentId);
-          progress.status = "success";
-          progress.archiveUpdatedCount = archiveResult.updatedCount;
-          progress.archiveVersionCount = archiveResult.versionCount;
-          job.successCount += 1;
-          job.archiveUpdatedCount += archiveResult.updatedCount;
-          job.archiveVersionCount += archiveResult.versionCount;
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          progress.status = "failed";
-          progress.error = message;
-          job.failedCount += 1;
-          job.errors.push({
-            documentId,
-            fileName: document.fileName,
-            error: message,
-          });
-        } finally {
-          job.processed += 1;
-          job.documentProgress = [
-            progress,
-            ...job.documentProgress.filter((item) => item.documentId !== documentId),
-          ].slice(0, job.batchSize);
-          job.currentDocumentId = undefined;
-          await new Promise((resolve) => setTimeout(resolve, 10));
-        }
-      }
-
-      job.status = "completed";
-      job.finishedAt = new Date().toISOString();
-      logger.info(
-        `[productConfigAgent:dirtyDataRefresh:end] jobId=${job.id} total=${job.total} ` +
-          `successCount=${job.successCount} failedCount=${job.failedCount} ` +
-          `archiveVersionCount=${job.archiveVersionCount} totalMs=${elapsedMs(startedAt)}`,
-      );
     } catch (error) {
       job.status = "failed";
       job.finishedAt = new Date().toISOString();
@@ -178,13 +120,69 @@ export class DirtyDataRefreshJobService {
         `[productConfigAgent:dirtyDataRefresh:failed] jobId=${job.id} totalMs=${elapsedMs(startedAt)} ` +
           `error=${error instanceof Error ? error.message : String(error)}`,
       );
-    } finally {
-      if (lockAcquired) {
-        await PgDataSource.query(
-          "SELECT pg_advisory_unlock($1)",
-          [DIRTY_DATA_REFRESH_ADVISORY_LOCK_KEY],
-        );
+    }
+  }
+
+  private async processDirtyDataRefreshJob(
+    job: DirtyDataRefreshJob,
+    startedAt: number,
+  ): Promise<void> {
+    const documents = await this.repository.findDictionaryDirtyDocuments({
+      limit: job.limit,
+    });
+    job.total = documents.length;
+
+    for (const document of documents) {
+      const documentId = Number(document.id);
+      const progress: DirtyDataRefreshDocumentProgress = {
+        documentId,
+        fileName: document.fileName,
+        status: "running",
+        archiveUpdatedCount: 0,
+        archiveVersionCount: 0,
+      };
+      job.currentDocumentId = documentId;
+      job.documentProgress = [
+        progress,
+        ...job.documentProgress.filter((item) => item.documentId !== documentId),
+      ].slice(0, job.batchSize);
+
+      try {
+        await this.refreshDocumentDictionary(documentId);
+        const archiveResult = await this.refreshArchivesForDocument(documentId);
+        progress.status = "success";
+        progress.archiveUpdatedCount = archiveResult.updatedCount;
+        progress.archiveVersionCount = archiveResult.versionCount;
+        job.successCount += 1;
+        job.archiveUpdatedCount += archiveResult.updatedCount;
+        job.archiveVersionCount += archiveResult.versionCount;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        progress.status = "failed";
+        progress.error = message;
+        job.failedCount += 1;
+        job.errors.push({
+          documentId,
+          fileName: document.fileName,
+          error: message,
+        });
+      } finally {
+        job.processed += 1;
+        job.documentProgress = [
+          progress,
+          ...job.documentProgress.filter((item) => item.documentId !== documentId),
+        ].slice(0, job.batchSize);
+        job.currentDocumentId = undefined;
+        await new Promise((resolve) => setTimeout(resolve, 10));
       }
     }
+
+    job.status = "completed";
+    job.finishedAt = new Date().toISOString();
+    logger.info(
+      `[productConfigAgent:dirtyDataRefresh:end] jobId=${job.id} total=${job.total} ` +
+        `successCount=${job.successCount} failedCount=${job.failedCount} ` +
+        `archiveVersionCount=${job.archiveVersionCount} totalMs=${elapsedMs(startedAt)}`,
+    );
   }
 }

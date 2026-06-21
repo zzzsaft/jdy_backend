@@ -5,6 +5,7 @@ import { PgDataSource } from "../../../../config/data-source.js";
 import { TWO_STAGE_PROMPT_VERSION } from "../../workflow/common.js";
 import { productConfigAgentArchiveService } from "../contractArchive.service.js";
 import { readBooleanEnv } from "../../scripts/scriptArgs.js";
+import { tryAdvisoryLock } from "../../utils/advisoryLock.js";
 
 const ARCHIVE_EXISTING_ADVISORY_LOCK_KEY = 2001002;
 
@@ -102,14 +103,10 @@ async function main() {
   await PgDataSource.initialize();
   BaseEntity.useDataSource(PgDataSource);
 
-  let lockAcquired = false;
+  let lock: Awaited<ReturnType<typeof tryAdvisoryLock>> = null;
   try {
-    const lockRows = await PgDataSource.query(
-      "SELECT pg_try_advisory_lock($1) AS locked",
-      [ARCHIVE_EXISTING_ADVISORY_LOCK_KEY],
-    );
-    lockAcquired = lockRows?.[0]?.locked === true;
-    if (!lockAcquired) {
+    lock = await tryAdvisoryLock(PgDataSource, ARCHIVE_EXISTING_ADVISORY_LOCK_KEY);
+    if (!lock) {
       console.log(
         "[productConfigAgent:archive-existing] skipped: another archive-existing job is already running",
       );
@@ -201,11 +198,7 @@ async function main() {
       ),
     );
   } finally {
-    if (lockAcquired) {
-      await PgDataSource.query("SELECT pg_advisory_unlock($1)", [
-        ARCHIVE_EXISTING_ADVISORY_LOCK_KEY,
-      ]);
-    }
+    await lock?.release();
     await PgDataSource.destroy();
   }
 }

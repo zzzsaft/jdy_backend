@@ -6,8 +6,11 @@ import {
   DictionaryTermTypeAlias,
   DictionaryQualifier,
   DictionaryUnitAlias,
-  DictionaryVersion,
 } from "./entity/index.js";
+import {
+  incrementDictionaryVersion,
+  readDictionaryVersion,
+} from "./dictionaryVersion.service.js";
 import type {
   CachedTermType,
   CachedUnitAlias,
@@ -62,10 +65,7 @@ export class DictionaryCache {
       return;
     }
 
-    const version = await this.dataSource
-      .getRepository(DictionaryVersion)
-      .findOne({ where: { versionKey: "dictionary" } });
-    const dbVersion = version ? Number(version.versionValue) : 0;
+    const dbVersion = await readDictionaryVersion(this.dataSource);
 
     if (dbVersion !== this.loadedVersion) {
       await this.reload();
@@ -215,26 +215,12 @@ export class DictionaryCache {
       });
     }
 
-    const version = await this.dataSource
-      .getRepository(DictionaryVersion)
-      .findOne({ where: { versionKey: "dictionary" } });
-
-    this.loadedVersion = version ? Number(version.versionValue) : 0;
+    this.loadedVersion = await readDictionaryVersion(this.dataSource);
     this.lastLoadedAt = Date.now();
   }
 
   async bumpVersion(): Promise<void> {
-    await this.dataSource.query(
-      `
-      INSERT INTO quote_agent.dictionary_versions(version_key, version_value)
-      VALUES ($1, 1)
-      ON CONFLICT(version_key)
-      DO UPDATE SET
-        version_value = quote_agent.dictionary_versions.version_value + 1,
-        updated_at = now()
-      `,
-      ["dictionary"],
-    );
+    await incrementDictionaryVersion(this.dataSource);
     await this.reload();
   }
 

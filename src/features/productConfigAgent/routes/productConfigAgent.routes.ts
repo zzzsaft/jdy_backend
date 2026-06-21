@@ -1014,34 +1014,29 @@ const createDictionaryTermType = async (
   response: Response,
 ) => {
   try {
-    const repo = PgDataSource.getRepository(DictionaryTermType);
     const termType = requireString(request.body?.termType, "termType");
     const displayName = requireString(request.body?.displayName, "displayName");
-    const existing = await repo.findOne({ where: { termType } });
-    const row =
-      existing ??
-      repo.create({
-        termType,
-      });
-
-    row.displayName = displayName;
-    row.quoteDisplayName =
-      optionalString(request.body?.quoteDisplayName) ?? row.quoteDisplayName ?? null;
-    row.description =
-      optionalString(request.body?.description) ?? row.description ?? null;
-    row.category = optionalString(request.body?.category) ?? row.category ?? null;
-    row.valueKind =
-      normalizeDictionaryValueKind(request.body?.valueKind) ?? row.valueKind ?? "enum";
-    row.sortOrder =
-      optionalInt(request.body?.sortOrder, "sortOrder") ?? row.sortOrder ?? 100;
-    row.applicableProductTypes =
-      normalizeApplicableProductTypes(request.body?.applicableProductTypes) ??
-      row.applicableProductTypes ??
-      ["common"];
-    row.isActive = optionalBoolean(request.body?.isActive, "isActive") ?? true;
-
-    const termTypeRow = await repo.save(row);
-    await dictionaryService.bumpDictionaryVersion();
+    const termTypeRow = await dictionaryService.mutateDictionary(async (manager) => {
+      const repo = manager.getRepository(DictionaryTermType);
+      const existing = await repo.findOne({ where: { termType } });
+      const row = existing ?? repo.create({ termType });
+      row.displayName = displayName;
+      row.quoteDisplayName =
+        optionalString(request.body?.quoteDisplayName) ?? row.quoteDisplayName ?? null;
+      row.description =
+        optionalString(request.body?.description) ?? row.description ?? null;
+      row.category = optionalString(request.body?.category) ?? row.category ?? null;
+      row.valueKind =
+        normalizeDictionaryValueKind(request.body?.valueKind) ?? row.valueKind ?? "enum";
+      row.sortOrder =
+        optionalInt(request.body?.sortOrder, "sortOrder") ?? row.sortOrder ?? 100;
+      row.applicableProductTypes =
+        normalizeApplicableProductTypes(request.body?.applicableProductTypes) ??
+        row.applicableProductTypes ??
+        ["common"];
+      row.isActive = optionalBoolean(request.body?.isActive, "isActive") ?? true;
+      return repo.save(row);
+    });
     response.json({ termType: termTypeRow });
   } catch (error) {
     sendError(response, error);
@@ -1053,38 +1048,35 @@ const updateDictionaryTermType = async (
   response: Response,
 ) => {
   try {
-    const repo = PgDataSource.getRepository(DictionaryTermType);
     const id = requireString(request.params.id, "id");
-    const row = await repo.findOne({ where: { id } });
-    if (!row) throw new Error(`dictionary term type not found: ${id}`);
-
-    if (request.body?.termType !== undefined) {
-      row.termType = requireString(request.body.termType, "termType");
-    }
-    if (request.body?.displayName !== undefined) {
-      row.displayName = requireString(request.body.displayName, "displayName");
-    }
-    const quoteDisplayName = optionalString(request.body?.quoteDisplayName);
-    if (quoteDisplayName !== undefined) row.quoteDisplayName = quoteDisplayName;
-    const description = optionalString(request.body?.description);
-    if (description !== undefined) row.description = description;
-    const category = optionalString(request.body?.category);
-    if (category !== undefined) row.category = category;
-    const valueKind = normalizeDictionaryValueKind(request.body?.valueKind);
-    if (valueKind !== undefined) row.valueKind = valueKind;
-    const sortOrder = optionalInt(request.body?.sortOrder, "sortOrder");
-    if (sortOrder !== undefined) row.sortOrder = sortOrder;
-    const applicableProductTypes = normalizeApplicableProductTypes(
-      request.body?.applicableProductTypes,
-    );
-    if (applicableProductTypes !== undefined) {
-      row.applicableProductTypes = applicableProductTypes;
-    }
-    const isActive = optionalBoolean(request.body?.isActive, "isActive");
-    if (isActive !== undefined) row.isActive = isActive;
-
-    const termType = await repo.save(row);
-    await dictionaryService.bumpDictionaryVersion();
+    const termType = await dictionaryService.mutateDictionary(async (manager) => {
+      const repo = manager.getRepository(DictionaryTermType);
+      const row = await repo.findOne({ where: { id } });
+      if (!row) throw new Error(`dictionary term type not found: ${id}`);
+      if (request.body?.termType !== undefined) {
+        row.termType = requireString(request.body.termType, "termType");
+      }
+      if (request.body?.displayName !== undefined) {
+        row.displayName = requireString(request.body.displayName, "displayName");
+      }
+      const quoteDisplayName = optionalString(request.body?.quoteDisplayName);
+      if (quoteDisplayName !== undefined) row.quoteDisplayName = quoteDisplayName;
+      const description = optionalString(request.body?.description);
+      if (description !== undefined) row.description = description;
+      const category = optionalString(request.body?.category);
+      if (category !== undefined) row.category = category;
+      const valueKind = normalizeDictionaryValueKind(request.body?.valueKind);
+      if (valueKind !== undefined) row.valueKind = valueKind;
+      const sortOrder = optionalInt(request.body?.sortOrder, "sortOrder");
+      if (sortOrder !== undefined) row.sortOrder = sortOrder;
+      const applicableProductTypes = normalizeApplicableProductTypes(
+        request.body?.applicableProductTypes,
+      );
+      if (applicableProductTypes !== undefined) row.applicableProductTypes = applicableProductTypes;
+      const isActive = optionalBoolean(request.body?.isActive, "isActive");
+      if (isActive !== undefined) row.isActive = isActive;
+      return repo.save(row);
+    });
     response.json({ termType });
   } catch (error) {
     sendError(response, error);
@@ -1096,13 +1088,14 @@ const deleteDictionaryTermType = async (
   response: Response,
 ) => {
   try {
-    const repo = PgDataSource.getRepository(DictionaryTermType);
     const id = requireString(request.params.id, "id");
-    const row = await repo.findOne({ where: { id } });
-    if (!row) throw new Error(`dictionary term type not found: ${id}`);
-    row.isActive = false;
-    const termType = await repo.save(row);
-    await dictionaryService.bumpDictionaryVersion();
+    const termType = await dictionaryService.mutateDictionary(async (manager) => {
+      const repo = manager.getRepository(DictionaryTermType);
+      const row = await repo.findOne({ where: { id } });
+      if (!row) throw new Error(`dictionary term type not found: ${id}`);
+      row.isActive = false;
+      return repo.save(row);
+    });
     response.json({ termType });
   } catch (error) {
     sendError(response, error);
@@ -1160,28 +1153,22 @@ const getDictionaryValues = async (request: Request, response: Response) => {
 
 const createDictionaryValue = async (request: Request, response: Response) => {
   try {
-    const repo = PgDataSource.getRepository(DictionaryTerm);
     const termType = requireString(request.body?.termType, "termType");
     const canonicalValue = requireString(
       request.body?.canonicalValue,
       "canonicalValue",
     );
-    const existing = await repo.findOne({ where: { termType, canonicalValue } });
-    const row =
-      existing ??
-      repo.create({
-        termType,
-        canonicalValue,
-      });
-
-    row.displayName =
-      optionalString(request.body?.displayName) ?? row.displayName ?? canonicalValue;
-    row.description =
-      optionalString(request.body?.description) ?? row.description ?? null;
-    row.isActive = optionalBoolean(request.body?.isActive, "isActive") ?? true;
-
-    const value = await repo.save(row);
-    await dictionaryService.bumpDictionaryVersion();
+    const value = await dictionaryService.mutateDictionary(async (manager) => {
+      const repo = manager.getRepository(DictionaryTerm);
+      const existing = await repo.findOne({ where: { termType, canonicalValue } });
+      const row = existing ?? repo.create({ termType, canonicalValue });
+      row.displayName =
+        optionalString(request.body?.displayName) ?? row.displayName ?? canonicalValue;
+      row.description =
+        optionalString(request.body?.description) ?? row.description ?? null;
+      row.isActive = optionalBoolean(request.body?.isActive, "isActive") ?? true;
+      return repo.save(row);
+    });
     response.json({ value });
   } catch (error) {
     sendError(response, error);
@@ -1190,29 +1177,28 @@ const createDictionaryValue = async (request: Request, response: Response) => {
 
 const updateDictionaryValue = async (request: Request, response: Response) => {
   try {
-    const repo = PgDataSource.getRepository(DictionaryTerm);
     const id = requireString(request.params.id, "id");
-    const row = await repo.findOne({ where: { id } });
-    if (!row) throw new Error(`dictionary value not found: ${id}`);
-
-    if (request.body?.termType !== undefined) {
-      row.termType = requireString(request.body.termType, "termType");
-    }
-    if (request.body?.canonicalValue !== undefined) {
-      row.canonicalValue = requireString(
-        request.body.canonicalValue,
-        "canonicalValue",
-      );
-    }
-    const displayName = optionalString(request.body?.displayName);
-    if (displayName !== undefined) row.displayName = displayName;
-    const description = optionalString(request.body?.description);
-    if (description !== undefined) row.description = description;
-    const isActive = optionalBoolean(request.body?.isActive, "isActive");
-    if (isActive !== undefined) row.isActive = isActive;
-
-    const value = await repo.save(row);
-    await dictionaryService.bumpDictionaryVersion();
+    const value = await dictionaryService.mutateDictionary(async (manager) => {
+      const repo = manager.getRepository(DictionaryTerm);
+      const row = await repo.findOne({ where: { id } });
+      if (!row) throw new Error(`dictionary value not found: ${id}`);
+      if (request.body?.termType !== undefined) {
+        row.termType = requireString(request.body.termType, "termType");
+      }
+      if (request.body?.canonicalValue !== undefined) {
+        row.canonicalValue = requireString(
+          request.body.canonicalValue,
+          "canonicalValue",
+        );
+      }
+      const displayName = optionalString(request.body?.displayName);
+      if (displayName !== undefined) row.displayName = displayName;
+      const description = optionalString(request.body?.description);
+      if (description !== undefined) row.description = description;
+      const isActive = optionalBoolean(request.body?.isActive, "isActive");
+      if (isActive !== undefined) row.isActive = isActive;
+      return repo.save(row);
+    });
     response.json({ value });
   } catch (error) {
     sendError(response, error);
@@ -1221,13 +1207,14 @@ const updateDictionaryValue = async (request: Request, response: Response) => {
 
 const deleteDictionaryValue = async (request: Request, response: Response) => {
   try {
-    const repo = PgDataSource.getRepository(DictionaryTerm);
     const id = requireString(request.params.id, "id");
-    const row = await repo.findOne({ where: { id } });
-    if (!row) throw new Error(`dictionary value not found: ${id}`);
-    row.isActive = false;
-    const value = await repo.save(row);
-    await dictionaryService.bumpDictionaryVersion();
+    const value = await dictionaryService.mutateDictionary(async (manager) => {
+      const repo = manager.getRepository(DictionaryTerm);
+      const row = await repo.findOne({ where: { id } });
+      if (!row) throw new Error(`dictionary value not found: ${id}`);
+      row.isActive = false;
+      return repo.save(row);
+    });
     response.json({ value });
   } catch (error) {
     sendError(response, error);
@@ -1837,6 +1824,10 @@ const reviewCandidatesBatch = async (request: Request, response: Response) => {
 
 const runConceptResolver = async (request: Request, response: Response) => {
   try {
+    const apply = optionalBoolean(request.body?.apply, "apply") ?? false;
+    if (apply) {
+      throw new Error("concept resolver only supports dry-run; apply=true is not allowed");
+    }
     const candidateType =
       typeof request.body?.candidateType === "string"
         ? request.body.candidateType
@@ -1853,7 +1844,6 @@ const runConceptResolver = async (request: Request, response: Response) => {
         status,
         includeReviewed: request.body?.includeReviewed === true,
         limit,
-        apply: request.body?.apply === true,
       }),
     });
   } catch (error) {

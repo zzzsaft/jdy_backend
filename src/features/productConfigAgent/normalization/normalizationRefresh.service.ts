@@ -1,7 +1,7 @@
 import type { DataSource } from "typeorm";
 import type { ProductConfigAgentRepository } from "../db.service.js";
 import { DictionaryService } from "../dictionary/dictionary.service.js";
-import { DictionaryVersion } from "../dictionary/entity/index.js";
+import { readDictionaryVersion } from "../dictionary/dictionaryVersion.service.js";
 import {
   coerceLlmExtractionResult,
   ExtractionNormalizationService,
@@ -141,10 +141,7 @@ export class NormalizationRefreshService {
   }
 
   async getCurrentDictionaryVersion(): Promise<number> {
-    const version = await this.dataSource
-      .getRepository(DictionaryVersion)
-      .findOne({ where: { versionKey: "dictionary" } });
-    return Number(version?.versionValue ?? DEFAULT_DICTIONARY_VERSION);
+    return readDictionaryVersion(this.dataSource, DEFAULT_DICTIONARY_VERSION);
   }
 
   async renormalizeExistingExtractionsInBatches(params?: {
