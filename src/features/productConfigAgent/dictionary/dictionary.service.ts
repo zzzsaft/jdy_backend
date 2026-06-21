@@ -1927,16 +1927,27 @@ export class DictionaryService {
             ? suffixRoute.candidates.filter(
                 (candidate) => candidate.termType !== "plastic_material",
               )
-            : [
-                {
-                  termType: "application",
-                  rawValue: materialSuffix,
-                  reason: "plastic_material_prefix_suffix_application_candidate",
-                  confidence: 0.72,
-                  warningType: "plastic_material_prefix_split_applied",
-                  warningTermType: "application",
-                },
-              ];
+            : (() => {
+                const applicationRawValue =
+                  cleanApplicationCandidateValue(materialSuffix);
+                if (
+                  !applicationRawValue ||
+                  isMaterialApplicationResidualNoise(applicationRawValue)
+                ) {
+                  return [];
+                }
+                return [
+                  {
+                    termType: "application",
+                    rawValue: applicationRawValue,
+                    reason: "plastic_material_prefix_suffix_application_candidate",
+                    confidence: 0.72,
+                    warningType: "plastic_material_prefix_split_applied",
+                    warningTermType: "application",
+                    evidence: undefined,
+                  },
+                ];
+              })();
 
         for (const suffixCandidate of suffixCandidates) {
           const targetTermType = this.cache.termTypeMap.get(suffixCandidate.termType);
@@ -2557,7 +2568,7 @@ function classifyPlasticMaterialResidual(
           evidence: {
             sourceRawValue: trimmed,
             applicationLikePart: applicationCandidate,
-            residualPart: applicationPart.residual,
+            residualPart: applicationPart?.residual,
             splitRule: "plastic_material_residual_classifier",
           },
         },
@@ -2691,6 +2702,40 @@ function isApplicationLikeMaterialSuffix(value: string): boolean {
   );
 }
 
+function cleanApplicationCandidateValue(value: string): string | null {
+  let cleaned = String(value ?? "").trim();
+  if (!cleaned) return null;
+
+  cleaned = cleaned
+    .replace(/^[（(]\s*|\s*[）)]$/g, "")
+    .replace(/\s+/g, "")
+    .trim();
+  if (!cleaned) return null;
+
+  const stopMatch = cleaned.match(
+    /^(.*?)(?:[（(]?(?:正常使用)?产量|工艺温度|温度|原料及回收料|及回收料|回收料|含[0-9]*(?:%|％)?填充料|含填充料|填充料|比例|重量比|配比|可参考|按|厚度|格子宽度|共[0-9一二三四五六七八九十]+套|[0-9一二三四五六七八九十]+套|说明|备注)/u,
+  );
+  if (stopMatch?.[1]) {
+    cleaned = stopMatch[1].trim();
+  }
+
+  cleaned = cleaned
+    .replace(/^含?[0-9]+(?:\.[0-9]+)?(?:%|％)?(?:钙粉|碳酸钙|滑石粉|填料|填充料|填充|色母|母粒|助剂)?/iu, "")
+    .replace(/^(?:原料|塑料原料|适用原料|适用塑料原料)[:：]?/u, "")
+    .replace(/^(?:及回收料|回收料|含填充料|填充料|填充|钙粉|碳酸钙|滑石粉|助剂|色母|母粒)+/u, "")
+    .replace(/^模头[、，,:：-]?(?:适用|适用于|用于)?/u, "")
+    .replace(/^(?:适用|适用于|用于)/u, "")
+    .replace(/^(?:PP|PE|PET|PVC|PC|PS|ABS|POM|EVA|POE|CPE|CPP|PBT|PA|TPU|TPE|TPR|PLA|PVA|ASA|PMMA|LDPE|HDPE|LLDPE)+/iu, "")
+    .replace(/(?:PP|PE|PET|PVC|PC|PS|ABS|POM|EVA|POE|CPE|CPP|PBT|PA|TPU|TPE|TPR|PLA|PVA|ASA|PMMA|LDPE|HDPE|LLDPE)+$/iu, "")
+    .replace(/(?:自动模头|手动模头|流延模头|衣架式模头|模头)$/u, "")
+    .replace(/^(?:自动|手动)(?=流延|透气|薄膜|片材|板材|膜|板)/u, "")
+    .replace(/[，,、;；:：.。]+$/u, "")
+    .trim();
+
+  if (!cleaned || isMaterialApplicationResidualNoise(cleaned)) return null;
+  return cleaned;
+}
+
 function extractApplicationPrefixFromMaterialResidual(
   rawValue: string,
 ): { application: string; residual?: string } | null {
@@ -2723,7 +2768,10 @@ function isMaterialApplicationResidualNoise(value: string): boolean {
   if (/^(?:适用塑料原料|塑料原料|适用原料|原料)$/.test(compact)) {
     return true;
   }
-  if (/^[0-9]+(?:\.[0-9]+)?(?:mm|cm|m|kg|公斤|度|℃|c|mpa|pa)?$/i.test(compact)) {
+  if (/^(?:自动|手动)$/.test(compact)) {
+    return true;
+  }
+  if (/^[0-9]+(?:\.[0-9]+)?(?:%|％|mm|cm|m|kg|公斤|度|℃|c|mpa|pa)?$/i.test(compact)) {
     return true;
   }
   return /(?:客户|需方|供方|图纸|签名|确认|提供|存档|备注|注明|要求|工艺温度|正常使用产量|产量|每小时|密度|线速度|熔指|检测|分析|按.*加工|按.*设计)/u.test(

@@ -54,6 +54,7 @@ for (const [canonicalValue, displayName] of [
   ["cpp", "CPP"],
   ["pvc", "PVC"],
   ["pet", "PET"],
+  ["ps", "PS"],
   ["cpe", "CPE"],
 ] as const) {
   aliasMap.set(valueAliasKey("plastic_material", canonicalValue), {
@@ -246,7 +247,7 @@ assert.deepEqual(
   ["PP"],
 );
 assert.equal(serviceResult.valueCandidate?.termType, "application");
-assert.equal(serviceResult.valueCandidate?.rawValue, "医用熔喷模头");
+assert.equal(serviceResult.valueCandidate?.rawValue, "医用熔喷");
 assert.equal(serviceResult.materialPrefixSplit?.sourceRawValue, "PP医用熔喷模头");
 assert.deepEqual(serviceResult.materialPrefixSplit?.matchedMaterialTokens, ["PP"]);
 assert.equal(serviceResult.materialPrefixSplit?.suffixRawValue, "医用熔喷模头");
@@ -261,9 +262,9 @@ assert.deepEqual(
   [
     {
       termType: "application",
-      rawValue: "医用熔喷模头",
+      rawValue: "医用熔喷",
       sourceRawValue: "PP医用熔喷模头",
-      splitFromRawValue: "医用熔喷模头",
+      splitFromRawValue: "医用熔喷",
       suffixCandidateTermType: "application",
     },
   ],
@@ -297,9 +298,9 @@ assert.deepEqual(
   [
     {
       termType: "application",
-      rawValue: "片材模头",
+      rawValue: "片材",
       sourceRawValue: "PP+50%玉米淀粉片材模头",
-      splitFromRawValue: "片材模头",
+      splitFromRawValue: "片材",
       reason: "plastic_material_prefix_suffix_application_candidate",
       suffixCandidateTermType: "application",
     },
@@ -366,9 +367,9 @@ assert.deepEqual(
     },
     {
       termType: "application",
-      rawValue: "降解膜流延膜自动模头",
+      rawValue: "降解膜流延膜",
       sourceRawValue: "PBAT降解膜流延膜自动模头",
-      splitFromRawValue: "降解膜流延膜自动模头",
+      splitFromRawValue: "降解膜流延膜",
       reason: "plastic_material_residual_application_candidate",
     },
   ],
@@ -456,6 +457,112 @@ assert.deepEqual(
     residualPart: candidate.evidence?.residualPart,
   })),
   [],
+);
+
+createdCandidates.length = 0;
+const foamedBoardWithOutputResult = await dictionaryService.normalizeField({
+  fieldName: "适用塑料原料",
+  rawValue: "PVC仿结皮发泡板模头（产量350KG/每小时）",
+  itemProductTypeHint: "flat_die",
+});
+assert.deepEqual(
+  foamedBoardWithOutputResult.values?.map((value) => value.displayName),
+  ["PVC"],
+);
+assert.deepEqual(
+  (createdCandidates as any[]).map((candidate) => ({
+    termType: candidate.termType,
+    rawValue: candidate.rawValue,
+    residualPart: candidate.evidence?.residualPart,
+  })),
+  [
+    {
+      termType: "application",
+      rawValue: "仿结皮发泡板",
+      residualPart: "产量350kg",
+    },
+  ],
+);
+
+createdCandidates.length = 0;
+const filledMaterialResult = await dictionaryService.normalizeField({
+  fieldName: "适用塑料原料",
+  rawValue: "PP、PS（含填充料）",
+  itemProductTypeHint: "flat_die",
+});
+assert.deepEqual(
+  filledMaterialResult.values?.map((value) => value.displayName),
+  ["PP", "PS"],
+);
+assert.deepEqual(createdCandidates, []);
+
+createdCandidates.length = 0;
+const recycledMaterialResult = await dictionaryService.normalizeField({
+  fieldName: "适用塑料原料",
+  rawValue: "PP片材pp原料及回收料50%",
+  itemProductTypeHint: "flat_die",
+});
+assert.deepEqual(
+  recycledMaterialResult.values?.map((value) => value.displayName),
+  ["PP"],
+);
+assert.deepEqual(
+  (createdCandidates as any[]).map((candidate) => ({
+    termType: candidate.termType,
+    rawValue: candidate.rawValue,
+  })),
+  [
+    {
+      termType: "application",
+      rawValue: "片材",
+    },
+  ],
+);
+
+createdCandidates.length = 0;
+const autoFlowMaterialResult = await dictionaryService.normalizeField({
+  fieldName: "适用塑料原料",
+  rawValue: "PP自动流延模头",
+  itemProductTypeHint: "flat_die",
+});
+assert.deepEqual(
+  autoFlowMaterialResult.values?.map((value) => value.displayName),
+  ["PP"],
+);
+assert.deepEqual(
+  (createdCandidates as any[]).map((candidate) => ({
+    termType: candidate.termType,
+    rawValue: candidate.rawValue,
+  })),
+  [
+    {
+      termType: "application",
+      rawValue: "流延",
+    },
+  ],
+);
+
+createdCandidates.length = 0;
+const suitableForMaterialResult = await dictionaryService.normalizeField({
+  fieldName: "适用塑料原料",
+  rawValue: "PP模头、适用于太阳能电池封装膜",
+  itemProductTypeHint: "flat_die",
+});
+assert.deepEqual(
+  suitableForMaterialResult.values?.map((value) => value.displayName),
+  ["PP"],
+);
+assert.deepEqual(
+  (createdCandidates as any[]).map((candidate) => ({
+    termType: candidate.termType,
+    rawValue: candidate.rawValue,
+  })),
+  [
+    {
+      termType: "application",
+      rawValue: "太阳能电池封装膜",
+    },
+  ],
 );
 
 createdCandidates.length = 0;
