@@ -38,6 +38,8 @@ import { createWarning, mapDictionaryWarnings } from "./warnings.js";
 import {
   applyStructuredFieldLabels,
   applyQualifier,
+  consolidateQualifiedTermType,
+  deriveHeatingConfigField,
   applyRoughness,
   applyVoltageComposite,
   createExtractionNote,
@@ -54,6 +56,7 @@ import {
   reparseCustomerNote,
   splitThermocoupleAndPressureHoleField,
   splitLayerConfigCompositeField,
+  groupLayerExtruderConfigFields,
   splitFieldToSelectionAwareRawField,
 } from "./rules/index.js";
 import { NormalizationRuleRegistry } from "../dictionary/normalizationRuleRegistry.js";
@@ -796,7 +799,10 @@ export class ExtractionNormalizationService {
     const preprocessedItems = splitIndexedInstanceItems({
       items: params.llmResult.extraction.items,
       warnings: llmWarningsForPreprocess,
-    });
+    }).map((item) => ({
+      ...item,
+      raw_fields: groupLayerExtruderConfigFields(item.raw_fields),
+    }));
     const itemRoutes = preprocessedItems.map((item) => ({
       item,
       route: resolveItemProductTypeHint({ item, productTypeMap }),
@@ -1596,6 +1602,7 @@ export class ExtractionNormalizationService {
         number_unit: standaloneVoltagePart.numberUnit,
         match_method: "term_type_only",
       };
+      consolidateQualifiedTermType(field);
       applyQualifier(field);
       applyRoughness(field);
       finishBuildProfile();
@@ -1804,6 +1811,7 @@ export class ExtractionNormalizationService {
       );
     }
 
+    consolidateQualifiedTermType(field);
     applyQualifier(field);
     applyRoughness(field);
 
@@ -1826,6 +1834,8 @@ export class ExtractionNormalizationService {
   }): Promise<DictionaryExtractionField[]> {
     const field = await this.buildField(params);
     const derivedRawFields = applyVoltageComposite(field).splitFields;
+    const heatingConfigField = deriveHeatingConfigField(field);
+    if (heatingConfigField) derivedRawFields.push(heatingConfigField);
     if (derivedRawFields.length === 0) {
       return expandBothMoldQualifier(field);
     }

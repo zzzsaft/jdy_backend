@@ -216,18 +216,22 @@ export class NormalizationRefreshService {
         cursorCreatedAt,
       });
 
-      results.push(
-        ...(await mapWithConcurrency(extractions, concurrency, async (extraction) => {
+      const normalizedBatch = await mapWithConcurrency(
+        extractions,
+        concurrency,
+        async (extraction) => {
           try {
-            const dictionary = await this.generateDictionaryForExtraction({
+            const dictionary = await this.normalizeDictionaryForExtraction({
               documentId: extraction.documentId,
               extraction,
-              dictionaryVersion: params?.targetDictionaryVersion,
             });
             return {
               extractionResultId: extraction.id,
               documentId: extraction.documentId,
               status: "normalized" as const,
+              dictionary,
+              dictionaryVersion:
+                params?.targetDictionaryVersion ?? extraction.dictionaryVersion,
               profile: dictionary.profile,
             };
           } catch (error) {
@@ -238,6 +242,57 @@ export class NormalizationRefreshService {
               error: error instanceof Error ? error.message : String(error),
             };
           }
+        },
+      );
+
+      const successfulBatch = normalizedBatch.filter(
+        (item): item is Extract<typeof item, { status: "normalized" }> =>
+          item.status === "normalized",
+      );
+      let persistenceError: string | undefined;
+      if (successfulBatch.length > 0) {
+        const persistenceStartedAt = Date.now();
+        try {
+          await this.repository.updateExtractionDictionaries(
+            successfulBatch.map((item) => ({
+              extractionResultId: item.extractionResultId,
+              documentId: item.documentId,
+              normalizedExtractionJson: item.dictionary.extraction_json,
+              dictionaryProposals: item.dictionary,
+              dictionaryVersion: item.dictionaryVersion,
+              status: "normalized",
+              documentStatus: "normalized",
+            })),
+          );
+          const persistenceMs = Date.now() - persistenceStartedAt;
+          for (const item of successfulBatch) {
+            if (item.profile) {
+              item.profile.updateExtractionDictionaryMs = persistenceMs;
+              item.profile.updateDocumentStatusMs = persistenceMs;
+              item.profile.generateDictionaryTotalMs =
+                (item.profile.totalMs ?? 0) + persistenceMs;
+            }
+          }
+        } catch (error) {
+          persistenceError = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      results.push(
+        ...normalizedBatch.map((item) => ({
+          extractionResultId: item.extractionResultId,
+          documentId: item.documentId,
+          status:
+            persistenceError && item.status === "normalized"
+              ? ("failed" as const)
+              : item.status,
+          profile: item.profile,
+          error:
+            persistenceError && item.status === "normalized"
+              ? persistenceError
+              : "error" in item
+                ? item.error
+                : undefined,
         })),
       );
 
@@ -277,7 +332,49 @@ export class NormalizationRefreshService {
     dictionaryVersion?: number;
   }): Promise<DictionaryExtractionResult> {
     const startedAt = Date.now();
-    const dictionaryResult = await new ExtractionNormalizationService(
+    const dictionaryResult = await this.normalizeDictionaryForExtraction(params);
+
+    let updateExtractionDictionaryMs = 0;
+    let updateDocumentStatusMs = 0;
+    const updateExtractionDictionaryStartedAt = Date.now();
+    const updateExtractionDictionary = this.repository
+      .updateExtractionDictionary({
+        extractionResultId: params.extraction.id,
+        normalizedExtractionJson: dictionaryResult.extraction_json,
+        dictionaryProposals: dictionaryResult,
+        status: params.status ?? "normalized",
+        dictionaryVersion:
+          params.dictionaryVersion ?? params.extraction.dictionaryVersion,
+      })
+      .finally(() => {
+        updateExtractionDictionaryMs =
+          Date.now() - updateExtractionDictionaryStartedAt;
+      });
+    const updateDocumentStatusStartedAt = Date.now();
+    const updateDocumentStatus = this.repository
+      .updateDocumentStatus(
+        params.documentId,
+        params.documentStatus ?? "normalized",
+      )
+      .finally(() => {
+        updateDocumentStatusMs = Date.now() - updateDocumentStatusStartedAt;
+      });
+    await Promise.all([updateExtractionDictionary, updateDocumentStatus]);
+    if (dictionaryResult.profile) {
+      dictionaryResult.profile.updateExtractionDictionaryMs =
+        updateExtractionDictionaryMs;
+      dictionaryResult.profile.updateDocumentStatusMs = updateDocumentStatusMs;
+      dictionaryResult.profile.generateDictionaryTotalMs = Date.now() - startedAt;
+    }
+
+    return dictionaryResult;
+  }
+
+  private async normalizeDictionaryForExtraction(params: {
+    documentId: number;
+    extraction: any;
+  }): Promise<DictionaryExtractionResult> {
+    return new ExtractionNormalizationService(
       this.dataSource,
       this.dictionaryService,
     ).normalizeExtraction({
@@ -288,31 +385,6 @@ export class NormalizationRefreshService {
         warnings: params.extraction.warnings,
       }),
     });
-
-    const updateExtractionDictionaryStartedAt = Date.now();
-    await this.repository.updateExtractionDictionary({
-      extractionResultId: params.extraction.id,
-      normalizedExtractionJson: dictionaryResult.extraction_json,
-      dictionaryProposals: dictionaryResult,
-      status: params.status ?? "normalized",
-      dictionaryVersion: params.dictionaryVersion ?? params.extraction.dictionaryVersion,
-    });
-    if (dictionaryResult.profile) {
-      dictionaryResult.profile.updateExtractionDictionaryMs =
-        Date.now() - updateExtractionDictionaryStartedAt;
-    }
-    const updateDocumentStatusStartedAt = Date.now();
-    await this.repository.updateDocumentStatus(
-      params.documentId,
-      params.documentStatus ?? "normalized",
-    );
-    if (dictionaryResult.profile) {
-      dictionaryResult.profile.updateDocumentStatusMs =
-        Date.now() - updateDocumentStatusStartedAt;
-      dictionaryResult.profile.generateDictionaryTotalMs = Date.now() - startedAt;
-    }
-
-    return dictionaryResult;
   }
 }
 

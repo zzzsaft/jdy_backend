@@ -55,6 +55,12 @@ for (const prompt of [
   assert.match(prompt, /产品\/部位词不得并入应用类型/);
   assert.match(prompt, /split_fields 自身也必须是单一业务属性/);
   assert.match(prompt, /PE\+CaCo3透气膜.*原料配方.*应用类型/);
+  assert.match(prompt, /两侧板加热.*qualifier\.area="side_plate"/);
+  assert.match(prompt, /A\/B\/C\/D 主机.*挤出机型号.*qualifier\.layer/);
+  assert.match(prompt, /测温点距内表面6mm.*field_name="测温点距内表面"/);
+  assert.match(prompt, /按原图纸.*190590.*参考产品编号/);
+  assert.match(prompt, /光学级、弹性体、交联化学发泡/);
+  assert.match(prompt, /BOPET、BOPE允许作为塑料原料/);
 }
 
 console.log("productConfigAgent two-stage extraction tests passed");

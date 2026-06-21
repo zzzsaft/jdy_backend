@@ -173,7 +173,7 @@ Normalization rerun does not call LLM. It only reuses existing `extraction_json`
 
 Script docs:
 
-- `src/features/productConfigAgent/scripts/normalization.README.md`
+- `src/features/productConfigAgent/README.md#normalization`
 
 Typical use cases:
 

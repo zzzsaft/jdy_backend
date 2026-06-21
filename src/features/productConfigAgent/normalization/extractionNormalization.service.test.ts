@@ -1005,12 +1005,12 @@ assert.equal(
 assert.equal(structuredFieldResult.items[0].fields[1].qualifier?.layer, "D");
 assert.equal(
   structuredFieldResult.items[0].fields[2].dictionary.normalized_value,
-  "225 kg/h\u4ee5\u4e0b",
+  "\u6324\u51fa\u673a\u578b\u53f7: B\u5c42\u4ea7\u91cf=225 kg/h\u4ee5\u4e0b",
 );
 assert.equal(structuredFieldResult.items[0].fields[2].qualifier?.layer, "B");
 assert.equal(
   structuredFieldResult.items[0].fields[3].dictionary.normalized_value,
-  "PS",
+  "\u6324\u51fa\u673a\u578b\u53f7: C\u5c42\u539f\u6599=PS",
 );
 assert.equal(structuredFieldResult.items[0].fields[3].qualifier?.layer, "C");
 assert.equal(
@@ -1840,6 +1840,14 @@ const normalizationRulesService = new ExtractionNormalizationService(
         层原料: { termType: "layer_material", valueKind: "text" },
         层产量: { termType: "layer_output", valueKind: "number_unit" },
         挤出机型号: { termType: "extruder_model", valueKind: "text" },
+        加热配置: { termType: "heating_config", valueKind: "boolean" },
+        两侧板加热: { termType: "side_plate_heating_config", valueKind: "boolean" },
+        模唇加热配置: { termType: "die_lip_heating_config", valueKind: "boolean" },
+        模唇加热方式: { termType: "heating_method", valueKind: "enum" },
+        侧板材质: { termType: "side_plate_material", valueKind: "enum" },
+        侧板接插件: { termType: "side_plate_connector", valueKind: "boolean" },
+        下模唇开档: { termType: "lower_lip_gap", valueKind: "number_unit" },
+        唇开档: { termType: "lower_lip_gap", valueKind: "number_unit" },
         备注: { termType: "remark", valueKind: "text" },
       };
       const meta = termTypes[params.fieldName] ?? {
@@ -1970,10 +1978,7 @@ assert.equal(
   expandedQualifierAllowlistResult.items[0].fields[1].dictionary.term_type,
   "connector_config",
 );
-assert.equal(
-  expandedQualifierAllowlistResult.items[0].fields[1].qualifier,
-  undefined,
-);
+assert.equal(expandedQualifierAllowlistResult.items[0].fields[1].qualifier?.area, "connector");
 
 const runtimeQualifierCoreScenariosResult =
   await normalizationRulesService.normalizeExtraction({
@@ -2082,7 +2087,7 @@ assert.deepEqual(
   })),
   [
     { fieldName: "层比例", termType: "layer_ratio", layer: "A" },
-    { fieldName: "层原料", termType: "layer_material", layer: "B" },
+    { fieldName: "挤出机型号", termType: "extruder_model", layer: "B" },
     { fieldName: "挤出机型号", termType: "extruder_model", layer: "C" },
   ],
 );
@@ -2129,25 +2134,119 @@ assert.deepEqual(
   [
     {
       fieldName: "挤出机型号",
-      rawValue: "Φ100",
+      rawValue: "型号=Φ100；产量=225 kg/h以下；原料=PS",
       termType: "extruder_model",
-      layer: "A",
-    },
-    {
-      fieldName: "层产量",
-      rawValue: "225 kg/h以下",
-      termType: "layer_output",
-      layer: "A",
-    },
-    {
-      fieldName: "层原料",
-      rawValue: "PS",
-      termType: "layer_material",
       layer: "A",
     },
   ],
 );
 assert.equal(layerCompositeResult.summary.split_resolution_count, 1);
+
+const hostExtruderGroupResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            { field_name: "A主机型号", value: "Φ120单螺杆", confidence: 0.95 },
+            { field_name: "A主机PP料产量", value: "850kg/h", confidence: 0.95 },
+            { field_name: "A主机原料", value: "PP", confidence: 0.95 },
+            { field_name: "适用产量", value: "900kg/h", confidence: 0.95 },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+const hostExtruderField = hostExtruderGroupResult.items[0].fields.find(
+  (field) => field.dictionary.term_type === "extruder_model",
+);
+assert.equal(hostExtruderField?.qualifier?.layer, "A");
+assert.match(hostExtruderField?.raw_value ?? "", /A主机PP料产量=850kg\/h/);
+assert.equal(
+  hostExtruderGroupResult.items[0].fields.some(
+    (field) => field.dictionary.term_type === "capacity" && /850/.test(field.raw_value),
+  ),
+  false,
+);
+
+const combinedHostExtruderResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [{
+        item_index: 1,
+        product_type_hint: { value: "flat_die", confidence: 0.9 },
+        raw_fields: [{
+          field_name: "总挤出量",
+          value: "总挤出量900KG/每小时（A主机PP料产量850kg/h,B主机PP料产量80KG/h，C主机EVOH料产量50KG/h，D主机ADH粘胶产量50KG/h）",
+          confidence: 0.95,
+        }],
+      }],
+    },
+    warnings: [],
+  },
+});
+const combinedHostFields = combinedHostExtruderResult.items[0].fields.filter(
+  (field) => field.dictionary.term_type === "extruder_model",
+);
+assert.deepEqual(
+  combinedHostFields.map((field) => field.qualifier?.layer),
+  ["A", "B", "C", "D"],
+);
+assert.deepEqual(
+  combinedHostFields.map((field) => field.raw_value),
+  [
+    "A主机PP料产量=850kg/h",
+    "B主机PP料产量=80KG/h",
+    "C主机EVOH料产量=50KG/h",
+    "D主机ADH粘胶产量=50KG/h",
+  ],
+);
+
+const consolidatedHeatingResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            { field_name: "两侧板加热", value: "有", confidence: 0.95 },
+            { field_name: "模唇加热配置", value: "没有", confidence: 0.95 },
+            { field_name: "模唇加热方式", value: "油加温", confidence: 0.95 },
+            { field_name: "侧板材质", value: "铝", confidence: 0.95 },
+            { field_name: "侧板接插件", value: "有", confidence: 0.95 },
+            { field_name: "下模唇开档", value: "1.2mm", confidence: 0.95 },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.deepEqual(
+  consolidatedHeatingResult.items[0].fields.map((field) => ({
+    termType: field.dictionary.term_type,
+    value: field.raw_value,
+    area: field.qualifier?.area,
+    position: field.qualifier?.position,
+  })),
+  [
+    { termType: "heating_config", value: "有", area: "side_plate", position: undefined },
+    { termType: "heating_config", value: "没有", area: "lip", position: undefined },
+    { termType: "heating_method", value: "油加温", area: "lip", position: undefined },
+    { termType: "heating_config", value: "有", area: "lip", position: undefined },
+    { termType: "product_material", value: "铝", area: "side_plate", position: undefined },
+    { termType: "connector_config", value: "有", area: "side_plate", position: undefined },
+    { termType: "lip_gap", value: "1.2mm", area: "lip", position: "lower_die" },
+  ],
+);
 
 const validatedBaseFieldQualifierResult = validateLlmExtractionResult({
   extraction: {
@@ -2310,7 +2409,7 @@ assert.deepEqual(
     rawValue: field.raw_value,
   })),
   [
-    { fieldName: "heating_voltage", termType: "heating_voltage", rawValue: "220V" },
+    { fieldName: "加热电压", termType: "heating_voltage", rawValue: "220V" },
     { fieldName: "heating_frequency", termType: "heating_frequency", rawValue: "50Hz" },
   ],
 );

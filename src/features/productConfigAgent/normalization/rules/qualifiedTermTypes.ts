@@ -24,6 +24,7 @@ export const QUALIFIED_TERM_TYPES = new Set([
   "dimension",
   "item_quantity",
   "heating_method",
+  "heating_config",
   "heating_zone_count",
   "heating_power",
   "heating_frequency",
@@ -51,6 +52,7 @@ export const QUALIFIED_TERM_TYPES = new Set([
   "pump_heating_voltage",
   "micro_adjustment_method",
   "product_material",
+  "connector_config",
 ]);
 
 export function isQualifiedTermType(termType?: string | null): boolean {

@@ -140,7 +140,16 @@ export interface ProductConfigAgentRepository {
     dictionaryProposals: any;
     dictionaryVersion?: number;
     status?: string;
-  }): Promise<any>;
+  }): Promise<void>;
+  updateExtractionDictionaries(data: Array<{
+    extractionResultId: number;
+    documentId: number;
+    normalizedExtractionJson: any;
+    dictionaryProposals: any;
+    dictionaryVersion?: number;
+    status?: string;
+    documentStatus?: string;
+  }>): Promise<void>;
   findExtractionsForRenormalization(params?: {
     limit?: number;
     onlyMissingNormalized?: boolean;
@@ -1312,7 +1321,7 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
     dictionaryProposals: any;
     dictionaryVersion?: number;
     status?: string;
-  }): Promise<any> {
+  }): Promise<void> {
     try {
       const updateData: Partial<ExtractionResults> = {
         dictionaryProposals: data.dictionaryProposals,
@@ -1331,12 +1340,68 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
       }
 
       await this.extractionRepo.update({ id: data.extractionResultId }, updateData as any);
-
-      return await this.extractionRepo.findOne({
-        where: { id: data.extractionResultId },
-      });
     } catch (error) {
       throw wrapDbError("updateExtractionDictionary", error);
+    }
+  }
+
+  async updateExtractionDictionaries(data: Array<{
+    extractionResultId: number;
+    documentId: number;
+    normalizedExtractionJson: any;
+    dictionaryProposals: any;
+    dictionaryVersion?: number;
+    status?: string;
+    documentStatus?: string;
+  }>): Promise<void> {
+    if (data.length === 0) return;
+
+    try {
+      const payload = data.map((item) => ({
+        extraction_result_id: item.extractionResultId,
+        document_id: item.documentId,
+        normalized_extraction_json: item.normalizedExtractionJson,
+        dictionary_proposals: item.dictionaryProposals,
+        dictionary_version: item.dictionaryVersion ?? null,
+        status: item.status ?? null,
+        document_status: item.documentStatus ?? null,
+      }));
+      await PgDataSource.query(
+        `
+        WITH payload AS (
+          SELECT *
+          FROM jsonb_to_recordset($1::jsonb) AS row(
+            extraction_result_id int,
+            document_id int,
+            normalized_extraction_json jsonb,
+            dictionary_proposals jsonb,
+            dictionary_version int,
+            status text,
+            document_status text
+          )
+        ), updated_extractions AS (
+          UPDATE quote_agent.extraction_results AS extraction
+          SET normalized_extraction_json = payload.normalized_extraction_json,
+              dictionary_proposals = payload.dictionary_proposals,
+              dictionary_version = COALESCE(
+                payload.dictionary_version,
+                extraction.dictionary_version
+              ),
+              status = COALESCE(payload.status, extraction.status)
+          FROM payload
+          WHERE extraction.id = payload.extraction_result_id
+          RETURNING extraction.id
+        )
+        UPDATE quote_agent.documents AS document
+        SET status = payload.document_status
+        FROM payload
+        WHERE document.id = payload.document_id
+          AND payload.document_status IS NOT NULL
+        `,
+        [JSON.stringify(payload)],
+      );
+    } catch (error) {
+      throw wrapDbError("updateExtractionDictionaries", error);
     }
   }
 

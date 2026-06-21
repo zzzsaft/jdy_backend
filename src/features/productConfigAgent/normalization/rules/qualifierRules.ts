@@ -81,6 +81,99 @@ export function applyQualifier(field: DictionaryExtractionField): void {
   };
 }
 
+const QUALIFIED_TERM_TYPE_CONSOLIDATIONS: Record<
+  string,
+  {
+    termType: string;
+    fieldName: string;
+    qualifier: DictionaryExtractionQualifier;
+  }
+> = {
+  side_plate_heating_config: {
+    termType: "heating_config",
+    fieldName: "加热配置",
+    qualifier: { area: "side_plate", sourceText: "侧板" },
+  },
+  die_lip_heating_config: {
+    termType: "heating_config",
+    fieldName: "加热配置",
+    qualifier: { area: "lip", sourceText: "模唇" },
+  },
+  pump_heating_voltage: {
+    termType: "heating_voltage",
+    fieldName: "加热电压",
+    qualifier: { area: "pump", sourceText: "泵体" },
+  },
+  side_plate_material: {
+    termType: "product_material",
+    fieldName: "主体材质",
+    qualifier: { area: "side_plate", sourceText: "侧板" },
+  },
+  side_plate_connector: {
+    termType: "connector_config",
+    fieldName: "连接器配置",
+    qualifier: { area: "side_plate", sourceText: "侧板" },
+  },
+  lower_lip_gap: {
+    termType: "lip_gap",
+    fieldName: "模唇开口尺寸",
+    qualifier: {
+      position: "lower_die",
+      area: "lip",
+      sourceText: "下模唇",
+    },
+  },
+};
+
+export function consolidateQualifiedTermType(
+  field: DictionaryExtractionField,
+): void {
+  const sourceTermType = field.dictionary.term_type;
+  if (!sourceTermType) return;
+  const target = QUALIFIED_TERM_TYPE_CONSOLIDATIONS[sourceTermType];
+  if (!target) return;
+
+  field.dictionary.term_type = target.termType;
+  field.dictionary.normalized_field_name = target.fieldName;
+  field.field_name = target.fieldName;
+  field.qualifier = {
+    ...target.qualifier,
+    ...field.qualifier,
+  };
+  field.evidence = {
+    ...(objectRecord(field.evidence) ?? {}),
+    sourceTermType,
+    consolidatedTermType: target.termType,
+    qualifier: field.qualifier,
+  };
+}
+
+export function deriveHeatingConfigField(
+  field: DictionaryExtractionField,
+): LlmRawField | undefined {
+  if (
+    field.dictionary.term_type !== "heating_method" ||
+    !field.qualifier?.area ||
+    !/(?:油加温|油加热|电加热|加热圈|加热棒)/.test(field.raw_value)
+  ) {
+    return undefined;
+  }
+
+  return {
+    field_name: "加热配置",
+    value: "有",
+    raw_text: field.raw_text ?? field.raw_value,
+    confidence: field.llm_confidence ?? 0.85,
+    qualifier: { ...field.qualifier },
+    evidence: {
+      ...(objectRecord(field.evidence) ?? {}),
+      sourceRawFieldName: field.field_name,
+      sourceRawValue: field.raw_value,
+      splitRule: "heating_method_implies_config",
+    },
+  };
+}
+
 export function expandBothMoldQualifier(
   field: DictionaryExtractionField,
 ): DictionaryExtractionField[] {

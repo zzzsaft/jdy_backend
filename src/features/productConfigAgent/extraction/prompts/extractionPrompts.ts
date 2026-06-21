@@ -262,12 +262,11 @@ qualifier 规则：
 4. 当原文是“泵前压力：25MPa / 泵后压力：20MPa”时，拆成两个基础字段 "压力"，分别使用 qualifier.position = "pre_pump" 和 "post_pump"。
 5. 当原文是“C入口镶块材质：H13”时，field_name 使用基础字段 "镶块材质"，qualifier = {"position":"c_inlet","area":"insert_block","sourceText":"C入口镶块"}。
 6. 当原文是“A层比例：15% / B层比例：70%”时，拆成两个基础字段 "层比例"，分别使用 qualifier.layer = "A" 和 "B"。
-7. 当原文是“A层配Φ100挤出机，产量225kg/h以下，原料PS”时，raw_field 可以保留完整原值，但必须输出 split_fields：
+7. 当原文是“A层配Φ100挤出机，产量225kg/h以下，原料PS”时，型号、前端主机产量和原料作为同一台挤出机配置，输出一个基础字段：
    [
-   {"field_name":"挤出机型号","value":"Φ100","qualifier":{"layer":"A","sourceText":"A层"}},
-   {"field_name":"层产量","value":"225kg/h以下","qualifier":{"layer":"A","sourceText":"A层"}},
-   {"field_name":"层原料","value":"PS","qualifier":{"layer":"A","sourceText":"A层"}}
+   {"field_name":"挤出机型号","value":"型号=Φ100；产量=225kg/h以下；原料=PS","qualifier":{"layer":"A","sourceText":"A层"}}
    ]
+   A/B/C/D主机或A/B/C/D区同理；主机产量不得输出为产品 capacity。
 8. 字母层使用 qualifier.layer，例如 "A"、"B"、"C"；序号层使用 qualifier.layerIndex，例如“第一层”输出 {"layerIndex":1,"sourceText":"第一层"}。
 9. 当原文是“第二套模唇厚度：8mm”或“第二套（8mm）”且上下文是模唇厚度/开口尺寸时，field_name 使用基础字段 "模唇厚度"，qualifier = {"area":"lip","instanceIndex":2,"sourceText":"第二套"}。
 10. split_fields 也可以带 qualifier；如果父字段是多选或复合字段，应把每个子字段自己的限定写在 split_fields[].qualifier。
@@ -277,6 +276,9 @@ qualifier 规则：
    body, lip, connector, insert_block, channel, external_surface, other, die_body, side_plate, feedblock, pump, overall。
 13. qualifier.layer 是原文中的层字母；qualifier.layerIndex 是原文中的层序号数字；qualifier.instanceIndex 是“第几套/第几个实例”的数字。
 14. 只有原文有明确限定时才输出 qualifier，不要猜测。
+15. “侧板/两侧板加热”输出基础字段“加热配置”并使用 qualifier.area="side_plate"；“模唇加热”使用 area="lip"。模唇油加温同时拆出加热配置=有和加热方式=油加温。
+16. field_name 禁止携带数值；图纸状态、参考产品编号和备注分别抽取。
+17. application/plastic material 使用企业口头分类：光学级、弹性体、交联化学发泡可作为应用类型，BOPET、BOPE可作为塑料原料。
 
 evidence 要求：
 每个 document_info 字段、item_name、item_quantity、product_type_hint 和 raw_field 都必须包含 evidence。尽量包含：

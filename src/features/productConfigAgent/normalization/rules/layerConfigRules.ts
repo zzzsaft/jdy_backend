@@ -31,23 +31,25 @@ export function splitLayerConfigCompositeField(
     .filter(Boolean)
     .join(" ");
 
-  const splitFields: LlmSplitField[] = [];
+  const components: string[] = [];
   const modelMatch = text.match(EXTRUDER_MODEL_PATTERN);
   if (modelMatch?.[1]) {
-    splitFields.push(makeLayerSplitField(rawField, "挤出机型号", modelMatch[1], qualifier));
+    components.push(`型号=${modelMatch[1].trim()}`);
   }
 
   const outputMatch = text.match(OUTPUT_PATTERN);
   if (outputMatch?.[1]) {
-    splitFields.push(makeLayerSplitField(rawField, "层产量", outputMatch[1], qualifier));
+    components.push(`产量=${outputMatch[1].trim()}`);
   }
 
   const materialMatch = text.match(MATERIAL_PATTERN);
   if (materialMatch?.[1]) {
-    splitFields.push(makeLayerSplitField(rawField, "层原料", materialMatch[1], qualifier));
+    components.push(`原料=${materialMatch[1].trim()}`);
   }
 
-  return splitFields.length >= 2 ? splitFields : [];
+  return components.length >= 2
+    ? [makeLayerSplitField(rawField, "挤出机型号", components.join("；"), qualifier)]
+    : [];
 }
 
 function makeLayerSplitField(

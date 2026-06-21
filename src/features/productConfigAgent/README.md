@@ -121,3 +121,94 @@ Rerank is recommended eventually, but it should be an internal option of
 Frontend code should call `/productConfigAgent/...` for product configuration
 work. Do not add new `/quoteAgent/...` calls in frontend code. Existing
 `/quoteAgent/...` compatibility is backend-only migration support.
+
+## Normalization
+
+Normalization uses the current dictionary and deterministic rules to rebuild
+`normalized_extraction_json` from existing `extraction_json`. It does not call
+the extraction LLM.
+
+### Full rerun
+
+Always run a small batch first:
+
+```powershell
+npm run product-config-agent:normalize-full -- --scope=all --limit=5 --batch-size=2 --concurrency=2 --recheck-candidates=true --recheck-limit=5000
+```
+
+After checking those results, run all existing extractions with the latest
+normalization code and dictionary:
+
+```powershell
+npm run product-config-agent:normalize-full -- --scope=all --batch-size=100 --concurrency=4 --recheck-candidates=true --recheck-limit=5000
+```
+
+The second command also rechecks pending candidates and marks values and field
+names already handled by the current dictionary as `auto_resolved`.
+
+Available scopes:
+
+- `all`: every extraction that has `extraction_json`.
+- `missing_normalized`: only rows without `normalized_extraction_json`.
+- `outdated_dictionary`: rows normalized against an older dictionary version.
+- `with_pending_candidates`: rows currently associated with pending candidates.
+
+To rerun only rows with pending candidates:
+
+```powershell
+npm run product-config-agent:normalize-full -- --scope=with_pending_candidates --batch-size=100 --concurrency=4 --recheck-candidates=true --recheck-limit=5000
+```
+
+Equivalent environment variables are available for scheduled or background
+runs:
+
+```powershell
+$env:QUOTE_AGENT_FULL_NORMALIZE_SCOPE='all'
+Remove-Item Env:QUOTE_AGENT_FULL_NORMALIZE_LIMIT -ErrorAction SilentlyContinue
+$env:QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE='100'
+$env:QUOTE_AGENT_FULL_NORMALIZE_CONCURRENCY='4'
+$env:QUOTE_AGENT_FULL_NORMALIZE_RECHECK_CANDIDATES='1'
+$env:QUOTE_AGENT_FULL_NORMALIZE_RECHECK_LIMIT='5000'
+npm run product-config-agent:normalize-full
+```
+
+On macOS/Linux, use `export`/`unset` with the same environment variable names.
+
+### HTTP rerun
+
+When the backend is running locally:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri 'http://localhost:2001/productConfigAgent/extractions/renormalize-batch' `
+  -ContentType 'application/json' `
+  -Body '{"scope":"all","limit":5,"batchSize":2,"concurrency":2}'
+```
+
+The response includes `processedCount`, `successCount`, `failedCount`, failed
+rows, and a short result preview. The CLI is preferred for a full rerun because
+it can also perform candidate recheck in the same process.
+
+### Normalization rules
+
+Exception-style guards live under `normalization/rules/`:
+
+- `documentInfoRules.ts`: moves document-level fields out of product items.
+- `productRedirectRules.ts`: redirects high-confidence fields to the correct
+  product item in the same extraction.
+- `rangeBoundRules.ts`: merges min/max field variants into one range.
+- `numberUnitPartRules.ts`: merges separated numeric and unit fields.
+- `indexedInstanceRules.ts`: handles trailing item-instance indexes.
+- `selectionSplitRules.ts`: normalizes selection markers and drops explicitly
+  unselected options.
+- `qualifierRules.ts`: attaches position, area, layer, and instance qualifiers
+  and consolidates equivalent specialized term types.
+- `extruderConfigRules.ts`: groups A/B/C/D host extruder model, material, and
+  output text into qualified `extruder_model` fields.
+- `layerConfigRules.ts`: normalizes composite layer/extruder configurations.
+- `holeConfigRules.ts`: splits thermocouple and pressure-hole composites.
+
+Rules run before or around dictionary matching. A rule that changes field
+meaning must preserve original text and evidence so the result remains
+auditable.

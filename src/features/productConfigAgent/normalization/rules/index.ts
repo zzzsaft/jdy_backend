@@ -19,6 +19,8 @@ export {
 } from "./selectionSplitRules.js";
 export {
   applyQualifier,
+  consolidateQualifiedTermType,
+  deriveHeatingConfigField,
   applyRoughness,
   applyVoltageComposite,
   expandBothMoldQualifier,
@@ -37,4 +39,5 @@ export {
   reparseCustomerNote,
 } from "./noteRules.js";
 export { splitLayerConfigCompositeField } from "./layerConfigRules.js";
+export { groupLayerExtruderConfigFields } from "./extruderConfigRules.js";
 export { splitThermocoupleAndPressureHoleField } from "./holeConfigRules.js";
