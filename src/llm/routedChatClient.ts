@@ -37,7 +37,7 @@ export function resolveRoutedLlmGateway(model?: string): RoutedLlmGateway {
   if (selectedModel?.startsWith(INFERAI_MODEL_PREFIX)) return "inferaichat";
   if (selectedModel?.startsWith(INFERAI_MODEL_ALIAS_PREFIX)) return "inferaichat";
   if (selectedModel?.startsWith(XH_MODEL_PREFIX)) return "xh";
-  return normalizeGatewayName(process.env.LLM_GATEWAY) ?? "xh";
+  return normalizeGatewayName(process.env.LLM_GATEWAY) ?? "inferaichat";
 }
 
 export function getRoutedChatModel(model?: string): string {

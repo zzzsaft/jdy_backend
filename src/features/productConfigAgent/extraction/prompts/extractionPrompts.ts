@@ -21,6 +21,7 @@ export const DEEPSEEK_EXTRACT_SYSTEM_PROMPT = `
 10. 如果一个文件中包含多个产品、部件、配件或可独立报价对象，必须拆成多个 items。
 11. raw_fields 只能放属于当前 item 的字段，不要把计量泵字段放进模头 item，不要把换网器字段放进计量泵 item。
 12. 如果无法判断字段属于哪个 item，放入最可能的 item，并在 warnings 中说明。
+13. 对带位置/区域/层位/实例限定的配置字段，优先输出“基础字段名 + qualifier”，不要把限定词留在 field_name 里导致后续标准化无法合并同类字段。
 
 输入包含：
 {
@@ -186,7 +187,49 @@ product_type_hint 规则：
    {"field_name":"工艺类型","value":"流延"},
    {"field_name":"应用类型","value":"缠绕膜"}
    ]
-7. 产品名称 + 型号 + 结构 + 驱动方式混在一起时要拆开：
+7. 材料/应用/说明混写时，必须先判断每个片段的业务类别，不要把工艺参数、产量、设备规格、比例、客户说明误当应用类型：
+
+   * "PVC保鲜膜"、"PC中空格子板"、"PET膜上涂覆胶水" 这类“材料前缀 + 应用”应拆成：
+     [
+     {"field_name":"塑料原料","value":"PVC"},
+     {"field_name":"应用类型","value":"保鲜膜"}
+     ]
+   * "PET（工艺温度：270-280度）" 应拆成：
+     [
+     {"field_name":"塑料原料","value":"PET"},
+     {"field_name":"工艺温度","value":"270-280度"}
+     ]
+     不要输出 {"field_name":"应用类型","value":"工艺温度270-280度"}。
+   * "CPE（产量：150-200KG左右每小时）" 应拆成：
+     [
+     {"field_name":"塑料原料","value":"CPE"},
+     {"field_name":"产量","value":"150-200KG左右每小时"}
+     ]
+     不要输出 application/应用类型 = "产量150-200KG左右每小时"。
+   * "PVC 挤出机规格：80锥双..." 应拆成塑料原料和挤出机规格/说明，不要把"挤出机规格"作为应用类型。
+   * "PP流延（既要做流延还得兼顾片）" 可以输出：
+     [
+     {"field_name":"塑料原料","value":"PP"},
+     {"field_name":"应用类型","value":"流延"},
+     {"field_name":"备注","value":"既要做流延还得兼顾片"}
+     ]
+     不要把括号内说明合并成新的应用枚举。
+   * "原料重量比"、"熔指"、"共N套"、"为主"、"等" 是比例/参数/说明残片，不是应用类型。
+8. 电压、频率、相数混写时必须拆开，且不要创造泵加热电压之类位置专用字段；位置差异用 qualifier：
+
+   * "220V/50Hz"、"220 V / 50 Hz"、"400V/50Hz" 拆成：
+     [
+     {"field_name":"加热电压","value":"220V"},
+     {"field_name":"加热频率","value":"50Hz"}
+     ]
+   * 如果原文是"泵体加热电压：220V/50Hz"，拆成同样的基础字段，并加 qualifier.area = "pump"。
+9. 模唇调节/模唇厚度混写时要区分方法与尺寸范围：
+
+   * "上模唇固定，下模唇可调" 拆成两个"模唇调节方式"，分别带 qualifier.position = "upper_die" / "lower_die"。
+   * "上下模唇均可调" 拆成上下模两条，不要只输出一个无 qualifier 字段。
+   * "模唇厚度调节范围（0.8mm）" 是厚度/间隙范围，不是"模唇调节方式"。
+10. feedblock/layer 结构混写时，"A/B/C"、"A/B/A"、"ABA/C" 等层结构不是普通 enum 值；优先输出分配器/层结构说明。明确层位字段继续使用 qualifier.layer，例如 A层原料、B层比例、C层挤出机型号。
+11. 产品名称 + 型号 + 结构 + 驱动方式混在一起时要拆开：
    例：JC-SC-250 双柱液压换网器
    split_fields:
    [
@@ -194,18 +237,46 @@ product_type_hint 规则：
    {"field_name":"结构/类型","value":"双柱换网器"},
    {"field_name":"驱动方式","value":"液压"}
    ]
-8. 产品名称 + 排量 + 产品类型混在一起时要拆开：
+12. 产品名称 + 排量 + 产品类型混在一起时要拆开：
    例：10ccm 熔体计量泵
    split_fields:
    [
    {"field_name":"排量","value":"10ccm"},
    {"field_name":"产品名称","value":"熔体计量泵"}
    ]
-9. 如果父字段名和值语义明显不一致，应以 raw_text 中真正表达的属性为准输出字段：
+13. 如果父字段名和值语义明显不一致，应以 raw_text 中真正表达的属性为准输出字段：
    例：父字段可能是“上模唇调节方式”，但原文值是“模唇厚度调节范围（0.8mm）”
    应输出 raw_field:
    {"field_name":"模唇厚度调节范围","value":"0.8mm","raw_text":"模唇厚度调节范围（0.8mm）"}
-10. 不确定时不要拆；不要为了凑字段而编造。
+14. 不确定时不要拆；不要为了凑字段而编造。
+
+qualifier 规则：
+
+1. qualifier 用于表达同一个基础字段在不同位置、区域、层位或实例上的限定，例如“上模/下模/泵前/泵后/网前/网后/C入口/镶块/模唇/流道/连接器/A层/B层/第一层/第二套模唇”。
+2. 当原文是“上模是否有阻流棒：有”时，raw_field 应输出：
+   field_name = "是否有阻流棒"
+   value = "有"
+   qualifier = {"position":"upper_die","sourceText":"上模"}
+   raw_text/evidence.text 保留完整原文。
+3. 当原文是“下模是否有阻流棒：无”时，field_name 仍为 "是否有阻流棒"，qualifier.position = "lower_die"。
+4. 当原文是“泵前压力：25MPa / 泵后压力：20MPa”时，拆成两个基础字段 "压力"，分别使用 qualifier.position = "pre_pump" 和 "post_pump"。
+5. 当原文是“C入口镶块材质：H13”时，field_name 使用基础字段 "镶块材质"，qualifier = {"position":"c_inlet","area":"insert_block","sourceText":"C入口镶块"}。
+6. 当原文是“A层比例：15% / B层比例：70%”时，拆成两个基础字段 "层比例"，分别使用 qualifier.layer = "A" 和 "B"。
+7. 当原文是“A层配Φ100挤出机，产量225kg/h以下，原料PS”时，raw_field 可以保留完整原值，但必须输出 split_fields：
+   [
+   {"field_name":"挤出机型号","value":"Φ100","qualifier":{"layer":"A","sourceText":"A层"}},
+   {"field_name":"层产量","value":"225kg/h以下","qualifier":{"layer":"A","sourceText":"A层"}},
+   {"field_name":"层原料","value":"PS","qualifier":{"layer":"A","sourceText":"A层"}}
+   ]
+8. 字母层使用 qualifier.layer，例如 "A"、"B"、"C"；序号层使用 qualifier.layerIndex，例如“第一层”输出 {"layerIndex":1,"sourceText":"第一层"}。
+9. 当原文是“第二套模唇厚度：8mm”或“第二套（8mm）”且上下文是模唇厚度/开口尺寸时，field_name 使用基础字段 "模唇厚度"，qualifier = {"area":"lip","instanceIndex":2,"sourceText":"第二套"}。
+10. split_fields 也可以带 qualifier；如果父字段是多选或复合字段，应把每个子字段自己的限定写在 split_fields[].qualifier。
+11. qualifier.position 只能使用：
+   upper_die, lower_die, pre_pump, post_pump, pre_mesh, post_mesh, inlet, c_inlet。
+12. qualifier.area 只能使用：
+   body, lip, connector, insert_block, channel, external_surface, other, die_body, side_plate, feedblock, pump, overall。
+13. qualifier.layer 是原文中的层字母；qualifier.layerIndex 是原文中的层序号数字；qualifier.instanceIndex 是“第几套/第几个实例”的数字。
+14. 只有原文有明确限定时才输出 qualifier，不要猜测。
 
 evidence 要求：
 每个 document_info 字段、item_name、item_quantity、product_type_hint 和 raw_field 都必须包含 evidence。尽量包含：
@@ -278,6 +349,40 @@ confidence 规则：
 "reason": "复合字段值中包含材料"
 }
 ]
+},
+{
+"field_name": "是否有阻流棒",
+"value": "有",
+"raw_text": "上模是否有阻流棒：有",
+"evidence": {},
+"confidence": 0.95,
+"qualifier": {
+"position": "upper_die",
+"sourceText": "上模"
+}
+},
+{
+"field_name": "层比例",
+"value": "15%",
+"raw_text": "A层比例：15%",
+"evidence": {},
+"confidence": 0.95,
+"qualifier": {
+"layer": "A",
+"sourceText": "A层"
+}
+},
+{
+"field_name": "模唇厚度",
+"value": "8mm",
+"raw_text": "第二套模唇厚度：8mm",
+"evidence": {},
+"confidence": 0.95,
+"qualifier": {
+"area": "lip",
+"instanceIndex": 2,
+"sourceText": "第二套"
+}
 }
 ]
 }

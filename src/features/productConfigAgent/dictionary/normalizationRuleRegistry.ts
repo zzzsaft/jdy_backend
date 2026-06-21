@@ -35,6 +35,13 @@ const RULES: RuleDefinition[] = [
     description: "Structured labels preserve qualifier context on a field.",
   },
   {
+    ruleId: "structured_qualifier_normalized",
+    relationType: "qualifier_variant",
+    recommendedAction: "map_as_qualifier_variant",
+    riskLevel: "low",
+    description: "Qualifier text was moved from the field name into structured qualifier metadata.",
+  },
+  {
     ruleId: "range_bound_merge",
     relationType: "qualifier_variant",
     recommendedAction: "map_as_qualifier_variant",

@@ -146,6 +146,13 @@ export interface ConceptResolverDecision {
     valueKind?: string | null;
     scope?: string | null;
     conceptRole?: string | null;
+    qualifier?: unknown;
+    baseFieldName?: string | null;
+    originalFieldName?: string | null;
+    matchedQualifierAlias?: string | null;
+    qualifierKey?: string | null;
+    qualifierKind?: string | null;
+    qualifierRule?: string | null;
   };
   appliedOperation?: unknown;
 }

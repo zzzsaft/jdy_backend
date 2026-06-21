@@ -1,7 +1,51 @@
 import type { DictionaryValueKind } from "../dictionary/dictionary.types.js";
+import type { MaterialPrefixSplitResult } from "../dictionary/dictionary.types.js";
 import type { NormalizedNumberUnit } from "../dictionary/numberUnit.js";
 import type { LlmExtractionResult } from "../extraction/types.js";
 import type { ProductConfigAgentMasterDataMatch } from "../masterData.service.js";
+
+export type DictionaryExtractionQualifierPosition =
+  | "upper_die"
+  | "lower_die"
+  | "pre_pump"
+  | "post_pump"
+  | "pre_mesh"
+  | "post_mesh"
+  | "inlet"
+  | "c_inlet";
+
+export type DictionaryExtractionQualifierArea =
+  | "body"
+  | "lip"
+  | "connector"
+  | "insert_block"
+  | "channel"
+  | "external_surface"
+  | "other"
+  | "die_body"
+  | "side_plate"
+  | "feedblock"
+  | "pump"
+  | "overall";
+
+export interface DictionaryExtractionQualifier {
+  position?: DictionaryExtractionQualifierPosition;
+  area?: DictionaryExtractionQualifierArea;
+  layer?: string;
+  layerIndex?: number;
+  instanceIndex?: number;
+  sourceText?: string;
+}
+
+export interface DictionaryExtractionRoughness {
+  raw: string;
+  grade?: string;
+  bound?: "lt" | "lte" | "gt" | "gte";
+  value?: number;
+  rangeMin?: number;
+  rangeMax?: number;
+  unit?: "μm" | "um";
+}
 
 export interface DictionaryExtractionResult {
   summary: {
@@ -19,6 +63,29 @@ export interface DictionaryExtractionResult {
   warnings: DictionaryExtractionWarning[];
   raw_llm_result: LlmExtractionResult;
   extraction_json: NormalizedExtractionJson;
+  profile?: DictionaryExtractionProfile;
+}
+
+export interface DictionaryExtractionProfile {
+  enabled: true;
+  totalMs: number;
+  generateDictionaryTotalMs?: number;
+  updateExtractionDictionaryMs?: number;
+  updateDocumentStatusMs?: number;
+  dictionaryCacheWarmMs: number;
+  productTypeOptionsMs: number;
+  manualSplitLoadMs: number;
+  manualSplitDeleteMs: number;
+  expandRawFieldMs: number;
+  splitResolutionSaveMs: number;
+  buildFieldMs: number;
+  dictionaryNormalizeMs: number;
+  recordOccurrenceMs: number;
+  masterDataAttributeMatchMs: number;
+  flushAliasUsageStatsMs: number;
+  fieldsBuilt: number;
+  occurrencesRecorded: number;
+  splitResolutionsSaved: number;
 }
 
 export interface NormalizedExtractionJson {
@@ -33,6 +100,7 @@ export interface NormalizedExtractionJson {
     itemProductTypeHintConfidence?: number;
     masterDataMatch?: ProductConfigAgentMasterDataMatch;
     warnings?: DictionaryExtractionWarning[];
+    notes_raw?: DictionaryExtractionNote[];
     fields: Array<{
       field_name: string;
       raw_value: string;
@@ -40,6 +108,10 @@ export interface NormalizedExtractionJson {
       raw_text?: string;
       evidence?: unknown;
       confidence?: number;
+      source?: string;
+      requires_review?: boolean;
+      trust_level?: "low" | "medium" | "high";
+      qualifier?: DictionaryExtractionQualifier;
       dictionary: DictionaryExtractionField["dictionary"];
       candidate?: DictionaryExtractionField["candidate"];
       warnings?: DictionaryExtractionWarning[];
@@ -60,7 +132,18 @@ export interface DictionaryExtractionItem {
   itemProductTypeHintConfidence?: number;
   masterDataMatch?: ProductConfigAgentMasterDataMatch;
   warnings: DictionaryExtractionWarning[];
+  notes_raw?: DictionaryExtractionNote[];
   fields: DictionaryExtractionField[];
+}
+
+export interface DictionaryExtractionNote {
+  field_name: string;
+  raw_value: string;
+  raw_text?: string;
+  evidence?: unknown;
+  item_index?: number;
+  document_id?: string;
+  extraction_result_id?: string;
 }
 
 export interface DictionaryExtractionField {
@@ -70,6 +153,10 @@ export interface DictionaryExtractionField {
   raw_text?: string;
   evidence?: unknown;
   llm_confidence?: number;
+  source?: string;
+  requires_review?: boolean;
+  trust_level?: "low" | "medium" | "high";
+  qualifier?: DictionaryExtractionQualifier;
   dictionary: {
     matched: boolean;
     field_matched: boolean;
@@ -92,6 +179,8 @@ export interface DictionaryExtractionField {
     }>;
     masterDataMatch?: ProductConfigAgentMasterDataMatch;
     number_unit?: NormalizedNumberUnit;
+    material_prefix_split?: MaterialPrefixSplitResult;
+    roughness?: DictionaryExtractionRoughness;
   };
   candidate?: {
     candidate_type: "term_type" | "value" | "unit";

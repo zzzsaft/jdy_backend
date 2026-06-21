@@ -30,6 +30,7 @@ import {
 } from "./conceptResolver.types.js";
 import { ConceptIssueDetectorService } from "./conceptIssueDetector.service.js";
 import { NormalizationRuleRegistry } from "./normalizationRuleRegistry.js";
+import { detectQualifierConcept } from "./qualifierConcept.js";
 import { normalizeText } from "./dictionary.utils.js";
 import { logger } from "../../../config/logger.js";
 import { readBooleanEnv } from "../utils/envParsing.js";
@@ -129,12 +130,48 @@ function objectRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function sourceRawValueFromEvidence(evidence: unknown): string | null {
+function splitSourceEvidenceFrom(evidence: unknown): {
+  sourceRawValue: string | null;
+  splitFromRawValue: string | null;
+} {
   const record = objectRecord(evidence);
   const sourceRawValue = String(record.sourceRawValue ?? "").trim();
-  if (sourceRawValue) return sourceRawValue;
   const splitFromRawValue = String(record.splitFromRawValue ?? "").trim();
-  return splitFromRawValue || null;
+  return {
+    sourceRawValue: sourceRawValue || null,
+    splitFromRawValue: splitFromRawValue || null,
+  };
+}
+
+function qualifierEvidenceFrom(...sources: Array<{
+  fieldName?: string | null;
+  rawValue?: string | null;
+  evidence?: unknown;
+}>): {
+  qualifier?: unknown;
+  baseFieldName?: string | null;
+  originalFieldName?: string | null;
+  sourceText?: string | null;
+  matchedQualifierAlias?: string | null;
+  qualifierKey?: string | null;
+  qualifierKind?: string | null;
+  rule?: string | null;
+} {
+  for (const source of sources) {
+    const concept = detectQualifierConcept(source);
+    if (!concept) continue;
+    return {
+      qualifier: concept.qualifier,
+      baseFieldName: concept.baseFieldName,
+      originalFieldName: concept.originalFieldName,
+      sourceText: concept.qualifier?.sourceText ?? concept.sourceText ?? null,
+      matchedQualifierAlias: concept.matchedQualifierAlias ?? null,
+      qualifierKey: concept.qualifierKey ?? null,
+      qualifierKind: concept.qualifierKind ?? null,
+      rule: concept.rule ?? null,
+    };
+  }
+  return {};
 }
 
 function normalizeBaselineTrustTier(value: unknown): DictionaryBaselineTrustTier {
@@ -179,6 +216,7 @@ export class ConceptResolverService {
   private readonly sameItemTogetherCountCache = new Map<string, Promise<number>>();
   private readonly existingSeparateUsageCountCache = new Map<string, Promise<number>>();
   private readonly historicalHumanReviewCountCache = new Map<string, Promise<number>>();
+  private readonly pendingCandidateRuns = new Set<Promise<void>>();
   private knownPatternKeys: Set<string> | null = null;
   private knownPatternKeysPromise: Promise<Set<string>> | null = null;
 
@@ -205,11 +243,24 @@ export class ConceptResolverService {
         );
       }
     };
-    if (config.mode === "sync") {
-      void run();
-      return;
+    const pending =
+      config.mode === "sync"
+        ? run()
+        : new Promise<void>((resolve) => {
+            setTimeout(() => {
+              void run().finally(resolve);
+            }, 0);
+          });
+    this.pendingCandidateRuns.add(pending);
+    void pending.finally(() => {
+      this.pendingCandidateRuns.delete(pending);
+    });
+  }
+
+  async waitForIdle(): Promise<void> {
+    while (this.pendingCandidateRuns.size > 0) {
+      await Promise.allSettled([...this.pendingCandidateRuns]);
     }
-    setTimeout(() => void run(), 0);
   }
 
   async runResolver(params?: {
@@ -526,7 +577,19 @@ export class ConceptResolverService {
       snapshot,
     );
     const rawTargets = await this.findMatchTargets(loaded, normalized, snapshot);
-    const sourceRawValue = sourceRawValueFromEvidence(loaded.candidate.evidence);
+    const splitSourceEvidence = splitSourceEvidenceFrom(loaded.candidate.evidence);
+    const qualifierEvidence = qualifierEvidenceFrom(
+      {
+        fieldName: rawFieldName,
+        rawValue,
+        evidence: loaded.candidate.evidence,
+      },
+      ...occurrences.map((occurrence) => ({
+        fieldName: occurrence.fieldName,
+        rawValue: occurrence.rawValue,
+        evidence: occurrence.evidence,
+      })),
+    );
     const issues = this.issueDetector.detect({
       candidateType: loaded.candidateType,
       rawFieldName,
@@ -534,13 +597,19 @@ export class ConceptResolverService {
         loaded.candidateType === "term_type" ? loaded.candidate.normalizedFieldName : undefined,
       termType: loaded.candidateType === "value" ? loaded.candidate.termType : undefined,
       rawValue,
-      sourceRawValue,
+      sourceRawValue:
+        splitSourceEvidence.sourceRawValue ??
+        splitSourceEvidence.splitFromRawValue,
+      splitFromRawValue: splitSourceEvidence.splitFromRawValue,
       normalizedRawValue:
         loaded.candidateType === "value" ? loaded.candidate.normalizedRawValue : undefined,
       sourceProductType: loaded.candidate.sourceProductType,
       valueKind: termTypeRecord?.valueKind ?? null,
       scope: termTypeRecord?.scope ?? null,
       ruleSignals,
+      qualifier: qualifierEvidence.qualifier,
+      baseFieldName: qualifierEvidence.baseFieldName,
+      originalFieldName: qualifierEvidence.originalFieldName,
       knownValueAliasTermTypes,
       occurrenceCount: occurrences.length,
       documentCount: new Set(occurrences.map((item) => item.documentId)).size,
@@ -602,7 +671,11 @@ export class ConceptResolverService {
     });
     const patternKey = patternKeyFor({
       candidateType: loaded.candidateType,
-      normalized,
+      normalized:
+        scored.relationType === "qualifier_variant" &&
+        qualifierEvidence.baseFieldName
+          ? normalizeText(qualifierEvidence.baseFieldName)
+          : normalized,
       termType: loaded.candidateType === "value" ? loaded.candidate.termType : null,
       sourceProductType: loaded.candidate.sourceProductType,
       relationType: scored.relationType,
@@ -631,6 +704,13 @@ export class ConceptResolverService {
         valueKind: termTypeRecord?.valueKind ?? null,
         scope: termTypeRecord?.scope ?? null,
         conceptRole: termTypeRecord?.conceptRole ?? null,
+        qualifier: qualifierEvidence.qualifier,
+        baseFieldName: qualifierEvidence.baseFieldName ?? null,
+        originalFieldName: qualifierEvidence.originalFieldName ?? null,
+        matchedQualifierAlias: qualifierEvidence.matchedQualifierAlias ?? null,
+        qualifierKey: qualifierEvidence.qualifierKey ?? null,
+        qualifierKind: qualifierEvidence.qualifierKind ?? null,
+        qualifierRule: qualifierEvidence.rule ?? null,
       },
     };
   }
@@ -664,6 +744,10 @@ export class ConceptResolverService {
       : [];
     return this.routingService.route({
       candidateType: params.loaded.candidateType,
+      termType:
+        params.loaded.candidateType === "value"
+          ? params.loaded.candidate.termType
+          : null,
       topTarget,
       topIssue,
       occurrenceCount: params.occurrenceCount,

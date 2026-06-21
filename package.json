@@ -13,6 +13,8 @@
     "product-config-agent:parse-production-detail-excels": "node --loader ts-node/esm -r dotenv/config src/features/productConfigAgent/scripts/parseProductionDetailExcels.ts",
     "product-config-agent:report-duplicate-production-detail-documents": "node --loader ts-node/esm -r dotenv/config src/features/productConfigAgent/scripts/reportDuplicateProductionDetailDocuments.ts",
     "product-config-agent:apply-duplicate-production-detail-documents": "node --loader ts-node/esm -r dotenv/config src/features/productConfigAgent/scripts/reportDuplicateProductionDetailDocuments.ts --apply",
+    "product-config-agent:concept-resolver-backfill": "node --loader ts-node/esm -r dotenv/config src/features/productConfigAgent/scripts/runConceptResolverBackfill.ts",
+    "product-config-agent:concept-resolver-audit": "node --loader ts-node/esm -r dotenv/config src/features/productConfigAgent/scripts/runConceptResolverDictionaryAudit.ts",
     "product-config-agent:upgrade-excel-blocks-options": "node --loader ts-node/esm -r dotenv/config src/features/productConfigAgent/scripts/upgradeExcelBlocksOptions.ts",
     "start": "npm install && node build/src/index.js",
     "build": "tsc",

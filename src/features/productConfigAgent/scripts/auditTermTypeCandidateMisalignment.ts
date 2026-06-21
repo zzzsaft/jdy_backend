@@ -8,7 +8,10 @@ import {
 import { DictionaryService } from "../dictionary/dictionary.service.js";
 import { normalizeText } from "../dictionary/dictionary.utils.js";
 import { ExtractionResults } from "../extraction/entity/extractionResults.entity.js";
-import { buildItemInputText, type DocumentPlanItem } from "../extraction/twoStage/twoStageExtract.js";
+import {
+  buildItemInputText,
+  type DocumentPlanItem,
+} from "../extraction/twoStage/twoStageExtract.js";
 import { productConfigAgentRepository } from "../db.service.js";
 import { NormalizationRefreshService } from "../normalization/normalizationRefresh.service.js";
 import { isDocInfoFieldName } from "../archive/utils/docInfo.js";
@@ -55,11 +58,7 @@ const HYDRAULIC_STATION_FIELD_PATTERNS = [
   "\u7535\u673a\u7535\u538b",
 ];
 
-const FILTER_FIELD_PATTERNS = [
-  "\u6ee4\u7f51",
-  "\u6362\u7f51",
-  "\u8fc7\u6ee4",
-];
+const FILTER_FIELD_PATTERNS = ["\u6ee4\u7f51", "\u6362\u7f51", "\u8fc7\u6ee4"];
 
 function parseArgs() {
   const args = new Set(process.argv.slice(2));
@@ -93,7 +92,9 @@ function fieldText(candidate: DictionaryTermTypeCandidate): string {
 
 function includesAny(raw: string, patterns: string[]): boolean {
   const normalized = normalizeText(raw);
-  return patterns.some((pattern) => normalized.includes(normalizeText(pattern)));
+  return patterns.some((pattern) =>
+    normalized.includes(normalizeText(pattern))
+  );
 }
 
 function itemProductType(item: any): string {
@@ -104,7 +105,9 @@ function itemName(item: any): string {
   return text(item?.item_name).trim() || text(item?.product_type_raw).trim();
 }
 
-function normalizedItems(extraction: ExtractionResults | null | undefined): any[] {
+function normalizedItems(
+  extraction: ExtractionResults | null | undefined
+): any[] {
   const root = extraction?.normalizedExtractionJson as any;
   return Array.isArray(root?.items) ? root.items : [];
 }
@@ -114,8 +117,8 @@ function rawPlanItems(extraction: ExtractionResults | null | undefined): any[] {
   const items = Array.isArray(root?.items)
     ? root.items
     : Array.isArray(root?.document_plan?.items)
-      ? root.document_plan.items
-      : [];
+    ? root.document_plan.items
+    : [];
   return items;
 }
 
@@ -129,12 +132,15 @@ function findTargetItem(items: any[], targetProductType: string): any | null {
 
 function redirectTarget(
   candidate: DictionaryTermTypeCandidate,
-  extraction: ExtractionResults | null,
+  extraction: ExtractionResults | null
 ): { productType: string; itemIndex: number | null } | null {
   const items = [...normalizedItems(extraction), ...rawPlanItems(extraction)];
   const raw = fieldText(candidate);
 
-  if (candidate.sourceProductType !== "flat_die" && includesAny(raw, DIE_FIELD_PATTERNS)) {
+  if (
+    candidate.sourceProductType !== "flat_die" &&
+    includesAny(raw, DIE_FIELD_PATTERNS)
+  ) {
     const target = findTargetItem(items, "flat_die");
     if (target) {
       return { productType: "flat_die", itemIndex: Number(target.item_index) };
@@ -154,7 +160,10 @@ function redirectTarget(
     }
   }
 
-  if (candidate.sourceProductType !== "filter" && includesAny(raw, FILTER_FIELD_PATTERNS)) {
+  if (
+    candidate.sourceProductType !== "filter" &&
+    includesAny(raw, FILTER_FIELD_PATTERNS)
+  ) {
     const target = findTargetItem(items, "filter");
     if (target) {
       return { productType: "filter", itemIndex: Number(target.item_index) };
@@ -164,7 +173,10 @@ function redirectTarget(
   return null;
 }
 
-function extractLlmText(blocksJson: unknown, extraction: ExtractionResults | null): string {
+function extractLlmText(
+  blocksJson: unknown,
+  extraction: ExtractionResults | null
+): string {
   const blocks = blocksJson as any;
   const extractionJson = extraction?.extractionJson as any;
   for (const candidate of [
@@ -187,7 +199,7 @@ function extractLlmText(blocksJson: unknown, extraction: ExtractionResults | nul
 
 function planItemForCandidate(
   extraction: ExtractionResults | null,
-  candidate: DictionaryTermTypeCandidate,
+  candidate: DictionaryTermTypeCandidate
 ): DocumentPlanItem | null {
   const items = rawPlanItems(extraction);
   const itemIndex = Number(candidate.itemIndex);
@@ -207,10 +219,15 @@ function planItemForCandidate(
 
 function hasCurrentItemBlocksEvidence(
   candidate: DictionaryTermTypeCandidate,
-  occurrences: DictionaryCandidateOccurrence[],
+  occurrences: DictionaryCandidateOccurrence[]
 ): boolean {
-  const values = [candidate.evidence, ...occurrences.map((item) => item.evidence)];
-  return values.some((value) => JSON.stringify(value ?? "").includes("current_item_blocks"));
+  const values = [
+    candidate.evidence,
+    ...occurrences.map((item) => item.evidence),
+  ];
+  return values.some((value) =>
+    JSON.stringify(value ?? "").includes("current_item_blocks")
+  );
 }
 
 function classify(params: {
@@ -220,7 +237,8 @@ function classify(params: {
   occurrences: DictionaryCandidateOccurrence[];
   termTypeByName: Map<string, DictionaryTermType>;
 }): AuditRecord {
-  const { candidate, extraction, blocksJson, occurrences, termTypeByName } = params;
+  const { candidate, extraction, blocksJson, occurrences, termTypeByName } =
+    params;
   const notes: string[] = [];
   const base: AuditRecord = {
     candidateId: candidate.id,
@@ -236,7 +254,10 @@ function classify(params: {
     notes,
   };
 
-  if (isDocInfoFieldName(candidate.rawFieldName) || isDocInfoFieldName(candidate.normalizedFieldName)) {
+  if (
+    isDocInfoFieldName(candidate.rawFieldName) ||
+    isDocInfoFieldName(candidate.normalizedFieldName)
+  ) {
     notes.push("raw field is a document_info key");
     return {
       ...base,
@@ -321,7 +342,9 @@ async function main() {
   await PgDataSource.initialize();
 
   const candidateRepo = PgDataSource.getRepository(DictionaryTermTypeCandidate);
-  const occurrenceRepo = PgDataSource.getRepository(DictionaryCandidateOccurrence);
+  const occurrenceRepo = PgDataSource.getRepository(
+    DictionaryCandidateOccurrence
+  );
   const extractionRepo = PgDataSource.getRepository(ExtractionResults);
   const termTypeRepo = PgDataSource.getRepository(DictionaryTermType);
 
@@ -336,7 +359,7 @@ async function main() {
           .orWhere("candidate.sourceProductType = :unknown", {
             unknown: "unknown",
           });
-      }),
+      })
     )
     .orderBy("candidate.id", "ASC")
     .limit(Number.isFinite(args.limit) && args.limit > 0 ? args.limit : 5000);
@@ -353,14 +376,14 @@ async function main() {
     ...new Set(
       candidates
         .map((candidate) => Number(candidate.extractionResultId))
-        .filter((id) => Number.isFinite(id) && id > 0),
+        .filter((id) => Number.isFinite(id) && id > 0)
     ),
   ];
   const documentIds = [
     ...new Set(
       candidates
         .map((candidate) => Number(candidate.documentId))
-        .filter((id) => Number.isFinite(id) && id > 0),
+        .filter((id) => Number.isFinite(id) && id > 0)
     ),
   ];
 
@@ -370,7 +393,9 @@ async function main() {
           where: { candidateType: "term_type", candidateId: In(candidateIds) },
         })
       : [],
-    extractionIds.length ? extractionRepo.findBy({ id: In(extractionIds) }) : [],
+    extractionIds.length
+      ? extractionRepo.findBy({ id: In(extractionIds) })
+      : [],
     termTypeRepo.find(),
     documentIds.length
       ? PgDataSource.createQueryBuilder()
@@ -382,7 +407,10 @@ async function main() {
       : [],
   ]);
 
-  const occurrencesByCandidate = new Map<string, DictionaryCandidateOccurrence[]>();
+  const occurrencesByCandidate = new Map<
+    string,
+    DictionaryCandidateOccurrence[]
+  >();
   for (const occurrence of occurrences) {
     occurrencesByCandidate.set(occurrence.candidateId, [
       ...(occurrencesByCandidate.get(occurrence.candidateId) ?? []),
@@ -390,15 +418,15 @@ async function main() {
     ]);
   }
   const extractionById = new Map<string, ExtractionResults>(
-    extractions.map((item) => [String(item.id), item] as const),
+    extractions.map((item) => [String(item.id), item] as const)
   );
   const blocksByDocumentId = new Map<string, unknown>(
     blockRows.map(
-      (row: any) => [String(row.documentId), row.blocksJson] as const,
-    ),
+      (row: any) => [String(row.documentId), row.blocksJson] as const
+    )
   );
   const termTypeByName = new Map<string, DictionaryTermType>(
-    termTypes.map((item) => [item.termType, item] as const),
+    termTypes.map((item) => [item.termType, item] as const)
   );
 
   const records = candidates.map((candidate) =>
@@ -412,7 +440,7 @@ async function main() {
         : null,
       occurrences: occurrencesByCandidate.get(candidate.id) ?? [],
       termTypeByName,
-    }),
+    })
   );
 
   const summary = summarize(records);
@@ -423,8 +451,8 @@ async function main() {
         .filter((record) => record.group !== "needs_human_review")
         .slice(0, 100),
       null,
-      2,
-    ),
+      2
+    )
   );
 
   if (!args.apply) {
@@ -433,14 +461,19 @@ async function main() {
 
   const applyTargets = records.filter((record) => {
     if (record.status === "rejected") return false;
-    if (record.group === "doc_info_candidate") return record.status === "pending";
+    if (record.group === "doc_info_candidate")
+      return record.status === "pending";
     if (record.group === "field_redirectable") return true;
     return (
       record.group === "range_misaligned_reextract" &&
       record.reason === "term_type_cross_product_fallback"
     );
   });
-  const applied: Array<{ candidateId: string; status: string; error?: string }> = [];
+  const applied: Array<{
+    candidateId: string;
+    status: string;
+    error?: string;
+  }> = [];
   for (const record of applyTargets) {
     try {
       await candidateRepo.update(record.candidateId, {
@@ -464,11 +497,11 @@ async function main() {
       records
         .filter((record) =>
           ["range_misaligned_reextract", "field_redirectable"].includes(
-            record.group,
-          ),
+            record.group
+          )
         )
         .map((record) => Number(record.extractionResultId))
-        .filter((id) => Number.isFinite(id) && id > 0),
+        .filter((id) => Number.isFinite(id) && id > 0)
     ),
   ];
   const rerunResults: Array<{
@@ -480,7 +513,7 @@ async function main() {
     const refresh = new NormalizationRefreshService(
       PgDataSource,
       productConfigAgentRepository,
-      new DictionaryService(PgDataSource),
+      new DictionaryService(PgDataSource)
     );
     for (const extractionResultId of rerunTargets) {
       try {
@@ -499,17 +532,22 @@ async function main() {
   console.log(
     JSON.stringify(
       {
-        appliedCount: applied.filter((item) => item.status === "rejected").length,
-        applyFailedCount: applied.filter((item) => item.status === "failed").length,
+        appliedCount: applied.filter((item) => item.status === "rejected")
+          .length,
+        applyFailedCount: applied.filter((item) => item.status === "failed")
+          .length,
         applied,
         rerunRequested: args.rerun,
-        rerunCount: rerunResults.filter((item) => item.status === "normalized").length,
-        rerunFailedCount: rerunResults.filter((item) => item.status === "failed").length,
+        rerunCount: rerunResults.filter((item) => item.status === "normalized")
+          .length,
+        rerunFailedCount: rerunResults.filter(
+          (item) => item.status === "failed"
+        ).length,
         rerunResults,
       },
       null,
-      2,
-    ),
+      2
+    )
   );
 }
 

@@ -8,20 +8,22 @@
 node --loader ts-node/esm -r dotenv/config src/features/productConfigAgent/extraction/scripts/runXhLlmExtract.ts
 ```
 
-脚本默认兼容 XH 中转站，会读取 `.env` 中的：
+脚本默认使用 InferAIChat 中转站。InferAIChat 会读取 `.env` 中的：
 
-- `XH_ADDRESS`
-- `XH_AUTH_TOKEN`
-- `XH_MODEL`，可选，默认使用脚本内配置
-
-XH 请求会通过 `Authorization: Bearer <XH_AUTH_TOKEN>` 发送。
+- `ANTHROPIC_AUTH_TOKEN`
+- `INFERAI_MODEL`，可选，默认 `inferaichat:deepseek-v4-flash`
+- `INFERAI_BASE_URL`，可选，默认 `https://inferaichat.com/v1`
 
 也可以用通用中转站配置，后续换中转站优先改这里，不需要改脚本：
 
 - `LLM_GATEWAY=xh | inferaichat`
 - `LLM_MODEL=deepseek-v4-flash`，可选
-- InferAIChat 读取 `ANTHROPIC_AUTH_TOKEN`
-- InferAIChat 地址默认 `https://inferaichat.com/v1`，可用 `INFERAI_BASE_URL` 覆盖
+
+如果临时切回 XH，中转站会读取：
+
+- `XH_ADDRESS`
+- `XH_AUTH_TOKEN`
+- `XH_MODEL`，可选
 
 单次命令也可以用模型前缀覆盖中转站，例如：
 
@@ -196,5 +198,4 @@ node --loader ts-node/esm -r dotenv/config src/features/productConfigAgent/extra
 - `--mode=plan` 不会生成 candidate；`--mode=item`、`--mode=item-batch` 和 `--mode=batch` 会继续走 dictionary normalization，可能生成 candidate。
 - 已经生成过 plan 的 document 默认不会重复 plan，除非加 `--force`。
 - 已经抽过的 item 默认不会重复抽，会根据 `llm_plan_json.items[].extracted_at` 跳过。
-
 

@@ -122,6 +122,115 @@ function testAliasCollisionAndCompositePressure() {
   assert.ok((report?.riskScore ?? 0) >= 15);
 }
 
+function testSlashUnitWhitelistForCompositePressure() {
+  const reports = service.buildReports({
+    termTypes: [
+      termType({
+        termType: "capacity",
+        displayName: "产能",
+        valueKind: "number_unit",
+        applicableProductTypes: ["flat_die"],
+      }),
+      termType({
+        termType: "surface_treatment",
+        displayName: "表面处理",
+        valueKind: "enum",
+        applicableProductTypes: ["flat_die"],
+      }),
+    ],
+    terms: [
+      term({
+        id: "401",
+        termType: "capacity",
+        canonicalValue: "10kg/h",
+      }),
+      term({
+        id: "402",
+        termType: "surface_treatment",
+        canonicalValue: "导电/防静电",
+      }),
+    ],
+    aliases: [],
+    archivedFields: [
+      {
+        termType: "capacity",
+        canonicalValue: "10kg/h",
+        rawValue: "10 kg/h",
+        sourceProductType: "flat_die",
+        valueKind: "number_unit",
+        numberUnit: null,
+      },
+      {
+        termType: "capacity",
+        canonicalValue: "20ml/min",
+        rawValue: "20 ml/min",
+        sourceProductType: "flat_die",
+        valueKind: "number_unit",
+        numberUnit: null,
+      },
+    ],
+    valueCandidatePressure: new Map(),
+    termTypeCandidatePressure: new Map(),
+  } as any, { targetKind: "termType" });
+
+  const capacityReport = reports.find((item) => item.targetId === "capacity");
+  assert.ok(capacityReport);
+  assert.equal(
+    capacityReport?.riskLabels.includes("composite_value_rate"),
+    false,
+  );
+
+  const enumReports = service.buildReports({
+    termTypes: [
+      termType({
+        termType: "surface_treatment",
+        displayName: "表面处理",
+        valueKind: "enum",
+        applicableProductTypes: ["flat_die"],
+      }),
+    ],
+    terms: [
+      term({
+        id: "501",
+        termType: "surface_treatment",
+        canonicalValue: "导电/防静电",
+      }),
+    ],
+    aliases: [],
+    archivedFields: [],
+    valueCandidatePressure: new Map(),
+    termTypeCandidatePressure: new Map(),
+  } as any, { targetKind: "enumValue" });
+  const surfaceReport = enumReports.find((item) => item.targetId === "501");
+  assert.ok(surfaceReport);
+  assert.equal(
+    surfaceReport?.riskLabels.includes("composite_value_rate"),
+    true,
+  );
+}
+
+function testLayerQualifierRisk() {
+  const reports = service.buildReports({
+    termTypes: [
+      termType({
+        termType: "layer_ratio",
+        displayName: "A层比例",
+        valueKind: "text",
+        applicableProductTypes: ["feedblock"],
+      }),
+    ],
+    terms: [],
+    aliases: [],
+    archivedFields: [],
+    valueCandidatePressure: new Map(),
+    termTypeCandidatePressure: new Map(),
+  } as any, { targetKind: "termType" });
+
+  const report = reports.find((item) => item.targetId === "layer_ratio");
+  assert.ok(report);
+  assert.equal(report?.riskLabels.includes("qualifier_risk"), true);
+}
+
 function testEntityTargetsProductConfigAgentSchema() {
   const metadataArgs = getMetadataArgsStorage().tables.find(
     (table) => table.target === DictionaryHealthReport,
@@ -134,6 +243,8 @@ function testEntityTargetsProductConfigAgentSchema() {
 
 testCleanEntryIsLowRisk();
 testAliasCollisionAndCompositePressure();
+testSlashUnitWhitelistForCompositePressure();
+testLayerQualifierRisk();
 testEntityTargetsProductConfigAgentSchema();
 
 console.log("dictionary health audit tests passed");

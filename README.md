@@ -66,8 +66,14 @@ curl -X POST http://<host>:<port>/wechat/sync/users/all
 Product configuration agent architecture and naming rules are documented in
 `src/features/productConfigAgent/README.md`.
 
+The documentation index is `docs/README.md`, and the productConfigAgent
+documentation map is `docs/productConfigAgent/README.md`.
+
 The implementation now lives under `src/features/productConfigAgent`.
 `src/features/quoteAgent` is only a legacy compatibility facade.
+
+Concept Layer candidate resolve commands are documented in
+`docs/productConfigAgent/concept-layer-candidate-resolve.md`.
 
 Normalization rerun commands are documented in
 `src/features/productConfigAgent/scripts/normalization.README.md`.

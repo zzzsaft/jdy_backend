@@ -3,7 +3,7 @@ import type { ProductConfigAgentRepository } from "../db.service.js";
 export const DEFAULT_PARSER_VERSION = "v2";
 export const DEFAULT_PROMPT_VERSION = "v2";
 export const DEFAULT_DICTIONARY_VERSION = 1;
-export const DEFAULT_LLM_MODEL = "gemma4:12b";
+export const DEFAULT_LLM_MODEL = "inferaichat:deepseek-v4-flash";
 export const DEFAULT_PENDING_LLM_BATCH_LIMIT = 500;
 export const DEFAULT_PENDING_LLM_CONCURRENCY = 3;
 export const TWO_STAGE_PROMPT_VERSION = "v3-plan-item-20260616";

@@ -117,6 +117,7 @@ export interface NormalizedFieldResult {
   values?: NormalizedEnumValue[];
   masterDataMatch?: ProductConfigAgentMasterDataMatch;
   numberUnit?: NormalizedNumberUnit;
+  materialPrefixSplit?: MaterialPrefixSplitResult;
   matchMethod?: "alias_exact" | "term_type_only" | "none";
   itemIndex?: number;
   itemProductTypeHint?: string;
@@ -131,6 +132,13 @@ export interface NormalizedFieldResult {
     termType?: string;
     source?: string;
   }>;
+}
+
+export interface MaterialPrefixSplitResult {
+  sourceRawValue: string;
+  matchedMaterialTokens: string[];
+  suffixRawValue?: string;
+  suffixCandidateTermType?: string;
 }
 
 export interface CreateValueCandidateParams {
@@ -173,6 +181,7 @@ export interface NormalizeFieldParams {
   rawValue: string;
   splitRawValues?: string[];
   evidence?: unknown;
+  suppressValueCandidate?: boolean;
 }
 
 export interface MultiValueToken {

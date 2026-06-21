@@ -6,6 +6,7 @@ export {
 export type {
   DictionaryExtractionField,
   DictionaryExtractionItem,
+  DictionaryExtractionProfile,
   DictionaryExtractionResult,
   DictionaryExtractionWarning,
   NormalizedExtractionJson,

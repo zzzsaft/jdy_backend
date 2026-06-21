@@ -40,6 +40,24 @@ const GENERIC_SHARED_VALUES = new Set([
   "不配打",
 ]);
 
+const QUALIFIER_NORMALIZED_TERM_TYPES = new Set([
+  "choker_bar_config",
+  "choker_bar_angle",
+  "heating_rod_config",
+  "heating_rod_angle",
+  "thermocouple_hole",
+  "lip_adjustment_method",
+  "lip_opening",
+  "insert_material",
+  "insert_structure",
+  "insert_surface_roughness",
+  "surface_roughness",
+  "sensor_source",
+  "heating_method",
+  "heating_zone_count",
+  "product_material",
+]);
+
 type DictionaryAuditEntryType =
   | "dictionary_term_type"
   | "dictionary_term"
@@ -218,10 +236,26 @@ function issueFinding(params: {
   evidence: Record<string, unknown>;
   matchedTargets?: ConceptMatchTarget[];
 }): DictionaryAuditFinding | null {
-  if (params.issues.length === 0) return null;
-  const topIssue = params.issues[0];
-  const riskLevel = highestRisk(topIssue.riskLevel, params.issues);
-  const score = clampScore(Math.max(...params.issues.map((issue) => issue.confidence)));
+  const issues = params.issues.filter(
+    (issue) =>
+      !(
+        issue.relationType === "qualifier_variant" &&
+        params.termType &&
+        QUALIFIER_NORMALIZED_TERM_TYPES.has(params.termType)
+      ),
+  );
+  if (issues.length === 0) return null;
+  const topIssue = issues[0];
+  const riskLevel = highestRisk(topIssue.riskLevel, issues);
+  const score = clampScore(Math.max(...issues.map((issue) => issue.confidence)));
+  const issueEvidence =
+    topIssue.evidence && typeof topIssue.evidence === "object" && !Array.isArray(topIssue.evidence)
+      ? (topIssue.evidence as Record<string, unknown>)
+      : {};
+  const patternNormalized =
+    topIssue.relationType === "qualifier_variant" && issueEvidence.baseFieldName
+      ? normalizeText(String(issueEvidence.baseFieldName))
+      : params.normalized;
   return {
     candidateType: params.candidateType,
     candidateId: params.candidateId,
@@ -234,11 +268,11 @@ function issueFinding(params: {
     patternKey: patternKeyFor({
       candidateType: params.candidateType,
       relationType: topIssue.relationType,
-      normalized: params.normalized,
+      normalized: patternNormalized,
       termType: params.termType,
       detector: topIssue.detector,
     }),
-    issues: params.issues,
+    issues,
     matchedTargets: params.matchedTargets ?? [],
     evidence: params.evidence,
   };
@@ -320,60 +354,172 @@ async function saveFindings(params: {
   runId: string;
   dictionaryVersion: number;
   findings: DictionaryAuditFinding[];
-}) {
-  const resolutionRepo = PgDataSource.getRepository(ConceptResolution);
-  const patternRepo = PgDataSource.getRepository(ConceptPatternReview);
+}): Promise<number> {
+  if (params.findings.length === 0) return 0;
 
+  const resolverVersion = `${CONCEPT_RESOLVER_VERSION}:dictionary_audit`;
+  const bestFindingByResolutionKey = new Map<string, DictionaryAuditFinding>();
   for (const finding of params.findings) {
-    const entity = resolutionRepo.create({
-      runId: params.runId,
-      candidateType: finding.candidateType as ConceptCandidateType,
-      candidateId: finding.candidateId,
-      dictionaryVersion: String(params.dictionaryVersion),
-      resolverVersion: `${CONCEPT_RESOLVER_VERSION}:dictionary_audit`,
-      relationType: finding.relationType,
-      recommendedAction: finding.recommendedAction,
-      route: finding.route,
-      score: String(finding.score),
-      riskLevel: finding.riskLevel,
-      patternKey: finding.patternKey,
-      reason: finding.reason,
-      evidenceJsonb: finding.evidence,
-      matchedTargetsJsonb: finding.matchedTargets,
-      issuesJsonb: finding.issues,
-      llmSuggestionId: null,
-      appliedOperationJsonb: null,
-      appliedAt: null,
-    });
-    await resolutionRepo.upsert(entity as any, [
-      "candidateType",
-      "candidateId",
-      "dictionaryVersion",
-      "resolverVersion",
-    ]);
-    await PgDataSource.query(
-      `
-      INSERT INTO quote_agent.concept_pattern_reviews(
-        pattern_key,
-        candidate_type,
-        relation_type,
-        recommended_action,
-        status,
-        review_payload_jsonb,
-        reviewed_by,
-        reviewed_at
-      )
-      VALUES ($1, $2, $3, $4, 'pending', NULL, NULL, NULL)
-      ON CONFLICT(pattern_key) DO NOTHING
-      `,
-      [
-        finding.patternKey,
-        finding.candidateType,
-        finding.relationType,
-        finding.recommendedAction,
-      ],
-    );
+    const key = [
+      finding.candidateType,
+      finding.candidateId,
+      params.dictionaryVersion,
+      resolverVersion,
+    ].join("||");
+    const existing = bestFindingByResolutionKey.get(key);
+    if (
+      !existing ||
+      riskRank(finding.riskLevel) > riskRank(existing.riskLevel) ||
+      (riskRank(finding.riskLevel) === riskRank(existing.riskLevel) &&
+        finding.score > existing.score)
+    ) {
+      bestFindingByResolutionKey.set(key, finding);
+    }
   }
+
+  const resolutionRows = [...bestFindingByResolutionKey.values()].map((finding) => ({
+    run_id: params.runId,
+    candidate_type: finding.candidateType,
+    candidate_id: finding.candidateId,
+    dictionary_version: String(params.dictionaryVersion),
+    resolver_version: resolverVersion,
+    relation_type: finding.relationType,
+    recommended_action: finding.recommendedAction,
+    route: finding.route,
+    score: finding.score,
+    risk_level: finding.riskLevel,
+    pattern_key: finding.patternKey,
+    reason: finding.reason,
+    evidence_jsonb: finding.evidence,
+    matched_targets_jsonb: finding.matchedTargets,
+    issues_jsonb: finding.issues,
+  }));
+  const patternRows = [
+    ...new Map(
+      params.findings.map((finding) => [
+        finding.patternKey,
+        {
+          pattern_key: finding.patternKey,
+          candidate_type: finding.candidateType,
+          relation_type: finding.relationType,
+          recommended_action: finding.recommendedAction,
+        },
+      ]),
+    ).values(),
+  ];
+
+  await PgDataSource.query(
+    `
+    INSERT INTO quote_agent.concept_resolutions(
+      run_id,
+      candidate_type,
+      candidate_id,
+      dictionary_version,
+      resolver_version,
+      relation_type,
+      recommended_action,
+      route,
+      score,
+      risk_level,
+      pattern_key,
+      reason,
+      evidence_jsonb,
+      matched_targets_jsonb,
+      issues_jsonb,
+      llm_suggestion_id,
+      applied_operation_jsonb,
+      applied_at
+    )
+    SELECT
+      source.run_id::bigint,
+      source.candidate_type,
+      source.candidate_id::bigint,
+      source.dictionary_version::bigint,
+      source.resolver_version,
+      source.relation_type,
+      source.recommended_action,
+      source.route,
+      source.score::numeric,
+      source.risk_level,
+      source.pattern_key,
+      source.reason,
+      source.evidence_jsonb,
+      source.matched_targets_jsonb,
+      source.issues_jsonb,
+      NULL,
+      NULL,
+      NULL
+    FROM jsonb_to_recordset($1::jsonb) AS source(
+      run_id text,
+      candidate_type varchar,
+      candidate_id text,
+      dictionary_version text,
+      resolver_version varchar,
+      relation_type varchar,
+      recommended_action varchar,
+      route varchar,
+      score numeric,
+      risk_level varchar,
+      pattern_key text,
+      reason text,
+      evidence_jsonb jsonb,
+      matched_targets_jsonb jsonb,
+      issues_jsonb jsonb
+    )
+    ON CONFLICT ON CONSTRAINT uq_concept_resolution_candidate_version
+    DO UPDATE SET
+      run_id = EXCLUDED.run_id,
+      relation_type = EXCLUDED.relation_type,
+      recommended_action = EXCLUDED.recommended_action,
+      route = EXCLUDED.route,
+      score = EXCLUDED.score,
+      risk_level = EXCLUDED.risk_level,
+      pattern_key = EXCLUDED.pattern_key,
+      reason = EXCLUDED.reason,
+      evidence_jsonb = EXCLUDED.evidence_jsonb,
+      matched_targets_jsonb = EXCLUDED.matched_targets_jsonb,
+      issues_jsonb = EXCLUDED.issues_jsonb,
+      llm_suggestion_id = EXCLUDED.llm_suggestion_id,
+      applied_operation_jsonb = EXCLUDED.applied_operation_jsonb,
+      applied_at = EXCLUDED.applied_at,
+      updated_at = now()
+    `,
+    [JSON.stringify(resolutionRows)],
+  );
+
+  await PgDataSource.query(
+    `
+    INSERT INTO quote_agent.concept_pattern_reviews(
+      pattern_key,
+      candidate_type,
+      relation_type,
+      recommended_action,
+      status,
+      review_payload_jsonb,
+      reviewed_by,
+      reviewed_at
+    )
+    SELECT
+      source.pattern_key,
+      source.candidate_type,
+      source.relation_type,
+      source.recommended_action,
+      'pending',
+      NULL,
+      NULL,
+      NULL
+    FROM jsonb_to_recordset($1::jsonb) AS source(
+      pattern_key text,
+      candidate_type varchar,
+      relation_type varchar,
+      recommended_action varchar
+    )
+    ON CONFLICT(pattern_key) DO NOTHING
+    `,
+    [JSON.stringify(patternRows)],
+  );
+
+  return resolutionRows.length;
 }
 
 async function main() {
@@ -591,7 +737,7 @@ async function main() {
       if (finding) findings.push(finding);
     }
 
-    await saveFindings({
+    const savedFindingCount = await saveFindings({
       runId: run.id,
       dictionaryVersion,
       findings,
@@ -646,6 +792,7 @@ async function main() {
         termTypeAliases: termTypeAliases.length,
       },
       findingCount: findings.length,
+      savedFindingCount,
       relationSummary,
       samples,
     };
@@ -659,6 +806,7 @@ async function main() {
           elapsedMs: Date.now() - startedAt,
           dictionaryVersion,
           findingCount: findings.length,
+          savedFindingCount,
           relationSummary,
           samples,
         },

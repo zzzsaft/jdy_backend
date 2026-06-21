@@ -8,6 +8,7 @@ import {
   sourceForModelTermType,
   type ProductConfigAgentModelTermType,
 } from "../masterData.service.js";
+import { detectQualifierConcept } from "../dictionary/qualifierConcept.js";
 import type {
   LlmExtractionItem,
   LlmExtractionResult,
@@ -29,19 +30,30 @@ import {
 import type {
   DictionaryExtractionField,
   DictionaryExtractionItem,
+  DictionaryExtractionProfile,
   DictionaryExtractionResult,
   DictionaryExtractionWarning,
 } from "./types.js";
 import { createWarning, mapDictionaryWarnings } from "./warnings.js";
 import {
   applyStructuredFieldLabels,
+  applyQualifier,
+  applyRoughness,
+  applyVoltageComposite,
+  createExtractionNote,
+  expandBothMoldQualifier,
   getRawFieldProductTypeRedirect,
+  isCustomerNoteFieldName,
   mergeNumberUnitPartFields,
   mergeRangeBoundFields,
+  normalizeStandaloneVoltagePart,
   moveRawFieldToDocumentInfo,
   parseIndexedInstanceFieldName,
   parseNumberUnitPartFieldName,
   parseRangeBoundFieldName,
+  reparseCustomerNote,
+  splitThermocoupleAndPressureHoleField,
+  splitLayerConfigCompositeField,
   splitFieldToSelectionAwareRawField,
 } from "./rules/index.js";
 import { NormalizationRuleRegistry } from "../dictionary/normalizationRuleRegistry.js";
@@ -54,6 +66,112 @@ type IndexedInstanceGroup = {
     instanceIndex: number;
   }>;
 };
+
+type OccurrenceBufferRow = {
+  candidateType: "term_type" | "value";
+  candidateId: string;
+  documentId: string;
+  extractionResultId: string;
+  itemIndex: number;
+  sourceProductType: string;
+  fieldName: string;
+  rawValue: string | null;
+  evidence: unknown | null;
+};
+
+type SplitResolutionBufferRow = {
+  documentId: string;
+  extractionResultId: string;
+  itemIndex: number;
+  rawFieldName: string;
+  rawValue: string;
+  rawText: string | null;
+  splitFields: LlmRawField[];
+  evidence: unknown | null;
+  source: "llm_extract";
+};
+
+type NormalizationProfileAccumulator = Omit<
+  DictionaryExtractionProfile,
+  "enabled" | "totalMs"
+> & {
+  enabled: boolean;
+  startedAt: number;
+};
+
+function createNormalizationProfile(): NormalizationProfileAccumulator {
+  return {
+    enabled: isNormalizationProfileEnabled(),
+    startedAt: Date.now(),
+    dictionaryCacheWarmMs: 0,
+    productTypeOptionsMs: 0,
+    manualSplitLoadMs: 0,
+    manualSplitDeleteMs: 0,
+    expandRawFieldMs: 0,
+    splitResolutionSaveMs: 0,
+    buildFieldMs: 0,
+    dictionaryNormalizeMs: 0,
+    recordOccurrenceMs: 0,
+    masterDataAttributeMatchMs: 0,
+    flushAliasUsageStatsMs: 0,
+    fieldsBuilt: 0,
+    occurrencesRecorded: 0,
+    splitResolutionsSaved: 0,
+  };
+}
+
+function disabledNormalizationProfile(): NormalizationProfileAccumulator {
+  return {
+    ...createNormalizationProfile(),
+    enabled: false,
+  };
+}
+
+function isNormalizationProfileEnabled(): boolean {
+  const raw = process.env.QUOTE_AGENT_NORMALIZE_PROFILE;
+  return raw === "1" || raw?.toLowerCase() === "true";
+}
+
+async function measureProfile<T>(
+  profile: NormalizationProfileAccumulator,
+  key: keyof Omit<
+    DictionaryExtractionProfile,
+    "enabled" | "totalMs" | "fieldsBuilt" | "occurrencesRecorded" | "splitResolutionsSaved"
+  >,
+  fn: () => Promise<T>,
+): Promise<T> {
+  if (!profile.enabled) return fn();
+  const startedAt = Date.now();
+  try {
+    return await fn();
+  } finally {
+    profile[key] += Date.now() - startedAt;
+  }
+}
+
+function finalizeProfile(
+  profile: NormalizationProfileAccumulator,
+): DictionaryExtractionProfile | undefined {
+  if (!profile.enabled) return undefined;
+  return {
+    enabled: true,
+    totalMs: Date.now() - profile.startedAt,
+    dictionaryCacheWarmMs: profile.dictionaryCacheWarmMs,
+    productTypeOptionsMs: profile.productTypeOptionsMs,
+    manualSplitLoadMs: profile.manualSplitLoadMs,
+    manualSplitDeleteMs: profile.manualSplitDeleteMs,
+    expandRawFieldMs: profile.expandRawFieldMs,
+    splitResolutionSaveMs: profile.splitResolutionSaveMs,
+    buildFieldMs: profile.buildFieldMs,
+    dictionaryNormalizeMs: profile.dictionaryNormalizeMs,
+    recordOccurrenceMs: profile.recordOccurrenceMs,
+    masterDataAttributeMatchMs: profile.masterDataAttributeMatchMs,
+    flushAliasUsageStatsMs: profile.flushAliasUsageStatsMs,
+    fieldsBuilt: profile.fieldsBuilt,
+    occurrencesRecorded: profile.occurrencesRecorded,
+    splitResolutionsSaved: profile.splitResolutionsSaved,
+  };
+}
 
 const MODEL_TERM_TYPE_FIELD_NAMES: Record<ProductConfigAgentModelTermType, string> = {
   filter_model: "\u8fc7\u6ee4\u5668\u578b\u53f7",
@@ -168,6 +286,7 @@ function rawFieldFromSplitField(
     raw_text: splitField.raw_text ?? rawField.raw_text,
     evidence: splitField.evidence ?? rawField.evidence,
     confidence: splitField.confidence ?? rawField.confidence,
+    qualifier: splitField.qualifier ?? rawField.qualifier,
   };
 }
 
@@ -186,8 +305,8 @@ function normalizeContextualLipGapRawField(params: {
     return params.rawField;
   }
 
-  const setName = parseLipSetName(fieldName) ?? parseLipSetName(rawValue);
-  if (!setName) {
+  const lipSet = parseLipSetInstance(fieldName) ?? parseLipSetInstance(rawValue);
+  if (!lipSet) {
     return params.rawField;
   }
 
@@ -202,8 +321,14 @@ function normalizeContextualLipGapRawField(params: {
 
   return {
     ...params.rawField,
-    field_name: `${setName}模唇厚度`,
+    field_name: "模唇厚度",
     value: extractLipGapValue(rawValue) ?? rawValue,
+    qualifier: {
+      area: "lip",
+      instanceIndex: lipSet.instanceIndex,
+      sourceText: params.rawField.qualifier?.sourceText ?? lipSet.sourceText,
+      ...params.rawField.qualifier,
+    },
     evidence: NormalizationRuleRegistry.mergeSignalsIntoEvidence(
       params.rawField.evidence,
       [
@@ -214,8 +339,13 @@ function normalizeContextualLipGapRawField(params: {
             value: rawValue,
           },
           after: {
-            fieldName: `${setName}模唇厚度`,
+            fieldName: "模唇厚度",
             value: extractLipGapValue(rawValue) ?? rawValue,
+            qualifier: {
+              area: "lip",
+              instanceIndex: lipSet.instanceIndex,
+              sourceText: lipSet.sourceText,
+            },
           },
         }),
       ],
@@ -223,13 +353,45 @@ function normalizeContextualLipGapRawField(params: {
   };
 }
 
-function parseLipSetName(value: string): string | null {
+function parseLipSetInstance(value: string): {
+  instanceIndex: number;
+  sourceText: string;
+} | null {
   const compact = String(value ?? "").replace(/\s+/g, "");
   const match = compact.match(/(第?[一二三四五六七八九十0-9]+)(?:套|Sheet)/i);
   if (!match) {
     return null;
   }
-  return `${match[1].startsWith("第") ? match[1] : `第${match[1]}`}套`;
+  const instanceIndex = parseChineseInteger(match[1].replace(/^第/, ""));
+  if (!instanceIndex) {
+    return null;
+  }
+  return {
+    instanceIndex,
+    sourceText: match[0],
+  };
+}
+
+function parseChineseInteger(value: string): number | undefined {
+  if (/^\d+$/.test(value)) return Number(value);
+  const digits: Record<string, number> = {
+    一: 1,
+    二: 2,
+    三: 3,
+    四: 4,
+    五: 5,
+    六: 6,
+    七: 7,
+    八: 8,
+    九: 9,
+    十: 10,
+  };
+  if (value === "十") return 10;
+  if (value.includes("十")) {
+    const [tens, ones] = value.split("十");
+    return (tens ? digits[tens] ?? 1 : 1) * 10 + (ones ? digits[ones] ?? 0 : 0);
+  }
+  return digits[value];
 }
 
 function extractLipGapValue(value: string): string | null {
@@ -266,6 +428,154 @@ function itemHasLipGapContext(rawFields: LlmRawField[]): boolean {
   }
 
   return /模唇/.test(context) && /第?[一二三四五六七八九十0-9]+套|配[0-9一二三四五六七八九十]+根|开口/.test(context);
+}
+
+function appendCustomerNote(
+  documentInfo: Record<string, unknown>,
+  note: NonNullable<DictionaryExtractionItem["notes_raw"]>[number],
+): void {
+  const existing = Array.isArray(documentInfo.customer_notes)
+    ? documentInfo.customer_notes
+    : [];
+  documentInfo.customer_notes = [...existing, note];
+}
+
+function resolveCustomerNoteFieldConflicts(params: {
+  fields: DictionaryExtractionField[];
+  itemIndex: number;
+  warnings: DictionaryExtractionWarning[];
+}): DictionaryExtractionField[] {
+  const mainFields = params.fields.filter(
+    (field) => field.source !== "customer_note_reparse",
+  );
+  const result: DictionaryExtractionField[] = [];
+
+  for (const field of params.fields) {
+    if (field.source !== "customer_note_reparse") {
+      result.push(field);
+      continue;
+    }
+
+    const conflictingField = mainFields.find(
+      (mainField) =>
+        mainField.dictionary.term_type &&
+        mainField.dictionary.term_type === field.dictionary.term_type &&
+        (mainField.qualifier?.position ?? "") ===
+          (field.qualifier?.position ?? "") &&
+        (mainField.qualifier?.area ?? "") === (field.qualifier?.area ?? "") &&
+        (mainField.qualifier?.layer ?? "") === (field.qualifier?.layer ?? "") &&
+        (mainField.qualifier?.layerIndex ?? "") ===
+          (field.qualifier?.layerIndex ?? "") &&
+        (mainField.qualifier?.instanceIndex ?? "") ===
+          (field.qualifier?.instanceIndex ?? "") &&
+        comparableValue(mainField) !== comparableValue(field),
+    );
+    if (!conflictingField) {
+      result.push(field);
+      continue;
+    }
+
+    const warning: DictionaryExtractionWarning = {
+      type: "customer_note_config_conflict",
+      message: "备注中发现的疑似配置与主配置字段冲突，已保留主配置字段",
+      item_index: params.itemIndex,
+      field_name: field.field_name,
+      raw_value: field.raw_value,
+      term_type: field.dictionary.term_type,
+      source: "customer_note_reparse",
+      evidence: {
+        noteField: {
+          fieldName: field.field_name,
+          rawValue: field.raw_value,
+          qualifier: field.qualifier,
+        },
+        mainField: {
+          fieldName: conflictingField.field_name,
+          rawValue: conflictingField.raw_value,
+          qualifier: conflictingField.qualifier,
+        },
+      },
+    };
+    field.warnings.push(warning);
+    params.warnings.push(warning);
+  }
+
+  return result;
+}
+
+function comparableValue(field: DictionaryExtractionField): string {
+  return String(
+    field.dictionary.canonical_value ??
+      field.dictionary.normalized_value ??
+      field.raw_value ??
+      "",
+  )
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeQualifierRawField(rawField: LlmRawField): LlmRawField {
+  const qualifierConcept = detectQualifierConcept({
+    fieldName: rawField.field_name,
+    rawValue: rawField.value,
+    evidence: rawField.evidence,
+  });
+  if (
+    !qualifierConcept ||
+    !qualifierConcept.qualifier ||
+    !qualifierConcept.baseFieldName ||
+    qualifierConcept.baseFieldName === rawField.field_name
+  ) {
+    return rawField;
+  }
+
+  return {
+    ...rawField,
+    field_name: qualifierConcept.baseFieldName,
+    qualifier: {
+      ...qualifierConcept.qualifier,
+      ...rawField.qualifier,
+      sourceText:
+        rawField.qualifier?.sourceText ??
+        qualifierConcept.qualifier.sourceText ??
+        qualifierConcept.sourceText,
+    },
+    evidence: NormalizationRuleRegistry.mergeSignalsIntoEvidence(
+      {
+        ...(rawField.evidence && typeof rawField.evidence === "object" && !Array.isArray(rawField.evidence)
+          ? (rawField.evidence as Record<string, unknown>)
+          : rawField.evidence === undefined || rawField.evidence === null
+            ? {}
+            : { sourceEvidence: rawField.evidence }),
+        originalFieldName: rawField.field_name,
+        baseFieldName: qualifierConcept.baseFieldName,
+        matchedQualifierAlias: qualifierConcept.matchedQualifierAlias,
+        qualifierKey: qualifierConcept.qualifierKey,
+        qualifierKind: qualifierConcept.qualifierKind,
+        qualifierRule: qualifierConcept.rule,
+        rule: qualifierConcept.rule,
+        qualifier: {
+          ...qualifierConcept.qualifier,
+          ...rawField.qualifier,
+        },
+        qualifierSourceText:
+          qualifierConcept.qualifier.sourceText ?? qualifierConcept.sourceText,
+      },
+      [
+        NormalizationRuleRegistry.signal("structured_qualifier_normalized", {
+          confidence: 0.86,
+          before: { fieldName: rawField.field_name },
+          after: {
+            fieldName: qualifierConcept.baseFieldName,
+            qualifier: {
+              ...qualifierConcept.qualifier,
+              ...rawField.qualifier,
+            },
+          },
+        }),
+      ],
+    ),
+  };
 }
 
 function distributeUngroupedFields(params: {
@@ -448,6 +758,17 @@ export class ExtractionNormalizationService {
     documentId?: string | number;
     extractionResultId?: string | number;
   }): Promise<DictionaryExtractionResult> {
+    const profile = createNormalizationProfile();
+    const occurrenceBuffer = new Map<string, OccurrenceBufferRow>();
+    const splitResolutionBuffer: SplitResolutionBufferRow[] = [];
+    const dictionaryCacheReady = measureProfile(
+      profile,
+      "dictionaryCacheWarmMs",
+      () =>
+        typeof this.dictionaryService.ensureCacheFresh === "function"
+          ? this.dictionaryService.ensureCacheFresh()
+          : Promise.resolve(),
+    );
     const items: DictionaryExtractionItem[] = [];
     const warnings: DictionaryExtractionWarning[] = [];
     let rawFieldCount = 0;
@@ -461,8 +782,12 @@ export class ExtractionNormalizationService {
     );
     const manualSplitMap = new Map<string, LlmRawField["split_fields"]>();
     const manualSplitValueKeys = new Set<string>();
-    const productTypeOptions =
-      await this.dictionaryService.getProductTypeOptions();
+    const productTypeOptions = await measureProfile(
+      profile,
+      "productTypeOptionsMs",
+      () => this.dictionaryService.getProductTypeOptions(),
+    );
+    await dictionaryCacheReady;
     const productTypeMap = new Map(
       productTypeOptions.map((item) => [item.canonicalValue, item]),
     );
@@ -491,9 +816,11 @@ export class ExtractionNormalizationService {
     if (params.documentId && params.extractionResultId) {
       const splitResolutionRepo = this.dataSource.getRepository(SplitResolution);
       const extractionResultId = stringifyOptionalId(params.extractionResultId);
-      const manualSplits = await splitResolutionRepo.find({
-        where: { extractionResultId, source: "candidate_review" },
-      });
+      const manualSplits = await measureProfile(profile, "manualSplitLoadMs", () =>
+        splitResolutionRepo.find({
+          where: { extractionResultId, source: "candidate_review" },
+        }),
+      );
       for (const split of manualSplits) {
         manualSplitMap.set(
           manualSplitKey({
@@ -512,10 +839,12 @@ export class ExtractionNormalizationService {
           }),
         );
       }
-      await splitResolutionRepo.delete({
-        extractionResultId,
-        source: "llm_extract",
-      });
+      await measureProfile(profile, "manualSplitDeleteMs", () =>
+        splitResolutionRepo.delete({
+          extractionResultId,
+          source: "llm_extract",
+        }),
+      );
     }
 
     for (const { item, route } of itemRoutes) {
@@ -523,6 +852,7 @@ export class ExtractionNormalizationService {
       rawFieldCount += item.raw_fields.length;
       const fields: DictionaryExtractionField[] =
         pendingRedirectedFields.get(item.item_index) ?? [];
+      const notesRaw: DictionaryExtractionItem["notes_raw"] = [];
       pendingRedirectedFields.delete(item.item_index);
       const rewrittenRawFields: LlmRawField[] = [];
 
@@ -532,6 +862,45 @@ export class ExtractionNormalizationService {
           itemRawFields: item.raw_fields,
           itemProductTypeHint: route.itemProductTypeHint,
         });
+
+        if (isCustomerNoteFieldName(rawField.field_name)) {
+          const note = createExtractionNote({
+            rawField,
+            itemIndex: item.item_index,
+            documentId: stringifyOptionalId(params.documentId),
+            extractionResultId: stringifyOptionalId(params.extractionResultId),
+          });
+          notesRaw.push(note);
+          appendCustomerNote(documentInfo, note);
+          const reparsedFields = reparseCustomerNote(rawField);
+          rewrittenRawFields.push(rawField, ...reparsedFields);
+          for (const reparsedField of reparsedFields) {
+            const builtFields = await this.buildFieldWithDerivedFields({
+              rawField: reparsedField,
+              itemIndex: item.item_index,
+              itemProductTypeHint: route.itemProductTypeHint,
+              documentId: stringifyOptionalId(params.documentId),
+              extractionResultId: stringifyOptionalId(params.extractionResultId),
+              source: "customer_note_reparse",
+              requiresReview: true,
+              trustLevel: reparsedField.confidence >= 0.7 ? "medium" : "low",
+              suppressValueCandidate: true,
+              profile,
+              occurrenceBuffer,
+            });
+            for (const field of builtFields) {
+              if (field.dictionary.matched) {
+                dictionaryMatchedCount += 1;
+              }
+              if (field.candidate?.candidate_type === "term_type") {
+                termTypeCandidateCount += 1;
+              }
+              warnings.push(...field.warnings);
+              fields.push(field);
+            }
+          }
+          continue;
+        }
 
         if (moveRawFieldToDocumentInfo(documentInfo, rawField)) {
           continue;
@@ -578,16 +947,22 @@ export class ExtractionNormalizationService {
           manualSplitFields && manualSplitFields.length > 0
             ? { ...rawField, split_fields: manualSplitFields }
             : rawField;
-        const rawFieldsToNormalize = await this.expandRawField({
-          rawField: rawFieldWithManualSplit,
-          itemRawFields: item.raw_fields,
-          itemProductTypeHint: route.itemProductTypeHint,
-          itemIndex: item.item_index,
-          documentId: stringifyOptionalId(params.documentId),
-          extractionResultId: stringifyOptionalId(params.extractionResultId),
-          fields,
-          warnings,
-        });
+        const rawFieldsToNormalize = await measureProfile(
+          profile,
+          "expandRawFieldMs",
+          () => this.expandRawField({
+            rawField: rawFieldWithManualSplit,
+            itemRawFields: item.raw_fields,
+            itemProductTypeHint: route.itemProductTypeHint,
+            itemIndex: item.item_index,
+            documentId: stringifyOptionalId(params.documentId),
+            extractionResultId: stringifyOptionalId(params.extractionResultId),
+            fields,
+            warnings,
+            profile,
+            splitResolutionBuffer,
+          }),
+        );
         splitResolutionCount += rawFieldsToNormalize.splitResolutionCount;
         rewrittenRawFields.push(...rawFieldsToNormalize.rewrittenRawFields);
 
@@ -601,21 +976,25 @@ export class ExtractionNormalizationService {
           );
           const nestedRawFieldsToNormalize =
             nestedManualSplitFields && nestedManualSplitFields.length > 0
-              ? await this.expandRawField({
-                  rawField: {
-                    ...normalizedRawField,
-                    split_fields: nestedManualSplitFields,
-                  },
-                  itemRawFields: item.raw_fields,
-                  itemProductTypeHint: route.itemProductTypeHint,
-                  itemIndex: item.item_index,
-                  documentId: stringifyOptionalId(params.documentId),
-                  extractionResultId: stringifyOptionalId(
-                    params.extractionResultId,
-                  ),
-                  fields,
-                  warnings,
-                })
+              ? await measureProfile(profile, "expandRawFieldMs", () =>
+                  this.expandRawField({
+                    rawField: {
+                      ...normalizedRawField,
+                      split_fields: nestedManualSplitFields,
+                    },
+                    itemRawFields: item.raw_fields,
+                    itemProductTypeHint: route.itemProductTypeHint,
+                    itemIndex: item.item_index,
+                    documentId: stringifyOptionalId(params.documentId),
+                    extractionResultId: stringifyOptionalId(
+                      params.extractionResultId,
+                    ),
+                    fields,
+                    warnings,
+                    profile,
+                    splitResolutionBuffer,
+                  }),
+                )
               : null;
           if (nestedRawFieldsToNormalize) {
             splitResolutionCount += nestedRawFieldsToNormalize.splitResolutionCount;
@@ -625,6 +1004,45 @@ export class ExtractionNormalizationService {
           const fieldsToBuild =
             nestedRawFieldsToNormalize?.fieldsToNormalize ?? [normalizedRawField];
           for (const fieldToBuild of fieldsToBuild) {
+            if (isCustomerNoteFieldName(fieldToBuild.field_name)) {
+              const note = createExtractionNote({
+                rawField: fieldToBuild,
+                itemIndex: item.item_index,
+                documentId: stringifyOptionalId(params.documentId),
+                extractionResultId: stringifyOptionalId(params.extractionResultId),
+              });
+              notesRaw.push(note);
+              appendCustomerNote(documentInfo, note);
+              const reparsedFields = reparseCustomerNote(fieldToBuild);
+              rewrittenRawFields.push(...reparsedFields);
+              for (const reparsedField of reparsedFields) {
+                const builtFields = await this.buildFieldWithDerivedFields({
+                  rawField: reparsedField,
+                  itemIndex: item.item_index,
+                  itemProductTypeHint: route.itemProductTypeHint,
+                  documentId: stringifyOptionalId(params.documentId),
+                  extractionResultId: stringifyOptionalId(params.extractionResultId),
+                  source: "customer_note_reparse",
+                  requiresReview: true,
+                  trustLevel: reparsedField.confidence >= 0.7 ? "medium" : "low",
+                  suppressValueCandidate: true,
+                  profile,
+                  occurrenceBuffer,
+                });
+                for (const field of builtFields) {
+                  if (field.dictionary.matched) {
+                    dictionaryMatchedCount += 1;
+                  }
+                  if (field.candidate?.candidate_type === "term_type") {
+                    termTypeCandidateCount += 1;
+                  }
+                  warnings.push(...field.warnings);
+                  fields.push(field);
+                }
+              }
+              continue;
+            }
+
             if (moveRawFieldToDocumentInfo(documentInfo, fieldToBuild)) {
               continue;
             }
@@ -636,7 +1054,7 @@ export class ExtractionNormalizationService {
               flatDieRoute,
               hydraulicStationRoute,
             });
-            const field = await this.buildField({
+            const builtFields = await this.buildFieldWithDerivedFields({
               rawField: fieldToBuild,
               itemIndex: redirectRoute?.item.item_index ?? item.item_index,
               itemProductTypeHint:
@@ -644,63 +1062,67 @@ export class ExtractionNormalizationService {
                 route.itemProductTypeHint,
               documentId: stringifyOptionalId(params.documentId),
               extractionResultId: stringifyOptionalId(params.extractionResultId),
+              profile,
+              occurrenceBuffer,
             });
 
-            if (field.dictionary.matched) {
-              dictionaryMatchedCount += 1;
-            }
-
-            if (field.candidate?.candidate_type === "value") {
-              valueCandidateCount += 1;
-            }
-
-            if (field.candidate?.candidate_type === "term_type") {
-              termTypeCandidateCount += 1;
-            }
-
-            warnings.push(...field.warnings);
-            if (redirectRoute) {
-              field.evidence = NormalizationRuleRegistry.mergeSignalsIntoEvidence(
-                field.evidence,
-                [
-                  NormalizationRuleRegistry.signal("product_type_redirect", {
-                    confidence: 0.85,
-                    before: {
-                      itemIndex: item.item_index,
-                      productType: route.itemProductTypeHint,
-                    },
-                    after: {
-                      itemIndex: redirectRoute.item.item_index,
-                      productType: redirectRoute.route.itemProductTypeHint,
-                    },
-                  }),
-                ],
-              );
-              const redirectWarning = createWarning({
-                type: "field_product_type_redirected",
-                message:
-                  "字段名指向其它产品配置，已从当前 item 归入同一 extraction 中更匹配的 item",
-                itemIndex: item.item_index,
-                fieldName: fieldToBuild.field_name,
-                rawValue: fieldToBuild.value,
-                evidence: fieldToBuild.evidence,
-              });
-              field.warnings.push(redirectWarning);
-              warnings.push(redirectWarning);
-              if (itemsByIndex.has(redirectRoute.item.item_index)) {
-                itemsByIndex.get(redirectRoute.item.item_index)?.fields.push(field);
-              } else {
-                const redirectedFields =
-                  pendingRedirectedFields.get(redirectRoute.item.item_index) ??
-                  [];
-                redirectedFields.push(field);
-                pendingRedirectedFields.set(
-                  redirectRoute.item.item_index,
-                  redirectedFields,
-                );
+            for (const field of builtFields) {
+              if (field.dictionary.matched) {
+                dictionaryMatchedCount += 1;
               }
-            } else {
-              fields.push(field);
+
+              if (field.candidate?.candidate_type === "value") {
+                valueCandidateCount += 1;
+              }
+
+              if (field.candidate?.candidate_type === "term_type") {
+                termTypeCandidateCount += 1;
+              }
+
+              warnings.push(...field.warnings);
+              if (redirectRoute) {
+                field.evidence = NormalizationRuleRegistry.mergeSignalsIntoEvidence(
+                  field.evidence,
+                  [
+                    NormalizationRuleRegistry.signal("product_type_redirect", {
+                      confidence: 0.85,
+                      before: {
+                        itemIndex: item.item_index,
+                        productType: route.itemProductTypeHint,
+                      },
+                      after: {
+                        itemIndex: redirectRoute.item.item_index,
+                        productType: redirectRoute.route.itemProductTypeHint,
+                      },
+                    }),
+                  ],
+                );
+                const redirectWarning = createWarning({
+                  type: "field_product_type_redirected",
+                  message:
+                    "字段名指向其它产品配置，已从当前 item 归入同一 extraction 中更匹配的 item",
+                  itemIndex: item.item_index,
+                  fieldName: fieldToBuild.field_name,
+                  rawValue: fieldToBuild.value,
+                  evidence: fieldToBuild.evidence,
+                });
+                field.warnings.push(redirectWarning);
+                warnings.push(redirectWarning);
+                if (itemsByIndex.has(redirectRoute.item.item_index)) {
+                  itemsByIndex.get(redirectRoute.item.item_index)?.fields.push(field);
+                } else {
+                  const redirectedFields =
+                    pendingRedirectedFields.get(redirectRoute.item.item_index) ??
+                    [];
+                  redirectedFields.push(field);
+                  pendingRedirectedFields.set(
+                    redirectRoute.item.item_index,
+                    redirectedFields,
+                  );
+                }
+              } else {
+                fields.push(field);
+              }
             }
           }
         }
@@ -722,10 +1144,18 @@ export class ExtractionNormalizationService {
         itemProductTypeHintDisplayName: route.displayName,
         itemProductTypeHintConfidence: route.confidence,
         warnings: route.warnings,
-        fields: mergedFields,
+        notes_raw: notesRaw.length ? notesRaw : undefined,
+        fields: resolveCustomerNoteFieldConflicts({
+          fields: mergedFields,
+          itemIndex: item.item_index,
+          warnings,
+        }),
       };
-      const masterDataAttributeMatchResult =
-        await this.applyMasterDataAttributeMatch(normalizedItem);
+      const masterDataAttributeMatchResult = await measureProfile(
+        profile,
+        "masterDataAttributeMatchMs",
+        () => this.applyMasterDataAttributeMatch(normalizedItem),
+      );
       dictionaryMatchedCount +=
         masterDataAttributeMatchResult.dictionaryMatchedCountDelta;
       warnings.push(...masterDataAttributeMatchResult.warnings);
@@ -741,7 +1171,11 @@ export class ExtractionNormalizationService {
       }),
     );
     warnings.push(...llmWarnings);
-    await this.dictionaryService.flushAliasUsageStats();
+    await this.flushSplitResolutionBuffer(splitResolutionBuffer, profile);
+    await this.flushOccurrenceBuffer(occurrenceBuffer, profile);
+    await measureProfile(profile, "flushAliasUsageStatsMs", () =>
+      this.dictionaryService.flushAliasUsageStats(),
+    );
 
     return {
       summary: {
@@ -758,6 +1192,7 @@ export class ExtractionNormalizationService {
       items,
       warnings,
       raw_llm_result: params.llmResult,
+      profile: finalizeProfile(profile),
       extraction_json: {
         document_info: documentInfo,
         items: items.map((item) => ({
@@ -770,6 +1205,7 @@ export class ExtractionNormalizationService {
           itemProductTypeHintConfidence: item.itemProductTypeHintConfidence,
           masterDataMatch: item.masterDataMatch,
           warnings: item.warnings,
+          notes_raw: item.notes_raw,
           fields: item.fields.map((field) => ({
             field_name: field.field_name,
             raw_value: field.raw_value,
@@ -777,6 +1213,10 @@ export class ExtractionNormalizationService {
             raw_text: field.raw_text,
             evidence: field.evidence,
             confidence: field.llm_confidence,
+            source: field.source,
+            requires_review: field.requires_review,
+            trust_level: field.trust_level,
+            qualifier: field.qualifier,
             dictionary: field.dictionary,
             candidate: field.candidate,
             warnings: field.warnings,
@@ -808,11 +1248,39 @@ export class ExtractionNormalizationService {
     extractionResultId?: string;
     fields: DictionaryExtractionField[];
     warnings: DictionaryExtractionWarning[];
+    profile?: NormalizationProfileAccumulator;
+    splitResolutionBuffer?: SplitResolutionBufferRow[];
   }): Promise<{
     fieldsToNormalize: LlmRawField[];
     rewrittenRawFields: LlmRawField[];
     splitResolutionCount: number;
   }> {
+    const layerSplitFields = hasSplitFields(params.rawField)
+      ? []
+      : splitLayerConfigCompositeField(params.rawField);
+    if (layerSplitFields.length > 0) {
+      return this.expandRawField({
+        ...params,
+        rawField: {
+          ...params.rawField,
+          split_fields: layerSplitFields,
+        },
+      });
+    }
+
+    const holeSplitFields = hasSplitFields(params.rawField)
+      ? []
+      : splitThermocoupleAndPressureHoleField(params.rawField);
+    if (holeSplitFields.length > 0) {
+      return this.expandRawField({
+        ...params,
+        rawField: {
+          ...params.rawField,
+          split_fields: holeSplitFields,
+        },
+      });
+    }
+
     if (
       isOriginalRetainedField(params.rawField) ||
       !hasSplitFields(params.rawField)
@@ -890,19 +1358,30 @@ export class ExtractionNormalizationService {
     const rewrittenRawFields = [originalRawField, ...splitRawFields];
 
     if (params.documentId && params.extractionResultId) {
-      await this.dataSource.getRepository(SplitResolution).save(
-        this.dataSource.getRepository(SplitResolution).create({
-          documentId: params.documentId,
-          extractionResultId: params.extractionResultId,
-          itemIndex: params.itemIndex,
-          rawFieldName: params.rawField.field_name,
-          rawValue: params.rawField.value,
-          rawText: params.rawField.raw_text ?? null,
-          splitFields: splitRawFields,
-          evidence: params.rawField.evidence ?? null,
-          source: "llm_extract",
-        }),
-      );
+      const row: SplitResolutionBufferRow = {
+        documentId: params.documentId,
+        extractionResultId: params.extractionResultId,
+        itemIndex: params.itemIndex,
+        rawFieldName: params.rawField.field_name,
+        rawValue: params.rawField.value,
+        rawText: params.rawField.raw_text ?? null,
+        splitFields: splitRawFields,
+        evidence: params.rawField.evidence ?? null,
+        source: "llm_extract",
+      };
+      if (params.splitResolutionBuffer) {
+        params.splitResolutionBuffer.push(row);
+      } else {
+        const splitResolutionRepo = this.dataSource.getRepository(SplitResolution);
+        await measureProfile(
+          params.profile ?? disabledNormalizationProfile(),
+          "splitResolutionSaveMs",
+          () => splitResolutionRepo.save(splitResolutionRepo.create(row)),
+        );
+        if (params.profile?.enabled) {
+          params.profile.splitResolutionsSaved += 1;
+        }
+      }
     }
 
     return {
@@ -1044,51 +1523,91 @@ export class ExtractionNormalizationService {
     itemProductTypeHint: string;
     documentId?: string;
     extractionResultId?: string;
+    source?: string;
+    requiresReview?: boolean;
+    trustLevel?: "low" | "medium" | "high";
+    suppressValueCandidate?: boolean;
+    profile?: NormalizationProfileAccumulator;
+    occurrenceBuffer?: Map<string, OccurrenceBufferRow>;
   }): Promise<DictionaryExtractionField> {
-    const field = createBaseField(params.rawField);
+    const buildStartedAt = Date.now();
+    params.profile && (params.profile.fieldsBuilt += 1);
+    const finishBuildProfile = () => {
+      if (params.profile?.enabled) {
+        params.profile.buildFieldMs += Date.now() - buildStartedAt;
+      }
+    };
+    const rawField = normalizeQualifierRawField(params.rawField);
+    const field = createBaseField(rawField);
+    field.source = params.source;
+    field.requires_review = params.requiresReview;
+    field.trust_level = params.trustLevel;
 
-    if (isExplicitUnselectedOption(params.rawField)) {
+    if (isExplicitUnselectedOption(rawField)) {
+      finishBuildProfile();
       return field;
     }
 
-    if (isBlankValue(params.rawField.value)) {
+    if (isBlankValue(rawField.value)) {
       field.warnings.push(
         createWarning({
           type: "empty_value",
           message: "字段值为空，已跳过字典匹配",
           itemIndex: params.itemIndex,
-          fieldName: params.rawField.field_name,
-          rawValue: params.rawField.value,
-          evidence: params.rawField.evidence,
+          fieldName: rawField.field_name,
+          rawValue: rawField.value,
+          evidence: rawField.evidence,
         }),
       );
+      finishBuildProfile();
       return field;
     }
 
-    if (isUnknownValue(params.rawField.value)) {
+    if (isUnknownValue(rawField.value)) {
       field.warnings.push(
         createWarning({
           type: "unknown_value",
           message: "字段值为 UNKNOWN，已跳过字典匹配",
           itemIndex: params.itemIndex,
-          fieldName: params.rawField.field_name,
-          rawValue: params.rawField.value,
-          evidence: params.rawField.evidence,
+          fieldName: rawField.field_name,
+          rawValue: rawField.value,
+          evidence: rawField.evidence,
         }),
       );
+      finishBuildProfile();
       return field;
     }
 
-    const splitValues = hasSplitFields(params.rawField)
-      ? params.rawField.split_fields!.map((sf) => sf.value)
+    const splitValues = hasSplitFields(rawField)
+      ? rawField.split_fields!.map((sf) => sf.value)
       : undefined;
 
-    const rangeBoundField = parseRangeBoundFieldName(params.rawField.field_name);
-      const numberUnitPartField = parseNumberUnitPartFieldName(
-      params.rawField.field_name,
+    const standaloneVoltagePart = normalizeStandaloneVoltagePart(rawField);
+    if (standaloneVoltagePart) {
+      field.dictionary = {
+        matched: true,
+        field_matched: true,
+        normalized_field_name: standaloneVoltagePart.normalizedFieldName,
+        normalized_value: standaloneVoltagePart.normalizedValue,
+        term_type: standaloneVoltagePart.termType,
+        canonical_value: standaloneVoltagePart.canonicalValue,
+        display_name: standaloneVoltagePart.displayName,
+        value_kind: standaloneVoltagePart.valueKind,
+        number_unit: standaloneVoltagePart.numberUnit,
+        match_method: "term_type_only",
+      };
+      applyQualifier(field);
+      applyRoughness(field);
+      finishBuildProfile();
+      return field;
+    }
+
+    const rangeBoundField = parseRangeBoundFieldName(rawField.field_name);
+    const numberUnitPartField = parseNumberUnitPartFieldName(
+      rawField.field_name,
     );
     const indexedInstanceField = parseIndexedInstanceFieldName(
-      params.rawField.field_name,
+      rawField.field_name,
     );
     const ruleSignals = [
       ...(rangeBoundField
@@ -1116,23 +1635,29 @@ export class ExtractionNormalizationService {
           ]
         : []),
     ];
-    const normalized = await this.dictionaryService.normalizeField({
-      documentId: params.documentId,
-      extractionResultId: params.extractionResultId,
-      itemIndex: params.itemIndex,
-      itemProductTypeHint: params.itemProductTypeHint,
-      fieldName:
-        rangeBoundField?.baseFieldName ??
-        numberUnitPartField?.baseFieldName ??
-        indexedInstanceField?.baseFieldName ??
-        params.rawField.field_name,
-      rawValue: params.rawField.value,
-      splitRawValues: splitValues,
-      evidence: NormalizationRuleRegistry.mergeSignalsIntoEvidence(
-        params.rawField.evidence,
-        ruleSignals,
-      ),
-    });
+    const normalized = await measureProfile(
+      params.profile ?? disabledNormalizationProfile(),
+      "dictionaryNormalizeMs",
+      () =>
+        this.dictionaryService.normalizeField({
+          documentId: params.documentId,
+          extractionResultId: params.extractionResultId,
+          itemIndex: params.itemIndex,
+          itemProductTypeHint: params.itemProductTypeHint,
+          fieldName:
+            rangeBoundField?.baseFieldName ??
+            numberUnitPartField?.baseFieldName ??
+            indexedInstanceField?.baseFieldName ??
+            rawField.field_name,
+          rawValue: rawField.value,
+          splitRawValues: splitValues,
+          evidence: NormalizationRuleRegistry.mergeSignalsIntoEvidence(
+            rawField.evidence,
+            ruleSignals,
+          ),
+          suppressValueCandidate: params.suppressValueCandidate,
+        }),
+    );
 
     field.dictionary = {
       matched: normalized.matched,
@@ -1155,6 +1680,7 @@ export class ExtractionNormalizationService {
       })),
       masterDataMatch: normalized.masterDataMatch,
       number_unit: normalized.numberUnit,
+      material_prefix_split: normalized.materialPrefixSplit,
       match_method:
         normalized.matchMethod ?? (normalized.matched ? "alias_exact" : "none"),
     };
@@ -1164,8 +1690,8 @@ export class ExtractionNormalizationService {
         type: "indexed_instance_field_normalized",
         message: "字段名末尾数字按同类 item 实例序号处理，字典匹配使用基础字段名",
         itemIndex: params.itemIndex,
-        fieldName: params.rawField.field_name,
-        rawValue: params.rawField.value,
+        fieldName: rawField.field_name,
+        rawValue: rawField.value,
         evidence: {
           baseFieldName: indexedInstanceField.baseFieldName,
           instanceIndex: indexedInstanceField.instanceIndex,
@@ -1194,9 +1720,11 @@ export class ExtractionNormalizationService {
         extractionResultId: params.extractionResultId,
         itemIndex: params.itemIndex,
         sourceProductType: params.itemProductTypeHint,
-        fieldName: params.rawField.field_name,
-        rawValue: params.rawField.value,
-        evidence: params.rawField.evidence,
+        fieldName: rawField.field_name,
+        rawValue: rawField.value,
+        evidence: rawField.evidence,
+        profile: params.profile,
+        occurrenceBuffer: params.occurrenceBuffer,
       });
     }
 
@@ -1217,9 +1745,11 @@ export class ExtractionNormalizationService {
         extractionResultId: params.extractionResultId,
         itemIndex: params.itemIndex,
         sourceProductType: params.itemProductTypeHint,
-        fieldName: params.rawField.field_name,
-        rawValue: params.rawField.value,
-        evidence: params.rawField.evidence,
+        fieldName: rawField.field_name,
+        rawValue: rawField.value,
+        evidence: rawField.evidence,
+        profile: params.profile,
+        occurrenceBuffer: params.occurrenceBuffer,
       });
     }
 
@@ -1252,7 +1782,7 @@ export class ExtractionNormalizationService {
           itemIndex: params.itemIndex,
           fieldName: normalized.rawFieldName,
           rawValue: normalized.rawValue,
-          evidence: params.rawField.evidence,
+          evidence: rawField.evidence,
         }),
       );
     }
@@ -1269,12 +1799,47 @@ export class ExtractionNormalizationService {
           fieldName: normalized.rawFieldName,
           rawValue: normalized.rawValue,
           termType: normalized.valueCandidate.termType,
-          evidence: params.rawField.evidence,
+          evidence: rawField.evidence,
         }),
       );
     }
 
+    applyQualifier(field);
+    applyRoughness(field);
+
+    finishBuildProfile();
     return field;
+  }
+
+  private async buildFieldWithDerivedFields(params: {
+    rawField: LlmRawField;
+    itemIndex: number;
+    itemProductTypeHint: string;
+    documentId?: string;
+    extractionResultId?: string;
+    source?: string;
+    requiresReview?: boolean;
+    trustLevel?: "low" | "medium" | "high";
+    suppressValueCandidate?: boolean;
+    profile?: NormalizationProfileAccumulator;
+    occurrenceBuffer?: Map<string, OccurrenceBufferRow>;
+  }): Promise<DictionaryExtractionField[]> {
+    const field = await this.buildField(params);
+    const derivedRawFields = applyVoltageComposite(field).splitFields;
+    if (derivedRawFields.length === 0) {
+      return expandBothMoldQualifier(field);
+    }
+
+    const derivedFields: DictionaryExtractionField[] = [];
+    for (const rawField of derivedRawFields) {
+      derivedFields.push(
+        await this.buildField({
+          ...params,
+          rawField,
+        }),
+      );
+    }
+    return [...expandBothMoldQualifier(field), ...derivedFields];
   }
 
   private async recordOccurrence(params: {
@@ -1287,35 +1852,120 @@ export class ExtractionNormalizationService {
     fieldName: string;
     rawValue?: string;
     evidence?: unknown;
+    profile?: NormalizationProfileAccumulator;
+    occurrenceBuffer?: Map<string, OccurrenceBufferRow>;
   }): Promise<void> {
     if (!params.documentId || !params.extractionResultId) {
+      return;
+    }
+
+    const row: OccurrenceBufferRow = {
+      candidateType: params.candidateType,
+      candidateId: params.candidateId,
+      documentId: params.documentId,
+      extractionResultId: params.extractionResultId,
+      itemIndex: params.itemIndex,
+      sourceProductType: params.sourceProductType ?? "unknown",
+      fieldName: params.fieldName,
+      rawValue: params.rawValue ?? null,
+      evidence: params.evidence ?? null,
+    };
+    if (params.occurrenceBuffer) {
+      params.occurrenceBuffer.set(occurrenceBufferKey(row), row);
       return;
     }
 
     const occurrenceRepo =
       this.dataSource.getRepository(DictionaryCandidateOccurrence);
 
-    await occurrenceRepo.upsert(
-      occurrenceRepo.create({
-        candidateType: params.candidateType,
-        candidateId: params.candidateId,
-        documentId: params.documentId,
-        extractionResultId: params.extractionResultId,
-        itemIndex: params.itemIndex,
-        sourceProductType: params.sourceProductType ?? "unknown",
-        fieldName: params.fieldName,
-        rawValue: params.rawValue ?? null,
-        evidence: params.evidence ?? null,
-      }) as unknown as Parameters<typeof occurrenceRepo.upsert>[0],
-      [
-        "candidateType",
-        "candidateId",
-        "extractionResultId",
-        "itemIndex",
-        "fieldName",
-      ],
+    await measureProfile(
+      params.profile ?? disabledNormalizationProfile(),
+      "recordOccurrenceMs",
+      () =>
+        occurrenceRepo.upsert(
+          occurrenceRepo.create({
+            candidateType: row.candidateType,
+            candidateId: row.candidateId,
+            documentId: row.documentId,
+            extractionResultId: row.extractionResultId,
+            itemIndex: row.itemIndex,
+            sourceProductType: row.sourceProductType,
+            fieldName: row.fieldName,
+            rawValue: row.rawValue,
+            evidence: row.evidence,
+          }) as unknown as Parameters<typeof occurrenceRepo.upsert>[0],
+          [
+            "candidateType",
+            "candidateId",
+            "extractionResultId",
+            "itemIndex",
+            "fieldName",
+          ],
+        ),
     );
+    if (params.profile?.enabled) {
+      params.profile.occurrencesRecorded += 1;
+    }
   }
+
+  private async flushOccurrenceBuffer(
+    occurrenceBuffer: Map<string, OccurrenceBufferRow>,
+    profile: NormalizationProfileAccumulator,
+  ): Promise<void> {
+    if (occurrenceBuffer.size === 0) {
+      return;
+    }
+
+    const occurrenceRepo =
+      this.dataSource.getRepository(DictionaryCandidateOccurrence);
+    const rows = [...occurrenceBuffer.values()].map((row) =>
+      occurrenceRepo.create(row),
+    );
+    await measureProfile(profile, "recordOccurrenceMs", () =>
+      occurrenceRepo.upsert(
+        rows as unknown as Parameters<typeof occurrenceRepo.upsert>[0],
+        [
+          "candidateType",
+          "candidateId",
+          "extractionResultId",
+          "itemIndex",
+          "fieldName",
+        ],
+      ),
+    );
+    if (profile.enabled) {
+      profile.occurrencesRecorded += rows.length;
+    }
+  }
+
+  private async flushSplitResolutionBuffer(
+    splitResolutionBuffer: SplitResolutionBufferRow[],
+    profile: NormalizationProfileAccumulator,
+  ): Promise<void> {
+    if (splitResolutionBuffer.length === 0) {
+      return;
+    }
+
+    const splitResolutionRepo = this.dataSource.getRepository(SplitResolution);
+    await measureProfile(profile, "splitResolutionSaveMs", () =>
+      splitResolutionRepo.save(
+        splitResolutionBuffer.map((row) => splitResolutionRepo.create(row)),
+      ),
+    );
+    if (profile.enabled) {
+      profile.splitResolutionsSaved += splitResolutionBuffer.length;
+    }
+  }
+}
+
+function occurrenceBufferKey(row: OccurrenceBufferRow): string {
+  return [
+    row.candidateType,
+    row.candidateId,
+    row.extractionResultId,
+    row.itemIndex,
+    row.fieldName,
+  ].join("\u001f");
 }
 
 export { ExtractionNormalizationService as DictionaryExtractionService };

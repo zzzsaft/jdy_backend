@@ -4,6 +4,7 @@ import type {
   DictionaryConceptScope,
 } from "./conceptResolver.types.js";
 import { normalizeText } from "./dictionary.utils.js";
+import { detectQualifierConcept, QUALIFIER_CONCEPT_PATTERN } from "./qualifierConcept.js";
 
 type DetectionInput = {
   candidateType: "term_type" | "value";
@@ -12,11 +13,15 @@ type DetectionInput = {
   termType?: string | null;
   rawValue?: string | null;
   sourceRawValue?: string | null;
+  splitFromRawValue?: string | null;
   normalizedRawValue?: string | null;
   sourceProductType?: string | null;
   valueKind?: string | null;
   scope?: DictionaryConceptScope | string | null;
   ruleSignals?: ConceptRuleSignal[];
+  qualifier?: unknown;
+  baseFieldName?: string | null;
+  originalFieldName?: string | null;
   knownValueAliasTermTypes?: string[];
   occurrenceCount?: number;
   documentCount?: number;
@@ -27,13 +32,19 @@ type Detector = {
   detect(input: DetectionInput): ConceptIssue | null;
 };
 
-const QUALIFIER_PATTERN =
-  /(上限|下限|最大|最小|前段|后段|内侧|外侧|入口|出口|上模|下模|第一|第二|第三|第[一二三四五六七八九十0-9]+套|左侧|右侧)/u;
 const COMPOSITE_PATTERN = /[+＋、，,\/／|]|(?:及|和|与|或|;|；)/u;
 const UNIT_PATTERN = /\d+(?:\.\d+)?\s*(mm|毫米|cm|m|kg|g|mpa|bar|kw|w|v|ccm|rpm|℃|度)/iu;
+const SLASH_UNIT_PATTERN =
+  /^(?:kg\/h|ml\/min|m\/min|l\/min|n\/m|g\/10min)$/iu;
+const SNAKE_CASE_TOKEN_PATTERN = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/u;
 const NON_CONFIG_PATTERN = /^(备注|说明|序号|编号|客户|合同|订单|日期|签字|审核|制表)$/u;
 const DOC_SCOPE_PATTERN = /(合同|订单|客户|国家|日期|交期|交货|地址|联系人|电话)/u;
+const DOCUMENT_PERSONNEL_FIELD_PATTERN =
+  /^(?:业务接单人|接单人|业务员|下生产单人员|生产单人员|制单人)$/u;
 const MULTI_ITEM_PATTERN = /(第[一二三四五六七八九十0-9]+套|[0-9]+#|[一二三四五六七八九十0-9]+号|多套|多台)/u;
+const DOCUMENT_SOURCE_TERM_TYPES = new Set(["connection_drawing_status"]);
+const PLACEHOLDER_VALUE_PATTERN =
+  /^(?:未选中?|无选中项|未填写|未填|未选|不选|空|n\/?a|null|undefined|-|—)$/iu;
 
 class ValueAsTypeDetector implements Detector {
   name = "ValueAsTypeDetector";
@@ -61,16 +72,40 @@ class QualifierVariantDetector implements Detector {
   name = "QualifierVariantDetector";
 
   detect(input: DetectionInput): ConceptIssue | null {
-    const text = `${input.rawFieldName ?? ""} ${input.rawValue ?? ""}`;
-    if (!QUALIFIER_PATTERN.test(text)) return null;
+    const text = `${input.originalFieldName ?? input.rawFieldName ?? ""} ${input.rawValue ?? ""}`;
+    const concept = detectQualifierConcept({
+      fieldName: input.originalFieldName ?? input.rawFieldName,
+      rawValue: input.rawValue,
+      evidence: {
+        qualifier: input.qualifier,
+        baseFieldName: input.baseFieldName,
+        originalFieldName: input.originalFieldName,
+      },
+    });
+    if (!concept && !QUALIFIER_CONCEPT_PATTERN.test(text)) return null;
+    const hasStructuredQualifier = Boolean(input.qualifier);
+    const originalFieldName =
+      input.originalFieldName ?? concept?.originalFieldName ?? input.rawFieldName ?? "";
+    const baseFieldName = input.baseFieldName ?? concept?.baseFieldName ?? originalFieldName;
     return {
       detector: this.name,
       relationType: "qualifier_variant",
       recommendedAction: "map_as_qualifier_variant",
-      confidence: 0.74,
-      riskLevel: "medium",
+      confidence: hasStructuredQualifier ? 0.68 : 0.82,
+      riskLevel: hasStructuredQualifier ? "low" : "medium",
       reason: "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
-      evidence: { text },
+      evidence: {
+        text,
+        originalFieldName,
+        baseFieldName,
+        qualifier: input.qualifier ?? concept?.qualifier,
+        sourceText: concept?.qualifier?.sourceText ?? concept?.sourceText,
+        matchedQualifierAlias: concept?.matchedQualifierAlias,
+        qualifierKey: concept?.qualifierKey,
+        qualifierKind: concept?.qualifierKind,
+        rule: concept?.rule,
+        structured: hasStructuredQualifier,
+      },
       blocksAutoApply: true,
     };
   }
@@ -83,8 +118,26 @@ class CompositeValueDetector implements Detector {
     if (input.candidateType !== "value") return null;
     const rawValue = String(input.rawValue ?? "").trim();
     const sourceRawValue = String(input.sourceRawValue ?? "").trim();
+    const splitFromRawValue = String(input.splitFromRawValue ?? "").trim();
     const text = [rawValue, sourceRawValue].filter(Boolean).join(" ");
     if (!rawValue || !COMPOSITE_PATTERN.test(text)) return null;
+    if (splitFromRawValue) return null;
+    if (SLASH_UNIT_PATTERN.test(rawValue.replace(/\s+/g, ""))) return null;
+    if (SNAKE_CASE_TOKEN_PATTERN.test(rawValue)) return null;
+    if (
+      input.termType === "lip_adjustment_method" &&
+      /推[、,，]?\s*拉|推拉|可更换或固定|固定可拆卸/.test(rawValue)
+    ) {
+      return null;
+    }
+    if (
+      input.termType === "flow_channel_type" &&
+      /^(?:单腔流道[\/／](?:衣架式|特殊支管式|PVB专用流道|TPU专用流道|EVA专用流道|中空专用流道)|多腔流道)$/iu.test(
+        rawValue,
+      )
+    ) {
+      return null;
+    }
     if (UNIT_PATTERN.test(rawValue) && !/[、，,\/／|]/u.test(rawValue)) return null;
     return {
       detector: this.name,
@@ -99,6 +152,26 @@ class CompositeValueDetector implements Detector {
   }
 }
 
+class PlaceholderValueNoiseDetector implements Detector {
+  name = "PlaceholderValueNoiseDetector";
+
+  detect(input: DetectionInput): ConceptIssue | null {
+    if (input.candidateType !== "value") return null;
+    const rawValue = String(input.rawValue ?? "").trim();
+    if (!PLACEHOLDER_VALUE_PATTERN.test(rawValue)) return null;
+    return {
+      detector: this.name,
+      relationType: "non_config_noise",
+      recommendedAction: "mark_non_config",
+      confidence: 0.88,
+      riskLevel: "low",
+      reason: "字段值是未选/未填写等占位噪声，不应进入枚举字典",
+      evidence: { rawValue, termType: input.termType },
+      blocksAutoApply: true,
+    };
+  }
+}
+
 class ScopeContaminationDetector implements Detector {
   name = "ScopeContaminationDetector";
 
@@ -106,8 +179,14 @@ class ScopeContaminationDetector implements Detector {
     const rawFieldName = String(input.rawFieldName ?? input.termType ?? "");
     const rawValue = String(input.rawValue ?? "");
     const text = `${rawFieldName} ${rawValue}`;
-    if (!DOC_SCOPE_PATTERN.test(text)) return null;
+    if (
+      !DOC_SCOPE_PATTERN.test(text) &&
+      !DOCUMENT_PERSONNEL_FIELD_PATTERN.test(rawFieldName.trim())
+    ) {
+      return null;
+    }
     if (input.scope === "document") return null;
+    if (input.termType && DOCUMENT_SOURCE_TERM_TYPES.has(input.termType)) return null;
     return {
       detector: this.name,
       relationType: "wrong_scope",
@@ -191,6 +270,7 @@ export class ConceptIssueDetectorService {
   private readonly detectors: Detector[] = [
     new ValueAsTypeDetector(),
     new QualifierVariantDetector(),
+    new PlaceholderValueNoiseDetector(),
     new CompositeValueDetector(),
     new ScopeContaminationDetector(),
     new CrossTermTypeValueDetector(),

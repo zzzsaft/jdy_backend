@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { validateLlmExtractionResult } from "../extraction/validation/parseExtractResult.js";
 import { ExtractionNormalizationService } from "./extractionNormalization.service.js";
 
 const dictionaryService = {
@@ -810,7 +811,7 @@ const structuredFieldDictionaryService = {
   },
   async flushAliasUsageStats() {},
   async normalizeField(params: any) {
-    if (params.fieldName === "\u0041\u5c42\u6bd4\u4f8b") {
+    if (params.fieldName === "\u5c42\u6bd4\u4f8b") {
       return {
         matched: true,
         fieldMatched: true,
@@ -824,7 +825,7 @@ const structuredFieldDictionaryService = {
         warnings: [],
       };
     }
-    if (params.fieldName === "\u0044\u5c42\u6324\u51fa\u673a\u578b\u53f7") {
+    if (params.fieldName === "\u6324\u51fa\u673a\u578b\u53f7") {
       return {
         matched: true,
         fieldMatched: true,
@@ -838,7 +839,7 @@ const structuredFieldDictionaryService = {
         warnings: [],
       };
     }
-    if (params.fieldName === "\u0042\u5c42\u4ea7\u91cf") {
+    if (params.fieldName === "\u5c42\u4ea7\u91cf") {
       return {
         matched: true,
         fieldMatched: true,
@@ -852,7 +853,7 @@ const structuredFieldDictionaryService = {
         warnings: [],
       };
     }
-    if (params.fieldName === "\u0043\u5c42\u539f\u6599") {
+    if (params.fieldName === "\u5c42\u539f\u6599") {
       return {
         matched: true,
         fieldMatched: true,
@@ -866,7 +867,7 @@ const structuredFieldDictionaryService = {
         warnings: [],
       };
     }
-    if (params.fieldName === "\u6cf5\u540e\u538b\u529b") {
+    if (params.fieldName === "\u538b\u529b") {
       return {
         matched: true,
         fieldMatched: true,
@@ -894,10 +895,7 @@ const structuredFieldDictionaryService = {
         warnings: [],
       };
     }
-    if (
-      params.fieldName === "\u7b2c\u4e8c\u5957\u6a21\u5507\u539a\u5ea6" ||
-      params.fieldName === "\u7b2c\u4e09\u5957\u6a21\u5507\u539a\u5ea6"
-    ) {
+    if (params.fieldName === "\u6a21\u5507\u539a\u5ea6") {
       return {
         matched: true,
         fieldMatched: true,
@@ -911,7 +909,7 @@ const structuredFieldDictionaryService = {
         warnings: [],
       };
     }
-    if (params.fieldName === "\u0043\u5165\u53e3\u9576\u5757\u6750\u8d28") {
+    if (params.fieldName === "\u9576\u5757\u6750\u8d28") {
       return {
         matched: true,
         fieldMatched: true,
@@ -944,7 +942,7 @@ const structuredFieldResult = await structuredFieldService.normalizeExtraction({
             { field_name: "\u0041\u5c42\u6bd4\u4f8b", value: "15%", confidence: 0.9 },
             {
               field_name: "\u0044\u5c42\u6324\u51fa\u673a\u578b\u53f7",
-              value: "\u914d\u03a6100\u6324\u51fa\u673a\uff0c\u4ea7\u91cf225 kg/h\u4ee5\u4e0b\uff0c\u539f\u6599\uff1a",
+              value: "\u03a6100",
               confidence: 0.9,
             },
             {
@@ -997,39 +995,62 @@ const structuredFieldResult = await structuredFieldService.normalizeExtraction({
 });
 assert.equal(
   structuredFieldResult.items[0].fields[0].dictionary.normalized_value,
-  "\u0041\u5c42\u6bd4\u4f8b: 15%",
+  "\u5c42\u6bd4\u4f8b: 15%",
 );
+assert.equal(structuredFieldResult.items[0].fields[0].qualifier?.layer, "A");
 assert.equal(
   structuredFieldResult.items[0].fields[1].dictionary.normalized_value,
-  "\u0044\u5c42\u6324\u51fa\u673a\u578b\u53f7: \u914d\u03a6100\u6324\u51fa\u673a\uff0c\u4ea7\u91cf225 kg/h\u4ee5\u4e0b\uff0c\u539f\u6599\uff1a",
+  "\u6324\u51fa\u673a\u578b\u53f7: \u03a6100",
 );
+assert.equal(structuredFieldResult.items[0].fields[1].qualifier?.layer, "D");
 assert.equal(
   structuredFieldResult.items[0].fields[2].dictionary.normalized_value,
-  "\u0042\u5c42\u4ea7\u91cf: 225 kg/h\u4ee5\u4e0b",
+  "225 kg/h\u4ee5\u4e0b",
 );
+assert.equal(structuredFieldResult.items[0].fields[2].qualifier?.layer, "B");
 assert.equal(
   structuredFieldResult.items[0].fields[3].dictionary.normalized_value,
-  "\u0043\u5c42\u539f\u6599: PS",
+  "PS",
 );
+assert.equal(structuredFieldResult.items[0].fields[3].qualifier?.layer, "C");
 assert.equal(
   structuredFieldResult.items[0].fields[4].dictionary.normalized_value,
-  "\u6cf5\u540e\u538b\u529b: 30Mpa",
+  "30Mpa",
+);
+assert.equal(structuredFieldResult.items[0].fields[4].field_name, "\u538b\u529b");
+assert.equal(
+  structuredFieldResult.items[0].fields[4].qualifier?.position,
+  "post_pump",
 );
 assert.equal(
   structuredFieldResult.items[1].fields[1].field_name,
-  "\u7b2c\u4e8c\u5957\u6a21\u5507\u539a\u5ea6",
+  "\u6a21\u5507\u539a\u5ea6",
 );
 assert.equal(
   structuredFieldResult.items[1].fields[1].dictionary.normalized_value,
-  "\u7b2c\u4e8c\u5957\u6a21\u5507\u539a\u5ea6: 8mm",
+  "8mm",
 );
+assert.equal(structuredFieldResult.items[1].fields[1].qualifier?.area, "lip");
+assert.equal(structuredFieldResult.items[1].fields[1].qualifier?.instanceIndex, 2);
 assert.equal(
   structuredFieldResult.items[1].fields[2].dictionary.normalized_value,
-  "\u7b2c\u4e09\u5957\u6a21\u5507\u539a\u5ea6: 13mm",
+  "13mm",
 );
+assert.equal(structuredFieldResult.items[1].fields[2].field_name, "\u6a21\u5507\u539a\u5ea6");
+assert.equal(structuredFieldResult.items[1].fields[2].qualifier?.area, "lip");
+assert.equal(structuredFieldResult.items[1].fields[2].qualifier?.instanceIndex, 3);
 assert.equal(
   structuredFieldResult.items[1].fields[3].dictionary.normalized_value,
-  "\u0043\u5165\u53e3\u9576\u5757\u6750\u8d28: SUS630\u6750\u8d28",
+  "\u9576\u5757\u6750\u8d28: SUS630\u6750\u8d28",
+);
+assert.equal(structuredFieldResult.items[1].fields[3].field_name, "\u9576\u5757\u6750\u8d28");
+assert.equal(
+  structuredFieldResult.items[1].fields[3].qualifier?.position,
+  "c_inlet",
+);
+assert.equal(
+  structuredFieldResult.items[1].fields[3].qualifier?.area,
+  "insert_block",
 );
 
 const indexedInstanceCalls: string[] = [];
@@ -1770,6 +1791,839 @@ assert.equal(
     (field) => field.dictionary.term_type === "filter_model",
   )?.dictionary.masterDataMatch?.matchMethod,
   "model_exact",
+);
+
+const normalizationRulesService = new ExtractionNormalizationService(
+  {} as any,
+  {
+    async getProductTypeOptions() {
+      return [];
+    },
+    async flushAliasUsageStats() {},
+    async normalizeField(params: any) {
+      const termTypes: Record<string, { termType: string; valueKind: string }> = {
+        是否有阻流棒: { termType: "choker_bar_config", valueKind: "boolean" },
+        上模是否有阻流棒: { termType: "choker_bar_config", valueKind: "boolean" },
+        上下模是否有阻流棒: { termType: "choker_bar_config", valueKind: "boolean" },
+        上模加热棒角度: { termType: "heating_rod_angle", valueKind: "number_unit" },
+        下模加热棒角度: { termType: "heating_rod_angle", valueKind: "number_unit" },
+        加热棒角度: { termType: "heating_rod_angle", valueKind: "number_unit" },
+        加热棒配置: { termType: "heating_rod_config", valueKind: "boolean" },
+        热电偶孔: { termType: "thermocouple_hole", valueKind: "number_or_boolean" },
+        测温孔方向: { termType: "thermocouple_hole_direction", valueKind: "enum" },
+        heating_voltage: { termType: "heating_voltage", valueKind: "number_unit" },
+        heating_frequency: { termType: "heating_frequency", valueKind: "number_unit" },
+        heating_phase: { termType: "heating_phase", valueKind: "enum" },
+        pump_heating_voltage: { termType: "pump_heating_voltage", valueKind: "number_unit" },
+        镶块粗糙度: { termType: "surface_roughness", valueKind: "text" },
+        流道抛光精度: { termType: "surface_roughness", valueKind: "text" },
+        热电偶孔规格: {
+          termType: "thermocouple_hole_specification",
+          valueKind: "text",
+        },
+        压力传感器孔配置: {
+          termType: "pressure_sensor_hole_config",
+          valueKind: "boolean",
+        },
+        压力孔: {
+          termType: "pressure_sensor_hole_config",
+          valueKind: "boolean",
+        },
+        压力: { termType: "pressure", valueKind: "number_unit" },
+        模唇厚度: {
+          termType: "lip_thickness_adjustment_range",
+          valueKind: "number_unit",
+        },
+        连接器配置: { termType: "connector_config", valueKind: "boolean" },
+        电压: { termType: "heating_voltage", valueKind: "number_unit" },
+        层比例: { termType: "layer_ratio", valueKind: "text" },
+        层原料: { termType: "layer_material", valueKind: "text" },
+        层产量: { termType: "layer_output", valueKind: "number_unit" },
+        挤出机型号: { termType: "extruder_model", valueKind: "text" },
+        备注: { termType: "remark", valueKind: "text" },
+      };
+      const meta = termTypes[params.fieldName] ?? {
+        termType: params.fieldName,
+        valueKind: "text",
+      };
+      return {
+        matched: true,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        termType: meta.termType,
+        valueKind: meta.valueKind,
+        numberUnit:
+          meta.valueKind === "number_unit"
+            ? {
+                rawValue: params.rawValue,
+                numericText: String(params.rawValue).replace(/[^0-9.]/g, ""),
+                numberKind: "single",
+                unitRaw: String(params.rawValue).replace(/[0-9.\s]/g, ""),
+                normalizedValue: params.rawValue,
+                warnings: [],
+              }
+            : undefined,
+        canonicalValue:
+          meta.valueKind === "enum" ? params.rawValue : undefined,
+        displayName:
+          meta.valueKind === "enum" ? params.rawValue : undefined,
+        matchMethod: "term_type_only",
+        warnings: [],
+      };
+    },
+  } as any,
+);
+
+const qualifierResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "上模是否有阻流棒",
+              value: "有",
+              evidence: { text: "上模是否有阻流棒：有" },
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.equal(qualifierResult.items[0].fields[0].dictionary.term_type, "choker_bar_config");
+assert.equal(qualifierResult.items[0].fields[0].field_name, "是否有阻流棒");
+assert.equal(qualifierResult.items[0].fields[0].qualifier?.position, "upper_die");
+assert.equal(
+  (qualifierResult.items[0].fields[0].evidence as any).originalFieldName,
+  "上模是否有阻流棒",
+);
+assert.equal(
+  (qualifierResult.items[0].fields[0].evidence as any).baseFieldName,
+  "是否有阻流棒",
+);
+assert.equal(
+  (qualifierResult.items[0].fields[0].evidence as any).matchedQualifierAlias,
+  "上模",
+);
+assert.equal(
+  (qualifierResult.items[0].fields[0].evidence as any).qualifierKey,
+  "upper_die",
+);
+assert.equal(
+  (qualifierResult.items[0].fields[0].evidence as any).qualifierKind,
+  "position",
+);
+assert.equal(
+  (qualifierResult.items[0].fields[0].evidence as any).rule,
+  "runtime_qualifier_matcher",
+);
+assert.equal(
+  qualifierResult.extraction_json.items[0].fields[0].qualifier?.position,
+  "upper_die",
+);
+
+const expandedQualifierAllowlistResult =
+  await normalizationRulesService.normalizeExtraction({
+    llmResult: {
+      extraction: {
+        document_info: {},
+        items: [
+          {
+            item_index: 1,
+            product_type_hint: { value: "metering_pump", confidence: 0.9 },
+            raw_fields: [
+              {
+                field_name: "泵前压力",
+                value: "20MPa",
+                confidence: 0.95,
+              },
+              {
+                field_name: "连接器配置",
+                value: "有",
+                confidence: 0.95,
+              },
+            ],
+          },
+        ],
+      },
+      warnings: [],
+    },
+  });
+assert.equal(
+  expandedQualifierAllowlistResult.items[0].fields[0].dictionary.term_type,
+  "pressure",
+);
+assert.equal(
+  expandedQualifierAllowlistResult.items[0].fields[0].qualifier?.position,
+  "pre_pump",
+);
+assert.equal(
+  expandedQualifierAllowlistResult.items[0].fields[1].dictionary.term_type,
+  "connector_config",
+);
+assert.equal(
+  expandedQualifierAllowlistResult.items[0].fields[1].qualifier,
+  undefined,
+);
+
+const runtimeQualifierCoreScenariosResult =
+  await normalizationRulesService.normalizeExtraction({
+    llmResult: {
+      extraction: {
+        document_info: {},
+        items: [
+          {
+            item_index: 1,
+            product_type_hint: { value: "flat_die", confidence: 0.9 },
+            raw_fields: [
+              {
+                field_name: "上模热电偶孔",
+                value: "有",
+                confidence: 0.95,
+              },
+              {
+                field_name: "网后压力孔",
+                value: "有",
+                confidence: 0.95,
+              },
+              {
+                field_name: "第2套模唇厚度",
+                value: "1.2mm",
+                confidence: 0.95,
+              },
+            ],
+          },
+        ],
+      },
+      warnings: [],
+    },
+  });
+assert.deepEqual(
+  runtimeQualifierCoreScenariosResult.items[0].fields.map((field) => ({
+    fieldName: field.field_name,
+    termType: field.dictionary.term_type,
+    position: field.qualifier?.position,
+    area: field.qualifier?.area,
+    instanceIndex: field.qualifier?.instanceIndex,
+  })),
+  [
+    {
+      fieldName: "热电偶孔",
+      termType: "thermocouple_hole",
+      position: "upper_die",
+      area: undefined,
+      instanceIndex: undefined,
+    },
+    {
+      fieldName: "压力孔",
+      termType: "pressure_sensor_hole_config",
+      position: "post_mesh",
+      area: undefined,
+      instanceIndex: undefined,
+    },
+    {
+      fieldName: "模唇厚度",
+      termType: "lip_thickness_adjustment_range",
+      position: undefined,
+      area: "lip",
+      instanceIndex: 2,
+    },
+  ],
+);
+
+const layerQualifierResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "feedblock", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "A层比例",
+              value: "15%",
+              evidence: { text: "A层比例：15%" },
+              confidence: 0.95,
+            },
+            {
+              field_name: "B层原料",
+              value: "PS",
+              evidence: { text: "B层原料：PS" },
+              confidence: 0.95,
+            },
+            {
+              field_name: "C层挤出机型号",
+              value: "Φ100",
+              evidence: { text: "C层挤出机型号：Φ100" },
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.deepEqual(
+  layerQualifierResult.items[0].fields.map((field) => ({
+    fieldName: field.field_name,
+    termType: field.dictionary.term_type,
+    layer: field.qualifier?.layer,
+  })),
+  [
+    { fieldName: "层比例", termType: "layer_ratio", layer: "A" },
+    { fieldName: "层原料", termType: "layer_material", layer: "B" },
+    { fieldName: "挤出机型号", termType: "extruder_model", layer: "C" },
+  ],
+);
+assert.equal(
+  layerQualifierResult.extraction_json.items[0].fields[0].qualifier?.layer,
+  "A",
+);
+
+const layerCompositeResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "feedblock", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "A层挤出机型号",
+              value: "配Φ100挤出机，产量225 kg/h以下，原料PS",
+              raw_text: "A层配Φ100挤出机，产量225 kg/h以下，原料PS",
+              evidence: {
+                text: "A层配Φ100挤出机，产量225 kg/h以下，原料PS",
+              },
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+const layerCompositeFields = layerCompositeResult.items[0].fields.filter(
+  (field) => field.dictionary.note !== "复合字段已拆分，原字段仅保留作追溯",
+);
+assert.deepEqual(
+  layerCompositeFields.map((field) => ({
+    fieldName: field.field_name,
+    rawValue: field.raw_value,
+    termType: field.dictionary.term_type,
+    layer: field.qualifier?.layer,
+  })),
+  [
+    {
+      fieldName: "挤出机型号",
+      rawValue: "Φ100",
+      termType: "extruder_model",
+      layer: "A",
+    },
+    {
+      fieldName: "层产量",
+      rawValue: "225 kg/h以下",
+      termType: "layer_output",
+      layer: "A",
+    },
+    {
+      fieldName: "层原料",
+      rawValue: "PS",
+      termType: "layer_material",
+      layer: "A",
+    },
+  ],
+);
+assert.equal(layerCompositeResult.summary.split_resolution_count, 1);
+
+const validatedBaseFieldQualifierResult = validateLlmExtractionResult({
+  extraction: {
+    document_info: {},
+    items: [
+      {
+        item_index: 1,
+        product_type_hint: { value: "flat_die", confidence: 0.9 },
+        raw_fields: [
+          {
+            field_name: "是否有阻流棒",
+            value: "有",
+            raw_text: "上模是否有阻流棒：有",
+            evidence: { text: "上模是否有阻流棒：有" },
+            confidence: 0.95,
+            qualifier: {
+              position: "upper_die",
+              sourceText: "上模",
+            },
+          },
+        ],
+      },
+    ],
+  },
+  warnings: [],
+});
+const baseFieldQualifierResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: validatedBaseFieldQualifierResult,
+});
+assert.equal(baseFieldQualifierResult.items[0].fields[0].field_name, "是否有阻流棒");
+assert.equal(
+  baseFieldQualifierResult.items[0].fields[0].dictionary.term_type,
+  "choker_bar_config",
+);
+assert.equal(baseFieldQualifierResult.items[0].fields[0].qualifier?.position, "upper_die");
+assert.equal(
+  baseFieldQualifierResult.extraction_json.items[0].fields[0].qualifier?.sourceText,
+  "上模",
+);
+
+const bothMoldQualifierResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "上下模是否有阻流棒",
+              value: "有",
+              evidence: { text: "上下模是否有阻流棒：有" },
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.deepEqual(
+  bothMoldQualifierResult.items[0].fields.map((field) => field.qualifier?.position),
+  ["upper_die", "lower_die"],
+);
+
+const heatingRodSplitResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "加热棒配置",
+              value: "上模，下模",
+              confidence: 0.95,
+              split_fields: [
+                { field_name: "【sel】上模", value: "有", confidence: 0.95 },
+                { field_name: "【sel】下模", value: "有", confidence: 0.95 },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+const heatingRodFields = heatingRodSplitResult.items[0].fields.filter(
+  (field) => field.dictionary.term_type === "heating_rod_config",
+);
+assert.equal(heatingRodFields.length, 2);
+assert.deepEqual(
+  heatingRodFields.map((field) => field.qualifier?.position).sort(),
+  ["lower_die", "upper_die"],
+);
+
+const voltageResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "heating_voltage",
+              value: "380 V / 50 Hz / 三相",
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.deepEqual(
+  voltageResult.items[0].fields.map((field) => ({
+    termType: field.dictionary.term_type,
+    rawValue: field.raw_value,
+  })),
+  [
+    { termType: "heating_voltage", rawValue: "380V" },
+    { termType: "heating_frequency", rawValue: "50Hz" },
+    { termType: "heating_phase", rawValue: "三相" },
+  ],
+);
+
+const pumpVoltageResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "pump_heating_voltage",
+              value: "220 V / 50 Hz",
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.deepEqual(
+  pumpVoltageResult.items[0].fields.map((field) => ({
+    fieldName: field.field_name,
+    termType: field.dictionary.term_type,
+    rawValue: field.raw_value,
+  })),
+  [
+    { fieldName: "heating_voltage", termType: "heating_voltage", rawValue: "220V" },
+    { fieldName: "heating_frequency", termType: "heating_frequency", rawValue: "50Hz" },
+  ],
+);
+
+const standaloneVoltagePartResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            { field_name: "频率", value: "50Hz", confidence: 0.95 },
+            { field_name: "相数", value: "三相", confidence: 0.95 },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.deepEqual(
+  standaloneVoltagePartResult.items[0].fields.map((field) => ({
+    termType: field.dictionary.term_type,
+    rawValue: field.raw_value,
+    normalizedValue: field.dictionary.normalized_value,
+  })),
+  [
+    { termType: "heating_frequency", rawValue: "50Hz", normalizedValue: "50Hz" },
+    { termType: "heating_phase", rawValue: "三相", normalizedValue: "三相" },
+  ],
+);
+
+const roughnessRangeResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "镶块粗糙度",
+              value: "A级（0.02-0.03μm）",
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.deepEqual(roughnessRangeResult.items[0].fields[0].dictionary.roughness, {
+  raw: "A级（0.02-0.03μm）",
+  grade: "A",
+  unit: "μm",
+  rangeMin: 0.02,
+  rangeMax: 0.03,
+});
+
+const roughnessBoundResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "镶块粗糙度",
+              value: "小于0.04um",
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.deepEqual(roughnessBoundResult.items[0].fields[0].dictionary.roughness, {
+  raw: "小于0.04um",
+  bound: "lt",
+  value: 0.04,
+  unit: "um",
+});
+
+const channelRoughnessResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "melt_pipe", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "流道抛光精度",
+              value: "Ra0.15",
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.equal(
+  channelRoughnessResult.items[0].fields[0].dictionary.term_type,
+  "surface_roughness",
+);
+assert.equal(channelRoughnessResult.items[0].fields[0].qualifier?.area, "channel");
+assert.deepEqual(channelRoughnessResult.items[0].fields[0].dictionary.roughness, {
+  raw: "Ra0.15",
+  value: 0.15,
+});
+
+const thermocouplePressureHoleResult =
+  await normalizationRulesService.normalizeExtraction({
+    llmResult: {
+      extraction: {
+        document_info: {},
+        items: [
+          {
+            item_index: 1,
+            product_type_hint: { value: "melt_pipe", confidence: 0.9 },
+            raw_fields: [
+              {
+                field_name: "测温孔及网后压力孔",
+                value: "按双方图纸",
+                confidence: 0.95,
+              },
+            ],
+          },
+        ],
+      },
+      warnings: [],
+    },
+  });
+assert.deepEqual(
+  thermocouplePressureHoleResult.items[0].fields
+    .filter((field) => !field.dictionary.note)
+    .map((field) => ({
+      fieldName: field.field_name,
+      termType: field.dictionary.term_type,
+      rawValue: field.raw_value,
+    })),
+  [
+    {
+      fieldName: "热电偶孔规格",
+      termType: "thermocouple_hole_specification",
+      rawValue: "按双方图纸",
+    },
+    {
+      fieldName: "压力传感器孔配置",
+      termType: "pressure_sensor_hole_config",
+      rawValue: "按双方图纸",
+    },
+  ],
+);
+assert.equal(
+  thermocouplePressureHoleResult.items[0].fields.find(
+    (field) => field.dictionary.term_type === "pressure_sensor_hole_config",
+  )?.qualifier?.position,
+  "post_mesh",
+);
+
+assert.equal(
+  normalizationRulesService
+    ? voltageResult.summary.value_candidate_count
+    : 1,
+  0,
+);
+
+const customerNoteReparseResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "客户特别备注",
+              value: "上模加热棒角度45°",
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.equal(customerNoteReparseResult.items[0].notes_raw?.[0].raw_value, "上模加热棒角度45°");
+assert.equal(
+  (customerNoteReparseResult.extraction_json.document_info as any).customer_notes[0].raw_value,
+  "上模加热棒角度45°",
+);
+assert.equal(customerNoteReparseResult.items[0].fields.length, 1);
+assert.equal(customerNoteReparseResult.items[0].fields[0].field_name, "加热棒角度");
+assert.equal(customerNoteReparseResult.items[0].fields[0].dictionary.term_type, "heating_rod_angle");
+assert.equal(customerNoteReparseResult.items[0].fields[0].qualifier?.position, "upper_die");
+assert.equal(customerNoteReparseResult.items[0].fields[0].source, "customer_note_reparse");
+assert.equal(customerNoteReparseResult.items[0].fields[0].requires_review, true);
+assert.equal(customerNoteReparseResult.items[0].fields[0].trust_level, "medium");
+
+const customerNoteTextOnlyResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "订单备注",
+              value: "请尽快交货",
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.equal(customerNoteTextOnlyResult.items[0].notes_raw?.[0].raw_value, "请尽快交货");
+assert.deepEqual(customerNoteTextOnlyResult.items[0].fields, []);
+
+const splitCustomerNoteResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "联接尺寸图纸提供情况",
+              value: "按原图纸 备注：请尽快交货",
+              confidence: 0.95,
+              split_fields: [
+                {
+                  field_name: "联接尺寸图纸提供情况",
+                  value: "按原图纸",
+                  confidence: 0.95,
+                },
+                {
+                  field_name: "备注",
+                  value: "请尽快交货",
+                  confidence: 0.95,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.equal(splitCustomerNoteResult.items[0].notes_raw?.[0].raw_value, "请尽快交货");
+assert.equal(
+  splitCustomerNoteResult.items[0].fields.some(
+    (field) => field.field_name === "备注",
+  ),
+  false,
+);
+
+const customerNoteConflictResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "flat_die", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "上模加热棒角度",
+              value: "30°",
+              confidence: 0.95,
+            },
+            {
+              field_name: "客户特别注明1",
+              value: "上模加热棒角度45°",
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.deepEqual(
+  customerNoteConflictResult.items[0].fields.map((field) => field.raw_value),
+  ["30°"],
+);
+assert.equal(
+  customerNoteConflictResult.warnings.some(
+    (warning) => warning.type === "customer_note_config_conflict",
+  ),
+  true,
 );
 
 console.log("productConfigAgent extraction normalization tests passed");

@@ -13,6 +13,9 @@ export function splitSelectionState(fieldName: string):
   ) {
     return "unselected";
   }
+  if (/(?:未)?(?:\[|\u3010)\s*(?:SEL|selected)\s*(?:\]|\u3011)/i.test(compact)) {
+    return compact.includes("\u672a") ? "unselected" : "selected";
+  }
   if (/(?:\(|\uff08)?\u9009\u4e2d(?:\)|\uff09)?/u.test(compact)) {
     return "selected";
   }

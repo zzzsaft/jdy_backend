@@ -4,6 +4,7 @@ import {
   DictionaryTerm,
   DictionaryTermType,
   DictionaryTermTypeAlias,
+  DictionaryQualifier,
   DictionaryUnitAlias,
   DictionaryVersion,
 } from "./entity/index.js";
@@ -14,6 +15,10 @@ import type {
   LlmDictionaryContext,
 } from "./dictionary.types.js";
 import { normalizeText, valueAliasKey } from "./dictionary.utils.js";
+import {
+  buildQualifierMatcher,
+  type QualifierMatcher,
+} from "./qualifierMatcher.js";
 
 export class DictionaryCache {
   readonly termTypeAliasMap = new Map<string, string[]>();
@@ -22,6 +27,7 @@ export class DictionaryCache {
   readonly valueAliasMap = new Map<string, CachedValueAlias>();
   readonly unitAliasMap = new Map<string, CachedUnitAlias>();
   readonly termTypeMap = new Map<string, CachedTermType>();
+  qualifierMatcher: QualifierMatcher = buildQualifierMatcher([]);
 
   private loadedVersion: number | null = null;
   private lastLoadedAt = 0;
@@ -29,7 +35,7 @@ export class DictionaryCache {
 
   constructor(
     private readonly dataSource: DataSource,
-    _cacheTtlMs = 60000,
+    private readonly cacheTtlMs = 60000,
   ) {}
 
   async ensureFresh(): Promise<void> {
@@ -49,6 +55,10 @@ export class DictionaryCache {
   private async ensureFreshOnce(): Promise<void> {
     if (this.loadedVersion === null) {
       await this.reload();
+      return;
+    }
+
+    if (Date.now() - this.lastLoadedAt < this.cacheTtlMs) {
       return;
     }
 
@@ -73,12 +83,29 @@ export class DictionaryCache {
     this.unitAliasMap.clear();
     this.termTypeMap.clear();
 
-    const termTypes = await this.dataSource
-      .getRepository(DictionaryTermType)
-      .find({
-        where: { isActive: true },
-        order: { sortOrder: "ASC" },
-      });
+    const [termTypes, qualifiers] = await Promise.all([
+      this.dataSource
+        .getRepository(DictionaryTermType)
+        .find({
+          where: { isActive: true },
+          order: { sortOrder: "ASC" },
+        }),
+      this.dataSource
+        .getRepository(DictionaryQualifier)
+        .find({
+          where: { isActive: true },
+          order: { sortOrder: "ASC" },
+        }),
+    ]);
+    this.qualifierMatcher = buildQualifierMatcher(
+      qualifiers.map((qualifier) => ({
+        qualifierKey: qualifier.qualifierKey,
+        kind: qualifier.kind,
+        displayName: qualifier.displayName,
+        aliases: qualifier.aliases,
+        sortOrder: qualifier.sortOrder,
+      })),
+    );
 
     for (const termType of termTypes) {
       this.termTypeMap.set(termType.termType, {

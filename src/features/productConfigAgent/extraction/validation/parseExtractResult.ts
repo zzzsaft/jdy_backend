@@ -1,5 +1,6 @@
 import type {
   DeepSeekExtractResult,
+  LlmExtractionQualifier,
   LlmExtractionItem,
   LlmExtractionResult,
   LlmFieldValue,
@@ -171,6 +172,9 @@ function validateRawField(
     ...(typeof value.raw_text === "string" ? { raw_text: value.raw_text } : {}),
     evidence: value.evidence,
     confidence: value.confidence,
+    ...(isObject(value.qualifier)
+      ? { qualifier: validateQualifier(value.qualifier, `${path}.qualifier`) }
+      : {}),
     ...(Array.isArray(value.split_fields)
       ? {
           split_fields: value.split_fields.map((splitField, splitIndex) =>
@@ -203,8 +207,65 @@ function validateSplitField(value: unknown, path: string): LlmSplitField {
       ? { evidence: value.evidence }
       : {}),
     ...(typeof value.confidence === "number" ? { confidence: value.confidence } : {}),
+    ...(isObject(value.qualifier)
+      ? { qualifier: validateQualifier(value.qualifier, `${path}.qualifier`) }
+      : {}),
     ...(typeof value.reason === "string" ? { reason: value.reason } : {}),
   };
+}
+
+function validateQualifier(value: JsonObject, path: string): LlmExtractionQualifier {
+  const qualifier: LlmExtractionQualifier = {};
+
+  if (typeof value.position === "string") {
+    qualifier.position = normalizeQualifierPosition(value.position);
+  }
+
+  if (typeof value.area === "string") {
+    qualifier.area = value.area as LlmExtractionQualifier["area"];
+  }
+
+  if (typeof value.layer === "string") {
+    qualifier.layer = value.layer;
+  }
+
+  if (typeof value.layerIndex === "number") {
+    qualifier.layerIndex = value.layerIndex;
+  } else if (typeof value.layer_index === "number") {
+    qualifier.layerIndex = value.layer_index;
+  }
+
+  if (typeof value.instanceIndex === "number") {
+    qualifier.instanceIndex = value.instanceIndex;
+  } else if (typeof value.instance_index === "number") {
+    qualifier.instanceIndex = value.instance_index;
+  }
+
+  if (typeof value.sourceText === "string") {
+    qualifier.sourceText = value.sourceText;
+  } else if (typeof value.source_text === "string") {
+    qualifier.sourceText = value.source_text;
+  }
+
+  if (
+    !qualifier.position &&
+    !qualifier.area &&
+    !qualifier.layer &&
+    !qualifier.layerIndex &&
+    !qualifier.instanceIndex
+  ) {
+    throw new Error(`${path} must include position, area, layer, layerIndex, or instanceIndex`);
+  }
+
+  return qualifier;
+}
+
+function normalizeQualifierPosition(
+  value: string,
+): LlmExtractionQualifier["position"] {
+  if (value === "upper_mold") return "upper_die";
+  if (value === "lower_mold") return "lower_die";
+  return value as LlmExtractionQualifier["position"];
 }
 
 function validateFieldValue(value: unknown, path: string): LlmFieldValue {

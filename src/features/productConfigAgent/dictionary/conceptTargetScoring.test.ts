@@ -146,10 +146,68 @@ function testAuditProvenanceIsCarriedIntoPolicyEvaluation() {
   assert.equal(policyEvaluation(target).dictionaryVersion, "7");
 }
 
+async function testResolverDecisionCarriesQualifierEvidence() {
+  const resolver = new ConceptResolverService({} as any) as any;
+  resolver.loadOccurrences = async () => [
+    {
+      documentId: "1",
+      fieldName: "压力",
+      rawValue: "20MPa",
+      evidence: {
+        originalFieldName: "泵后压力",
+        baseFieldName: "压力",
+        qualifier: { position: "post_pump", sourceText: "泵后" },
+      },
+    },
+  ];
+  resolver.loadDictionarySnapshot = async () => ({
+    termTypeByKey: new Map(),
+    termTypeAliasesByNormalized: new Map(),
+    valueAliasesByNormalized: new Map(),
+    valueAliasesByTermTypeNormalized: new Map(),
+    valueTermTypesByCanonicalNormalized: new Map(),
+    termsById: new Map(),
+    termsByTermType: new Map(),
+    healthReportByTermType: new Map(),
+    healthReportByTermId: new Map(),
+  });
+  resolver.findValueAliasTermTypes = async () => [];
+  resolver.findMatchTargets = async () => [];
+  resolver.hasProductTypeMismatch = () => false;
+  resolver.countSameItemTogether = async () => 0;
+  resolver.countExistingSeparateUsage = async () => 0;
+  resolver.countHistoricalHumanReviews = async () => 0;
+
+  const decision = await resolver.buildDecision(
+    {
+      candidateType: "term_type",
+      candidate: {
+        id: "candidate-1",
+        rawFieldName: "压力",
+        normalizedFieldName: "压力",
+        rawValue: "20MPa",
+        sourceProductType: "metering_pump",
+        status: "pending",
+        evidence: {
+          originalFieldName: "泵后压力",
+          baseFieldName: "压力",
+          qualifier: { position: "post_pump", sourceText: "泵后" },
+        },
+      },
+    },
+    7,
+  );
+
+  assert.equal((decision.evidence.qualifier as any).position, "post_pump");
+  assert.equal(decision.evidence.baseFieldName, "压力");
+  assert.equal(decision.evidence.originalFieldName, "泵后压力");
+}
+
 testCleanExactAliasAutoAcceptPendingByScore();
 testTrustedLabelDoesNotOverrideHardConstraint();
 testRoutingUsesVectorAndConstraintsNotTrustTierDirectly();
 testNoHealthReportIsAbsentNotTrusted();
 testAuditProvenanceIsCarriedIntoPolicyEvaluation();
+await testResolverDecisionCarriesQualifierEvidence();
 
 console.log("concept target policy scoring tests passed");

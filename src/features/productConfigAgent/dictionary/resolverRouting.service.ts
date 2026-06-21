@@ -22,6 +22,7 @@ export type ResolverRoutingConfig = {
 
 export type ResolverRoutingInput = {
   candidateType: Extract<ConceptCandidateType, "term_type" | "value">;
+  termType?: string | null;
   topTarget?: ConceptMatchTarget | null;
   topIssue?: ConceptIssue | null;
   occurrenceCount: number;
@@ -66,6 +67,16 @@ function isEnumKind(valueKind: string | null | undefined): boolean {
   return valueKind === "enum" || valueKind === "enums";
 }
 
+function hasStructuredQualifierEvidence(issue: ConceptIssue | null): boolean {
+  const evidence = issue?.evidence;
+  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
+    return false;
+  }
+  return (evidence as { structured?: unknown }).structured === true;
+}
+
+const AUTO_PASS_VALUE_TERM_TYPES = new Set(["plastic_material", "application"]);
+
 export class ResolverRoutingService {
   route(params: ResolverRoutingInput): ResolverRoutingResult {
     const topIssue = params.topIssue ?? null;
@@ -105,6 +116,14 @@ export class ResolverRoutingService {
       route = "auto_reject_pending";
       reason = topIssue?.reason ?? "候选疑似抽取错误或非配置噪声，等待人工确认拒绝";
     } else if (
+      params.candidateType === "value" &&
+      params.termType &&
+      AUTO_PASS_VALUE_TERM_TYPES.has(params.termType) &&
+      riskLevel === "low"
+    ) {
+      route = "auto_pass";
+      reason = "材料/应用 value 低风险候选自动通过，后续由 audit 兜底";
+    } else if (
       params.occurrenceCount < 2 &&
       !params.aliasExact &&
       params.issues.length === 0
@@ -116,6 +135,35 @@ export class ResolverRoutingService {
       route = "human_review";
       recommendedAction = "split_value";
       reason = "候选命中已有值作为复合值组成部分，应人工确认拆分";
+    } else if (
+      params.candidateType === "value" &&
+      relationType === "exact_alias" &&
+      recommendedAction === "add_alias" &&
+      riskLevel === "low" &&
+      !blocksAutoAccept
+    ) {
+      route = "auto_accept_pending";
+      recommendedAction = "add_alias";
+      reason = "字段值精确命中已有 enum value，自动进入 alias 待确认";
+    } else if (
+      params.candidateType === "term_type" &&
+      relationType === "exact_alias" &&
+      recommendedAction === "map_to_existing_termtype" &&
+      params.issues.length === 0 &&
+      params.unifiedScore >= thresholds.autoAcceptPending &&
+      !blocksAutoAccept
+    ) {
+      route = "auto_pass";
+      reason = "字段名精确命中已有 termType alias，自动通过为已知概念";
+    } else if (
+      relationType === "qualifier_variant" &&
+      riskLevel === "low" &&
+      topIssue?.riskLevel === "low" &&
+      hasStructuredQualifierEvidence(topIssue)
+    ) {
+      route = "auto_pass";
+      recommendedAction = "map_as_qualifier_variant";
+      reason = "候选已带结构化 qualifier evidence，自动通过为限定词变体";
     } else if (
       params.candidateType === "term_type" &&
       params.unifiedScore >= thresholds.autoAcceptPending

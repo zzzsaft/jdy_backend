@@ -18,8 +18,20 @@ export function readArg(name: string): string | undefined {
   return undefined;
 }
 
+export function readArgAny(names: string[]): string | undefined {
+  for (const name of names) {
+    const value = readArg(name);
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
 export function hasArg(name: string): boolean {
   return process.argv.includes(`--${name}`);
+}
+
+export function hasArgAny(names: string[]): boolean {
+  return names.some((name) => hasArg(name));
 }
 
 export function readOptionalPositiveIntArg(
@@ -34,6 +46,33 @@ export function readOptionalPositiveIntArg(
     throw new Error(`--${name} must be a positive integer`);
   }
   return value;
+}
+
+export function readOptionalBooleanArg(
+  name: string,
+  fallback?: boolean,
+): boolean | undefined {
+  const raw = readArg(name);
+  if (raw === undefined) {
+    if (hasArg(name)) return true;
+    return fallback;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  if (["1", "true", "yes", "y", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "n", "off"].includes(normalized)) return false;
+  throw new Error(`--${name} must be a boolean`);
+}
+
+export function readOptionalBooleanArgAny(
+  names: string[],
+  fallback?: boolean,
+): boolean | undefined {
+  for (const name of names) {
+    const value = readOptionalBooleanArg(name);
+    if (value !== undefined) return value;
+  }
+  return fallback;
 }
 
 export function readApplyFlag(params?: {

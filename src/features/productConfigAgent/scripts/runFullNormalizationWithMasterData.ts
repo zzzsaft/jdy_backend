@@ -5,6 +5,8 @@ import { PgDataSource } from "../../../config/data-source.js";
 import { DictionaryService } from "../dictionary/dictionary.service.js";
 import { productConfigAgentService } from "../service.js";
 import {
+  readArgAny,
+  readOptionalBooleanArgAny,
   readBooleanEnv,
   readOptionalPositiveIntEnv,
 } from "./scriptArgs.js";
@@ -12,10 +14,13 @@ import {
 type NormalizationScope =
   | "all"
   | "missing_normalized"
+  | "outdated_dictionary"
   | "with_pending_candidates";
 
 function readNormalizationScope(): NormalizationScope {
-  const raw = process.env.QUOTE_AGENT_FULL_NORMALIZE_SCOPE;
+  const raw =
+    readArgAny(["scope", "full-normalize-scope"]) ??
+    process.env.QUOTE_AGENT_FULL_NORMALIZE_SCOPE;
   if (!raw || raw.trim() === "") {
     return "all";
   }
@@ -23,13 +28,29 @@ function readNormalizationScope(): NormalizationScope {
   if (
     scope !== "all" &&
     scope !== "missing_normalized" &&
+    scope !== "outdated_dictionary" &&
     scope !== "with_pending_candidates"
   ) {
     throw new Error(
-      "QUOTE_AGENT_FULL_NORMALIZE_SCOPE must be all, missing_normalized, or with_pending_candidates"
+      "QUOTE_AGENT_FULL_NORMALIZE_SCOPE must be all, missing_normalized, outdated_dictionary, or with_pending_candidates"
     );
   }
   return scope;
+}
+
+function readPositiveIntOption(params: {
+  argNames: string[];
+  envName: string;
+}): number | undefined {
+  const raw = readArgAny(params.argNames);
+  if (raw !== undefined) {
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value <= 0 || !Number.isInteger(value)) {
+      throw new Error(`--${params.argNames[0]} must be a positive integer`);
+    }
+    return value;
+  }
+  return readOptionalPositiveIntEnv(params.envName);
 }
 
 async function loadMasterDataSummary(documentIds: number[]) {
@@ -99,20 +120,26 @@ async function loadMasterDataSummary(documentIds: number[]) {
 }
 
 async function main() {
-  const limit = readOptionalPositiveIntEnv("QUOTE_AGENT_FULL_NORMALIZE_LIMIT");
-  const batchSize = readOptionalPositiveIntEnv(
-    "QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE"
-  );
-  const concurrency = readOptionalPositiveIntEnv(
-    "QUOTE_AGENT_FULL_NORMALIZE_CONCURRENCY"
-  );
+  const limit = readPositiveIntOption({
+    argNames: ["limit"],
+    envName: "QUOTE_AGENT_FULL_NORMALIZE_LIMIT",
+  });
+  const batchSize = readPositiveIntOption({
+    argNames: ["batchSize", "batch-size"],
+    envName: "QUOTE_AGENT_FULL_NORMALIZE_BATCH_SIZE",
+  });
+  const concurrency = readPositiveIntOption({
+    argNames: ["concurrency"],
+    envName: "QUOTE_AGENT_FULL_NORMALIZE_CONCURRENCY",
+  });
   const scope = readNormalizationScope();
-  const recheckCandidates = readBooleanEnv(
-    "QUOTE_AGENT_FULL_NORMALIZE_RECHECK_CANDIDATES"
-  );
-  const recheckLimit = readOptionalPositiveIntEnv(
-    "QUOTE_AGENT_FULL_NORMALIZE_RECHECK_LIMIT"
-  );
+  const recheckCandidates =
+    readOptionalBooleanArgAny(["recheckCandidates", "recheck-candidates"]) ??
+    readBooleanEnv("QUOTE_AGENT_FULL_NORMALIZE_RECHECK_CANDIDATES");
+  const recheckLimit = readPositiveIntOption({
+    argNames: ["recheckLimit", "recheck-limit"],
+    envName: "QUOTE_AGENT_FULL_NORMALIZE_RECHECK_LIMIT",
+  });
   const startedAt = Date.now();
   console.log(
     `[productConfigAgent:full-normalize] starting scope=${scope} limit=${
@@ -129,15 +156,22 @@ async function main() {
   BaseEntity.useDataSource(PgDataSource);
 
   try {
+    const targetDictionaryVersion =
+      await productConfigAgentService.getCurrentDictionaryVersion();
     const targetCount =
       await productConfigAgentService.countRenormalizationTargets({
         onlyMissingNormalized: scope === "missing_normalized",
         withPendingCandidates: scope === "with_pending_candidates",
+        targetDictionaryVersion:
+          scope === "outdated_dictionary" ? targetDictionaryVersion : undefined,
       });
     const plannedCount =
       limit === undefined ? targetCount : Math.min(targetCount, limit);
     console.log(
-      `[productConfigAgent:full-normalize] targetCount=${targetCount} plannedCount=${plannedCount}`
+      `[productConfigAgent:full-normalize] targetCount=${targetCount} plannedCount=${plannedCount}` +
+        (targetDictionaryVersion === undefined
+          ? ""
+          : ` targetDictionaryVersion=${targetDictionaryVersion}`)
     );
 
     let lastLoggedProcessed = 0;
@@ -148,6 +182,7 @@ async function main() {
         concurrency,
         onlyMissingNormalized: scope === "missing_normalized",
         withPendingCandidates: scope === "with_pending_candidates",
+        targetDictionaryVersion,
         onProgress: (event) => {
           if (event.processedCount <= lastLoggedProcessed) {
             return;
@@ -179,6 +214,9 @@ async function main() {
           limit: recheckLimit,
         })
       : null;
+    const conceptResolverDrainStartedAt = Date.now();
+    await productConfigAgentService.waitForConceptResolverIdle();
+    const conceptResolverDrainMs = Date.now() - conceptResolverDrainStartedAt;
     console.log(
       JSON.stringify(
         {
@@ -194,6 +232,7 @@ async function main() {
             concurrency: result.concurrency,
             onlyMissingNormalized: result.onlyMissingNormalized,
             withPendingCandidates: result.withPendingCandidates,
+            targetDictionaryVersion: result.targetDictionaryVersion,
             processedCount: result.processedCount,
             successCount: result.successCount,
             failedCount: result.failedCount,
@@ -201,7 +240,16 @@ async function main() {
               (item) => item.status === "failed"
             ),
             resultPreview: result.results.slice(0, 20),
+            profilePreview: result.results
+              .filter((item) => item.profile)
+              .slice(0, 20)
+              .map((item) => ({
+                extractionResultId: item.extractionResultId,
+                documentId: item.documentId,
+                profile: item.profile,
+              })),
           },
+          conceptResolverDrainMs,
           candidateRecheck,
           masterDataSummary: summary,
         },

@@ -13,6 +13,7 @@ import {
   CONCEPT_RESOLVER_VERSION,
   ConceptResolverService,
 } from "../dictionary/conceptResolver.service.js";
+import { DictionaryService } from "../dictionary/dictionary.service.js";
 import {
   readBooleanEnv,
   readBoundedPositiveIntEnv,
@@ -308,6 +309,8 @@ async function main() {
   try {
     const migrationApplied = await applyMigrationIfRequested();
     const dictionaryVersion = await getDictionaryVersion();
+    const dictionaryService = new DictionaryService(PgDataSource);
+    await dictionaryService.ensureCacheFresh();
     const service = new ConceptResolverService(PgDataSource);
     const run = await PgDataSource.getRepository(ConceptResolverRun).save(
       PgDataSource.getRepository(ConceptResolverRun).create({

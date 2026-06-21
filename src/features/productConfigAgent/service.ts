@@ -430,6 +430,7 @@ export class ProductConfigAgentService {
   async renormalizeExistingExtractions(params?: {
     limit?: number;
     onlyMissingNormalized?: boolean;
+    targetDictionaryVersion?: number;
   }) {
     return this.normalizationRefreshService.renormalizeExistingExtractions(
       params,
@@ -445,8 +446,17 @@ export class ProductConfigAgentService {
   async countRenormalizationTargets(params?: {
     onlyMissingNormalized?: boolean;
     withPendingCandidates?: boolean;
+    targetDictionaryVersion?: number;
   }) {
     return this.normalizationRefreshService.countRenormalizationTargets(params);
+  }
+
+  async getCurrentDictionaryVersion() {
+    return this.normalizationRefreshService.getCurrentDictionaryVersion();
+  }
+
+  async waitForConceptResolverIdle() {
+    await this.dictionaryService.waitForConceptResolverIdle();
   }
 
   async renormalizeExistingExtractionsInBatches(params?: {
@@ -455,6 +465,7 @@ export class ProductConfigAgentService {
     concurrency?: number;
     onlyMissingNormalized?: boolean;
     withPendingCandidates?: boolean;
+    targetDictionaryVersion?: number;
     onProgress?: (event: {
       batchIndex: number;
       batchCount: number;

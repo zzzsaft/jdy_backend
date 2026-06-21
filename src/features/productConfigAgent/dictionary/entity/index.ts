@@ -11,6 +11,7 @@ export * from "./dictionary-value-split-suggestion.entity.js";
 export * from "./dictionary-candidate-review-suggestion.entity.js";
 export * from "./dictionary-unit-alias.entity.js";
 export * from "./dictionary-unit-candidate.entity.js";
+export * from "./dictionary-qualifier.entity.js";
 export * from "./splitResolution.entity.js";
 export * from "./concept-resolver-run.entity.js";
 export * from "./concept-resolution.entity.js";

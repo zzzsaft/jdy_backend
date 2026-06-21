@@ -48,6 +48,7 @@ export function createBaseField(
     raw_text: rawField.raw_text,
     evidence: rawField.evidence,
     llm_confidence: rawField.confidence,
+    qualifier: rawField.qualifier,
     dictionary: {
       matched: false,
       field_matched: false,
@@ -75,6 +76,7 @@ export function splitFieldToRawField(
     raw_text: splitField.raw_text ?? parent.raw_text,
     evidence: splitField.evidence ?? parent.evidence,
     confidence: splitField.confidence ?? parent.confidence,
+    qualifier: splitField.qualifier ?? parent.qualifier,
   };
 }
 

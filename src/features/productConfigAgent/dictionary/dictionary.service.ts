@@ -44,6 +44,7 @@ import {
   termTypeSpecificityScore,
   valueAliasKey,
 } from "./dictionary.utils.js";
+import { setRuntimeQualifierMatcher } from "./qualifierMatcher.js";
 import {
   isProductConfigAgentModelTermType,
   ProductConfigAgentMasterDataService,
@@ -83,6 +84,19 @@ export class DictionaryService {
   private readonly conceptResolverService: ConceptResolverService;
   private readonly pendingTermTypeAliasUsage = new Map<string, number>();
   private readonly pendingValueAliasUsage = new Map<string, number>();
+  private productTypeOptionsCache:
+    | {
+        loadedAt: number;
+        values: Array<{
+          canonicalValue: string;
+          displayName: string;
+          aliases: string[];
+        }>;
+      }
+    | null = null;
+  private productTypeOptionsPromise: Promise<
+    Array<{ canonicalValue: string; displayName: string; aliases: string[] }>
+  > | null = null;
 
   constructor(private readonly dataSource: DataSource) {
     this.cache = new DictionaryCache(dataSource);
@@ -97,6 +111,7 @@ export class DictionaryService {
 
   async ensureCacheFresh(): Promise<void> {
     await this.cache.ensureFresh();
+    this.syncRuntimeQualifierMatcher();
   }
 
   getUnitAliasMap() {
@@ -105,14 +120,22 @@ export class DictionaryService {
 
   async reloadCache(): Promise<void> {
     await this.cache.reload();
+    this.syncRuntimeQualifierMatcher();
+    this.productTypeOptionsCache = null;
+    this.productTypeOptionsPromise = null;
   }
 
   async bumpDictionaryVersion(): Promise<void> {
     const startedAt = Date.now();
     await this.cache.bumpVersion();
+    this.syncRuntimeQualifierMatcher();
     logger.info(
       `[productConfigAgent:dictionary:bumpVersion] totalMs=${Date.now() - startedAt}`,
     );
+  }
+
+  private syncRuntimeQualifierMatcher(): void {
+    setRuntimeQualifierMatcher(this.cache.qualifierMatcher);
   }
 
   async getLlmDictionaryContext(): Promise<LlmDictionaryContext> {
@@ -122,24 +145,48 @@ export class DictionaryService {
   async getProductTypeOptions(): Promise<
     Array<{ canonicalValue: string; displayName: string; aliases: string[] }>
   > {
-    const terms = await this.dataSource.getRepository(DictionaryTerm).find({
-      where: { termType: "product_type", isActive: true },
-      order: { displayName: "ASC" },
-    });
-    const aliases = await this.dataSource.getRepository(DictionaryAlias).find({
-      where: { termType: "product_type", isActive: true },
-    });
-    const aliasesByTermId = new Map<string, string[]>();
-    for (const alias of aliases) {
-      const values = aliasesByTermId.get(alias.termId) ?? [];
-      values.push(alias.aliasValue);
-      aliasesByTermId.set(alias.termId, values);
+    const now = Date.now();
+    if (
+      this.productTypeOptionsCache &&
+      now - this.productTypeOptionsCache.loadedAt < 60000
+    ) {
+      return this.productTypeOptionsCache.values;
     }
-    return terms.map((term) => ({
-      canonicalValue: term.canonicalValue,
-      displayName: term.displayName ?? term.canonicalValue,
-      aliases: aliasesByTermId.get(term.id) ?? [],
-    }));
+    if (this.productTypeOptionsPromise) {
+      return this.productTypeOptionsPromise;
+    }
+
+    this.productTypeOptionsPromise = (async () => {
+      const terms = await this.dataSource.getRepository(DictionaryTerm).find({
+        where: { termType: "product_type", isActive: true },
+        order: { displayName: "ASC" },
+      });
+      const aliases = await this.dataSource.getRepository(DictionaryAlias).find({
+        where: { termType: "product_type", isActive: true },
+      });
+      const aliasesByTermId = new Map<string, string[]>();
+      for (const alias of aliases) {
+        const values = aliasesByTermId.get(alias.termId) ?? [];
+        values.push(alias.aliasValue);
+        aliasesByTermId.set(alias.termId, values);
+      }
+      const values = terms.map((term) => ({
+        canonicalValue: term.canonicalValue,
+        displayName: term.displayName ?? term.canonicalValue,
+        aliases: aliasesByTermId.get(term.id) ?? [],
+      }));
+      this.productTypeOptionsCache = {
+        loadedAt: Date.now(),
+        values,
+      };
+      return values;
+    })();
+
+    try {
+      return await this.productTypeOptionsPromise;
+    } finally {
+      this.productTypeOptionsPromise = null;
+    }
   }
 
   async matchTermType(
@@ -317,6 +364,10 @@ export class DictionaryService {
     return candidate;
   }
 
+  async waitForConceptResolverIdle(): Promise<void> {
+    await this.conceptResolverService.waitForIdle();
+  }
+
   async createUnitCandidate(params: {
     documentId?: string;
     extractionResultId?: string;
@@ -421,6 +472,11 @@ export class DictionaryService {
       valueCandidates,
       valueCandidateOccurrences,
     );
+    const currentValueCandidateReferences =
+      await this.loadCurrentNormalizedValueCandidateReferences(
+        valueCandidates,
+        valueCandidateOccurrences,
+      );
 
     let resolvedTermTypeCandidateCount = 0;
     const resolvedTermTypeCandidateIds: string[] = [];
@@ -477,6 +533,21 @@ export class DictionaryService {
     let resolvedValueCandidateCount = 0;
     const resolvedValueCandidateIds: string[] = [];
     for (const candidate of valueCandidates) {
+      if (currentValueCandidateReferences.get(candidate.id) === false) {
+        candidate.status = this.doneStatus(candidate.id);
+        candidate.reason =
+          "auto_resolved_by_normalization_refresh:no_current_reference";
+        candidate.reviewedBy = "system";
+        candidate.reviewedAt = new Date();
+        await this.saveValueCandidateAutoResolved(valueCandidateRepo, candidate);
+        resolvedValueCandidateCount += 1;
+        resolvedValueCandidateIds.push(candidate.id);
+        if (candidate.documentId) {
+          affectedDocumentIds.add(Number(candidate.documentId));
+        }
+        continue;
+      }
+
       if (
         candidate.documentId &&
         candidate.extractionResultId &&
@@ -598,6 +669,84 @@ export class DictionaryService {
       resolvedValueCandidateCount,
       affectedDocumentIds: [...affectedDocumentIds],
     };
+  }
+
+  private async loadCurrentNormalizedValueCandidateReferences(
+    candidates: DictionaryCandidate[],
+    occurrences: DictionaryCandidateOccurrence[],
+  ): Promise<Map<string, boolean>> {
+    const extractionIdsByCandidateId = new Map<string, Set<string>>();
+    for (const candidate of candidates) {
+      if (!candidate.extractionResultId) continue;
+      extractionIdsByCandidateId.set(
+        candidate.id,
+        new Set([String(candidate.extractionResultId)]),
+      );
+    }
+    for (const occurrence of occurrences) {
+      if (!occurrence.extractionResultId) continue;
+      extractionIdsByCandidateId.set(occurrence.candidateId, new Set([
+        ...(extractionIdsByCandidateId.get(occurrence.candidateId) ?? []),
+        String(occurrence.extractionResultId),
+      ]));
+    }
+
+    const extractionIds = [
+      ...new Set(
+        [...extractionIdsByCandidateId.values()].flatMap((ids) => [...ids]),
+      ),
+    ];
+    if (extractionIds.length === 0) {
+      return new Map();
+    }
+
+    const candidateIds: string[] = [];
+    const pairedExtractionIds: string[] = [];
+    const seenCandidateExtractionPairs = new Set<string>();
+    for (const [candidateId, ids] of extractionIdsByCandidateId) {
+      for (const extractionId of ids) {
+        const pairKey = `${candidateId}:${extractionId}`;
+        if (seenCandidateExtractionPairs.has(pairKey)) continue;
+        seenCandidateExtractionPairs.add(pairKey);
+        candidateIds.push(String(candidateId));
+        pairedExtractionIds.push(String(extractionId));
+      }
+    }
+
+    const rows = await this.dataSource.query(
+      `
+        WITH candidate_refs AS (
+          SELECT *
+          FROM unnest($1::text[], $2::bigint[]) AS item(candidate_id, extraction_id)
+        )
+        SELECT
+          candidate_refs.candidate_id AS "candidateId",
+          COUNT(extraction.id)::int AS "extractionCount",
+          BOOL_OR(
+            field->'candidate'->>'candidate_type' = 'value'
+            AND field->'candidate'->>'candidate_id' = candidate_refs.candidate_id
+          ) AS "isReferenced"
+        FROM candidate_refs
+        LEFT JOIN quote_agent.extraction_results extraction
+          ON extraction.id = candidate_refs.extraction_id
+        LEFT JOIN LATERAL jsonb_array_elements(
+          COALESCE(extraction.normalized_extraction_json->'items', '[]'::jsonb)
+        ) item ON true
+        LEFT JOIN LATERAL jsonb_array_elements(
+          COALESCE(item->'fields', '[]'::jsonb)
+        ) field ON true
+        GROUP BY candidate_refs.candidate_id
+      `,
+      [candidateIds, pairedExtractionIds],
+    );
+
+    const result = new Map<string, boolean>();
+    for (const row of rows) {
+      if (Number(row.extractionCount) > 0) {
+        result.set(String(row.candidateId), row.isReferenced === true);
+      }
+    }
+    return result;
   }
 
   async normalizeField(
@@ -1339,16 +1488,124 @@ export class DictionaryService {
       return buildMatchedFieldResult(params, termTypeMatch, valueMatch);
     }
 
-    const valueCandidate = await this.createValueCandidate({
-      documentId: params.documentId,
-      extractionResultId: params.extractionResultId,
-      itemIndex: params.itemIndex,
-      sourceProductType: params.itemProductTypeHint,
-      termType,
-      rawValue: params.rawValue,
-      reason: "value_no_match",
-      evidence: params.evidence,
-    });
+    const enumValueRoute = classifyEnumResidual(termType, params.rawValue);
+    if (enumValueRoute.action === "suppress") {
+      return {
+        matched: false,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: termTypeMatch.normalizedFieldName,
+        rawValue: params.rawValue,
+        normalizedValue: this.normalizeText(params.rawValue),
+        termType,
+        itemIndex: params.itemIndex,
+        itemProductTypeHint: normalizeProductTypeHintForMatch(
+          params.itemProductTypeHint,
+        ),
+        warnings: [
+          {
+            type: enumValueRoute.warningType ?? "plastic_material_residual_suppressed",
+            message: enumValueRoute.message,
+            rawValue: params.rawValue,
+            termType,
+            source: enumValueRoute.source ?? "material_residual_classifier",
+          },
+        ],
+      };
+    }
+
+    if (enumValueRoute.action === "route") {
+      let firstValueCandidate: DictionaryCandidate | undefined;
+      const warnings: NormalizedFieldResult["warnings"] = [];
+      for (const routedCandidate of enumValueRoute.candidates) {
+        const targetTermType = this.cache.termTypeMap.get(routedCandidate.termType);
+        if (!targetTermType) {
+          warnings.push({
+            type: "plastic_material_residual_route_missing_term_type",
+            message: `字段值残片 ${routedCandidate.rawValue} 需要转入 ${routedCandidate.termType}，但字典中未找到目标字段`,
+            rawValue: params.rawValue,
+            termType,
+            source: routedCandidate.source ?? "material_residual_classifier",
+          });
+          continue;
+        }
+        const valueCandidate = params.suppressValueCandidate
+          ? null
+          : await this.createValueCandidate({
+              documentId: params.documentId,
+              extractionResultId: params.extractionResultId,
+              itemIndex: params.itemIndex,
+              sourceProductType: params.itemProductTypeHint,
+              sourceRawValue: params.rawValue,
+              splitFromRawValue: routedCandidate.rawValue,
+              termType: routedCandidate.termType,
+              termTypeDisplayName: targetTermType.displayName,
+              valueKind: targetTermType.valueKind,
+              rawValue: routedCandidate.rawValue,
+              reason: routedCandidate.reason,
+              evidence: {
+                ...(params.evidence && typeof params.evidence === "object"
+                  ? (params.evidence as Record<string, unknown>)
+                  : {}),
+                ...routedCandidate.evidence,
+                sourceRawValue: params.rawValue,
+                routedFromTermType: termType,
+                routedBy:
+                  routedCandidate.source ?? "material_residual_classifier",
+              },
+              confidence: routedCandidate.confidence,
+            });
+        if (valueCandidate) {
+          firstValueCandidate ??= valueCandidate;
+        }
+        warnings.push({
+          type: valueCandidate
+            ? routedCandidate.warningType
+            : params.suppressValueCandidate
+              ? "value_candidate_suppressed"
+              : "value_candidate_previously_rejected",
+          message: valueCandidate
+            ? routedCandidate.termType === termType
+              ? `以下值未匹配字典：${routedCandidate.rawValue}，是否创建为新标准值？`
+              : `字段值残片 ${routedCandidate.rawValue} 已转为 ${targetTermType.displayName} 候选`
+            : params.suppressValueCandidate
+              ? `备注再解析值 ${routedCandidate.rawValue} 未命中字典，已跳过自动生成 value candidate`
+              : `字段值候选 ${routedCandidate.rawValue} 此前已被拒绝，已跳过重新生成候选`,
+          rawValue: params.rawValue,
+          termType: routedCandidate.warningTermType,
+          source: routedCandidate.source,
+        });
+      }
+
+      return {
+        matched: false,
+        fieldMatched: true,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: termTypeMatch.normalizedFieldName,
+        rawValue: params.rawValue,
+        normalizedValue: this.normalizeText(params.rawValue),
+        termType,
+        itemIndex: params.itemIndex,
+        itemProductTypeHint: normalizeProductTypeHintForMatch(
+          params.itemProductTypeHint,
+        ),
+        valueCandidate: firstValueCandidate,
+        warnings,
+      };
+    }
+
+    const valueCandidate = params.suppressValueCandidate
+      ? null
+      : await this.createValueCandidate({
+          documentId: params.documentId,
+          extractionResultId: params.extractionResultId,
+          itemIndex: params.itemIndex,
+          sourceProductType: params.itemProductTypeHint,
+          termType,
+          rawValue: params.rawValue,
+          reason: "value_no_match",
+          evidence: params.evidence,
+        });
 
     return {
       matched: false,
@@ -1367,10 +1624,14 @@ export class DictionaryService {
         {
           type: valueCandidate
             ? "value_no_match"
-            : "value_candidate_previously_rejected",
+            : params.suppressValueCandidate
+              ? "value_candidate_suppressed"
+              : "value_candidate_previously_rejected",
           message: valueCandidate
             ? "字段值未命中字典，请人工确认"
-            : "字段值候选此前已被拒绝，已跳过重新生成候选",
+            : params.suppressValueCandidate
+              ? "备注再解析字段未命中字典值，已跳过自动生成 value candidate"
+              : "字段值候选此前已被拒绝，已跳过重新生成候选",
           rawValue: params.rawValue,
           termType,
         },
@@ -1539,35 +1800,209 @@ export class DictionaryService {
       const normalized = this.normalizeText(unmatched);
       if (!normalized) continue;
 
-      const valueCandidate = await this.createValueCandidate({
-        documentId: params.documentId,
-        extractionResultId: params.extractionResultId,
-        itemIndex: params.itemIndex,
-        sourceProductType: params.itemProductTypeHint,
-        sourceRawValue: params.rawValue,
-        splitFromRawValue: unmatched,
-        splitTokenIndex: index,
-        termType,
-        termTypeDisplayName: cachedTermType.displayName,
-        valueKind: 'enums',
-        rawValue: unmatched,
-        reason: 'enums_token_no_match',
-        evidence: params.evidence,
-      });
-      if (valueCandidate) {
-        firstValueCandidate ??= valueCandidate;
-        pendingUnmatchedTokens.push(unmatched);
+      const enumValueRoute = classifyEnumResidual(termType, unmatched);
+      if (enumValueRoute.action === "suppress") {
+        warnings.push({
+          type: enumValueRoute.warningType ?? "plastic_material_residual_suppressed",
+          message: enumValueRoute.message,
+          rawValue: params.rawValue,
+          termType,
+          source: enumValueRoute.source ?? "material_residual_classifier",
+        });
+        continue;
       }
 
+      const routedCandidates =
+        enumValueRoute.action === "route"
+          ? enumValueRoute.candidates
+          : [
+              {
+                termType,
+                termTypeDisplayName: cachedTermType.displayName,
+                rawValue: enumValueRoute.rawValue,
+                reason: "enums_token_no_match",
+                confidence: undefined,
+                warningType: "enums_unmatched_token",
+                warningTermType: termType,
+                source: undefined,
+                evidence: undefined,
+              },
+            ];
+
+      for (const routedCandidate of routedCandidates) {
+        const routedNormalized = this.normalizeText(routedCandidate.rawValue);
+        if (!routedNormalized) continue;
+        const routedTermType = this.cache.termTypeMap.get(routedCandidate.termType);
+        if (!routedTermType) {
+          warnings.push({
+            type: "plastic_material_residual_route_missing_term_type",
+            message: `塑料原料残片 ${routedCandidate.rawValue} 需要转入 ${routedCandidate.termType}，但字典中未找到目标字段`,
+            rawValue: params.rawValue,
+            termType,
+            source: routedCandidate.source ?? "material_residual_classifier",
+          });
+          continue;
+        }
+
+        const valueCandidate = params.suppressValueCandidate
+          ? null
+          : await this.createValueCandidate({
+              documentId: params.documentId,
+              extractionResultId: params.extractionResultId,
+              itemIndex: params.itemIndex,
+              sourceProductType: params.itemProductTypeHint,
+              sourceRawValue: params.rawValue,
+              splitFromRawValue: routedCandidate.rawValue,
+              splitTokenIndex: index,
+              termType: routedCandidate.termType,
+              termTypeDisplayName: routedTermType.displayName,
+              valueKind: routedTermType.valueKind,
+              rawValue: routedCandidate.rawValue,
+              reason: routedCandidate.reason,
+              evidence: {
+                ...(params.evidence && typeof params.evidence === "object"
+                  ? (params.evidence as Record<string, unknown>)
+                  : {}),
+                ...routedCandidate.evidence,
+                ...(routedCandidate.termType !== termType || routedCandidate.source
+                  ? {
+                      sourceRawValue: params.rawValue,
+                      routedFromTermType: termType,
+                      routedBy:
+                        routedCandidate.source ?? "plastic_material_residual_classifier",
+                    }
+                  : {}),
+              },
+              confidence: routedCandidate.confidence,
+            });
+        if (valueCandidate) {
+          firstValueCandidate ??= valueCandidate;
+          if (routedCandidate.termType === termType) {
+            pendingUnmatchedTokens.push(routedCandidate.rawValue);
+          }
+        }
+
+        warnings.push({
+          type: valueCandidate
+            ? routedCandidate.warningType
+            : params.suppressValueCandidate
+              ? "value_candidate_suppressed"
+              : "value_candidate_previously_rejected",
+          message: valueCandidate
+            ? routedCandidate.termType === termType
+              ? `以下值未匹配字典：${routedCandidate.rawValue}，是否创建为新标准值？`
+              : `塑料原料残片 ${routedCandidate.rawValue} 已转为 ${routedTermType.displayName} 候选`
+            : params.suppressValueCandidate
+              ? `备注再解析值 ${routedCandidate.rawValue} 未命中字典，已跳过自动生成 value candidate`
+              : `字段值候选 ${routedCandidate.rawValue} 此前已被拒绝，已跳过重新生成候选`,
+          rawValue: params.rawValue,
+          termType: routedCandidate.warningTermType,
+          source:
+            routedCandidate.termType !== termType || routedCandidate.source
+              ? routedCandidate.source ?? "material_residual_classifier"
+              : undefined,
+        });
+      }
+    }
+
+    const materialSuffix = result.materialPrefixSplit?.suffixRawValue?.trim();
+    if (
+      termType === "plastic_material" &&
+      materialSuffix &&
+      params.suppressValueCandidate !== true
+    ) {
+      const suffixRoute = classifyPlasticMaterialResidual(materialSuffix);
+      let suffixHandledAsApplication = false;
+      if (suffixRoute.action === "suppress") {
+        warnings.push({
+          type: "plastic_material_residual_suppressed",
+          message: suffixRoute.message,
+          rawValue: params.rawValue,
+          termType,
+          source: "material_residual_classifier",
+        });
+      } else {
+        const suffixCandidates =
+          suffixRoute.action === "route"
+            ? suffixRoute.candidates.filter(
+                (candidate) => candidate.termType !== "plastic_material",
+              )
+            : [
+                {
+                  termType: "application",
+                  rawValue: materialSuffix,
+                  reason: "plastic_material_prefix_suffix_application_candidate",
+                  confidence: 0.72,
+                  warningType: "plastic_material_prefix_split_applied",
+                  warningTermType: "application",
+                },
+              ];
+
+        for (const suffixCandidate of suffixCandidates) {
+          const targetTermType = this.cache.termTypeMap.get(suffixCandidate.termType);
+          if (!targetTermType) continue;
+          const suffixMatch = await this.matchValue({
+            termType: suffixCandidate.termType,
+            rawValue: suffixCandidate.rawValue,
+          });
+          if (suffixMatch.matched) {
+            if (suffixCandidate.termType === "application") {
+              suffixHandledAsApplication = true;
+            }
+            continue;
+          }
+          const valueCandidate = await this.createValueCandidate({
+            documentId: params.documentId,
+            extractionResultId: params.extractionResultId,
+            itemIndex: params.itemIndex,
+            sourceProductType: params.itemProductTypeHint,
+            sourceRawValue: params.rawValue,
+            splitFromRawValue: suffixCandidate.rawValue,
+            termType: suffixCandidate.termType,
+            termTypeDisplayName: targetTermType.displayName,
+            valueKind: targetTermType.valueKind,
+            rawValue: suffixCandidate.rawValue,
+            reason:
+              suffixCandidate.reason === "plastic_material_residual_application_candidate"
+                ? "plastic_material_prefix_suffix_application_candidate"
+                : suffixCandidate.reason,
+            evidence: {
+              ...(params.evidence && typeof params.evidence === "object"
+                ? (params.evidence as Record<string, unknown>)
+                : {}),
+              ...suffixCandidate.evidence,
+              sourceRawValue: params.rawValue,
+              matchedMaterialTokens: result.materialPrefixSplit?.matchedMaterialTokens,
+              suffixCandidateTermType: suffixCandidate.termType,
+              suffixRawValue: suffixCandidate.rawValue,
+              routedBy: "plastic_material_residual_classifier",
+            },
+            confidence: suffixCandidate.confidence,
+          });
+          if (valueCandidate) {
+            firstValueCandidate ??= valueCandidate;
+            if (suffixCandidate.termType === "application") {
+              suffixHandledAsApplication = true;
+            }
+          }
+        }
+      }
       warnings.push({
-        type: valueCandidate
-          ? 'enums_unmatched_token'
-          : 'value_candidate_previously_rejected',
-        message: valueCandidate
-          ? `以下值未匹配字典：${unmatched}，是否创建为新标准值？`
-          : `字段值候选 ${unmatched} 此前已被拒绝，已跳过重新生成候选`,
+        type: "plastic_material_prefix_split_applied",
+        message: suffixHandledAsApplication
+          ? "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀"
+          : "塑料原料字段含产品/应用描述，已提取明确材料前缀并跳过非应用后缀候选",
         rawValue: params.rawValue,
         termType,
+        source: "material_prefix_split",
+      });
+    } else if (result.materialPrefixSplit) {
+      warnings.push({
+        type: "plastic_material_prefix_split_applied",
+        message: "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+        rawValue: params.rawValue,
+        termType,
+        source: "material_prefix_split",
       });
     }
 
@@ -1581,6 +2016,7 @@ export class DictionaryService {
       itemProductTypeHint: normalizeProductTypeHintForMatch(params.itemProductTypeHint),
       normalizedFieldName: termTypeMatch.normalizedFieldName,
       valueCandidate: firstValueCandidate,
+      materialPrefixSplit: result.materialPrefixSplit,
       warnings,
     });
   }
@@ -1680,16 +2116,18 @@ export class DictionaryService {
     }
 
     const firstTermType = enumTermTypes[0];
-    const valueCandidate = await this.createValueCandidate({
-      documentId: params.documentId,
-      extractionResultId: params.extractionResultId,
-      itemIndex: params.itemIndex,
-      sourceProductType: params.itemProductTypeHint,
-      termType: firstTermType,
-      rawValue: params.rawValue,
-      reason: "value_no_match_in_multiple_term_types",
-      evidence: params.evidence,
-    });
+    const valueCandidate = params.suppressValueCandidate
+      ? null
+      : await this.createValueCandidate({
+          documentId: params.documentId,
+          extractionResultId: params.extractionResultId,
+          itemIndex: params.itemIndex,
+          sourceProductType: params.itemProductTypeHint,
+          termType: firstTermType,
+          rawValue: params.rawValue,
+          reason: "value_no_match_in_multiple_term_types",
+          evidence: params.evidence,
+        });
 
     return {
       matched: false,
@@ -1709,10 +2147,14 @@ export class DictionaryService {
         {
           type: valueCandidate
             ? "value_no_match_in_multiple_term_types"
-            : "value_candidate_previously_rejected",
+            : params.suppressValueCandidate
+              ? "value_candidate_suppressed"
+              : "value_candidate_previously_rejected",
           message: valueCandidate
             ? "字段名对应多个标准字段，但字段值未命中，请人工确认"
-            : "字段值候选此前已被拒绝，已跳过重新生成候选",
+            : params.suppressValueCandidate
+              ? "备注再解析字段未命中字典值，已跳过自动生成 value candidate"
+              : "字段值候选此前已被拒绝，已跳过重新生成候选",
           rawValue: params.rawValue,
           termType: firstTermType,
         },
@@ -1959,3 +2401,354 @@ export class DictionaryService {
   }
 }
 
+type PlasticMaterialResidualRoute =
+  | {
+      action: "candidate";
+      rawValue: string;
+    }
+  | {
+      action: "route";
+      candidates: Array<{
+        termType: string;
+        rawValue: string;
+        reason: string;
+        confidence?: number;
+        warningType: string;
+        warningTermType: string;
+        source?: string;
+        evidence?: Record<string, unknown>;
+      }>;
+    }
+  | {
+      action: "suppress";
+      message: string;
+      warningType?: string;
+      source?: string;
+    };
+
+function classifyEnumResidual(
+  termType: string,
+  rawValue: string,
+): PlasticMaterialResidualRoute {
+  if (termType === "plastic_material") {
+    return classifyPlasticMaterialResidual(rawValue);
+  }
+  if (termType === "application") {
+    return classifyApplicationMaterialPrefixResidual(rawValue);
+  }
+  return { action: "candidate", rawValue };
+}
+
+function classifyApplicationMaterialPrefixResidual(
+  rawValue: string,
+): PlasticMaterialResidualRoute {
+  const trimmed = String(rawValue ?? "").trim();
+  if (!trimmed) return { action: "suppress", message: "空应用残片已跳过" };
+
+  const alphaPrefixSplit = splitAlphaMaterialPrefix(trimmed);
+  if (!alphaPrefixSplit) {
+    return { action: "candidate", rawValue: trimmed };
+  }
+
+  const applicationPart = extractApplicationPrefixFromMaterialResidual(
+    alphaPrefixSplit.suffix,
+  );
+  const applicationRawValue = applicationPart?.application ?? alphaPrefixSplit.suffix;
+  if (!isApplicationLikeMaterialSuffix(applicationRawValue)) {
+    return { action: "candidate", rawValue: trimmed };
+  }
+
+  return {
+    action: "route",
+    candidates: [
+      {
+        termType: "plastic_material",
+        rawValue: alphaPrefixSplit.material,
+        reason: "application_material_prefix_material_candidate",
+        confidence: 0.82,
+        warningType: "application_material_prefix_split_applied",
+        warningTermType: "plastic_material",
+        source: "application_material_prefix_split",
+        evidence: {
+          sourceRawValue: trimmed,
+          materialPart: alphaPrefixSplit.material,
+          applicationLikePart: applicationRawValue,
+          residualPart: applicationPart?.residual,
+          splitRule: "application_material_prefix_split",
+        },
+      },
+      {
+        termType: "application",
+        rawValue: applicationRawValue,
+        reason: "application_material_prefix_application_candidate",
+        confidence: 0.74,
+        warningType: "application_material_prefix_split_applied",
+        warningTermType: "application",
+        source: "application_material_prefix_split",
+        evidence: {
+          sourceRawValue: trimmed,
+          materialPart: alphaPrefixSplit.material,
+          applicationLikePart: applicationRawValue,
+          residualPart: applicationPart?.residual,
+          splitRule: "application_material_prefix_split",
+        },
+      },
+    ],
+  };
+}
+
+function classifyPlasticMaterialResidual(
+  rawValue: string,
+): PlasticMaterialResidualRoute {
+  const trimmed = String(rawValue ?? "").trim();
+  if (!trimmed) return { action: "suppress", message: "空塑料原料残片已跳过" };
+
+  const parts = splitPlasticMaterialResidualParts(trimmed);
+  if (parts.length > 1) {
+    const routed: Extract<PlasticMaterialResidualRoute, { action: "route" }>["candidates"] =
+      [];
+    const keptCandidates: string[] = [];
+    const suppressed: string[] = [];
+    for (const part of parts) {
+      const classified = classifyPlasticMaterialResidual(part);
+      if (classified.action === "route") {
+        routed.push(...classified.candidates);
+      } else if (classified.action === "candidate") {
+        keptCandidates.push(classified.rawValue);
+      } else {
+        suppressed.push(part);
+      }
+    }
+    if (routed.length > 0) {
+      return {
+        action: "route",
+        candidates: dedupePlasticMaterialResidualRoutes(routed),
+      };
+    }
+    if (keptCandidates.length > 0) {
+      return { action: "candidate", rawValue: keptCandidates.join("、") };
+    }
+    return {
+      action: "suppress",
+      message: `塑料原料残片 ${trimmed} 已拆分为非材料说明并跳过：${suppressed.join("、")}`,
+    };
+  }
+
+  const normalized = normalizeText(trimmed);
+  const applicationPart = extractApplicationPrefixFromMaterialResidual(trimmed);
+  const applicationCandidate = applicationPart
+    ? cleanApplicationCandidateValue(applicationPart.application)
+    : null;
+  if (
+    applicationCandidate &&
+    !isMaterialApplicationResidualNoise(applicationCandidate)
+  ) {
+    return {
+      action: "route",
+      candidates: [
+        {
+          termType: "application",
+          rawValue: applicationCandidate,
+          reason: "plastic_material_residual_application_candidate",
+          confidence: 0.72,
+          warningType: "plastic_material_residual_routed",
+          warningTermType: "application",
+          source: "plastic_material_residual_classifier",
+          evidence: {
+            sourceRawValue: trimmed,
+            applicationLikePart: applicationCandidate,
+            residualPart: applicationPart.residual,
+            splitRule: "plastic_material_residual_classifier",
+          },
+        },
+      ],
+    };
+  }
+
+  if (
+    isPlasticMaterialResidualNoise(normalized) ||
+    isPlasticMaterialModifierLike(normalized) ||
+    isMaterialApplicationResidualNoise(trimmed)
+  ) {
+    return {
+      action: "suppress",
+      message: `塑料原料残片 ${trimmed} 更像工艺、参数或结构说明，已跳过 plastic_material 候选`,
+    };
+  }
+
+  const alphaPrefixSplit = splitAlphaMaterialPrefix(trimmed);
+  if (alphaPrefixSplit && isApplicationLikeMaterialSuffix(alphaPrefixSplit.suffix)) {
+    const applicationRawValue = cleanApplicationCandidateValue(
+      alphaPrefixSplit.suffix,
+    );
+    if (!applicationRawValue || isMaterialApplicationResidualNoise(applicationRawValue)) {
+      return {
+        action: "suppress",
+        message: `塑料原料残片 ${trimmed} 更像工艺、参数或结构说明，已跳过 application 候选`,
+      };
+    }
+    return {
+      action: "route",
+      candidates: [
+        {
+          termType: "plastic_material",
+          rawValue: alphaPrefixSplit.material,
+          reason: "plastic_material_residual_material_prefix_candidate",
+          confidence: 0.82,
+          warningType: "enums_unmatched_token",
+          warningTermType: "plastic_material",
+          source: "plastic_material_residual_classifier",
+          evidence: {
+            sourceRawValue: trimmed,
+            materialPart: alphaPrefixSplit.material,
+            applicationLikePart: alphaPrefixSplit.suffix,
+            splitRule: "plastic_material_residual_classifier",
+          },
+        },
+        {
+          termType: "application",
+          rawValue: applicationRawValue,
+          reason: "plastic_material_residual_application_candidate",
+          confidence: 0.72,
+          warningType: "plastic_material_residual_routed",
+          warningTermType: "application",
+          source: "plastic_material_residual_classifier",
+          evidence: {
+            sourceRawValue: trimmed,
+            materialPart: alphaPrefixSplit.material,
+            applicationLikePart: applicationRawValue,
+            splitRule: "plastic_material_residual_classifier",
+          },
+        },
+      ],
+    };
+  }
+
+  if (isApplicationLikeMaterialSuffix(normalized)) {
+    const applicationRawValue = cleanApplicationCandidateValue(trimmed);
+    if (!applicationRawValue || isMaterialApplicationResidualNoise(applicationRawValue)) {
+      return {
+        action: "suppress",
+        message: `塑料原料残片 ${trimmed} 更像工艺、参数或结构说明，已跳过 application 候选`,
+      };
+    }
+    return {
+      action: "route",
+      candidates: [
+        {
+          termType: "application",
+          rawValue: applicationRawValue,
+          reason: "plastic_material_residual_application_candidate",
+          confidence: 0.72,
+          warningType: "plastic_material_residual_routed",
+          warningTermType: "application",
+        },
+      ],
+    };
+  }
+
+  return { action: "candidate", rawValue: trimmed };
+}
+
+function splitPlasticMaterialResidualParts(rawValue: string): string[] {
+  return rawValue
+    .split(/[、，,;；]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function dedupePlasticMaterialResidualRoutes(
+  candidates: Extract<PlasticMaterialResidualRoute, { action: "route" }>["candidates"],
+) {
+  const seen = new Set<string>();
+  const result: typeof candidates = [];
+  for (const candidate of candidates) {
+    const key = `${candidate.termType}:${normalizeText(candidate.rawValue)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(candidate);
+  }
+  return result;
+}
+
+function splitAlphaMaterialPrefix(
+  rawValue: string,
+): { material: string; suffix: string } | null {
+  const compact = rawValue.trim();
+  const match = compact.match(/^([A-Za-z][A-Za-z0-9-]{1,12})([\u4e00-\u9fff].+)$/u);
+  if (!match?.[1] || !match[2]) return null;
+  return {
+    material: match[1],
+    suffix: match[2].trim(),
+  };
+}
+
+function isApplicationLikeMaterialSuffix(value: string): boolean {
+  const compact = normalizeText(value);
+  if (!compact) return false;
+  return /(中空格子板|保鲜膜|膜上涂覆胶水|片材模头|板材模头|流延膜自动模头|自动流延模头|自动模头|防水卷材|车衣膜|透气膜|降解膜|流延膜|淋膜|流延|涂覆|薄膜|片材|板材|管材|型材|生产线|挤出线|模头|膜|板)$/.test(
+    compact,
+  );
+}
+
+function extractApplicationPrefixFromMaterialResidual(
+  rawValue: string,
+): { application: string; residual?: string } | null {
+  const trimmed = String(rawValue ?? "").trim();
+  if (!trimmed) return null;
+
+  const match =
+    trimmed.match(
+      /^(保鲜膜|中空格子板|膜上涂覆胶水|防水卷材|热收缩膜|电池隔膜|车衣膜|透气膜|降解膜|流延膜|淋膜|流延|发泡|涂覆|薄膜|片材|板材|管材|型材)(.*)$/u,
+    ) ??
+    trimmed.match(
+      /^(.+?(?:中空格子板|保鲜膜|防水卷材|热收缩膜|电池隔膜|车衣膜|透气膜|降解膜|流延膜|淋膜|薄膜|片材|板材|管材|型材|自动模头|手动模头|模头|生产线|挤出线))(.*)$/u,
+    );
+  const application = match?.[1]?.trim();
+  const residual = match?.[2]?.trim();
+  if (!application || !residual) return null;
+  if (!/[（(]|既要|兼顾|说明|备注|工艺|温度|产量|挤出机|规格|重量比|熔指|共[0-9一二三四五六七八九十]+套|为主|等/u.test(residual)) {
+    return null;
+  }
+
+  return {
+    application,
+    residual: residual.replace(/^[（(]\s*|\s*[）)]$/g, "").trim() || residual,
+  };
+}
+
+function isMaterialApplicationResidualNoise(value: string): boolean {
+  const compact = normalizeText(value);
+  if (!compact) return true;
+  if (/^(?:适用塑料原料|塑料原料|适用原料|原料)$/.test(compact)) {
+    return true;
+  }
+  if (/^[0-9]+(?:\.[0-9]+)?(?:mm|cm|m|kg|公斤|度|℃|c|mpa|pa)?$/i.test(compact)) {
+    return true;
+  }
+  return /(?:客户|需方|供方|图纸|签名|确认|提供|存档|备注|注明|要求|工艺温度|正常使用产量|产量|每小时|密度|线速度|熔指|检测|分析|按.*加工|按.*设计)/u.test(
+    value,
+  );
+}
+
+function isPlasticMaterialResidualNoise(value: string): boolean {
+  const compact = normalizeText(value);
+  if (!compact) return true;
+  if (/^(?:分|等|为主|第三套|共?[一二三四五六七八九十0-9]+套|第[一二三四五六七八九十0-9]+套)$/.test(compact)) {
+    return true;
+  }
+  return /(线速度|密度|工作压力|压力|工艺温度|温度|产量|kg|每小时|左右每小时|发泡倍率|倍率|螺杆|挤出机|挤出机规格|锥双|单螺杆|原料重量比|重量比|熔指|mfr|g10min|图纸|签名|日期|安装孔|螺丝孔|螺纹套|冷却循环孔|冷却|液压|防护|紧固|区域|配打)/.test(
+    compact,
+  );
+}
+
+function isPlasticMaterialModifierLike(value: string): boolean {
+  const compact = normalizeText(value);
+  if (!compact) return true;
+  if (/^(?:石墨|助剂|填料|多种填料|滑石粉|碳酸钙|钙粉|淀粉|玉米淀粉|色母|母粒|填充|添加剂)$/.test(compact)) {
+    return true;
+  }
+  return /(滑石粉|碳酸钙|钙粉|淀粉|填料|助剂|添加剂|色母|母粒|填充|共挤)$/.test(
+    compact,
+  );
+}

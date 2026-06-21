@@ -15,6 +15,7 @@ import {
   productConfigAgentSourceSchema,
   qualifiedTable,
 } from "./dictionaryHealth.schemas.js";
+import { QUALIFIER_CONCEPT_PATTERN } from "./qualifierConcept.js";
 
 export type DictionaryHealthAuditTargetKind = DictionaryHealthTargetKind | "all";
 
@@ -90,8 +91,6 @@ type HealthSnapshot = {
   termTypeCandidatePressure: Map<string, TermTypePressure>;
 };
 
-const QUALIFIER_PATTERN =
-  /(上限|下限|最大|最小|前段|后段|内侧|外侧|入口|出口|上模|下模|第一|第二|第三|第[一二三四五六七八九十0-9]+套|左侧|右侧)/u;
 const DOCUMENT_SCOPE_PATTERN = /(合同|订单|客户|国家|日期|交期|交货|地址|联系人|电话)/u;
 const GENERIC_ALIAS_VALUES = new Set([
   "有",
@@ -104,6 +103,8 @@ const GENERIC_ALIAS_VALUES = new Set([
   "其他",
   "other",
 ]);
+const COMPOSITE_SLASH_UNIT_PATTERN =
+  /\b(?:kg\/h|ml\/min|m\/min|l\/min|n\/m|g\/10min)\b/gi;
 
 function clampDimensionScore(value: number): number {
   return Math.max(0, Math.min(10, Number(value.toFixed(2))));
@@ -140,9 +141,24 @@ function compositeRate(values: Array<string | null | undefined>): number {
   const nonEmpty = values.map((item) => String(item ?? "").trim()).filter(Boolean);
   if (nonEmpty.length === 0) return 0;
   const compositeCount = nonEmpty.filter(
-    (value) => extractMultiValueTokens(value).length > 1,
+    (value) => hasCompositeValue(value),
   ).length;
   return compositeCount / nonEmpty.length;
+}
+
+function hasCompositeValue(value: string): boolean {
+  const compact = value.replace(/\s+/g, "");
+  if (
+    /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:kg\/h|ml\/min|m\/min|l\/min|n\/m|g\/10min)$/i.test(
+      compact,
+    )
+  ) {
+    return false;
+  }
+  const auditValue = value.replace(COMPOSITE_SLASH_UNIT_PATTERN, (unit) =>
+    unit.replace("/", "_"),
+  );
+  return extractMultiValueTokens(auditValue).length > 1;
 }
 
 function recommendedActionFor(labels: string[], riskScore: number): string {
@@ -522,7 +538,7 @@ export class DictionaryHealthAuditService {
         "Resolver high-risk evidence exists for this term type.",
       ),
       qualifierRisk: dimension(
-        QUALIFIER_PATTERN.test(`${params.termType.displayName} ${params.termType.termType}`)
+        QUALIFIER_CONCEPT_PATTERN.test(`${params.termType.displayName} ${params.termType.termType}`)
           ? 5
           : 0,
         "qualifier_risk",
@@ -532,7 +548,7 @@ export class DictionaryHealthAuditService {
         compositeRate(rawValues) * 10,
         "composite_value_rate",
         "Observed raw values frequently contain multiple values.",
-        rawValues.filter((item) => item && extractMultiValueTokens(item).length > 1).slice(0, 10),
+        rawValues.filter((item) => item && hasCompositeValue(item)).slice(0, 10),
       ),
       candidateMappingPressure: dimension(
         Math.min(10, (candidatePressure?.pendingCount ?? 0) * 2),
@@ -620,7 +636,7 @@ export class DictionaryHealthAuditService {
         "Resolver high-risk evidence exists for this enum value.",
       ),
       qualifierRisk: dimension(
-        QUALIFIER_PATTERN.test(`${params.term.displayName ?? ""} ${params.term.canonicalValue}`)
+        QUALIFIER_CONCEPT_PATTERN.test(`${params.term.displayName ?? ""} ${params.term.canonicalValue}`)
           ? 5
           : 0,
         "qualifier_risk",
@@ -630,7 +646,7 @@ export class DictionaryHealthAuditService {
         compositeRate(rawValues) * 10,
         "composite_value_rate",
         "Value or observed raw values frequently contain multiple values.",
-        rawValues.filter((item) => item && extractMultiValueTokens(item).length > 1).slice(0, 10),
+        rawValues.filter((item) => item && hasCompositeValue(item)).slice(0, 10),
       ),
       candidateMappingPressure: dimension(
         Math.min(10, (candidatePressure?.pendingCount ?? 0) * 2),

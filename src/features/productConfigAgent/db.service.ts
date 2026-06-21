@@ -144,14 +144,17 @@ export interface ProductConfigAgentRepository {
   findExtractionsForRenormalization(params?: {
     limit?: number;
     onlyMissingNormalized?: boolean;
+    targetDictionaryVersion?: number;
   }): Promise<any[]>;
   countExtractionsForRenormalization(params?: {
     onlyMissingNormalized?: boolean;
     withPendingCandidates?: boolean;
+    targetDictionaryVersion?: number;
   }): Promise<number>;
   findExtractionsForRenormalizationBatch(params: {
     limit: number;
     onlyMissingNormalized?: boolean;
+    targetDictionaryVersion?: number;
     cursorCreatedAt?: Date;
     cursorId?: number;
   }): Promise<any[]>;
@@ -1340,6 +1343,7 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
   async findExtractionsForRenormalization(params?: {
     limit?: number;
     onlyMissingNormalized?: boolean;
+    targetDictionaryVersion?: number;
   }): Promise<any[]> {
     try {
       const query = this.extractionRepo
@@ -1349,7 +1353,15 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
         .andWhere("jsonb_array_length(extraction.extraction_json->'items') > 0")
         .orderBy("extraction.created_at", "DESC");
 
-      if (params?.onlyMissingNormalized !== false) {
+      if (params?.targetDictionaryVersion !== undefined) {
+        query.andWhere(
+          `(
+            extraction.normalized_extraction_json IS NULL
+            OR extraction.dictionary_version < :targetDictionaryVersion
+          )`,
+          { targetDictionaryVersion: params.targetDictionaryVersion },
+        );
+      } else if (params?.onlyMissingNormalized !== false) {
         query.andWhere("extraction.normalized_extraction_json IS NULL");
       }
 
@@ -1366,6 +1378,7 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
   async countExtractionsForRenormalization(params?: {
     onlyMissingNormalized?: boolean;
     withPendingCandidates?: boolean;
+    targetDictionaryVersion?: number;
   }): Promise<number> {
     try {
       const query = this.extractionRepo
@@ -1374,7 +1387,15 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
         .andWhere("jsonb_typeof(extraction.extraction_json->'items') = 'array'")
         .andWhere("jsonb_array_length(extraction.extraction_json->'items') > 0");
 
-      if (params?.onlyMissingNormalized !== false) {
+      if (params?.targetDictionaryVersion !== undefined) {
+        query.andWhere(
+          `(
+            extraction.normalized_extraction_json IS NULL
+            OR extraction.dictionary_version < :targetDictionaryVersion
+          )`,
+          { targetDictionaryVersion: params.targetDictionaryVersion },
+        );
+      } else if (params?.onlyMissingNormalized !== false) {
         query.andWhere("extraction.normalized_extraction_json IS NULL");
       }
 
@@ -1391,6 +1412,7 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
   async findExtractionsForRenormalizationBatch(params: {
     limit: number;
     onlyMissingNormalized?: boolean;
+    targetDictionaryVersion?: number;
     cursorCreatedAt?: Date;
     cursorId?: number;
   }): Promise<any[]> {
@@ -1412,7 +1434,15 @@ export class TypeOrmProductConfigAgentRepository implements ProductConfigAgentRe
         .addOrderBy("extraction.id", "DESC")
         .limit(Math.max(1, params.limit));
 
-      if (params.onlyMissingNormalized !== false) {
+      if (params.targetDictionaryVersion !== undefined) {
+        query.andWhere(
+          `(
+            extraction.normalized_extraction_json IS NULL
+            OR extraction.dictionary_version < :targetDictionaryVersion
+          )`,
+          { targetDictionaryVersion: params.targetDictionaryVersion },
+        );
+      } else if (params.onlyMissingNormalized !== false) {
         query.andWhere("extraction.normalized_extraction_json IS NULL");
       }
 
