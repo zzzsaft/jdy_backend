@@ -214,7 +214,7 @@ export function parseVoltageComposite(rawValue: string): {
 
   const voltageMatch = text.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:V|伏)/i);
   const frequencyMatch = text.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:Hz|赫兹)/i);
-  const phaseMatch = text.match(/(单相|三相|1\s*相|3\s*相)/i);
+  const phaseMatch = text.match(/(单\s*相|三\s*相|1\s*相|3\s*相)/i);
   if (!voltageMatch && !frequencyMatch && !phaseMatch) {
     return null;
   }
@@ -309,7 +309,7 @@ export function normalizeStandaloneVoltagePart(rawField: LlmRawField):
     };
   }
 
-  const phaseMatch = rawValue.match(/^(单相|三相|1\s*相|3\s*相)$/i);
+  const phaseMatch = rawValue.match(/^(单\s*相|三\s*相|1\s*相|3\s*相)$/i);
   if (/^(?:加热)?(?:相|相数)$/.test(fieldName) && phaseMatch?.[1]) {
     const normalizedValue = phaseMatch[1]
       .replace(/\s+/g, "")

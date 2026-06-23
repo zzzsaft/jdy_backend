@@ -462,6 +462,14 @@ export class DictionaryService {
         take: limit,
       }),
     ]);
+    const termTypeCandidateOccurrences = termTypeCandidates.length
+      ? await occurrenceRepo.find({
+          where: {
+            candidateType: "term_type",
+            candidateId: In(termTypeCandidates.map((candidate) => candidate.id)),
+          },
+        })
+      : [];
     const valueCandidateOccurrences = valueCandidates.length
       ? await occurrenceRepo.find({
           where: {
@@ -485,8 +493,15 @@ export class DictionaryService {
       valueCandidates,
       valueCandidateOccurrences,
     );
+    const currentTermTypeCandidateReferences =
+      await this.loadCurrentNormalizedCandidateReferences(
+        "term_type",
+        termTypeCandidates,
+        termTypeCandidateOccurrences,
+      );
     const currentValueCandidateReferences =
-      await this.loadCurrentNormalizedValueCandidateReferences(
+      await this.loadCurrentNormalizedCandidateReferences(
+        "value",
         valueCandidates,
         valueCandidateOccurrences,
       );
@@ -495,6 +510,24 @@ export class DictionaryService {
     const resolvedTermTypeCandidateIds: string[] = [];
     const affectedDocumentIds = new Set<number>();
     for (const candidate of termTypeCandidates) {
+      if (currentTermTypeCandidateReferences.get(candidate.id) === false) {
+        candidate.status = this.doneStatus(candidate.id);
+        candidate.reason =
+          "auto_resolved_by_normalization_refresh:no_current_reference";
+        candidate.reviewedBy = "system";
+        candidate.reviewedAt = new Date();
+        await this.saveTermTypeCandidateAutoResolved(
+          termTypeCandidateRepo,
+          candidate,
+        );
+        resolvedTermTypeCandidateCount += 1;
+        resolvedTermTypeCandidateIds.push(candidate.id);
+        if (candidate.documentId) {
+          affectedDocumentIds.add(Number(candidate.documentId));
+        }
+        continue;
+      }
+
       const indexedInstanceField = parseIndexedInstanceFieldName(
         candidate.rawFieldName,
       );
@@ -684,8 +717,9 @@ export class DictionaryService {
     };
   }
 
-  private async loadCurrentNormalizedValueCandidateReferences(
-    candidates: DictionaryCandidate[],
+  private async loadCurrentNormalizedCandidateReferences(
+    candidateType: "term_type" | "value",
+    candidates: Array<DictionaryCandidate | DictionaryTermTypeCandidate>,
     occurrences: DictionaryCandidateOccurrence[],
   ): Promise<Map<string, boolean>> {
     const extractionIdsByCandidateId = new Map<string, Set<string>>();
@@ -755,7 +789,7 @@ export class DictionaryService {
           current_extractions.candidate_id AS "candidateId",
           COUNT(extraction.id)::int AS "extractionCount",
           BOOL_OR(
-            field->'candidate'->>'candidate_type' = 'value'
+            field->'candidate'->>'candidate_type' = $3
             AND field->'candidate'->>'candidate_id' = current_extractions.candidate_id
           ) AS "isReferenced"
         FROM current_extractions
@@ -769,7 +803,7 @@ export class DictionaryService {
         ) field ON true
         GROUP BY current_extractions.candidate_id
       `,
-      [candidateIds, pairedExtractionIds],
+      [candidateIds, pairedExtractionIds, candidateType],
     );
 
     const result = new Map<string, boolean>();
@@ -2459,7 +2493,7 @@ type PlasticMaterialResidualRoute =
       source?: string;
     };
 
-function classifyEnumResidual(
+export function classifyEnumResidual(
   termType: string,
   rawValue: string,
 ): PlasticMaterialResidualRoute {
@@ -2467,9 +2501,79 @@ function classifyEnumResidual(
     return classifyPlasticMaterialResidual(rawValue);
   }
   if (termType === "application") {
-    return classifyApplicationMaterialPrefixResidual(rawValue);
+    const applicationRoute = classifyApplicationMaterialPrefixResidual(rawValue);
+    if (applicationRoute.action !== "candidate") {
+      return applicationRoute;
+    }
+    return classifyCompositeEnumResidual(termType, rawValue) ?? applicationRoute;
+  }
+
+  const compositeSuppression = classifyCompositeEnumResidual(termType, rawValue);
+  if (compositeSuppression) {
+    return compositeSuppression;
   }
   return { action: "candidate", rawValue };
+}
+
+function classifyCompositeEnumResidual(
+  termType: string,
+  rawValue: string,
+): PlasticMaterialResidualRoute | null {
+  const trimmed = String(rawValue ?? "").trim();
+  const compact = trimmed.replace(/\s+/g, "");
+  if (!compact) {
+    return { action: "suppress", message: "空枚举残片已跳过" };
+  }
+
+  if (
+    termType === "connector_type" &&
+    /(?:用|配套|匹配).{0,12}连接器/u.test(compact)
+  ) {
+    return {
+      action: "suppress",
+      warningType: "composite_enum_residual_suppressed",
+      source: "composite_enum_residual_classifier",
+      message: "连接器用途/适配对象属于限定信息，已跳过整段 enum value candidate",
+    };
+  }
+
+  if (
+    termType === "deckle_type" &&
+    /(单边挡|单边|挡块).{0,12}\d+(?:\.\d+)?\s*(?:mm|毫米)?/iu.test(trimmed)
+  ) {
+    return {
+      action: "suppress",
+      warningType: "composite_enum_residual_suppressed",
+      source: "composite_enum_residual_classifier",
+      message: "堵边类型混入单边尺寸限定，已跳过整段 enum value candidate",
+    };
+  }
+
+  if (
+    termType === "flow_channel_type" &&
+    /^其他[（(].*(?:流道|岐管|支管|衣架式).*?[）)]?$/u.test(compact)
+  ) {
+    return {
+      action: "suppress",
+      warningType: "composite_enum_residual_suppressed",
+      source: "composite_enum_residual_classifier",
+      message: "流道类型混入“其他”说明包装，已跳过整段 enum value candidate",
+    };
+  }
+
+  if (
+    termType === "application" &&
+    /^用于.+(?:模头|分配器|计量泵|换网器|连接器|设备)$/u.test(compact)
+  ) {
+    return {
+      action: "suppress",
+      warningType: "application_wrapper_residual_suppressed",
+      source: "composite_enum_residual_classifier",
+      message: "应用值包含“用于...”包装或适配对象，已跳过整段 enum value candidate",
+    };
+  }
+
+  return null;
 }
 
 function classifyApplicationMaterialPrefixResidual(
@@ -2746,10 +2850,10 @@ function cleanApplicationCandidateValue(value: string): string | null {
     .replace(/^(?:原料|塑料原料|适用原料|适用塑料原料)[:：]?/u, "")
     .replace(/^(?:及回收料|回收料|含填充料|填充料|填充|钙粉|碳酸钙|滑石粉|助剂|色母|母粒)+/u, "")
     .replace(/^模头[、，,:：-]?(?:适用|适用于|用于)?/u, "")
-    .replace(/^(?:适用|适用于|用于)/u, "")
+    .replace(/^(?:适用于|适用|用于)/u, "")
     .replace(/^(?:PP|PE|PET|PVC|PC|PS|ABS|POM|EVA|POE|CPE|CPP|PBT|PA|TPU|TPE|TPR|PLA|PVA|ASA|PMMA|LDPE|HDPE|LLDPE)+/iu, "")
     .replace(/(?:PP|PE|PET|PVC|PC|PS|ABS|POM|EVA|POE|CPE|CPP|PBT|PA|TPU|TPE|TPR|PLA|PVA|ASA|PMMA|LDPE|HDPE|LLDPE)+$/iu, "")
-    .replace(/(?:自动模头|手动模头|流延模头|衣架式模头|模头)$/u, "")
+    .replace(/(?:自动模头|手动模头|衣架式模头|模头)$/u, "")
     .replace(/^(?:自动|手动)(?=流延|透气|薄膜|片材|板材|膜|板)/u, "")
     .replace(/[，,、;；:：.。]+$/u, "")
     .trim();

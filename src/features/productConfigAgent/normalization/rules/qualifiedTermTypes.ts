@@ -29,6 +29,7 @@ export const QUALIFIED_TERM_TYPES = new Set([
   "heating_power",
   "heating_frequency",
   "heating_phase",
+  "laser_hardening_config",
   "die_lip_heating_config",
   "side_plate_heating_config",
   "lip_thickness_adjustment_range",

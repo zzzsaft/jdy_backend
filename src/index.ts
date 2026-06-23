@@ -16,7 +16,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateWechatAuthClients } from "./features/wechat/wechatCorps.js";
 import { validateAuthSecrets } from "./utils/jwt.js";
-import { browserAuthMiddleware, browserCorsOptions } from "./middleware/browserAuth.js";
+import {
+  browserAuthMiddleware,
+  browserCorsOptions,
+} from "./middleware/browserAuth.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,7 +40,7 @@ PgDataSource.initialize()
     }
     const app = express();
     const port = parseInt(process.env.PORT ?? "2002");
-    app.use(express.static(path.join(__dirname, "..", "public")));
+    app.use(express.static(path.join(process.cwd(), "public")));
     app.use(cors(browserCorsOptions()));
     app.use(browserAuthMiddleware);
     app.use(autoParse);
@@ -53,7 +56,7 @@ PgDataSource.initialize()
           } catch (err) {
             next(err);
           }
-        }
+        },
       );
     });
     // run app

@@ -51,9 +51,7 @@ export class BackgroundJobService {
       finishedAt: null,
     });
     const saved = await repo.save(job);
-    setImmediate(() => {
-      void this.runWorker();
-    });
+    this.scheduleWorkerRun();
     return saved;
   }
 
@@ -68,11 +66,9 @@ export class BackgroundJobService {
       return;
     }
     const intervalMs = Math.max(1000, params?.intervalMs ?? 5000);
-    setImmediate(() => {
-      void this.runWorker();
-    });
+    this.scheduleWorkerRun();
     this.workerTimer = setInterval(() => {
-      void this.runWorker();
+      this.scheduleWorkerRun();
     }, intervalMs);
     this.workerTimer.unref?.();
   }
@@ -90,9 +86,19 @@ export class BackgroundJobService {
         }
         await this.runClaimedJob(job);
       }
+    } catch (error) {
+      logger.error(
+        `[backgroundJob:worker:error] workerId=${this.workerId} ${this.formatErrorForLog(error)}`,
+      );
     } finally {
       this.workerRunning = false;
     }
+  }
+
+  private scheduleWorkerRun(): void {
+    setImmediate(() => {
+      void this.runWorker();
+    });
   }
 
   private async claimNextJob(): Promise<BackgroundJob | null> {
@@ -189,6 +195,23 @@ export class BackgroundJobService {
     logger.error(
       `[backgroundJob:run:failed] jobId=${job.id} type=${job.type} retry=${shouldRetry} error=${error}`,
     );
+  }
+
+  private formatErrorForLog(error: unknown): string {
+    if (error instanceof Error) {
+      const code = typeof (error as any).code === "string" ? (error as any).code : undefined;
+      const errno = typeof (error as any).errno === "string" ? (error as any).errno : undefined;
+      const syscall =
+        typeof (error as any).syscall === "string" ? (error as any).syscall : undefined;
+      const parts = [
+        `message=${error.message}`,
+        code ? `code=${code}` : null,
+        errno ? `errno=${errno}` : null,
+        syscall ? `syscall=${syscall}` : null,
+      ].filter(Boolean);
+      return parts.join(" ");
+    }
+    return `message=${String(error)}`;
   }
 }
 

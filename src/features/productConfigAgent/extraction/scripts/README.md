@@ -201,9 +201,11 @@ node --loader ts-node/esm -r dotenv/config src/features/productConfigAgent/extra
 
 ### 重抽混填/错概念 Candidate 关联文档
 
-先根据 Concept Resolver 对 `plastic_material` 和 `application` 给出的
-`split_value` 证据筛选关联文档，并把文档标记为
-`planned_needs_reextract`：
+先根据 Concept Resolver 证据筛选关联文档，并把文档标记为
+`planned_needs_reextract`。当前会覆盖两类 pending candidate：
+
+- `plastic_material` / `application` 中建议 `split_value` 的 cross-concept 候选。
+- `wrong_scope` / `extraction_error`，或建议 `move_scope` / `mark_extraction_error` 的候选。
 
 ```bash
 npm run product-config-agent:reextract-cross-concept -- --mode=mark
@@ -231,4 +233,3 @@ npm run product-config-agent:reextract-cross-concept -- --mode=resume-batch --ro
 
 `roundLimit` 控制每轮最多处理多少个 staged extraction；每轮结束即落库，适合
 InferAI 长时间批跑和中断续跑。
-
