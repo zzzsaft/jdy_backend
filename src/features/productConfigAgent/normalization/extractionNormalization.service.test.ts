@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { validateLlmExtractionResult } from "../extraction/validation/parseExtractResult.js";
 import { ExtractionNormalizationService } from "./extractionNormalization.service.js";
+import { classifyEnumResidual } from "../dictionary/dictionary.service.js";
 
 const dictionaryService = {
   async getProductTypeOptions() {
@@ -1815,6 +1816,10 @@ const normalizationRulesService = new ExtractionNormalizationService(
         heating_frequency: { termType: "heating_frequency", valueKind: "number_unit" },
         heating_phase: { termType: "heating_phase", valueKind: "enum" },
         pump_heating_voltage: { termType: "pump_heating_voltage", valueKind: "number_unit" },
+        加热电压: { termType: "heating_voltage", valueKind: "number_unit" },
+        加热频率: { termType: "heating_frequency", valueKind: "number_unit" },
+        相: { termType: "heating_phase", valueKind: "enum" },
+        加热功率: { termType: "heating_power", valueKind: "number_unit" },
         镶块粗糙度: { termType: "surface_roughness", valueKind: "text" },
         流道抛光精度: { termType: "surface_roughness", valueKind: "text" },
         热电偶孔规格: {
@@ -2444,6 +2449,94 @@ assert.deepEqual(
   ],
 );
 
+const voltageAndHeatingPowerResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "feedblock", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "电压及加热功率",
+              value: "220 V / 50 Hz / 单   相 功率 (10 KW)",
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.deepEqual(
+  voltageAndHeatingPowerResult.items[0].fields
+    .filter((field) => !field.dictionary.note)
+    .map((field) => ({
+      termType: field.dictionary.term_type,
+      rawValue: field.raw_value,
+    })),
+  [
+    { termType: "heating_voltage", rawValue: "220V" },
+    { termType: "heating_frequency", rawValue: "50Hz" },
+    { termType: "heating_phase", rawValue: "单相" },
+    { termType: "heating_power", rawValue: "10KW" },
+  ],
+);
+
+const voltageAndBlankPowerResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "feedblock", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "电压及加热功率",
+              value: "220 V / 50 Hz / 单   相 功率 ( KW )",
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.deepEqual(
+  voltageAndBlankPowerResult.items[0].fields
+    .filter((field) => !field.dictionary.note)
+    .map((field) => field.dictionary.term_type),
+  ["heating_voltage", "heating_frequency", "heating_phase"],
+);
+
+const voltageAndEmptyTemplateResult = await normalizationRulesService.normalizeExtraction({
+  llmResult: {
+    extraction: {
+      document_info: {},
+      items: [
+        {
+          item_index: 1,
+          product_type_hint: { value: "feedblock", confidence: 0.9 },
+          raw_fields: [
+            {
+              field_name: "电压及加热功率",
+              value: "功率 (            KW )",
+              confidence: 0.95,
+            },
+          ],
+        },
+      ],
+    },
+    warnings: [],
+  },
+});
+assert.equal(voltageAndEmptyTemplateResult.items[0].fields.length, 0);
+assert.equal(voltageAndEmptyTemplateResult.summary.term_type_candidate_count, 0);
+
 const roughnessRangeResult = await normalizationRulesService.normalizeExtraction({
   llmResult: {
     extraction: {
@@ -2723,6 +2816,128 @@ assert.equal(
     (warning) => warning.type === "customer_note_config_conflict",
   ),
   true,
+);
+
+const candidateSuppressionService = new ExtractionNormalizationService(
+  {} as any,
+  {
+    async getProductTypeOptions() {
+      return [];
+    },
+    async flushAliasUsageStats() {},
+    async normalizeField(params: any) {
+      if (params.fieldName === "模唇加热方式") {
+        return {
+          matched: false,
+          fieldMatched: true,
+          rawFieldName: params.fieldName,
+          normalizedFieldName: params.fieldName,
+          rawValue: params.rawValue,
+          normalizedValue: params.rawValue,
+          termType: "heating_method",
+          valueKind: "enum",
+          valueCandidate: {
+            id: "901",
+            termType: "heating_method",
+            rawValue: params.rawValue,
+            sourceProductType: params.itemProductTypeHint,
+            itemIndex: params.itemIndex,
+            status: "pending",
+          },
+          warnings: [{ type: "value_no_match", message: "字段值未命中字典" }],
+        };
+      }
+      return {
+        matched: false,
+        fieldMatched: false,
+        rawFieldName: params.fieldName,
+        normalizedFieldName: params.fieldName,
+        rawValue: params.rawValue,
+        normalizedValue: params.rawValue,
+        termTypeCandidate: {
+          id: "902",
+          rawFieldName: params.fieldName,
+          sourceProductType: params.itemProductTypeHint,
+          itemIndex: params.itemIndex,
+          status: "pending",
+        },
+        warnings: [{ type: "term_type_no_match", message: "字段名未命中字典" }],
+      };
+    },
+  } as any,
+);
+
+const qualifierCandidateSuppressionResult =
+  await candidateSuppressionService.normalizeExtraction({
+    llmResult: {
+      extraction: {
+        document_info: {},
+        items: [
+          {
+            item_index: 1,
+            product_type_hint: { value: "flat_die", confidence: 0.9 },
+            raw_fields: [
+              {
+                field_name: "模唇加热方式",
+                value: "油加温",
+                confidence: 0.95,
+              },
+            ],
+          },
+        ],
+      },
+      warnings: [],
+    },
+  });
+assert.equal(qualifierCandidateSuppressionResult.summary.value_candidate_count, 0);
+assert.equal(qualifierCandidateSuppressionResult.items[0].fields[0].candidate, undefined);
+assert.equal(
+  qualifierCandidateSuppressionResult.items[0].fields[0].qualifier?.area,
+  "lip",
+);
+assert.equal(
+  qualifierCandidateSuppressionResult.items[0].fields[0].warnings.some(
+    (warning) => warning.type === "candidate_suppressed_by_normalization_rule",
+  ),
+  true,
+);
+
+const indexedCandidateSuppressionResult =
+  await candidateSuppressionService.normalizeExtraction({
+    llmResult: {
+      extraction: {
+        document_info: {},
+        items: [
+          {
+            item_index: 1,
+            product_type_hint: { value: "flat_die", confidence: 0.9 },
+            raw_fields: [
+              {
+                field_name: "未知配置1",
+                value: "有",
+                confidence: 0.95,
+              },
+            ],
+          },
+        ],
+      },
+      warnings: [],
+    },
+  });
+assert.equal(indexedCandidateSuppressionResult.summary.term_type_candidate_count, 0);
+assert.equal(indexedCandidateSuppressionResult.items[0].fields[0].candidate, undefined);
+
+assert.equal(
+  classifyEnumResidual("deckle_type", "外堵式（单边挡300mm）").action,
+  "suppress",
+);
+assert.equal(
+  classifyEnumResidual("connector_type", "换网器用连接器").action,
+  "suppress",
+);
+assert.equal(
+  classifyEnumResidual("flow_channel_type", "其他（PVB专用流道）").action,
+  "suppress",
 );
 
 console.log("productConfigAgent extraction normalization tests passed");

@@ -9,7 +9,11 @@ import { productConfigAgentService } from "../service.js";
 import { TWO_STAGE_PROMPT_VERSION } from "../workflow/common.js";
 import { readArg, readOptionalPositiveIntArg } from "./scriptArgs.js";
 
-type CandidateRef = { candidateType: "term_type" | "value"; candidateId: string };
+type CandidateRef = {
+  candidateType: "term_type" | "value";
+  candidateId: string;
+  targetReason: "cross_concept_split_value" | "wrong_scope_or_extraction_error";
+};
 type TargetDocument = { documentId: number; fileName: string; status: string };
 
 const DIRTY_REASON = "prompt_cross_concept_reextract";
@@ -40,26 +44,94 @@ async function pendingCounts() {
 async function findCandidateRefs(limit: number): Promise<CandidateRef[]> {
   return PgDataSource.query(
     `
-      SELECT 'value'::text AS "candidateType", id::text AS "candidateId"
-      FROM quote_agent.dictionary_candidates
-      WHERE status = 'pending'
-        AND term_type IN ('plastic_material', 'application')
-        AND resolver_decision_jsonb IS NOT NULL
-        AND (
-          resolver_decision_jsonb->>'recommendedAction' = 'split_value'
-          OR EXISTS (
-            SELECT 1
-            FROM jsonb_array_elements(
-              CASE
-                WHEN jsonb_typeof(resolver_decision_jsonb->'issues') = 'array'
-                  THEN resolver_decision_jsonb->'issues'
-                ELSE '[]'::jsonb
-              END
-            ) issue
-            WHERE issue->>'recommendedAction' = 'split_value'
+      WITH value_candidates AS (
+        SELECT
+          'value'::text AS "candidateType",
+          id::text AS "candidateId",
+          CASE
+            WHEN term_type IN ('plastic_material', 'application')
+              AND (
+                resolver_decision_jsonb->>'recommendedAction' = 'split_value'
+                OR EXISTS (
+                  SELECT 1
+                  FROM jsonb_array_elements(
+                    CASE
+                      WHEN jsonb_typeof(resolver_decision_jsonb->'issues') = 'array'
+                        THEN resolver_decision_jsonb->'issues'
+                      ELSE '[]'::jsonb
+                    END
+                  ) issue
+                  WHERE issue->>'recommendedAction' = 'split_value'
+                )
+              )
+              THEN 'cross_concept_split_value'
+            ELSE 'wrong_scope_or_extraction_error'
+          END AS "targetReason"
+        FROM quote_agent.dictionary_candidates
+        WHERE status = 'pending'
+          AND resolver_decision_jsonb IS NOT NULL
+          AND (
+            (
+              term_type IN ('plastic_material', 'application')
+              AND (
+                resolver_decision_jsonb->>'recommendedAction' = 'split_value'
+                OR EXISTS (
+                  SELECT 1
+                  FROM jsonb_array_elements(
+                    CASE
+                      WHEN jsonb_typeof(resolver_decision_jsonb->'issues') = 'array'
+                        THEN resolver_decision_jsonb->'issues'
+                      ELSE '[]'::jsonb
+                    END
+                  ) issue
+                  WHERE issue->>'recommendedAction' = 'split_value'
+                )
+              )
+            )
+            OR resolver_decision_jsonb->>'relationType' IN ('wrong_scope', 'extraction_error')
+            OR resolver_decision_jsonb->>'recommendedAction' IN ('move_scope', 'mark_extraction_error')
+            OR EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements(
+                CASE
+                  WHEN jsonb_typeof(resolver_decision_jsonb->'issues') = 'array'
+                    THEN resolver_decision_jsonb->'issues'
+                  ELSE '[]'::jsonb
+                END
+              ) issue
+              WHERE issue->>'relationType' IN ('wrong_scope', 'extraction_error')
+                 OR issue->>'recommendedAction' IN ('move_scope', 'mark_extraction_error')
+            )
           )
-        )
-      ORDER BY id
+      ), term_type_candidates AS (
+        SELECT
+          'term_type'::text AS "candidateType",
+          id::text AS "candidateId",
+          'wrong_scope_or_extraction_error'::text AS "targetReason"
+        FROM quote_agent.dictionary_term_type_candidates
+        WHERE status = 'pending'
+          AND resolver_decision_jsonb IS NOT NULL
+          AND (
+            resolver_decision_jsonb->>'relationType' IN ('wrong_scope', 'extraction_error')
+            OR resolver_decision_jsonb->>'recommendedAction' IN ('move_scope', 'mark_extraction_error')
+            OR EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements(
+                CASE
+                  WHEN jsonb_typeof(resolver_decision_jsonb->'issues') = 'array'
+                    THEN resolver_decision_jsonb->'issues'
+                  ELSE '[]'::jsonb
+                END
+              ) issue
+              WHERE issue->>'relationType' IN ('wrong_scope', 'extraction_error')
+                 OR issue->>'recommendedAction' IN ('move_scope', 'mark_extraction_error')
+            )
+          )
+      )
+      SELECT * FROM value_candidates
+      UNION ALL
+      SELECT * FROM term_type_candidates
+      ORDER BY "targetReason", "candidateType", "candidateId"
       LIMIT $1
     `,
     [limit],
@@ -319,6 +391,13 @@ async function candidateStatuses(refs: CandidateRef[]) {
   return rows;
 }
 
+function countCandidateTargetReasons(refs: CandidateRef[]) {
+  return refs.reduce<Record<string, number>>((counts, ref) => {
+    counts[ref.targetReason] = (counts[ref.targetReason] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
 async function main() {
   const mode = readMode();
   const limit = readOptionalPositiveIntArg("limit", 5000)!;
@@ -346,6 +425,7 @@ async function main() {
     model: normalizeRoutedChatModel(model),
     pendingBefore: before,
     candidateCount: candidateRefs.length,
+    candidateTargetReasons: countCandidateTargetReasons(candidateRefs),
     documentCount: documents.length,
     documents,
   }, null, 2));

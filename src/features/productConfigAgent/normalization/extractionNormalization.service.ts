@@ -49,6 +49,7 @@ import {
   mergeNumberUnitPartFields,
   mergeRangeBoundFields,
   normalizeStandaloneVoltagePart,
+  parseVoltageComposite,
   moveRawFieldToDocumentInfo,
   parseIndexedInstanceFieldName,
   parseNumberUnitPartFieldName,
@@ -578,6 +579,88 @@ function normalizeQualifierRawField(rawField: LlmRawField): LlmRawField {
         }),
       ],
     ),
+  };
+}
+
+function splitVoltageAndHeatingPowerField(
+  rawField: LlmRawField,
+): NonNullable<LlmRawField["split_fields"]> | null {
+  const fieldName = String(rawField.field_name ?? "").replace(/\s+/g, "");
+  if (!/^(?:电源)?电压及加热功率$/.test(fieldName)) {
+    return null;
+  }
+
+  const rawValue = String(rawField.value ?? "").trim();
+  if (!rawValue) {
+    return [];
+  }
+
+  const parsedVoltage = parseVoltageComposite(rawValue);
+  const splitFields: NonNullable<LlmRawField["split_fields"]> = [];
+  if (parsedVoltage?.voltage) {
+    splitFields.push({
+      field_name: "加热电压",
+      value: parsedVoltage.voltage,
+      raw_text: rawField.raw_text ?? rawValue,
+      evidence: compositeSplitEvidence(rawField.evidence, rawField.field_name),
+      confidence: rawField.confidence,
+    });
+  }
+  if (parsedVoltage?.frequency) {
+    splitFields.push({
+      field_name: "加热频率",
+      value: parsedVoltage.frequency,
+      raw_text: rawField.raw_text ?? rawValue,
+      evidence: compositeSplitEvidence(rawField.evidence, rawField.field_name),
+      confidence: rawField.confidence,
+    });
+  }
+  if (parsedVoltage?.phase) {
+    splitFields.push({
+      field_name: "相",
+      value: parsedVoltage.phase,
+      raw_text: rawField.raw_text ?? rawValue,
+      evidence: compositeSplitEvidence(rawField.evidence, rawField.field_name),
+      confidence: rawField.confidence,
+    });
+  }
+
+  const power = parseHeatingPower(rawValue);
+  if (power) {
+    splitFields.push({
+      field_name: "加热功率",
+      value: power,
+      raw_text: rawField.raw_text ?? rawValue,
+      evidence: compositeSplitEvidence(rawField.evidence, rawField.field_name),
+      confidence: rawField.confidence,
+    });
+  }
+
+  return splitFields;
+}
+
+function parseHeatingPower(rawValue: string): string | undefined {
+  const match = String(rawValue ?? "").match(
+    /功率\s*[（(]?\s*([0-9]+(?:\.[0-9]+)?)\s*(kW|KW|kw|W|w|千瓦|瓦)?/u,
+  );
+  if (!match?.[1]) {
+    return undefined;
+  }
+  const unit = match[2] ?? "KW";
+  return `${match[1]}${unit.replace(/^kw$/i, "KW")}`;
+}
+
+function compositeSplitEvidence(
+  evidence: unknown,
+  originalFieldName: string,
+): unknown {
+  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
+    return { originalFieldName, splitRule: "voltage_and_heating_power" };
+  }
+  return {
+    ...(evidence as Record<string, unknown>),
+    originalFieldName,
+    splitRule: "voltage_and_heating_power",
   };
 }
 
@@ -1287,6 +1370,26 @@ export class ExtractionNormalizationService {
       });
     }
 
+    const voltagePowerSplitFields = hasSplitFields(params.rawField)
+      ? null
+      : splitVoltageAndHeatingPowerField(params.rawField);
+    if (voltagePowerSplitFields && voltagePowerSplitFields.length > 0) {
+      return this.expandRawField({
+        ...params,
+        rawField: {
+          ...params.rawField,
+          split_fields: voltagePowerSplitFields,
+        },
+      });
+    }
+    if (voltagePowerSplitFields && voltagePowerSplitFields.length === 0) {
+      return {
+        fieldsToNormalize: [],
+        rewrittenRawFields: [params.rawField],
+        splitResolutionCount: 0,
+      };
+    }
+
     if (
       isOriginalRetainedField(params.rawField) ||
       !hasSplitFields(params.rawField)
@@ -1814,9 +1917,64 @@ export class ExtractionNormalizationService {
     consolidateQualifiedTermType(field);
     applyQualifier(field);
     applyRoughness(field);
+    this.suppressRuleCoveredCandidate(field);
 
     finishBuildProfile();
     return field;
+  }
+
+  private suppressRuleCoveredCandidate(field: DictionaryExtractionField): void {
+    const candidate = field.candidate;
+    if (!candidate || candidate.candidate_type === "unit") {
+      return;
+    }
+
+    const ruleSignals = NormalizationRuleRegistry.extractSignals(field.evidence);
+    const ruleIds = ruleSignals.map((signal) => signal.ruleId);
+    const hasRuleCoveredSignal = ruleIds.some((ruleId) =>
+      [
+        "structured_qualifier_normalized",
+        "contextual_lip_gap_rewrite",
+        "indexed_instance_normalized",
+      ].includes(ruleId),
+    );
+    const hasStructuredQualifier = Boolean(field.qualifier);
+    const indexedInstanceField = parseIndexedInstanceFieldName(field.field_name);
+
+    if (!hasRuleCoveredSignal && !hasStructuredQualifier && !indexedInstanceField) {
+      return;
+    }
+
+    const suppressedCandidate = candidate;
+    delete field.candidate;
+    field.warnings = field.warnings.filter(
+      (warning) =>
+        ![
+          "term_type_no_match",
+          "term_type_not_applicable_to_product",
+          "value_no_match",
+        ].includes(warning.type),
+    );
+    field.warnings.push(
+      createWarning({
+        type: "candidate_suppressed_by_normalization_rule",
+        message:
+          "候选已由 normalization qualifier/indexed/rule signal 表达，跳过普通 candidate 引用",
+        fieldName: field.field_name,
+        rawValue: field.raw_value,
+        termType:
+          suppressedCandidate.candidate_type === "value"
+            ? suppressedCandidate.term_type
+            : field.dictionary.term_type,
+        evidence: {
+          candidateType: suppressedCandidate.candidate_type,
+          candidateId: suppressedCandidate.candidate_id,
+          ruleIds,
+          qualifier: field.qualifier,
+          indexedInstanceField,
+        },
+      }),
+    );
   }
 
   private async buildFieldWithDerivedFields(params: {

@@ -31,7 +31,7 @@ PgDataSource.initialize()
     }
     const app = express();
     const port = parseInt(process.env.PORT ?? "2002");
-    app.use(express.static(path.join(__dirname, "..", "public")));
+    app.use(express.static(path.join(process.cwd(), "public")));
     app.use(cors());
     app.use(autoParse);
     app.use(requestLimiter);
