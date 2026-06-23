@@ -44,8 +44,14 @@ export const syncDepartments = async (corpId?: string): Promise<void> => {
   let result: Department[] = [];
 
   for (const config of corpConfigs) {
+    const contactApp =
+      config.apps.find((app) => app.name === "address") ??
+      config.apps.find((app) => app.name === "OA") ??
+      config.apps[0];
+    if (!contactApp) throw new Error(`No WeChat app for corp ${config.corpId}`);
     const departmentList = await contactApiClient.getDepartmentList(
-      config.corpId
+      config.corpId,
+      contactApp.name
     );
     const corpDepartments = departmentList["department"].map(
       (department: any) => {

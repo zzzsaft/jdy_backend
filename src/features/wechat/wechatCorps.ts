@@ -6,6 +6,9 @@ type RawCorpAppConfig = {
   agentId?: number;
   corpSecret?: string;
   name?: string;
+  clientId?: string;
+  allowedOrigins?: string[];
+  scopes?: string[];
 };
 
 type RawCorpConfig = {
@@ -19,6 +22,20 @@ export interface WechatCorpAppConfig {
   agentId: number;
   corpSecret: string;
   name: string;
+  clientId?: string;
+  allowedOrigins: string[];
+  scopes: string[];
+}
+
+export interface WechatAuthClientConfig {
+  clientId: string;
+  corpId: string;
+  corpName: string;
+  agentId: number;
+  appName: string;
+  corpSecret: string;
+  allowedOrigins: string[];
+  scopes: string[];
 }
 
 export interface WechatCorpConfig {
@@ -35,11 +52,14 @@ const parseApps = (apps?: RawCorpAppConfig[]): WechatCorpAppConfig[] => {
   if (!apps) return [];
 
   return apps
-    .filter((item) => item?.agentId && item?.corpSecret && item?.name)
+    .filter((item) => item?.agentId && item?.name)
     .map((item) => ({
       agentId: item.agentId ?? 0,
       corpSecret: item.corpSecret ?? "",
       name: item.name ?? "",
+      clientId: item.clientId?.trim() || undefined,
+      allowedOrigins: item.allowedOrigins?.filter(Boolean) ?? [],
+      scopes: item.scopes?.filter(Boolean) ?? [],
     }));
 };
 
@@ -86,11 +106,11 @@ export const defaultWechatCorpConfig: WechatCorpConfig = wechatCorpConfigs.find(
 
 export const getCorpConfig = (corpIdOrName?: string): WechatCorpConfig => {
   if (!corpIdOrName) return defaultWechatCorpConfig;
-  return (
-    wechatCorpConfigs.find(
-      (config) => config.corpId === corpIdOrName || config.name === corpIdOrName
-    ) ?? defaultWechatCorpConfig
+  const corp = wechatCorpConfigs.find(
+    (config) => config.corpId === corpIdOrName || config.name === corpIdOrName
   );
+  if (!corp) throw new Error(`Unknown WeChat corp: ${corpIdOrName}`);
+  return corp;
 };
 
 export const getCorpAppConfig = (
@@ -99,12 +119,11 @@ export const getCorpAppConfig = (
   appName?: string
 ): { corpId: string; corpSecret: string; agentId?: number } => {
   const corp = getCorpConfig(corpIdOrName ?? defaultCorpName);
-  const resolvedAppName = appName ?? defaultAppName;
-  const app = corp.apps.find((item) => {
-    if (resolvedAppName && item.name === resolvedAppName) return true;
-    if (agentId && item.agentId === agentId) return true;
-    return false;
-  });
+  const app = appName
+    ? corp.apps.find((item) => item.name === appName)
+    : agentId
+      ? corp.apps.find((item) => item.agentId === agentId)
+      : corp.apps.find((item) => item.name === defaultAppName);
 
   if (app) {
     return {
@@ -114,7 +133,74 @@ export const getCorpAppConfig = (
     };
   }
 
-  return { corpId: corp.corpId, corpSecret: "", agentId };
+  throw new Error(
+    `Unknown WeChat app for corp ${corp.corpId}: ${appName ?? agentId ?? defaultAppName}`
+  );
+};
+
+const authClients = wechatCorpConfigs.flatMap((corp) =>
+  corp.apps
+    .filter((app) => app.clientId)
+    .map((app) => ({
+      clientId: app.clientId ?? "",
+      corpId: corp.corpId,
+      corpName: corp.name,
+      agentId: app.agentId,
+      appName: app.name,
+      corpSecret: app.corpSecret,
+      allowedOrigins: app.allowedOrigins,
+      scopes: app.scopes,
+    }))
+);
+
+export const getWechatAuthClients = (): WechatAuthClientConfig[] =>
+  authClients.map((client) => ({ ...client }));
+
+export const getWechatAuthAllowedOrigins = (): string[] => [
+  ...new Set(authClients.flatMap((client) => client.allowedOrigins)),
+];
+
+export const getWechatAuthClient = (
+  clientId: string
+): WechatAuthClientConfig => {
+  const client = authClients.find((item) => item.clientId === clientId);
+  if (!client) throw new Error(`Unknown WeChat auth client: ${clientId}`);
+  if (!client.corpSecret) {
+    throw new Error(`Incomplete WeChat auth client: ${clientId}`);
+  }
+  return { ...client };
+};
+
+export const validateWechatAuthClients = (): void => {
+  const ids = new Set<string>();
+  for (const client of authClients) {
+    if (ids.has(client.clientId)) {
+      throw new Error(`Duplicate WeChat auth client: ${client.clientId}`);
+    }
+    ids.add(client.clientId);
+    getWechatAuthClient(client.clientId);
+    if (process.env.NODE_ENV === "production" && client.allowedOrigins.length === 0) {
+      throw new Error(`allowedOrigins is required for auth client: ${client.clientId}`);
+    }
+  }
+  const requiredClients = [
+    {
+      clientId: "legacy-frontend",
+      corpId: "wwd56c5091f4258911",
+      agentId: 1000044,
+    },
+    {
+      clientId: "new-frontend",
+      corpId: "ww8a8396c98dc4923d",
+      agentId: 1000002,
+    },
+  ];
+  for (const expected of requiredClients) {
+    const client = getWechatAuthClient(expected.clientId);
+    if (client.corpId !== expected.corpId || client.agentId !== expected.agentId) {
+      throw new Error(`Invalid WeChat auth client mapping: ${expected.clientId}`);
+    }
+  }
 };
 
 export const getCorpList = (corpId?: string): WechatCorpConfig[] => {

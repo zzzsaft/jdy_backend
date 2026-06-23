@@ -7,19 +7,43 @@ import {
   verifyJdyToken,
   verifyToken,
 } from "../utils/jwt.js";
-import nodeRSA from "node-rsa";
-import qs from "querystring";
 import { User } from "../entity/basic/employee.js";
 import { employeeService } from "./md/employeeService.js";
 import { fbtUserApiClient } from "../features/fbt/api/user.js";
 import { wechatUserApiClient } from "../features/wechat/api/user.js";
-const RSA_PRIVATE_KEY = process.env.RSA_PRIVATE_KEY;
-const key = new nodeRSA(`-----BEGIN RSA PRIVATE KEY-----
-    ${RSA_PRIVATE_KEY}
-    -----END RSA PRIVATE KEY-----`);
+import {
+  getWechatAuthClient,
+  type WechatAuthClientConfig,
+} from "../features/wechat/wechatCorps.js";
+import { contactApiClient } from "../features/wechat/api/contact.js";
+import { logger } from "../config/logger.js";
 
-// 导出公钥
-const publicKey = key.exportKey("public");
+type WechatExchangeResult = {
+  token: string;
+  user: {
+    userId: string;
+    corpId: string;
+    clientId: string;
+    name: string | null;
+    avatar: string | null;
+  };
+};
+
+const wechatExchangeCache = new Map<
+  string,
+  { expiresAt: number; result: WechatExchangeResult }
+>();
+const pendingWechatExchanges = new Map<string, Promise<WechatExchangeResult>>();
+
+export class AuthServiceError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code: string
+  ) {
+    super(message);
+  }
+}
 
 class AuthService {
   constructor() {}
@@ -49,17 +73,148 @@ class AuthService {
     return token;
   };
 
-  verifyToken = async (req) => {
+  getWechatClient = (clientId: string): WechatAuthClientConfig => {
+    try {
+      return getWechatAuthClient(clientId);
+    } catch {
+      throw new AuthServiceError(
+        "Invalid authentication client",
+        400,
+        "INVALID_CLIENT"
+      );
+    }
+  };
+
+  private exchangeWechatCodeOnce = async (
+    clientId: string,
+    code: string
+  ) => {
+    const client = this.getWechatClient(clientId);
+    if (!code) {
+      throw new AuthServiceError("Missing authorization code", 400, "MISSING_CODE");
+    }
+    let identity;
+    try {
+      identity = await wechatUserApiClient.getUserInfo(code, {
+        corpId: client.corpId,
+        agentId: client.agentId,
+        appName: client.appName,
+      });
+    } catch {
+      throw new AuthServiceError(
+        "WeCom authentication service unavailable",
+        502,
+        "WECOM_UNAVAILABLE"
+      );
+    }
+
+    const userId = identity?.userid;
+    if (identity?.errcode !== 0 || !userId) {
+      logger.warn(
+        `WeCom code exchange rejected clientId=${client.clientId} corpId=${client.corpId} agentId=${client.agentId} errcode=${identity?.errcode ?? "missing"}`
+      );
+      throw new AuthServiceError(
+        "Invalid WeCom authorization code",
+        401,
+        "INVALID_CODE"
+      );
+    }
+
+    let user = await User.findOne({
+      where: { corp_id: client.corpId, user_id: userId },
+    });
+    if (!user) {
+      let profile: any = null;
+      try {
+        const result = await contactApiClient.getUser(
+          userId,
+          client.corpId,
+          client.appName
+        );
+        if (result?.errcode === 0) profile = result;
+      } catch {
+        // The application may authenticate users without contact permissions.
+      }
+      await User.upsert(
+        {
+          corp_id: client.corpId,
+          user_id: userId,
+          corp_name: client.corpName,
+          is_employed: true,
+          name: profile?.name,
+          avatar: profile?.avatar,
+          thumb_avatar: profile?.thumb_avatar,
+          mobile: profile?.mobile,
+          department_id: profile?.department,
+          main_department_id: profile?.main_department
+            ? String(profile.main_department)
+            : undefined,
+        },
+        ["corp_id", "user_id"]
+      );
+      user = await User.findOneOrFail({
+        where: { corp_id: client.corpId, user_id: userId },
+      });
+    }
+
+    const token = generateToken({
+      userId,
+      corpId: client.corpId,
+      clientId: client.clientId,
+      scopes: client.scopes,
+      name: user.name ?? null,
+      avatar: user.avatar ?? null,
+    });
+    return {
+      token,
+      user: {
+        userId,
+        corpId: client.corpId,
+        clientId: client.clientId,
+        name: user.name ?? null,
+        avatar: user.avatar ?? null,
+      },
+    };
+  };
+
+  exchangeWechatCode = async (
+    clientId: string,
+    code: string
+  ): Promise<WechatExchangeResult> => {
+    if (!code) {
+      throw new AuthServiceError("Missing authorization code", 400, "MISSING_CODE");
+    }
+    const cacheKey = crypto
+      .createHash("sha256")
+      .update(`${clientId}:${code}`)
+      .digest("hex");
+    const now = Date.now();
+    const cached = wechatExchangeCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) return cached.result;
+    wechatExchangeCache.delete(cacheKey);
+
+    const pending = pendingWechatExchanges.get(cacheKey);
+    if (pending) return pending;
+
+    const exchange = this.exchangeWechatCodeOnce(clientId, code)
+      .then((result) => {
+        wechatExchangeCache.set(cacheKey, {
+          expiresAt: Date.now() + 60_000,
+          result,
+        });
+        return result;
+      })
+      .finally(() => pendingWechatExchanges.delete(cacheKey));
+    pendingWechatExchanges.set(cacheKey, exchange);
+    return exchange;
+  };
+
+  verifyToken = async (req, expectedClientIds?: readonly string[]) => {
     try {
       const token = extractToken(req);
       if (!token) return { userId: "" };
-      const decoded = verifyToken(token);
-      const newtoken = generateToken({
-        userId: decoded.userId,
-        name: decoded?.name,
-        avatar: decoded?.avatar,
-      });
-      return { ...decoded, token: newtoken };
+      const decoded = verifyToken(token, expectedClientIds);
+      return decoded;
     } catch (err) {
       // console.error("Token verification failed:", err);
       return { userId: "" };
@@ -126,15 +281,3 @@ class AuthService {
 }
 
 export const authService = new AuthService();
-
-function encrypt(plaintext: Buffer): string {
-  return crypto
-    .publicEncrypt(
-      {
-        key: Buffer.from(publicKey),
-        padding: crypto.constants.RSA_PKCS1_PADDING,
-      },
-      plaintext
-    )
-    .toString("base64");
-}

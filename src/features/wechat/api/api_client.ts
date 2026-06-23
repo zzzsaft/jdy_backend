@@ -47,7 +47,6 @@ export class ApiClient {
       }
       return response.data;
     } catch (e) {
-      console.log(e);
       response = e.response;
       if (response) {
         const { status, data } = response;

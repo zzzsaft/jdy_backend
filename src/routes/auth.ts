@@ -1,6 +1,61 @@
 import { Request, Response } from "express";
-import { authService } from "../services/authService.js";
+import {
+  AuthServiceError,
+  authService,
+} from "../services/authService.js";
 import { locationService } from "../services/locationService.js";
+import { logger } from "../config/logger.js";
+import { clearAuthCookie, setAuthCookie } from "../middleware/browserAuth.js";
+
+const LEGACY_CLIENT_ID = "legacy-frontend";
+const authAttempts = new Map<string, { count: number; resetAt: number }>();
+
+const enforceAuthRateLimit = (request: Request, response: Response): boolean => {
+  const now = Date.now();
+  const key = `${request.ip}:${request.path}`;
+  const current = authAttempts.get(key);
+  if (!current || current.resetAt <= now) {
+    authAttempts.set(key, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  current.count += 1;
+  if (current.count <= 20) return true;
+  response.status(429).json({ error: "RATE_LIMITED" });
+  return false;
+};
+
+const requireAllowedOrigin = (
+  request: Request,
+  response: Response,
+  clientId: string
+): boolean => {
+  const origin = request.headers.origin;
+  if (!origin) return true;
+  let client;
+  try {
+    client = authService.getWechatClient(clientId);
+  } catch (error) {
+    sendAuthError(response, error);
+    return false;
+  }
+  if (
+    client.allowedOrigins.length === 0 ||
+    client.allowedOrigins.includes(origin)
+  ) {
+    return true;
+  }
+  response.status(403).json({ error: "ORIGIN_NOT_ALLOWED" });
+  return false;
+};
+
+const sendAuthError = (response: Response, error: unknown) => {
+  if (error instanceof AuthServiceError) {
+    response.status(error.status).json({ error: error.code });
+    return;
+  }
+  logger.error("WeCom authentication failed");
+  response.status(500).json({ error: "AUTHENTICATION_FAILED" });
+};
 
 const setLocation = async (request: Request, response: Response) => {
   const userid = (await authService.verifyToken(request))?.userId;
@@ -112,16 +167,39 @@ const token = async (request: Request, response: Response) => {
     response.status(400).send("参数错误");
     return;
   }
-  const token = await authService.generateToken(code);
-  if (!token) {
-    console.log(`auth.ts token${token}`);
-    return response.status(400).send("获取token失败");
+  if (!enforceAuthRateLimit(request, response)) return;
+  if (!requireAllowedOrigin(request, response, LEGACY_CLIENT_ID)) return;
+  response.setHeader("Deprecation", "true");
+  response.setHeader("Sunset", "Wed, 31 Dec 2026 23:59:59 GMT");
+  logger.warn("Deprecated /auth/token endpoint used");
+  try {
+    const result = await authService.exchangeWechatCode(LEGACY_CLIENT_ID, code);
+    setAuthCookie(response, result.token);
+    response.send(result);
+  } catch (error) {
+    sendAuthError(response, error);
   }
-  // console.log(token);
-  response.send({ token });
 };
 
-const verify = async (request: Request, response: Response) => {
+export const wecomToken = async (request: Request, response: Response) => {
+  const clientId = String(request.body?.clientId ?? "").trim();
+  const code = String(request.body?.code ?? "").trim();
+  if (!clientId) {
+    response.status(400).json({ error: "INVALID_CLIENT" });
+    return;
+  }
+  if (!enforceAuthRateLimit(request, response)) return;
+  if (!requireAllowedOrigin(request, response, clientId)) return;
+  try {
+    const result = await authService.exchangeWechatCode(clientId, code);
+    setAuthCookie(response, result.token);
+    response.send(result);
+  } catch (error) {
+    sendAuthError(response, error);
+  }
+};
+
+export const authMe = async (request: Request, response: Response) => {
   let user;
   const { location } = request.query;
   try {
@@ -135,10 +213,28 @@ const verify = async (request: Request, response: Response) => {
     response.status(401).send("Unauthorized");
     return;
   }
-  response.send(user);
+  response.setHeader("Cache-Control", "no-store");
+  response.send({
+    userId: user.userId,
+    corpId: user.corpId,
+    clientId: user.clientId,
+    scopes: user.scopes,
+    name: user.name,
+    avatar: user.avatar,
+  });
+};
+
+export const logout = async (_request: Request, response: Response) => {
+  clearAuthCookie(response);
+  response.status(204).send();
 };
 
 export const AuthRoutes = [
+  {
+    path: "/auth/wecom/token",
+    method: "post",
+    action: wecomToken,
+  },
   {
     path: "/auth/corp_ticket",
     method: "post",
@@ -157,7 +253,12 @@ export const AuthRoutes = [
   {
     path: "/auth/me",
     method: "get",
-    action: verify,
+    action: authMe,
+  },
+  {
+    path: "/auth/logout",
+    method: "post",
+    action: logout,
   },
   {
     path: "/auth/sso/fbt",

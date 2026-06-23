@@ -17,6 +17,11 @@ export const syncUsers = async (corpId?: string): Promise<void> => {
   let result: User[] = [];
 
   for (const config of corpConfigs) {
+    const contactApp =
+      config.apps.find((app) => app.name === "address") ??
+      config.apps.find((app) => app.name === "OA") ??
+      config.apps[0];
+    if (!contactApp) throw new Error(`No WeChat app for corp ${config.corpId}`);
     const existDepartment = await Department.find({
       where: { is_exist: true, corp_id: config.corpId },
     });
@@ -27,7 +32,8 @@ export const syncUsers = async (corpId?: string): Promise<void> => {
     for (const departmentId of departmentIds) {
       const userList = await contactApiClient.getUserList(
         departmentId,
-        config.corpId
+        config.corpId,
+        contactApp.name
       );
       const users = userList.userlist.map((user) => {
         return {

@@ -85,7 +85,7 @@ export class XftTaskEvent {
       operateType: operateType,
       busKey: this.businessParam,
       taskId: this.processId,
-      approveComment: "",
+      approveComment,
     };
   }
   sendCard = async () => {

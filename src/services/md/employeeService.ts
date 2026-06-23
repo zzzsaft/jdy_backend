@@ -59,9 +59,12 @@ class EmployeeService {
     }
     await User.upsert(c, ["user_id", "corp_id"]);
   };
-  getEmployeeToWeb = async (userid) => {
+  getEmployeeToWeb = async (
+    userid: string,
+    corpId = defaultWechatCorpConfig.corpId
+  ) => {
     return await User.findOne({
-      where: { user_id: userid, corp_id: defaultWechatCorpConfig.corpId },
+      where: { user_id: userid, corp_id: corpId },
       select: ["user_id", "name", "avatar"],
     });
   };

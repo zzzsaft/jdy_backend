@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getCorpAppConfig, wechatCorpConfigs } from "../wechatCorps.js";
+import { logger } from "../../../config/logger.js";
 
 interface TokenConfig {
   corp_id: string;
@@ -45,9 +46,9 @@ class Token {
       } else {
         throw new Error("未能成功获取 access_token 或过期时间。");
       }
-    } catch (error) {
-      console.error("企业微信获取失败！错误信息：", error);
-      throw error;
+    } catch {
+      console.error("企业微信 access_token 获取失败");
+      throw new Error("Failed to obtain WeCom access token");
     }
   }
 
@@ -99,33 +100,51 @@ export const getCorpToken = (
 
 // Keep legacy exports for other features that rely on the default corp credentials
 const parseAgentId = (value?: string): number | undefined => {
-  const parsed = Number(value ?? "");
+  if (!value?.trim()) return undefined;
+  const parsed = Number(value);
   return Number.isNaN(parsed) ? undefined : parsed;
 };
 
-const checkinAppName = process.env.WECHAT_APP_CHECKIN ?? "checkin";
-const addressAppName = process.env.WECHAT_APP_ADDRESS ?? "address";
-const crmAppName = process.env.WECHAT_APP_CRM ?? "crm";
-const j1AppName = process.env.WECHAT_APP_J1 ?? "j1";
+const getLegacyToken = (
+  corpIdOrName: string | undefined,
+  agentId: number | undefined,
+  configuredAppName: string | undefined,
+  legacyDefaultAppName: string
+): Token => {
+  const appName = configuredAppName ?? legacyDefaultAppName;
+  try {
+    return getCorpToken(corpIdOrName, agentId, appName);
+  } catch (error) {
+    if (configuredAppName || agentId) throw error;
+    logger.warn(
+      `Optional WeChat app ${legacyDefaultAppName} is not configured; using the corp default app`
+    );
+    return getCorpToken(corpIdOrName);
+  }
+};
 
 export const token = getCorpToken();
-export const token_checkin = getCorpToken(
+export const token_checkin = getLegacyToken(
   process.env.WECHAT_CORP_CHECKIN,
   parseAgentId(process.env.CORP_AGENTID_CHECKIN),
-  checkinAppName
+  process.env.WECHAT_APP_CHECKIN,
+  "checkin"
 );
-export const token_address = getCorpToken(
+export const token_address = getLegacyToken(
   process.env.WECHAT_CORP_ADDRESS,
   parseAgentId(process.env.CORP_AGENTID_ADDRESS),
-  addressAppName
+  process.env.WECHAT_APP_ADDRESS,
+  "address"
 );
-export const token_crm = getCorpToken(
+export const token_crm = getLegacyToken(
   process.env.WECHAT_CORP_CRM,
   parseAgentId(process.env.CORP_AGENTID_CRM),
-  crmAppName
+  process.env.WECHAT_APP_CRM,
+  "CRM"
 );
-export const token_j1 = getCorpToken(
+export const token_j1 = getLegacyToken(
   process.env.WECHAT_CORP_J1,
   parseAgentId(process.env.CORP_AGENTID_J1),
-  j1AppName
+  process.env.WECHAT_APP_J1,
+  "OA"
 );

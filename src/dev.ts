@@ -51,6 +51,7 @@ import { bestSignContractService } from "./features/bestsign/service/bestSignCon
 import { bestSignMaintenanceService } from "./features/bestsign/service/bestSignMaintenanceService.js";
 import { main } from "./features/hr/service/test.js";
 import { backgroundJobService } from "./features/backgroundJob/index.js";
+import { browserAuthMiddleware, browserCorsOptions } from "./middleware/browserAuth.js";
 const { uniqueId } = _;
 // main();
 
@@ -202,7 +203,8 @@ PgDataSource.initialize()
     //   console.error("Global error handler:", err);
     //   res.status(500).json({ error: "Internal server error" });
     // });
-    app.use(cors());
+    app.use(cors(browserCorsOptions()));
+    app.use(browserAuthMiddleware);
     app.use(autoParse);
     app.use(requestLimiter);
     app.use(expressLog);

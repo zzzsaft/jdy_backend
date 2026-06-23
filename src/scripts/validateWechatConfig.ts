@@ -1,4 +1,7 @@
-import { wechatCorpConfigs } from "../features/wechat/wechatCorps.js";
+import {
+  validateWechatAuthClients,
+  wechatCorpConfigs,
+} from "../features/wechat/wechatCorps.js";
 import { logger } from "../config/logger.js";
 
 const validateConfigs = () => {
@@ -36,6 +39,7 @@ const validateConfigs = () => {
 (async () => {
   try {
     validateConfigs();
+    validateWechatAuthClients();
     logger.info("WeChat corp configuration validation passed");
   } catch (error) {
     logger.error("WeChat corp configuration validation failed", error);

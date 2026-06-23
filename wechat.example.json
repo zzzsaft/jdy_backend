@@ -1,0 +1,31 @@
+[
+  {
+    "corpId": "wwd56c5091f4258911",
+    "name": "jctimes",
+    "encodingAESKey": "replace-with-encoding-aes-key",
+    "apps": [
+      {
+        "agentId": 1000044,
+        "corpSecret": "replace-with-legacy-frontend-secret",
+        "name": "CRM",
+        "clientId": "legacy-frontend",
+        "allowedOrigins": ["https://legacy.example.com"],
+        "scopes": []
+      }
+    ]
+  },
+  {
+    "corpId": "ww8a8396c98dc4923d",
+    "name": "new-company",
+    "apps": [
+      {
+        "agentId": 1000002,
+        "corpSecret": "replace-with-new-frontend-secret",
+        "name": "frontend",
+        "clientId": "new-frontend",
+        "allowedOrigins": ["https://new.example.com"],
+        "scopes": []
+      }
+    ]
+  }
+]

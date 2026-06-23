@@ -2,18 +2,18 @@ import { ApiClient } from "./api_client.js";
 import { getCorpToken } from "./token.js";
 
 class ContactApiClient extends ApiClient {
-  private async getAccessToken(corpId?: string) {
-    return await getCorpToken(corpId).get_token();
+  private async getAccessToken(corpId?: string, appName?: string) {
+    return await getCorpToken(corpId, undefined, appName).get_token();
   }
 
-  async getUser(userid: string, corpId?: string) {
+  async getUser(userid: string, corpId?: string, appName?: string) {
     return await this.doRequest(
       {
         method: "POST",
         path: "/cgi-bin/user/get",
         payload: {},
         query: {
-          access_token: await this.getAccessToken(corpId),
+          access_token: await this.getAccessToken(corpId, appName),
           userid: userid,
         },
       },
@@ -24,14 +24,14 @@ class ContactApiClient extends ApiClient {
       }
     );
   }
-  async getDepartmentList(corpId?: string) {
+  async getDepartmentList(corpId?: string, appName?: string) {
     return await this.doRequest(
       {
         method: "POST",
         path: "/cgi-bin/department/list",
         payload: {},
         query: {
-          access_token: await this.getAccessToken(corpId),
+          access_token: await this.getAccessToken(corpId, appName),
         },
       },
       {
@@ -41,14 +41,14 @@ class ContactApiClient extends ApiClient {
       }
     );
   }
-  async getUserList(department_id: string, corpId?: string) {
+  async getUserList(department_id: string, corpId?: string, appName?: string) {
     return await this.doRequest(
       {
         method: "POST",
         path: "/cgi-bin/user/list",
         payload: {},
         query: {
-          access_token: await this.getAccessToken(corpId),
+          access_token: await this.getAccessToken(corpId, appName),
           department_id: department_id,
         },
       },
@@ -59,14 +59,18 @@ class ContactApiClient extends ApiClient {
       }
     );
   }
-  async getDepartmentInfo(department_id: number, corpId?: string) {
+  async getDepartmentInfo(
+    department_id: number,
+    corpId?: string,
+    appName?: string
+  ) {
     return await this.doRequest(
       {
         method: "GET",
         path: "/cgi-bin/department/get",
         payload: {},
         query: {
-          access_token: await this.getAccessToken(corpId),
+          access_token: await this.getAccessToken(corpId, appName),
           id: department_id,
         },
       },

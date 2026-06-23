@@ -23,10 +23,17 @@ export const autoParse = (req, res, next) => {
 export const expressLog = async (req, res, next) => {
   const clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
   // Prefer rawBody to avoid JS number rounding (e.g. 19-digit BestSign IDs).
-  const bodyText =
+  let bodyText =
     typeof (req as any).rawBody === "string" && (req as any).rawBody.length
       ? (req as any).rawBody
       : JSON.stringify(req.body);
+  if (req.path === "/auth/token" || req.path === "/auth/wecom/token") {
+    bodyText = JSON.stringify({
+      clientId: req.body?.clientId,
+      code: req.body?.code ? "[REDACTED]" : undefined,
+      state: req.body?.state ? "[REDACTED]" : undefined,
+    });
+  }
   await addToLog(
     clientIp,
     req.method,

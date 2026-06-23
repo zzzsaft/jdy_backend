@@ -29,6 +29,23 @@ const tryLockPassOA = (key: string) => {
   passOADedupe.set(key, timer);
   return true;
 };
+
+const autoRejectNotices = new Map<string, NodeJS.Timeout>();
+const AUTO_REJECT_NOTICE_TTL_MS = 10 * 60 * 1000;
+const markAutoRejectNotice = (key: string) => {
+  if (!key || autoRejectNotices.has(key)) return false;
+  const timer = setTimeout(
+    () => autoRejectNotices.delete(key),
+    AUTO_REJECT_NOTICE_TTL_MS
+  );
+  autoRejectNotices.set(key, timer);
+  return true;
+};
+const clearAutoRejectNotice = (key: string) => {
+  const timer = autoRejectNotices.get(key);
+  if (timer) clearTimeout(timer);
+  autoRejectNotices.delete(key);
+};
 export class LeaveEvent {
   task: XftTaskEvent;
   title: string;
@@ -63,6 +80,12 @@ export class LeaveEvent {
     await this.getRecord();
     const leaderid = await User.getLeaderId(this.stfNumber);
     if (this.task.dealStatus == "1") {
+      if (
+        this.task.processStatus == "2" &&
+        autoRejectNotices.has(this.task.businessParam)
+      ) {
+        return;
+      }
       await this.sendNotice([this.stfNumber]);
     } else if (this.task.dealStatus == "0") {
       if (await this.rejectOA()) {
@@ -214,9 +237,14 @@ export class LeaveEvent {
   };
 
   _rejectOA = async (reason) => {
+    if (!markAutoRejectNotice(this.task.businessParam)) return;
     const operate = await xftOAApiClient.operate(
       this.task.operateConfig("reject", reason)
     );
+    if (operate["returnCode"] != "SUC0000") {
+      clearAutoRejectNotice(this.task.businessParam);
+      return;
+    }
     this.task.status = "已驳回";
     this.task.horizontal_content_list.push({
       keyname: "驳回原因",
