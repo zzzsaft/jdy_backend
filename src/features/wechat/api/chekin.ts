@@ -67,9 +67,8 @@ class CheckinApiClient extends ApiClient {
           ...options,
           filter_type: 2,
         },
-        query: {
-          access_token: await token_checkin.get_token(),
-        },
+        query: {},
+        localAccessToken: () => token_checkin.get_token(),
       },
       {
         name: "get_hardware_checkin_data",
@@ -87,9 +86,8 @@ class CheckinApiClient extends ApiClient {
           opencheckindatatype: 3,
           ...options,
         },
-        query: {
-          access_token: await token_checkin.get_token(),
-        },
+        query: {},
+        localAccessToken: () => token_checkin.get_token(),
       },
       {
         name: "getcheckindata",
@@ -107,9 +105,8 @@ class CheckinApiClient extends ApiClient {
           userid,
           userface,
         },
-        query: {
-          access_token: await token_checkin.get_token(),
-        },
+        query: {},
+        localAccessToken: () => token_checkin.get_token(),
       },
       {
         name: "face",

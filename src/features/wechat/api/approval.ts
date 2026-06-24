@@ -10,9 +10,8 @@ class ApprovalApiClient extends ApiClient {
         payload: {
           sp_no,
         },
-        query: {
-          access_token: await token.get_token(),
-        },
+        query: {},
+        localAccessToken: () => token.get_token(),
       },
       {
         name: "getApprovalDetail",
@@ -36,9 +35,8 @@ class ApprovalApiClient extends ApiClient {
           ],
           // filters: [{ key: "record_type", value: "4" }],
         },
-        query: {
-          access_token: await token.get_token(),
-        },
+        query: {},
+        localAccessToken: () => token.get_token(),
       },
       {
         name: "getApprovalDetail",

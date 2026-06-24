@@ -69,7 +69,6 @@ class MessageApiClient extends ApiClient {
   }
 
   async sendMessage(options: Message) {
-    const accessToken = await this.getAccessToken(options);
     const { corpId, corpName, appName, ...payload } = options;
     return await this.doRequest(
       {
@@ -78,9 +77,8 @@ class MessageApiClient extends ApiClient {
         payload: {
           ...payload,
         },
-        query: {
-          access_token: accessToken,
-        },
+        query: {},
+        localAccessToken: () => this.getAccessToken(options),
       },
       {
         name: "sendMessage",
@@ -91,7 +89,6 @@ class MessageApiClient extends ApiClient {
   }
 
   async updateMessage(options: Message) {
-    const accessToken = await this.getAccessToken(options);
     const { corpId, corpName, appName, ...payload } = options;
     return await this.doRequest(
       {
@@ -100,9 +97,8 @@ class MessageApiClient extends ApiClient {
         payload: {
           ...payload,
         },
-        query: {
-          access_token: accessToken,
-        },
+        query: {},
+        localAccessToken: () => this.getAccessToken(options),
       },
       {
         name: "sendMessage",
@@ -113,7 +109,6 @@ class MessageApiClient extends ApiClient {
   }
 
   async recall(msgid: string, corpId?: string, agentId?: number) {
-    const accessToken = await getCorpToken(corpId, agentId).get_token();
     return await this.doRequest(
       {
         method: "POST",
@@ -121,9 +116,8 @@ class MessageApiClient extends ApiClient {
         payload: {
           msgid,
         },
-        query: {
-          access_token: accessToken,
-        },
+        query: {},
+        localAccessToken: () => getCorpToken(corpId, agentId).get_token(),
       },
       {
         name: "recallMessage",

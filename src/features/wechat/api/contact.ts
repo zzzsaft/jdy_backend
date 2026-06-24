@@ -13,9 +13,9 @@ class ContactApiClient extends ApiClient {
         path: "/cgi-bin/user/get",
         payload: {},
         query: {
-          access_token: await this.getAccessToken(corpId, appName),
           userid: userid,
         },
+        localAccessToken: () => this.getAccessToken(corpId, appName),
       },
       {
         name: "getUser",
@@ -30,9 +30,8 @@ class ContactApiClient extends ApiClient {
         method: "POST",
         path: "/cgi-bin/department/list",
         payload: {},
-        query: {
-          access_token: await this.getAccessToken(corpId, appName),
-        },
+        query: {},
+        localAccessToken: () => this.getAccessToken(corpId, appName),
       },
       {
         name: "getDepartmentList",
@@ -48,9 +47,9 @@ class ContactApiClient extends ApiClient {
         path: "/cgi-bin/user/list",
         payload: {},
         query: {
-          access_token: await this.getAccessToken(corpId, appName),
           department_id: department_id,
         },
+        localAccessToken: () => this.getAccessToken(corpId, appName),
       },
       {
         name: "getUserList",
@@ -70,9 +69,9 @@ class ContactApiClient extends ApiClient {
         path: "/cgi-bin/department/get",
         payload: {},
         query: {
-          access_token: await this.getAccessToken(corpId, appName),
           id: department_id,
         },
+        localAccessToken: () => this.getAccessToken(corpId, appName),
       },
       {
         name: "getDepartmentInfo",

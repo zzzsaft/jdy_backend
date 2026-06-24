@@ -5,14 +5,14 @@ This project deploys the compiled `build` directory to the Synology NAS and rest
 ## First-time setup
 
 1. Enable SSH on Synology DSM.
-2. Make sure your Windows machine can run `ssh`, `scp`, and `tar`.
+2. Make sure your machine can run `ssh`, `scp`, and `tar`.
 3. Find the container name on the NAS:
 
 ```sh
 docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
 ```
 
-4. Edit the defaults at the top of `scripts/deploy.ps1`, or pass them as command parameters.
+4. Edit the defaults at the top of `scripts/deploy.ps1` for Windows or `scripts/deploy-mac.sh` for macOS, or pass them as command parameters.
 
 Required values:
 
@@ -32,6 +32,12 @@ After configuring the script:
 npm run deploy
 ```
 
+On macOS:
+
+```sh
+npm run deploy:mac
+```
+
 Legacy SCP mode and sudo Docker restart are enabled by default for this Synology setup, so normal deploy is:
 
 ```powershell
@@ -44,10 +50,22 @@ To run remote checks before deploying:
 npm run deploy -- -Preflight -SkipBuild
 ```
 
+On macOS:
+
+```sh
+npm run deploy:mac -- -Preflight -SkipBuild
+```
+
 If Synology's Docker CLI is installed outside the default SSH path, pass it explicitly:
 
 ```powershell
 npm run deploy -- -RemoteDockerCommand "/usr/local/bin/docker"
+```
+
+On macOS:
+
+```sh
+npm run deploy:mac -- -RemoteDockerCommand "/usr/local/bin/docker"
 ```
 
 To turn either default off for troubleshooting:
@@ -56,10 +74,22 @@ To turn either default off for troubleshooting:
 npm run deploy -- -LegacyScp:$false -UseSudoForDocker:$false
 ```
 
+On macOS:
+
+```sh
+npm run deploy:mac -- -LegacyScp false -UseSudoForDocker false
+```
+
 The script reuses one SSH connection by default, so the upload and remote deploy steps should not ask for the SSH password repeatedly. If your local OpenSSH does not support connection reuse, disable it:
 
 ```powershell
 npm run deploy -- -NoSshMultiplex
+```
+
+On macOS:
+
+```sh
+npm run deploy:mac -- -NoSshMultiplex
 ```
 
 Or pass values without editing the script:
@@ -70,6 +100,17 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 `
   -SshPort 24 `
   -NasUser "your-nas-user" `
   -RemoteAppDir "/volume1/docker/jdy_backend" `
+  -ContainerName "your-node-container"
+```
+
+On macOS:
+
+```sh
+npm run deploy:mac -- \
+  -NasHost "192.168.1.10" \
+  -SshPort 24 \
+  -NasUser "your-nas-user" \
+  -RemoteAppDir "/volume1/docker/jdy_backend" \
   -ContainerName "your-node-container"
 ```
 

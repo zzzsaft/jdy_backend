@@ -9,6 +9,8 @@ export interface IRequestOptions {
   path: string;
   query?: any;
   payload?: any;
+  tokenType?: "corp" | "crm" | "none";
+  localAccessToken?: () => Promise<string>;
 }
 export interface IAppoint {
   /**

@@ -12,25 +12,25 @@ class UserApiClient extends ApiClient {
     code: string,
     context: "hr" | "crm" | WechatUserAppContext = "hr"
   ) {
-    let access_token;
-    if (context === "hr") access_token = await token.get_token();
-    else if (context === "crm") access_token = await token_crm.get_token();
-    else {
-      access_token = await getCorpToken(
+    const getAccessToken = async () => {
+      if (context === "hr") return await token.get_token();
+      if (context === "crm") return await token_crm.get_token();
+      return await getCorpToken(
         context.corpId,
         context.agentId,
         context.appName
       ).get_token();
-    }
+    };
     return await this.doRequest(
       {
         method: "GET",
         path: "/cgi-bin/auth/getuserinfo",
         payload: {},
         query: {
-          access_token,
           code: code,
         },
+        tokenType: context === "crm" ? "crm" : "corp",
+        localAccessToken: getAccessToken,
       },
       {
         name: "getUser",

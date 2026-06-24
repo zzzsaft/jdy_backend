@@ -4,6 +4,17 @@ import qs from "querystring";
 import { logger } from "../../config/logger.js";
 import { IRequestOptions } from "../../type/IType.js";
 import nodeRSA from "node-rsa";
+import {
+  decryptJson,
+  encryptJson,
+  isWechatProxyEncryptedBody,
+} from "./wechat_proxy_crypto.js";
+
+export type WechatProxyTokenType = "corp" | "crm" | "none";
+
+export interface WechatProxyRequestOptions extends IRequestOptions {
+  tokenType: WechatProxyTokenType;
+}
 
 export class ApiClient {
   host: string;
@@ -57,6 +68,54 @@ export class ApiClient {
           );
         }
       }
+      throw e;
+    }
+  }
+
+  async doWechatProxyRequest<T = any>(options: WechatProxyRequestOptions) {
+    const secret = process.env.WECHAT_PROXY_CRYPTO_SECRET;
+    if (!secret) {
+      throw new Error("WECHAT_PROXY_CRYPTO_SECRET is required");
+    }
+    if (!options.path.startsWith("/cgi-bin/")) {
+      throw new Error(
+        `Wechat proxy path must start with /cgi-bin/: ${options.path}`
+      );
+    }
+
+    const payload = {
+      method: _.toUpper(options.method),
+      path: options.path,
+      tokenType: options.tokenType,
+      query: options.query ?? {},
+      payload: options.payload ?? {},
+    };
+    const axiosRequestConfig = {
+      method: "POST",
+      url: `${this.host}/wechat/proxy`,
+      data: { encrypted: encryptJson(payload, secret) },
+      timeout: 15000,
+      headers: { "Content-Type": "application/json" },
+      validateStatus: () => true,
+      proxy: false as false,
+    };
+
+    try {
+      const response = await axios(axiosRequestConfig);
+      if (!isWechatProxyEncryptedBody(response.data)) {
+        throw new Error(
+          `Invalid encrypted response from WeChat proxy, status: ${response.status}, path: ${payload.path}`
+        );
+      }
+      const decrypted = decryptJson<T>(response.data.encrypted, secret);
+      if (response.status && response.status > 200) {
+        throw new Error(
+          `请求错误！Status: ${response.status}, path: ${payload.path}`
+        );
+      }
+      return decrypted;
+    } catch (e) {
+      logger.error(e?.message ?? e);
       throw e;
     }
   }
