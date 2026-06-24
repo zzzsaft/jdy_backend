@@ -13,6 +13,7 @@ const {
   setAuthCookie,
 } = await import("../src/middleware/browserAuth.js");
 const { extractToken, generateToken, verifyToken } = await import("../src/utils/jwt.js");
+const { resolveWechatAuthAllowedOrigins } = await import("../src/features/wechat/wechatCorps.js");
 
 const allowedOrigin = "https://frontend.example.com";
 
@@ -57,6 +58,13 @@ for (const attribute of ["HttpOnly", "Secure", "SameSite=Lax", "Path=/", "Max-Ag
   assert.ok(serialized.includes(attribute));
 }
 assert.equal(AUTH_COOKIE_MAX_AGE_SECONDS, 1800);
+assert.deepEqual(
+  resolveWechatAuthAllowedOrigins("legacy-frontend", ["https://configured.example"], {
+    WECHAT_AUTH_ALLOWED_ORIGINS: "https://shared.example, https://configured.example",
+    WECHAT_AUTH_ALLOWED_ORIGINS_LEGACY_FRONTEND: '["https://legacy.example"]',
+  }),
+  ["https://configured.example", "https://shared.example", "https://legacy.example"],
+);
 
 assert.equal(extractToken({ headers: { cookie: `auth_token=${token}` } } as any), token);
 const bearerToken = generateToken({ ...payload, userId: "bearer-user" });

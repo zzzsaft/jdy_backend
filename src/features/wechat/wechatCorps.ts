@@ -48,6 +48,48 @@ export interface WechatCorpConfig {
 const defaultCorpName = "jctimes";
 const defaultAppName = "OA";
 
+const parseOriginList = (value?: string): string[] => {
+  if (!value) return [];
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  if (trimmed.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+    } catch {
+      // Fall back to comma-separated parsing below.
+    }
+  }
+
+  return trimmed
+    .split(/[,\r\n]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const clientOriginEnvName = (clientId: string): string =>
+  `WECHAT_AUTH_ALLOWED_ORIGINS_${clientId
+    .replace(/[^a-zA-Z0-9]/g, "_")
+    .toUpperCase()}`;
+
+export const resolveWechatAuthAllowedOrigins = (
+  clientId?: string,
+  configuredOrigins: string[] = [],
+  env: NodeJS.ProcessEnv = process.env
+): string[] => {
+  const envOrigins = [
+    ...parseOriginList(env.WECHAT_AUTH_ALLOWED_ORIGINS),
+    ...(clientId ? parseOriginList(env[clientOriginEnvName(clientId)]) : []),
+  ];
+  return [...new Set([...configuredOrigins, ...envOrigins].filter(Boolean))];
+};
+
 const parseApps = (apps?: RawCorpAppConfig[]): WechatCorpAppConfig[] => {
   if (!apps) return [];
 
@@ -58,7 +100,10 @@ const parseApps = (apps?: RawCorpAppConfig[]): WechatCorpAppConfig[] => {
       corpSecret: item.corpSecret ?? "",
       name: item.name ?? "",
       clientId: item.clientId?.trim() || undefined,
-      allowedOrigins: item.allowedOrigins?.filter(Boolean) ?? [],
+      allowedOrigins: resolveWechatAuthAllowedOrigins(
+        item.clientId?.trim() || undefined,
+        item.allowedOrigins?.filter(Boolean) ?? []
+      ),
       scopes: item.scopes?.filter(Boolean) ?? [],
     }));
 };
@@ -180,7 +225,11 @@ export const validateWechatAuthClients = (): void => {
     ids.add(client.clientId);
     getWechatAuthClient(client.clientId);
     if (process.env.NODE_ENV === "production" && client.allowedOrigins.length === 0) {
-      throw new Error(`allowedOrigins is required for auth client: ${client.clientId}`);
+      logger.warn(
+        `allowedOrigins is empty for auth client: ${client.clientId}. ` +
+          `Browser credentialed CORS and Cookie CSRF checks require an exact origin; ` +
+          `set allowedOrigins in wechat.json or ${clientOriginEnvName(client.clientId)}.`
+      );
     }
   }
   const requiredClients = [

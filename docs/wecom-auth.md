@@ -46,8 +46,18 @@ Copy the relevant structure from `wechat.example.json` into the ignored
 `wechat.json`, then replace every secret placeholder. List every browser
 origin exactly, including development origins, in the corresponding
 `allowedOrigins` array. Credentialed CORS and CSRF checks use the union of
-these lists. Empty lists deny browser CORS; production startup also rejects an
-authentication client with an empty list.
+these lists. Empty lists no longer block startup, but browser credentialed
+CORS and Cookie CSRF checks still need an exact origin for cross-origin
+Cookie-based requests.
+
+Origins can also be supplied through environment variables, which are appended
+to `wechat.json`:
+
+- `WECHAT_AUTH_ALLOWED_ORIGINS`: comma-separated or JSON array, shared by all
+  auth clients.
+- `WECHAT_AUTH_ALLOWED_ORIGINS_LEGACY_FRONTEND`: origins for `legacy-frontend`.
+- `WECHAT_AUTH_ALLOWED_ORIGINS_NEW_FRONTEND`: origins for `new-frontend`.
+
 Set a strong `JWT_SECRET` environment variable. Production startup fails when
 it or either required auth client is missing.
 
