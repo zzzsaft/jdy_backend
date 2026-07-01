@@ -12,7 +12,6 @@ import { dayResultServices } from "../features/xft/service/dayResultServices.js"
 import { addDays } from "date-fns";
 import { syncWechatData } from "../features/wechat/service/wechatSyncService.js";
 import { vehicleService } from "../features/vehicle/services/vehicleService.js";
-import { productConfigAgentDailyMaintenanceService } from "../features/productConfigAgent/workflow/dailyMaintenance.service.js";
 
 //每过15分钟触发任务
 const checkinDateSchedule = cron.schedule("0,15,30,45 * * * *", async () => {
@@ -66,10 +65,6 @@ const disableLeftUserCars = cron.schedule("0 0 22 * * *", async () => {
   logger.info("离职人员车辆禁用完成");
 });
 
-const productConfigAgentDailyMaintenance = cron.schedule("30 2 * * *", async () => {
-  await productConfigAgentDailyMaintenanceService.runDailyMaintenance();
-});
-
 export const schedule = [
   checkinDateSchedule,
   updateUserSchedule,
@@ -77,5 +72,4 @@ export const schedule = [
   fbtApplySchedule,
   sendTripCheckin,
   disableLeftUserCars,
-  productConfigAgentDailyMaintenance,
 ];
