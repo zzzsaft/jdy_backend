@@ -12,12 +12,11 @@ import { dayResultServices } from "../features/xft/service/dayResultServices.js"
 import { addDays } from "date-fns";
 import { syncWechatData } from "../features/wechat/service/wechatSyncService.js";
 import { vehicleService } from "../features/vehicle/services/vehicleService.js";
-import { productConfigAgentDailyMaintenanceService } from "../features/productConfigAgent/workflow/dailyMaintenance.service.js";
 
 const guardedSchedule = (
   name: string,
   expression: string,
-  handler: () => Promise<void>,
+  handler: () => Promise<void>
 ) => {
   let running = false;
   return cron.schedule(expression, async () => {
@@ -30,7 +29,9 @@ const guardedSchedule = (
       await handler();
     } catch (error) {
       logger.error(
-        `${name} failed: ${error instanceof Error ? error.message : String(error)}`,
+        `${name} failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
       );
     } finally {
       running = false;
@@ -45,7 +46,7 @@ const checkinDateSchedule = guardedSchedule(
   async () => {
     const hours = new Date().getHours();
     if (hours > 7 && hours < 23) await checkinServices.scheduleCheckin();
-  },
+  }
 );
 
 //每过15分钟触发任务
@@ -59,7 +60,7 @@ const fbtApplySchedule = guardedSchedule(
     if (hour >= 8 && hour < 23) {
       await businessTripCheckinServices.scheduleCreate();
     }
-  },
+  }
 );
 
 //每日1点触发任务
@@ -72,7 +73,7 @@ const updateUserSchedule = guardedSchedule(
     await checkinServices.scheduleCheckinDaily();
     logger.info("1点更新部门人员数据");
     await dayResultServices.getDayResult(addDays(new Date(), -1));
-  },
+  }
 );
 
 //每周五下午4点触发任务
@@ -87,7 +88,7 @@ const sendTripCheckin = guardedSchedule(
   async () => {
     await businessTripCheckinServices.scheduleCreate();
     // logger.info("更新外出打卡");
-  },
+  }
 );
 
 // 每天晚上10点执行离职人员车辆禁用
@@ -97,7 +98,7 @@ const disableLeftUserCars = guardedSchedule(
   async () => {
     await vehicleService.disableCarIfUserLeft();
     logger.info("离职人员车辆禁用完成");
-  },
+  }
 );
 
 const productConfigAgentDailyMaintenance = guardedSchedule(
@@ -105,7 +106,7 @@ const productConfigAgentDailyMaintenance = guardedSchedule(
   "30 2 * * *",
   async () => {
     await productConfigAgentDailyMaintenanceService.runDailyMaintenance();
-  },
+  }
 );
 
 export const schedule = [
@@ -115,5 +116,4 @@ export const schedule = [
   fbtApplySchedule,
   sendTripCheckin,
   disableLeftUserCars,
-  productConfigAgentDailyMaintenance,
 ];
