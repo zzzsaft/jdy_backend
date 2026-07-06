@@ -9,13 +9,38 @@ import { clearAuthCookie, setAuthCookie } from "../middleware/browserAuth.js";
 
 const LEGACY_CLIENT_ID = "legacy-frontend";
 const authAttempts = new Map<string, { count: number; resetAt: number }>();
+const AUTH_ATTEMPT_WINDOW_MS = 60_000;
+const MAX_AUTH_ATTEMPT_KEYS = 10_000;
+let lastAuthAttemptCleanup = 0;
+
+const pruneAuthAttempts = (now = Date.now()) => {
+  if (
+    authAttempts.size <= MAX_AUTH_ATTEMPT_KEYS &&
+    now - lastAuthAttemptCleanup < AUTH_ATTEMPT_WINDOW_MS
+  ) {
+    return;
+  }
+  lastAuthAttemptCleanup = now;
+  for (const [key, value] of authAttempts) {
+    if (value.resetAt <= now) authAttempts.delete(key);
+  }
+  while (authAttempts.size > MAX_AUTH_ATTEMPT_KEYS) {
+    const oldestKey = authAttempts.keys().next().value;
+    if (!oldestKey) break;
+    authAttempts.delete(oldestKey);
+  }
+};
+
+const authAttemptCleanupTimer = setInterval(pruneAuthAttempts, AUTH_ATTEMPT_WINDOW_MS);
+authAttemptCleanupTimer.unref?.();
 
 const enforceAuthRateLimit = (request: Request, response: Response): boolean => {
   const now = Date.now();
+  pruneAuthAttempts(now);
   const key = `${request.ip}:${request.path}`;
   const current = authAttempts.get(key);
   if (!current || current.resetAt <= now) {
-    authAttempts.set(key, { count: 1, resetAt: now + 60_000 });
+    authAttempts.set(key, { count: 1, resetAt: now + AUTH_ATTEMPT_WINDOW_MS });
     return true;
   }
   current.count += 1;

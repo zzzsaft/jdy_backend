@@ -14,61 +14,99 @@ import { syncWechatData } from "../features/wechat/service/wechatSyncService.js"
 import { vehicleService } from "../features/vehicle/services/vehicleService.js";
 import { productConfigAgentDailyMaintenanceService } from "../features/productConfigAgent/workflow/dailyMaintenance.service.js";
 
-//每过15分钟触发任务
-const checkinDateSchedule = cron.schedule("0,15,30,45 * * * *", async () => {
-  const hours = new Date().getHours();
-  if (hours > 7 && hours < 23) await checkinServices.scheduleCheckin();
-});
+const guardedSchedule = (
+  name: string,
+  expression: string,
+  handler: () => Promise<void>,
+) => {
+  let running = false;
+  return cron.schedule(expression, async () => {
+    if (running) {
+      logger.warn(`${name} skipped: previous run still in progress`);
+      return;
+    }
+    running = true;
+    try {
+      await handler();
+    } catch (error) {
+      logger.error(
+        `${name} failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      running = false;
+    }
+  });
+};
 
-let fbtApplyRunning = false;
 //每过15分钟触发任务
-const fbtApplySchedule = cron.schedule("5,20,35,50 * * * *", async () => {
-  if (fbtApplyRunning) {
-    logger.warn("fbtApplySchedule skipped: previous run still in progress");
-    return;
-  }
-  fbtApplyRunning = true;
-  try {
+const checkinDateSchedule = guardedSchedule(
+  "checkinDateSchedule",
+  "0,15,30,45 * * * *",
+  async () => {
+    const hours = new Date().getHours();
+    if (hours > 7 && hours < 23) await checkinServices.scheduleCheckin();
+  },
+);
+
+//每过15分钟触发任务
+const fbtApplySchedule = guardedSchedule(
+  "fbtApplySchedule",
+  "5,20,35,50 * * * *",
+  async () => {
     await new GetFbtApply().getApply();
     await BusinessTripServices.scheduleCreate();
     const hour = new Date().getHours();
     if (hour >= 8 && hour < 23) {
       await businessTripCheckinServices.scheduleCreate();
     }
-  } finally {
-    fbtApplyRunning = false;
-  }
-});
+  },
+);
 
 //每日1点触发任务
-const updateUserSchedule = cron.schedule("0 2 * * *", async () => {
-  await syncWechatData();
-  await syncXft();
-  await checkinServices.scheduleCheckinDaily();
-  logger.info("1点更新部门人员数据");
-  await dayResultServices.getDayResult(addDays(new Date(), -1));
-});
+const updateUserSchedule = guardedSchedule(
+  "updateUserSchedule",
+  "0 2 * * *",
+  async () => {
+    await syncWechatData();
+    await syncXft();
+    await checkinServices.scheduleCheckinDaily();
+    logger.info("1点更新部门人员数据");
+    await dayResultServices.getDayResult(addDays(new Date(), -1));
+  },
+);
 
 //每周五下午4点触发任务
-const sendLeave = cron.schedule("0 16 * * 5", async () => {
+const sendLeave = guardedSchedule("sendLeave", "0 16 * * 5", async () => {
   await sendtoUserwithLeaveChoice();
   logger.info("周五下午任务");
 });
 
-const sendTripCheckin = cron.schedule("0 */20 7-20 * * *", async () => {
-  await businessTripCheckinServices.scheduleCreate();
-  // logger.info("更新外出打卡");
-});
+const sendTripCheckin = guardedSchedule(
+  "sendTripCheckin",
+  "0 */20 7-20 * * *",
+  async () => {
+    await businessTripCheckinServices.scheduleCreate();
+    // logger.info("更新外出打卡");
+  },
+);
 
 // 每天晚上10点执行离职人员车辆禁用
-const disableLeftUserCars = cron.schedule("0 0 22 * * *", async () => {
-  await vehicleService.disableCarIfUserLeft();
-  logger.info("离职人员车辆禁用完成");
-});
+const disableLeftUserCars = guardedSchedule(
+  "disableLeftUserCars",
+  "0 0 22 * * *",
+  async () => {
+    await vehicleService.disableCarIfUserLeft();
+    logger.info("离职人员车辆禁用完成");
+  },
+);
 
-const productConfigAgentDailyMaintenance = cron.schedule("30 2 * * *", async () => {
-  await productConfigAgentDailyMaintenanceService.runDailyMaintenance();
-});
+const productConfigAgentDailyMaintenance = guardedSchedule(
+  "productConfigAgentDailyMaintenance",
+  "30 2 * * *",
+  async () => {
+    await productConfigAgentDailyMaintenanceService.runDailyMaintenance();
+  },
+);
 
 export const schedule = [
   checkinDateSchedule,

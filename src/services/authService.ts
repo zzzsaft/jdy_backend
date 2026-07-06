@@ -34,6 +34,27 @@ const wechatExchangeCache = new Map<
   { expiresAt: number; result: WechatExchangeResult }
 >();
 const pendingWechatExchanges = new Map<string, Promise<WechatExchangeResult>>();
+const WECHAT_EXCHANGE_CACHE_TTL_MS = 60_000;
+const WECHAT_EXCHANGE_CLEANUP_INTERVAL_MS = 60_000;
+const MAX_WECHAT_EXCHANGE_CACHE_KEYS = 5_000;
+const MAX_PENDING_WECHAT_EXCHANGES = 2_000;
+
+const pruneWechatExchangeCache = (now = Date.now()) => {
+  for (const [key, value] of wechatExchangeCache) {
+    if (value.expiresAt <= now) wechatExchangeCache.delete(key);
+  }
+  while (wechatExchangeCache.size > MAX_WECHAT_EXCHANGE_CACHE_KEYS) {
+    const oldestKey = wechatExchangeCache.keys().next().value;
+    if (!oldestKey) break;
+    wechatExchangeCache.delete(oldestKey);
+  }
+};
+
+const wechatExchangeCleanupTimer = setInterval(
+  pruneWechatExchangeCache,
+  WECHAT_EXCHANGE_CLEANUP_INTERVAL_MS
+);
+wechatExchangeCleanupTimer.unref?.();
 
 export class AuthServiceError extends Error {
   constructor(
@@ -195,11 +216,19 @@ class AuthService {
 
     const pending = pendingWechatExchanges.get(cacheKey);
     if (pending) return pending;
+    if (pendingWechatExchanges.size >= MAX_PENDING_WECHAT_EXCHANGES) {
+      throw new AuthServiceError(
+        "Too many authentication requests",
+        429,
+        "AUTHENTICATION_BUSY"
+      );
+    }
 
     const exchange = this.exchangeWechatCodeOnce(clientId, code)
       .then((result) => {
+        pruneWechatExchangeCache();
         wechatExchangeCache.set(cacheKey, {
-          expiresAt: Date.now() + 60_000,
+          expiresAt: Date.now() + WECHAT_EXCHANGE_CACHE_TTL_MS,
           result,
         });
         return result;

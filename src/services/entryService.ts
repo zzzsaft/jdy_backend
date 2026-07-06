@@ -316,17 +316,30 @@ export class Traffic {
 
 class TrafficService {
   traffics: Map<string, Traffic> = new Map<string, Traffic>();
+  private cleanupTimers: Map<string, NodeJS.Timeout> = new Map<string, NodeJS.Timeout>();
+  private readonly trafficTtlMs = 2 * 60 * 60 * 1000;
+  private readonly maxTrafficEntries = 5_000;
+
   addOut = async (id: number, date: Date, userid: string, name: string) => {
+    this.removeTraffic(userid);
     const traffic = new Traffic(id, date, userid, name);
     const result = await traffic.startTimeout();
-    if (result) this.traffics.set(userid, traffic);
+    if (result) {
+      this.traffics.set(userid, traffic);
+      this.pruneTrafficEntries();
+      const cleanupTimer = setTimeout(() => {
+        this.removeTraffic(userid);
+      }, this.trafficTtlMs);
+      cleanupTimer.unref?.();
+      this.cleanupTimers.set(userid, cleanupTimer);
+    }
   };
   addIn = async (userid: string, date: Date) => {
     try {
       const traffic = this.traffics.get(userid);
       if (traffic) {
         await traffic.addInDate(date);
-        this.traffics.delete(userid);
+        this.removeTraffic(userid);
       }
     } catch (error) {
       logger.error(error);
@@ -336,6 +349,21 @@ class TrafficService {
     const traffic = this.traffics.get(id);
     if (traffic) await traffic.updateTrafficComment(type);
     else await AbnomalTraffic.update({ id }, { approvalType: type });
+  }
+  private removeTraffic(userid: string) {
+    const traffic = this.traffics.get(userid);
+    if (traffic) traffic.clearTimeout();
+    this.traffics.delete(userid);
+    const cleanupTimer = this.cleanupTimers.get(userid);
+    if (cleanupTimer) clearTimeout(cleanupTimer);
+    this.cleanupTimers.delete(userid);
+  }
+  private pruneTrafficEntries() {
+    while (this.traffics.size > this.maxTrafficEntries) {
+      const oldestUserid = this.traffics.keys().next().value;
+      if (!oldestUserid) break;
+      this.removeTraffic(oldestUserid);
+    }
   }
 }
 

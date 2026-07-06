@@ -35,6 +35,7 @@ import { readDictionaryVersion } from "./dictionaryVersion.service.js";
 
 export const CONCEPT_RESOLVER_VERSION = "v1";
 export const NORMALIZATION_RULE_VERSION = "v1";
+const MAX_COUNT_CACHE_KEYS = 20_000;
 
 type ResolveParams = {
   candidateType: Extract<ConceptCandidateType, "term_type" | "value">;
@@ -1075,19 +1076,17 @@ export class ConceptResolverService {
     if (!loaded.candidate.extractionResultId || loaded.candidate.itemIndex === null) {
       return 0;
     }
-    const key = `${loaded.candidate.extractionResultId}:${loaded.candidate.itemIndex}`;
-    if (!this.sameItemTogetherCountCache.has(key)) {
-      this.sameItemTogetherCountCache.set(
-        key,
-        this.dataSource.getRepository(DictionaryCandidateOccurrence).count({
-          where: {
-            extractionResultId: loaded.candidate.extractionResultId,
-            itemIndex: loaded.candidate.itemIndex,
-          },
-        }),
-      );
-    }
-    return this.sameItemTogetherCountCache.get(key)!;
+    const extractionResultId = loaded.candidate.extractionResultId;
+    const itemIndex = loaded.candidate.itemIndex;
+    const key = `${extractionResultId}:${itemIndex}`;
+    return this.memoizeCount(this.sameItemTogetherCountCache, key, () =>
+      this.dataSource.getRepository(DictionaryCandidateOccurrence).count({
+        where: {
+          extractionResultId,
+          itemIndex,
+        },
+      }),
+    );
   }
 
   private async countExistingSeparateUsage(loaded: LoadedCandidate): Promise<number> {
@@ -1097,15 +1096,11 @@ export class ConceptResolverService {
         : loaded.candidate.rawValue ?? loaded.candidate.rawFieldName;
     const normalized = normalizeText(rawValue);
     if (!normalized) return 0;
-    if (!this.existingSeparateUsageCountCache.has(normalized)) {
-      this.existingSeparateUsageCountCache.set(
-        normalized,
-        this.dataSource.getRepository(DictionaryCandidateOccurrence).count({
-          where: { rawValue },
-        }),
-      );
-    }
-    return this.existingSeparateUsageCountCache.get(normalized)!;
+    return this.memoizeCount(this.existingSeparateUsageCountCache, normalized, () =>
+      this.dataSource.getRepository(DictionaryCandidateOccurrence).count({
+        where: { rawValue },
+      }),
+    );
   }
 
   private async countHistoricalHumanReviews(
@@ -1114,33 +1109,45 @@ export class ConceptResolverService {
   ): Promise<number> {
     if (loaded.candidateType === "term_type") {
       const key = `term_type:${normalized}`;
-      if (!this.historicalHumanReviewCountCache.has(key)) {
-        this.historicalHumanReviewCountCache.set(
-          key,
-          this.dataSource.getRepository(DictionaryTermTypeCandidate).count({
-            where: {
-              normalizedFieldName: normalized,
-              status: In(["approved", "rejected"]) as any,
-            },
-          }),
-        );
-      }
-      return this.historicalHumanReviewCountCache.get(key)!;
-    }
-    const key = `value:${loaded.candidate.termType}:${normalized}`;
-    if (!this.historicalHumanReviewCountCache.has(key)) {
-      this.historicalHumanReviewCountCache.set(
-        key,
-        this.dataSource.getRepository(DictionaryCandidate).count({
+      return this.memoizeCount(this.historicalHumanReviewCountCache, key, () =>
+        this.dataSource.getRepository(DictionaryTermTypeCandidate).count({
           where: {
-            termType: loaded.candidate.termType,
-            normalizedRawValue: normalized,
+            normalizedFieldName: normalized,
             status: In(["approved", "rejected"]) as any,
           },
         }),
       );
     }
-    return this.historicalHumanReviewCountCache.get(key)!;
+    const key = `value:${loaded.candidate.termType}:${normalized}`;
+    return this.memoizeCount(this.historicalHumanReviewCountCache, key, () =>
+      this.dataSource.getRepository(DictionaryCandidate).count({
+        where: {
+          termType: loaded.candidate.termType,
+          normalizedRawValue: normalized,
+          status: In(["approved", "rejected"]) as any,
+        },
+      }),
+    );
+  }
+
+  private memoizeCount(
+    cache: Map<string, Promise<number>>,
+    key: string,
+    load: () => Promise<number>,
+  ): Promise<number> {
+    const cached = cache.get(key);
+    if (cached) return cached;
+    while (cache.size >= MAX_COUNT_CACHE_KEYS) {
+      const oldestKey = cache.keys().next().value;
+      if (!oldestKey) break;
+      cache.delete(oldestKey);
+    }
+    const value = load().catch((error) => {
+      cache.delete(key);
+      throw error;
+    });
+    cache.set(key, value);
+    return value;
   }
 
   private async saveDecision(
