@@ -1,70 +1,65 @@
-import _ from "lodash";
-import axios from "axios";
-import qs from "querystring";
-import pkg from "sm-crypto";
 import { logger } from "../../config/logger.js";
 import { IRequestOptions } from "../../type/IType.js";
-import { appAxios } from "../../utils/fileUtils.js";
+
+type ConnectorErrorBody = { error?: { message?: string } };
 
 export class ApiClient {
   host: string;
-  secret: string;
+  token: string;
+  private readonly fetcher: typeof fetch;
 
-  constructor() {
-    this.host = "http://open.api.tianyancha.com/services/open";
-    this.secret = process.env.TIANYANCHA ?? "";
+  constructor(fetcher: typeof fetch = fetch) {
+    this.host = (process.env.CONNECTOR_BASE_URL?.trim() || "http://integration-connector:4180").replace(/\/$/, "");
+    this.token = process.env.CONNECTOR_JDY_BACKEND_TOKEN?.trim() || "";
+    this.fetcher = fetcher;
   }
 
   /**
-   * 发送http请求
-   * @param { Object } options - 请求参数
-   * @param { String } options.method - HTTP动词 (GET|POST)
-   * @param { String } options.path - 请求path
-   * @param { Object } options.query - url参数,可选
-   * @param { Object } options.payload - 请求参数,可选
+   * 保留原天眼查客户端调用形状，但供应商地址和 Token 已全部迁入 Connect。
+   * 这里只接受现有 search/baseInfo 两个能力，禁止把任意供应商路径变成通用代理。
    */
-  async doRequest(options: IRequestOptions) {
-    const query = options.query;
-    const httpMethod = _.toUpper(options.method);
-    const queryString = query ? `?${qs.stringify(query)}` : "";
-    const header = { Authorization: this.secret };
-    // console.log(JSON.stringify(options.payload));
-    const axiosRequestConfig = {
-      method: httpMethod,
-      url: `${this.host}${options.path}${queryString}`,
-      data: options.payload || null,
-      timeout: 10000,
-      headers: header,
-    };
-    let response;
+  async doRequest(options: IRequestOptions): Promise<any> {
+    const target = connectorTarget(options);
+    const started = Date.now();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    let status = 503;
     try {
-      response = await appAxios(axiosRequestConfig);
-      if (response) {
-        const { status, data } = response;
-        if (status && status > 200) {
-          logger.error(
-            `请求错误！Error Code: ${data.code}, Error Msg: ${
-              data.reason
-            },body: ${JSON.stringify(options.payload)}`
-          );
-          throw new Error(
-            `请求错误！Error Code: ${data.code}, Error Msg: ${data.reason},body: ${options.payload}`
-          );
-        }
+      const response = await this.fetcher(`${this.host}${target.path}`, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+        },
+        body: JSON.stringify({ keyword: target.keyword }),
+      });
+      status = response.status;
+      const body = await response.json().catch(() => null) as (Record<string, any> & ConnectorErrorBody) | null;
+      if (!response.ok) {
+        throw new Error(body?.error?.message || `天眼查连接器请求失败（HTTP ${response.status}）`);
       }
-      return response.data;
-    } catch (e) {
-      logger.error(e);
-      response = e.response;
-      if (response) {
-        const { status, data } = response;
-        if (status && status > 200 && data.code && data.msg) {
-          throw new Error(
-            `请求错误！Error Code: ${data.code}, Error Msg: ${data.msg},body: ${options.payload}`
-          );
-        }
+      return body;
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        status = 504;
+        throw new Error("天眼查连接器响应超时");
       }
-      throw e;
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+      logger.info(`[provider-call] provider=tianyancha via=connector operation=${target.operation} status=${status} durationMs=${Date.now() - started}`);
     }
   }
+}
+
+function connectorTarget(options: IRequestOptions) {
+  if (options.method !== "GET") throw new Error("天眼查连接器只支持只读查询");
+  if (options.path === "/search/2.0") {
+    return { path: "/v1/providers/tianyancha/company/search", keyword: String(options.query?.word ?? "").trim(), operation: "company.search" };
+  }
+  if (options.path === "/ic/baseinfoV3/2.0") {
+    return { path: "/v1/providers/tianyancha/company/base-info", keyword: String(options.query?.keyword ?? "").trim(), operation: "company.base-info" };
+  }
+  throw new Error("不支持的天眼查连接器能力");
 }

@@ -1,5 +1,14 @@
 # WeChat 多企业同步配置与验证
 
+## 天眼查通过 Connect 调用
+
+CRM 企业搜索和工商基本信息不再读取 `TIANYANCHA` 或直连天眼查。运行环境只配置：
+
+- `CONNECTOR_BASE_URL`：Connect 服务地址，Docker 私网默认 `http://integration-connector:4180`。
+- `CONNECTOR_JDY_BACKEND_TOKEN`：仅具备 `tianyancha-company:invoke` 权限的模块令牌。
+
+天眼查供应商 Token、地址和超时由 Connect 统一管理。两侧只记录供应商、操作、状态和耗时，不记录查询关键词、Token 或响应正文。
+
 ## 环境变量示例
 
 `WECHAT_CORP_CONFIGS` 支持同时配置多个企业微信的 `corpId`、`corpSecret`、`encodingAESKey`，并在同一企业下为不同应用提供独立的 `agentId` 与 `corpSecret`。在生产环境不要提交 `.env`，本地可参考下述格式：
