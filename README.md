@@ -21,6 +21,8 @@ npm run migrate:tianyancha-cache
 
 执行真实导入前可运行 `npm run migrate:tianyancha-cache -- --dry-run`，它使用只包含上述两张 PostgreSQL 表的专用只读数据源，仅输出记录数和搜索关键词数，不要求 Connect 管理令牌。
 
+生产迁移优先设置 `CONNECTOR_ADMIN_SSH_TARGET=zzzsaft@hz.jc-times.com` 和 `CONNECTOR_ADMIN_SSH_PORT=24`。每批数据会通过 SSH 标准输入送到 NAS，由 NAS 本地读取管理员令牌并调用 `127.0.0.1:2027`；管理员令牌不会离开 NAS。直接 HTTP 模式仅用于受控内网，才需要在执行进程中配置管理地址和令牌。
+
 ## 环境变量示例
 
 `WECHAT_CORP_CONFIGS` 支持同时配置多个企业微信的 `corpId`、`corpSecret`、`encodingAESKey`，并在同一企业下为不同应用提供独立的 `agentId` 与 `corpSecret`。在生产环境不要提交 `.env`，本地可参考下述格式：

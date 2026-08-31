@@ -1,4 +1,5 @@
 import { DataSource } from "typeorm";
+import { spawn } from "node:child_process";
 import { CustomerInfo } from "../entity/crm/customerInfo.js";
 import { CustomerSearch } from "../entity/crm/customerSearch.js";
 
@@ -97,7 +98,8 @@ function rfc3339(value: Date | null | undefined): string | undefined {
   return value instanceof Date && Number.isFinite(value.getTime()) ? value.toISOString() : undefined;
 }
 
-async function importBatch(baseURL: string, token: string, entries: CacheImportEntry[]) {
+async function importBatch(baseURL: string, token: string, sshTarget: string, sshPort: string, entries: CacheImportEntry[]) {
+  if (sshTarget) return await importBatchOverSsh(sshTarget, sshPort, entries);
   const response = await fetch(`${baseURL}/v1/admin/providers/tianyancha/cache/import`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -108,11 +110,52 @@ async function importBatch(baseURL: string, token: string, entries: CacheImportE
   return (await response.json()) as { processed: number; inserted: number; skipped: number };
 }
 
+async function importBatchOverSsh(sshTarget: string, sshPort: string, entries: CacheImportEntry[]) {
+  const remoteCommand = [
+    "set -eu",
+    "token=$(grep '^CONNECTOR_ADMIN_TOKEN=' /volume1/docker/integration-connector/.env.production | cut -d= -f2-)",
+    "test -n \"$token\"",
+    "curl -fsS --max-time 30 -X POST -H \"Authorization: Bearer $token\" -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:2027/v1/admin/providers/tianyancha/cache/import",
+  ].join("; ");
+  return await new Promise<{ processed: number; inserted: number; skipped: number }>((resolve, reject) => {
+    const child = spawn("ssh", ["-p", sshPort, "-o", "ConnectTimeout=10", sshTarget, remoteCommand], {
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    });
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => child.kill(), 45_000);
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => (stdout += chunk));
+    child.stderr.on("data", (chunk) => (stderr += chunk));
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        reject(new Error(`Connect SSH cache import failed (exit ${code}): ${stderr.trim().slice(0, 300)}`));
+        return;
+      }
+      try {
+        resolve(JSON.parse(stdout));
+      } catch {
+        reject(new Error("Connect SSH cache import returned invalid JSON"));
+      }
+    });
+    child.stdin.end(JSON.stringify({ entries }));
+  });
+}
+
 async function run() {
   const dryRun = process.argv.includes("--dry-run");
   const baseURL = String(process.env.CONNECTOR_ADMIN_BASE_URL ?? process.env.CONNECTOR_BASE_URL ?? "").replace(/\/$/, "");
   const token = String(process.env.CONNECTOR_ADMIN_TOKEN ?? "").trim();
-  if (!dryRun && (!baseURL || !token)) throw new Error("CONNECTOR_ADMIN_BASE_URL/CONNECTOR_BASE_URL and CONNECTOR_ADMIN_TOKEN are required");
+  const sshTarget = String(process.env.CONNECTOR_ADMIN_SSH_TARGET ?? "").trim();
+  const sshPort = String(process.env.CONNECTOR_ADMIN_SSH_PORT ?? "24").trim();
+  if (!dryRun && !sshTarget && (!baseURL || !token)) throw new Error("Set CONNECTOR_ADMIN_SSH_TARGET, or configure CONNECTOR_ADMIN_BASE_URL and CONNECTOR_ADMIN_TOKEN");
 
   const migrationDataSource = new DataSource({
     type: "postgres",
@@ -144,7 +187,7 @@ async function run() {
     for (let offset = 0; ; offset += batchSize) {
       const rows = await infoRepository.find({ order: { id: "ASC" }, skip: offset, take: batchSize });
       if (rows.length === 0) break;
-      const result = await importBatch(baseURL, token, rows.map(customerInfoCacheEntry));
+      const result = await importBatch(baseURL, token, sshTarget, sshPort, rows.map(customerInfoCacheEntry));
       imported += result.inserted;
     }
 
@@ -157,7 +200,7 @@ async function run() {
     }
     const searchEntries = [...groupedSearchRows].map(([keyword, rows]) => customerSearchCacheEntry(keyword, rows));
     for (let offset = 0; offset < searchEntries.length; offset += batchSize) {
-      const result = await importBatch(baseURL, token, searchEntries.slice(offset, offset + batchSize));
+      const result = await importBatch(baseURL, token, sshTarget, sshPort, searchEntries.slice(offset, offset + batchSize));
       imported += result.inserted;
     }
     console.info(`[tianyancha-cache-migration] imported=${imported} baseInfo=${infoCount} searchRows=${searchRowCount} searchKeywords=${searchEntries.length}`);
