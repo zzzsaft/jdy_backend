@@ -148,23 +148,19 @@ async function run() {
       imported += result.inserted;
     }
 
-    const keywords = await searchRepository
-      .createQueryBuilder("search")
-      .select("DISTINCT search.keyWord", "keyword")
-      .orderBy("search.keyWord", "ASC")
-      .getRawMany<{ keyword: string }>();
-    for (let offset = 0; offset < keywords.length; offset += batchSize) {
-      const entries: CacheImportEntry[] = [];
-      for (const { keyword } of keywords.slice(offset, offset + batchSize)) {
-        const rows = await searchRepository.find({ where: { keyWord: keyword }, order: { id: "ASC" } });
-        if (rows.length > 0) entries.push(customerSearchCacheEntry(keyword, rows));
-      }
-      if (entries.length > 0) {
-        const result = await importBatch(baseURL, token, entries);
-        imported += result.inserted;
-      }
+    const searchRows = await searchRepository.find({ order: { keyWord: "ASC", id: "ASC" } });
+    const groupedSearchRows = new Map<string, CustomerSearch[]>();
+    for (const row of searchRows) {
+      const group = groupedSearchRows.get(row.keyWord) ?? [];
+      group.push(row);
+      groupedSearchRows.set(row.keyWord, group);
     }
-    console.info(`[tianyancha-cache-migration] imported=${imported} baseInfo=${infoCount} searchRows=${searchRowCount} searchKeywords=${keywords.length}`);
+    const searchEntries = [...groupedSearchRows].map(([keyword, rows]) => customerSearchCacheEntry(keyword, rows));
+    for (let offset = 0; offset < searchEntries.length; offset += batchSize) {
+      const result = await importBatch(baseURL, token, searchEntries.slice(offset, offset + batchSize));
+      imported += result.inserted;
+    }
+    console.info(`[tianyancha-cache-migration] imported=${imported} baseInfo=${infoCount} searchRows=${searchRowCount} searchKeywords=${searchEntries.length}`);
   } finally {
     await migrationDataSource.destroy();
   }
