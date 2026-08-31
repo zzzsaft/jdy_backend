@@ -1,4 +1,4 @@
-import { AppDataSource } from "../config/data-source.js";
+import { DataSource } from "typeorm";
 import { CustomerInfo } from "../entity/crm/customerInfo.js";
 import { CustomerSearch } from "../entity/crm/customerSearch.js";
 
@@ -109,15 +109,37 @@ async function importBatch(baseURL: string, token: string, entries: CacheImportE
 }
 
 async function run() {
+  const dryRun = process.argv.includes("--dry-run");
   const baseURL = String(process.env.CONNECTOR_ADMIN_BASE_URL ?? process.env.CONNECTOR_BASE_URL ?? "").replace(/\/$/, "");
   const token = String(process.env.CONNECTOR_ADMIN_TOKEN ?? "").trim();
-  if (!baseURL || !token) throw new Error("CONNECTOR_ADMIN_BASE_URL/CONNECTOR_BASE_URL and CONNECTOR_ADMIN_TOKEN are required");
+  if (!dryRun && (!baseURL || !token)) throw new Error("CONNECTOR_ADMIN_BASE_URL/CONNECTOR_BASE_URL and CONNECTOR_ADMIN_TOKEN are required");
 
-  await AppDataSource.initialize();
+  const migrationDataSource = new DataSource({
+    type: "postgres",
+    host: process.env.PgHost,
+    port: Number(process.env.PgPort ?? 5433),
+    username: process.env.PgUser,
+    password: process.env.PgPassword,
+    database: process.env.PgDatabase ?? process.env.PgUser,
+    entities: [CustomerInfo, CustomerSearch],
+    synchronize: false,
+    logging: false,
+  });
+  await migrationDataSource.initialize();
   let imported = 0;
   try {
-    const infoRepository = AppDataSource.getRepository(CustomerInfo);
-    const searchRepository = AppDataSource.getRepository(CustomerSearch);
+    const infoRepository = migrationDataSource.getRepository(CustomerInfo);
+    const searchRepository = migrationDataSource.getRepository(CustomerSearch);
+    const infoCount = await infoRepository.count();
+    const searchRowCount = await searchRepository.count();
+    const keywordCount = await searchRepository
+      .createQueryBuilder("search")
+      .select("COUNT(DISTINCT search.keyWord)", "count")
+      .getRawOne<{ count: string | number }>();
+    if (dryRun) {
+      console.info(`[tianyancha-cache-migration] dryRun=true baseInfo=${infoCount} searchRows=${searchRowCount} searchKeywords=${Number(keywordCount?.count ?? 0)}`);
+      return;
+    }
     const batchSize = 100;
     for (let offset = 0; ; offset += batchSize) {
       const rows = await infoRepository.find({ order: { id: "ASC" }, skip: offset, take: batchSize });
@@ -142,9 +164,9 @@ async function run() {
         imported += result.inserted;
       }
     }
-    console.info(`[tianyancha-cache-migration] imported=${imported} baseInfo=${await infoRepository.count()} searchKeywords=${keywords.length}`);
+    console.info(`[tianyancha-cache-migration] imported=${imported} baseInfo=${infoCount} searchRows=${searchRowCount} searchKeywords=${keywords.length}`);
   } finally {
-    await AppDataSource.destroy();
+    await migrationDataSource.destroy();
   }
 }
 

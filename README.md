@@ -19,6 +19,8 @@ npm run migrate:tianyancha-cache
 
 脚本只读取 `crm_customer_info` 和 `crm_search`，按最多 100 条一批重建天眼查成功响应并导入 Connect；不会删除或修改旧表，也不会输出企业查询正文、管理令牌或完整响应。迁移可重复执行，Connect 已有的同键数据会保留，旧数据不会覆盖较新的 API 缓存。
 
+执行真实导入前可运行 `npm run migrate:tianyancha-cache -- --dry-run`，它使用只包含上述两张 PostgreSQL 表的专用只读数据源，仅输出记录数和搜索关键词数，不要求 Connect 管理令牌。
+
 ## 环境变量示例
 
 `WECHAT_CORP_CONFIGS` 支持同时配置多个企业微信的 `corpId`、`corpSecret`、`encodingAESKey`，并在同一企业下为不同应用提供独立的 `agentId` 与 `corpSecret`。在生产环境不要提交 `.env`，本地可参考下述格式：
