@@ -9,6 +9,16 @@ CRM 企业搜索和工商基本信息不再读取 `TIANYANCHA` 或直连天眼�
 
 天眼查供应商 Token、地址和超时由 Connect 统一管理。两侧只记录供应商、操作、状态和耗时，不记录查询关键词、Token 或响应正文。
 
+Connect 会先查询自身 bbolt 天眼查缓存，相同参数缓存未过期时不会再次计费调用。首次上线缓存版本后，可在仅能访问 Connect 管理接口的受控环境执行一次旧库迁移：
+
+```bash
+CONNECTOR_ADMIN_BASE_URL=http://integration-connector:4180 \
+CONNECTOR_ADMIN_TOKEN=<受保护的管理令牌> \
+npm run migrate:tianyancha-cache
+```
+
+脚本只读取 `crm_customer_info` 和 `crm_search`，按最多 100 条一批重建天眼查成功响应并导入 Connect；不会删除或修改旧表，也不会输出企业查询正文、管理令牌或完整响应。迁移可重复执行，Connect 已有的同键数据会保留，旧数据不会覆盖较新的 API 缓存。
+
 ## 环境变量示例
 
 `WECHAT_CORP_CONFIGS` 支持同时配置多个企业微信的 `corpId`、`corpSecret`、`encodingAESKey`，并在同一企业下为不同应用提供独立的 `agentId` 与 `corpSecret`。在生产环境不要提交 `.env`，本地可参考下述格式：

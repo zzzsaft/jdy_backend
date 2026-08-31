@@ -27,6 +27,7 @@
     "test:wechat-config": "node --loader ts-node/esm -r dotenv/config src/scripts/validateWechatConfig.ts",
     "test:wecom-auth": "node --loader ts-node/esm test/wecom_auth.test.ts",
     "test:browser-auth": "node --loader ts-node/esm test/browser_auth.test.ts",
+    "migrate:tianyancha-cache": "node --loader ts-node/esm -r dotenv/config src/scripts/migrateTianyanchaCacheToConnector.ts",
     "typeorm": "typeorm-ts-node-esm"
   },
   "keywords": [],
