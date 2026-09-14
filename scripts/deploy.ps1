@@ -185,6 +185,7 @@ fi
 echo "Remote preflight ok."
 "@
 
+  $preflightScript = $preflightScript.Replace("`r", "")
   $preflightScript | & ssh @SshBaseArgs $Target "sh -s"
   if ($LASTEXITCODE -ne 0) {
     throw "Remote preflight failed. See [FAIL] line(s) above."
@@ -342,7 +343,7 @@ rm -f "$RemoteScriptPath"
 echo "Deploy finished. Container restarted: `$CONTAINER"
 "@
 
-Set-Content -LiteralPath $RemoteScriptLocalPath -Value $remoteScript -Encoding ascii
+[System.IO.File]::WriteAllText($RemoteScriptLocalPath, $remoteScript.Replace("`r", ""), [System.Text.UTF8Encoding]::new($false))
 
 Write-Host "Uploading remote deploy script..."
 $scriptScpArgs = @()
