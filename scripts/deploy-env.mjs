@@ -69,6 +69,7 @@ for name in changed:
  if p.exists():
   fd=os.open(str(backup/name),os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
   with os.fdopen(fd,'wb') as f:f.write(p.read_bytes())
+  os.chmod(str(backup/name),0o600)
  data=base64.b64decode(plan[name]['content'])
  temp=root/(name+'.deploy-'+stamp)
  fd=os.open(str(temp),os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
@@ -76,6 +77,8 @@ for name in changed:
   f.write(data);f.flush();os.fsync(f.fileno())
  os.replace(str(temp),str(p))
 for name,item in plan.items():
+ os.chmod(str(root/name),0o600)
+ if ((root/name).stat().st_mode & 0o777)!=0o600:raise RuntimeError('Configuration permissions incorrect')
  if hashlib.sha256((root/name).read_bytes()).hexdigest()!=item['sha256']:raise RuntimeError('Verification failed')
 print(json.dumps({'mode':'written-and-verified','changedKeys':{n:v['changedKeys'] for n,v in plan.items()},'backup':str(backup) if changed else None,'restartPerformed':False}))
 `);
