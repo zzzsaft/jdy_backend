@@ -11,6 +11,7 @@ param(
   [string]$RemoteDockerCommand = "",
   [switch]$SkipBuild,
   [switch]$Preflight,
+  [switch]$SkipRestart,
   [bool]$LegacyScp = $true,
   [bool]$UseSudoForDocker = $true,
   [switch]$NoSshMultiplex
@@ -114,6 +115,7 @@ APP_DIR="$RemoteAppDir"
 CONTAINER="$ContainerName"
 DOCKER_CMD="$RemoteDockerCommand"
 USE_SUDO="$($UseSudoForDocker.ToString().ToLowerInvariant())"
+SKIP_RESTART="$($SkipRestart.ToString().ToLowerInvariant())"
 FAILED=0
 
 find_docker() {
@@ -152,21 +154,26 @@ check() {
 }
 
 check "tar is available" command -v tar >/dev/null
+check "sha256sum is available" command -v sha256sum >/dev/null
 check "remote app directory exists: `$APP_DIR" test -d "`$APP_DIR"
 check "remote app directory is writable: `$APP_DIR" test -w "`$APP_DIR"
 
-DOCKER_BIN="`$(find_docker)" || {
-  echo "[FAIL] docker is available" >&2
-  FAILED=1
-}
+if [ "`$SKIP_RESTART" = "true" ]; then
+  echo "[OK] upload-only mode; Docker restart checks skipped"
+else
+  DOCKER_BIN="`$(find_docker)" || {
+    echo "[FAIL] docker is available" >&2
+    FAILED=1
+  }
 
-if [ -n "`$DOCKER_BIN" ]; then
-  echo "[OK] docker is available: `$DOCKER_BIN"
-  if [ "`$USE_SUDO" = "true" ]; then
-    check "sudo is available" command -v sudo >/dev/null
-    check "Docker container exists and is accessible: `$CONTAINER" sudo "`$DOCKER_BIN" inspect "`$CONTAINER" >/dev/null 2>&1
-  else
-    check "Docker container exists and is accessible: `$CONTAINER" "`$DOCKER_BIN" inspect "`$CONTAINER" >/dev/null 2>&1
+  if [ -n "`$DOCKER_BIN" ]; then
+    echo "[OK] docker is available: `$DOCKER_BIN"
+    if [ "`$USE_SUDO" = "true" ]; then
+      check "sudo is available" command -v sudo >/dev/null
+      check "Docker container exists and is accessible: `$CONTAINER" sudo "`$DOCKER_BIN" inspect "`$CONTAINER" >/dev/null 2>&1
+    else
+      check "Docker container exists and is accessible: `$CONTAINER" "`$DOCKER_BIN" inspect "`$CONTAINER" >/dev/null 2>&1
+    fi
   fi
 fi
 
@@ -182,11 +189,21 @@ echo "Remote preflight ok."
   if ($LASTEXITCODE -ne 0) {
     throw "Remote preflight failed. See [FAIL] line(s) above."
   }
+
+  if ($SshMultiplexStarted) {
+    & ssh @SshBaseArgs -O exit $Target 2>$null | Out-Null
+    $SshMultiplexStarted = $false
+  }
+  Write-Host "Preflight finished without uploading a release."
+  exit 0
 }
 
 if (-not $SkipBuild) {
   Write-Host "Building project..."
   Invoke-Expression $BuildCommand
+  if ($LASTEXITCODE -ne 0) {
+    throw "Build failed. No release was uploaded."
+  }
 }
 
 if (-not (Test-Path -LiteralPath $BuildDir)) {
@@ -202,6 +219,8 @@ Write-Host "Compressing build..."
 if ($LASTEXITCODE -ne 0) {
   throw "Failed to create archive: $ArchivePath"
 }
+$ArchiveSha256 = (Get-FileHash -LiteralPath $ArchivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+Write-Host "Archive SHA-256: $ArchiveSha256"
 
 Write-Host "Uploading archive to $Target..."
 $scpArgs = @()
@@ -224,6 +243,8 @@ ARCHIVE="$RemoteArchive"
 CONTAINER="$ContainerName"
 DOCKER_CMD="$RemoteDockerCommand"
 USE_SUDO="$($UseSudoForDocker.ToString().ToLowerInvariant())"
+SKIP_RESTART="$($SkipRestart.ToString().ToLowerInvariant())"
+EXPECTED_SHA256="$ArchiveSha256"
 STAMP=`$(date +%Y%m%d-%H%M%S)
 BACKUP_DIR=".deploy-backup"
 BACKUP_PATH=""
@@ -253,6 +274,12 @@ find_docker() {
 cd "`$APP_DIR"
 mkdir -p "`$BACKUP_DIR"
 
+ACTUAL_SHA256=`$(sha256sum "`$ARCHIVE" | awk '{print `$1}')
+if [ "`$ACTUAL_SHA256" != "`$EXPECTED_SHA256" ]; then
+  echo "Deploy failed because archive SHA-256 did not match." >&2
+  exit 1
+fi
+
 if [ -d build ]; then
   BACKUP_PATH="`$BACKUP_DIR/build-`$STAMP"
   mv build "`$BACKUP_PATH"
@@ -269,6 +296,21 @@ if ! tar -xzf "`$ARCHIVE" -C "`$APP_DIR"; then
   restore_backup
   echo "Deploy failed while extracting archive. Previous build was restored." >&2
   exit 1
+fi
+
+if [ ! -f build/src/index.js ]; then
+  restore_backup
+  echo "Deploy failed because build/src/index.js is missing. Previous build was restored." >&2
+  exit 1
+fi
+
+if [ "`$SKIP_RESTART" = "true" ]; then
+  rm -f "`$ARCHIVE"
+  rm -f "$RemoteScriptPath"
+  echo "Release uploaded and verified without restart."
+  echo "Archive SHA-256: `$ACTUAL_SHA256"
+  echo "Previous build backup: `$BACKUP_PATH"
+  exit 0
 fi
 
 DOCKER_BIN="`$(find_docker)" || {
@@ -315,7 +357,11 @@ if ($LASTEXITCODE -ne 0) {
   throw "Failed to upload remote deploy script to $Target."
 }
 
-Write-Host "Replacing build and restarting container..."
+if ($SkipRestart) {
+  Write-Host "Replacing build without restarting container..."
+} else {
+  Write-Host "Replacing build and restarting container..."
+}
 $sshArgs = @()
 if ($UseSudoForDocker) {
   $sshArgs += "-tt"

@@ -1,3 +1,4 @@
+import { connectorConfig } from "../../api/connector/client.js";
 import OpenAI from "openai";
 import {
   buildExtractionPrompt,
@@ -7,7 +8,6 @@ import {
 import type { DeepSeekExtractParams } from "./types.js";
 import { finishLlmCallLog, startLlmCallLog } from "./llmCallLogger.js";
 
-const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 const DEEPSEEK_MODEL = "deepseek-v4-flash";
 const DEFAULT_MAX_TOKENS = 8000;
 
@@ -18,16 +18,8 @@ type RequestDeepSeekJsonOptions = {
 };
 
 export function getDeepSeekClient(): OpenAI {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("DEEPSEEK_API_KEY is not set");
-  }
-
-  return new OpenAI({
-    apiKey,
-    baseURL: DEEPSEEK_BASE_URL,
-  });
+  const { baseURL, token } = connectorConfig();
+  return new OpenAI({ apiKey: token, baseURL: `${baseURL}/v1/providers/deepseek`, maxRetries: 0, timeout: 110000, fetch: (url, init) => fetch(url, { ...init, redirect: "error" }) });
 }
 
 function buildSystemPrompt(isRetry: boolean): string {

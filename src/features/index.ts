@@ -12,7 +12,6 @@ import "./xft/controller/jdy.register.js";
 import "./bestsign/jdy.register.js";
 
 import { BestSignRoutes } from "./bestsign/routes/bestsign.routes.js";
-import { fenbeitongRoutes } from "./fbt/routes/fengbeitong.js";
 import { parkingRoutes } from "./vehicle/routes/parking.js";
 import { WechatRoutes } from "./wechat/route/wechat.js";
 import { WechatOAuthRoutes } from "./wechat/route/wechatOAuth.js";
@@ -31,7 +30,6 @@ import { FrontendRoutes } from "./frontend/routes/index.js";
 
 export const FeatureRoutes = [
   ...BestSignRoutes,
-  ...fenbeitongRoutes,
   ...parkingRoutes,
   ...WechatRoutes,
   ...WechatOAuthRoutes,

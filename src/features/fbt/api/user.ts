@@ -1,3 +1,4 @@
+import { connectorJSON } from "../../../api/connector/client.js";
 import { ApiClient } from "./api_client.js";
 
 class FBTUserApiClient extends ApiClient {
@@ -5,21 +6,8 @@ class FBTUserApiClient extends ApiClient {
     if (!phone) {
       return null;
     }
-    const result = await this.sso(phone);
-    if (result.code === 0) {
-      return `https://webapp.fenbeitong.com/ceLogin?token=${result.data}&path=${path}`;
-    }
-
-    return null;
-  }
-  private async sso(third_user_id: string) {
-    return await this.doRequest({
-      method: "POST",
-      path: "/openapi/auth/web/v1/dispense",
-      payload: {
-        third_user_id,
-      },
-    });
+    const result = await connectorJSON("/v1/providers/fenbeitong/sso-link", { thirdUserId: phone, path });
+    return result.url;
   }
   private async _getUserList(page_index = 1) {
     return await this.doRequest({

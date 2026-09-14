@@ -12,6 +12,7 @@ import { dayResultServices } from "../features/xft/service/dayResultServices.js"
 import { addDays } from "date-fns";
 import { syncWechatData } from "../features/wechat/service/wechatSyncService.js";
 import { vehicleService } from "../features/vehicle/services/vehicleService.js";
+import { productConfigAgentDailyMaintenanceService } from "../features/productConfigAgent/workflow/dailyMaintenance.service.js";
 
 const guardedSchedule = (
   name: string,
