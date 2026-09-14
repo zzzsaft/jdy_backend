@@ -1,5 +1,6 @@
 import { jctimesApiClient } from "../api/jctimes/app.js";
 import crypto from "crypto";
+import { crmCentralAuthEnabled, verifyCRMToken } from "./crm/centralAuth.js";
 import {
   extractToken,
   generateJdyToken,
@@ -242,6 +243,14 @@ class AuthService {
     try {
       const token = extractToken(req);
       if (!token) return { userId: "" };
+      if (crmCentralAuthEnabled()) {
+        try {
+          const otherClient = verifyToken(token, ["new-frontend"]);
+          if (otherClient.clientId === "new-frontend" && (!expectedClientIds || expectedClientIds.includes("new-frontend"))) return otherClient;
+        } catch { /* CRM tokens are verified by the unified service below. */ }
+        if (expectedClientIds && !expectedClientIds.includes("legacy-frontend")) return { userId: "" };
+        return await verifyCRMToken(token);
+      }
       const decoded = verifyToken(token, expectedClientIds);
       return decoded;
     } catch (err) {

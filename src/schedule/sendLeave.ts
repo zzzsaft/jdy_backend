@@ -1,5 +1,6 @@
 import { getISOWeek, isEqual, startOfMonth } from "date-fns";
 import { sleep } from "../config/limiter.js";
+import { logger } from "../config/logger.js";
 import { XftAtdLeave } from "../entity/atd/xft_leave.js";
 import _ from "lodash";
 import { getWeekDayName } from "../utils/dateUtils.js";
@@ -23,7 +24,7 @@ export const sendLeave = async (
   const { userid, stfName, stfSeq, orgSeq } = user;
   const isoWeekNumber = getISOWeek(new Date());
   const eventId = `${userid}-${isoWeekNumber}`;
-  new MessageService([userid]).sendVoteInteraction({
+  await new MessageService([userid]).sendVoteInteraction({
     main_title: {
       title: "轮休假申请",
       desc: `本月轮休假剩余${quota}天，可在下方勾选想要请假的时间，提交后将自动生效。如果需要取消假期，请进入薪福通系统进行操作。`,
@@ -53,27 +54,56 @@ export const sendtoUserwithLeaveChoice = async () => {
   const { saturday, sunday } = getWeekendDates();
   let allQuota = await quotaServices.getAllSingleDayOffQuotaLeft();
   const userids = await XftAtdLeave.getUsersInRange(saturday, sunday);
+  const totalQuotaUsers = Object.keys(allQuota).length;
   allQuota = _.omit(allQuota, userids);
+  const summary = {
+    totalQuotaUsers,
+    excludedByExistingLeave: totalQuotaUsers - Object.keys(allQuota).length,
+    candidates: Object.keys(allQuota).length,
+    voteCardsSent: 0,
+    noBalanceNoticesSent: 0,
+    ineligibleQuota: 0,
+    missingEmployeeMapping: 0,
+    failed: 0,
+  };
   for (const key in allQuota) {
     const quota = allQuota[key];
-    if (quota.total >= 5) {
-      const user = await getUser(key);
-      if (user && user.userid.length < 19) {
-        if (quota.left === 0) {
-          await new MessageService([user.userid]).send_plain_text(
-            "轮休假已用完，本周末没有轮休假 如需请假，请走薪福通-请假流程"
-          );
-        } else {
-          if (isEqual(sunday, startOfMonth(sunday))) {
-            quota.left = quota.left + 1;
-          }
-          // console.log(user, quota.left);
-          await sendLeave(user, quota.left);
-          await sleep(100);
+    const total = Number(quota.total);
+    let left = Number(quota.left);
+    if (!Number.isFinite(total) || total < 5) {
+      summary.ineligibleQuota += 1;
+      continue;
+    }
+    const user = await getUser(key);
+    if (!user || user.userid.length >= 19) {
+      summary.missingEmployeeMapping += 1;
+      continue;
+    }
+    try {
+      if (!Number.isFinite(left) || left <= 0) {
+        await new MessageService([user.userid]).send_plain_text(
+          "轮休假已用完，本周末没有轮休假 如需请假，请走薪福通-请假流程"
+        );
+        summary.noBalanceNoticesSent += 1;
+      } else {
+        if (isEqual(sunday, startOfMonth(sunday))) {
+          left += 1;
         }
+        await sendLeave(user, left);
+        summary.voteCardsSent += 1;
+        await sleep(100);
       }
+    } catch (error) {
+      summary.failed += 1;
+      logger.error(
+        `[sendLeave] delivery failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
   }
+  logger.info(`[sendLeave] summary=${JSON.stringify(summary)}`);
+  return summary;
 };
 
 export const proceedLeave = async (optionIds, config, user) => {

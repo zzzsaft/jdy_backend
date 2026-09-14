@@ -1,4 +1,5 @@
 import { logger } from "../../../config/logger.js";
+import { personnelSyncInConnect, runPersonnelSync } from "../../../api/connector/personnel.js";
 import {
   defaultWechatCorpConfig,
   wechatCorpConfigs,
@@ -16,6 +17,7 @@ export type SyncContext = {
 
 export const syncWechatData = async (context: SyncContext = {}) => {
   const { corpIdOrName } = context;
+  if (personnelSyncInConnect()) return runPersonnelSync("wecom-all", corpIdOrName);
   if (!corpIdOrName) {
     for (const corp of wechatCorpConfigs) {
       try {
@@ -43,9 +45,11 @@ export const syncWechatData = async (context: SyncContext = {}) => {
 };
 
 export const syncAllDepartments = async (): Promise<void> => {
+  if (personnelSyncInConnect()) return runPersonnelSync("wecom-departments");
   await syncDepartments();
 };
 
 export const syncAllUsers = async (): Promise<void> => {
+  if (personnelSyncInConnect()) return runPersonnelSync("wecom-users");
   await syncUsers();
 };

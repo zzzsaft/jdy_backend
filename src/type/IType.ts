@@ -11,6 +11,7 @@ export interface IRequestOptions {
   payload?: any;
   tokenType?: "corp" | "crm" | "none";
   localAccessToken?: () => Promise<string>;
+  proxyTimeoutMs?: number;
 }
 export interface IAppoint {
   /**

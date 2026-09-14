@@ -16,6 +16,10 @@ import {
   buttonCardType,
   MessageService,
 } from "../../wechat/service/messageService.js";
+import {
+  getXftTaskStatus,
+  isPendingXftTask,
+} from "./xftTaskStatus.js";
 
 export class XftTaskEvent {
   url: string;
@@ -46,21 +50,11 @@ export class XftTaskEvent {
   msgIds: WechatMessage[];
   constructor(content = "{}") {
     Object.assign(this, JSON.parse(content));
-    const redirectUrl = `http://hz.jc-times.com:2000/xft/sso?todoid=${this.id}`;
+    const redirectUrl = `https://hz.jc-times.com:2026/xft/sso?todoid=${this.id}`;
     this.url = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=wwd56c5091f4258911&redirect_uri=${qs.escape(
       redirectUrl
     )}&response_type=code&scope=snsapi_base&state=STATE&agentid=1000061#wechat_redirect`;
-    this.status =
-      this.dealStatus == "2"
-        ? "已撤销"
-        : {
-            0: "审批中",
-            1: "已通过",
-            2: "已否决",
-            3: "已退回",
-            4: "撤销",
-            5: "撤回",
-          }?.[this.processStatus] ?? "已处理";
+    this.status = getXftTaskStatus(this.dealStatus, this.processStatus);
     this.description = this.details;
   }
   getWxUserId = async () => {
@@ -213,7 +207,9 @@ export const xftTaskCallback = async (content) => {
     await new OutGoingEvent(task).process();
     return;
   }
-  if (task.processStatus == "1") {
+  if (!isPendingXftTask(task.dealStatus)) {
+    if (task.processStatus != "1") return;
+
     const noticeUsers: string[] = [task.sendUserId];
     if (task.details.includes("【定调薪审批】"))
       noticeUsers.push(...["ZhangJiaLi", "GuanBingQian", "jcyxblxm"]);

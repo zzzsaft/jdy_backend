@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { exchangeCRMTicket, crmCentralAuthEnabled } from "../services/crm/centralAuth.js";
 import {
   AuthServiceError,
   authService,
@@ -111,6 +112,13 @@ const jdySSo = async (request: Request, response: Response) => {
 };
 
 const jdySSObyFrontend = async (request: Request, response: Response) => {
+  if (crmCentralAuthEnabled()) {
+    const target = new URL("/sso/jdy", process.env.CRM_SSO_ISSUER || "https://hz.jc-times.com:2026");
+    target.searchParams.set("redirect_uri", String(request.query.redirect_uri || ""));
+    response.setHeader("Cache-Control", "no-store");
+    response.json({ link: target.href });
+    return;
+  }
   const userid = (await authService.verifyToken(request)).userId;
   const redirect_uri = request.query.redirect_uri;
   const link = authService.jdySSO(
@@ -187,6 +195,7 @@ const agentTicket = async (request: Request, response: Response) => {
 };
 
 const token = async (request: Request, response: Response) => {
+  if (crmCentralAuthEnabled()) { response.status(410).json({ error: "USE_UNIFIED_CRM_LOGIN" }); return; }
   const { code } = request.body;
   if (!code) {
     response.status(400).send("参数错误");
@@ -208,6 +217,7 @@ const token = async (request: Request, response: Response) => {
 
 export const wecomToken = async (request: Request, response: Response) => {
   const clientId = String(request.body?.clientId ?? "").trim();
+  if (crmCentralAuthEnabled() && clientId === LEGACY_CLIENT_ID) { response.status(410).json({ error: "USE_UNIFIED_CRM_LOGIN" }); return; }
   const code = String(request.body?.code ?? "").trim();
   if (!clientId) {
     response.status(400).json({ error: "INVALID_CLIENT" });
@@ -255,6 +265,7 @@ export const logout = async (_request: Request, response: Response) => {
 };
 
 export const AuthRoutes = [
+  { path: "/auth/sso/crm/exchange", method: "post", action: exchangeCRMTicket },
   {
     path: "/auth/wecom/token",
     method: "post",

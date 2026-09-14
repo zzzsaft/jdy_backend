@@ -1,92 +1,60 @@
-import crypto from "crypto";
 import { Request, Response } from "express";
-import nodeRSA from "node-rsa";
-import qs from "querystring";
+import { logger } from "../../../config/logger.js";
 import { wechatUserApiClient } from "../../wechat/api/user.js";
-const RSA_PRIVATE_KEY = process.env.RSA_PRIVATE_KEY;
-const key = new nodeRSA(`-----BEGIN RSA PRIVATE KEY-----
-    ${RSA_PRIVATE_KEY}
-    -----END RSA PRIVATE KEY-----`);
-
-// 导出公钥
-const publicKey = key.exportKey("public");
+import { xftSSOApiClient } from "../api/xft_sso.js";
 
 export const xftSSOLogin = async (request: Request, response: Response) => {
-  const 连接器ID = "223147993689554944";
-  const 连接流ID = "224943279282388992";
-  const XFT_HOST = `https://xft.cmbchina.com/xft-gateway/xft-login-new/xwapi/login/${连接器ID}_${连接流ID}`;
   const code = request.query.code;
   const toDoID = request.query.todoid;
   const pageId = request.query.pageId;
-  if (typeof code !== "string") {
-    return "no code";
+  if (typeof code !== "string" || !code.trim()) {
+    logger.warn("[xft-sso] rejected callback without OAuth code");
+    return response.status(400).send("Missing WeCom OAuth code");
   }
-  const userid = (await wechatUserApiClient.getUserInfo(code))["userid"]?.slice(
-    0,
-    20
-  );
-  if (!userid) return "no userid";
-  // const userid = "LiangZhi";
-  const userInfo = {
-    userid: userid,
-    timestamp: Date.now(),
-  };
-  const secret = encrypt(Buffer.from(JSON.stringify(userInfo)));
-
-  let redirectUrl = `${XFT_HOST}?pageId=workbench&secret=${secret}`;
-
-  const extPam = { toDoType: "0", toDoId: toDoID };
-  if (toDoID) {
-    redirectUrl = `${XFT_HOST}?extTyp=todo&extPam=${qs.escape(
-      JSON.stringify(extPam)
-    )}&secret=${secret}`;
+  if ((toDoID !== undefined && typeof toDoID !== "string") ||
+      (pageId !== undefined && typeof pageId !== "string")) {
+    return response.status(400).send("Invalid XFT redirect parameters");
   }
-  if (pageId) {
-    redirectUrl = `${XFT_HOST}?pageId=${pageId}&secret=${secret}`;
+  let identity: any;
+  try {
+    identity = await wechatUserApiClient.getUserInfo(code);
+  } catch (error) {
+    logger.error(
+      `[xft-sso] WeCom identity lookup failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+    return response.status(502).send("WeCom identity service unavailable");
   }
-  response.redirect(redirectUrl);
+  const userid = typeof identity?.userid === "string" ? identity.userid.slice(0, 20) : "";
+  if (!userid) {
+    logger.warn(
+      `[xft-sso] WeCom callback returned no userid; errcode=${String(
+        identity?.errcode ?? "unknown"
+      )}`
+    );
+    return response.status(401).send("Unable to identify WeCom user");
+  }
+  try {
+    const url = await xftSSOApiClient.getSSOLink(userid, { todoId: toDoID, pageId });
+    response.setHeader("Cache-Control", "no-store");
+    return response.redirect(url);
+  } catch {
+    logger.error("[xft-sso] Connect SSO link generation failed");
+    return response.status(502).send("XFT SSO service unavailable");
+  }
 };
 
-function encrypt(plaintext: Buffer): string {
-  return crypto
-    .publicEncrypt(
-      {
-        key: Buffer.from(publicKey),
-        padding: crypto.constants.RSA_PKCS1_PADDING,
-      },
-      plaintext
-    )
-    .toString("base64");
-}
-
-export const testXftSSOLogin = async (request: Request, response: Response) => {
-  const 连接器ID = "223147993689554944";
-  const 连接流ID = "224943279282388992";
-  const XFT_HOST = `https://xft.cmbchina.com/xft-gateway/xft-login-new/xwapi/login/${连接器ID}_${连接流ID}`;
-  const userInfo = {
-    userid: "ceshi",
-    timestamp: Date.now(),
-  };
-  const secret = encrypt(Buffer.from(JSON.stringify(userInfo)));
-  response.redirect(`${XFT_HOST}?pageId=workbench&secret=${secret}`);
+export const testXftSSOLogin = async (_request: Request, response: Response) => {
+  try {
+    const url = await testLoginUrl("ceshi");
+    response.setHeader("Cache-Control", "no-store");
+    return response.redirect(url);
+  } catch {
+    return response.status(502).send("XFT SSO service unavailable");
+  }
 };
 
-export const testLoginUrl = (userid, todoId: any = null) => {
-  const 连接器ID = "223147993689554944";
-  const 连接流ID = "224943279282388992";
-  const XFT_HOST = `https://xft.cmbchina.com/xft-gateway/xft-login-new/xwapi/login/${连接器ID}_${连接流ID}`;
-  const userInfo = {
-    userid: userid,
-    timestamp: Date.now(),
-  };
-  const secret = encrypt(Buffer.from(JSON.stringify(userInfo)));
-  const extPam = { toDoType: "0", toDoId: todoId };
-  if (todoId) {
-    return `${XFT_HOST}?extTyp=todo&extPam=${qs.escape(
-      JSON.stringify(extPam)
-    )}&secret=${secret}`;
-  }
-  const url = `${XFT_HOST}?pageId=workbench&secret=${secret}`;
-  console.log(url);
-  return url;
+export const testLoginUrl = async (userid: string, todoId: string | null = null) => {
+  return xftSSOApiClient.getSSOLink(userid, todoId ? { todoId } : {});
 };

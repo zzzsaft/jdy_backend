@@ -13,6 +13,7 @@ import { addDays } from "date-fns";
 import { syncWechatData } from "../features/wechat/service/wechatSyncService.js";
 import { vehicleService } from "../features/vehicle/services/vehicleService.js";
 import { productConfigAgentDailyMaintenanceService } from "../features/productConfigAgent/workflow/dailyMaintenance.service.js";
+import { sendSingleDayOffWhitelistReapplyNotice } from "./notifySingleDayOffWhitelist.js";
 
 const guardedSchedule = (
   name: string,
@@ -102,6 +103,15 @@ const disableLeftUserCars = guardedSchedule(
   }
 );
 
+const singleDayOffWhitelistNotice = guardedSchedule(
+  "singleDayOffWhitelistNotice",
+  "30 7 11 8 *",
+  async () => {
+    if (new Date().getFullYear() !== 2026) return;
+    await sendSingleDayOffWhitelistReapplyNotice();
+  }
+);
+
 const productConfigAgentDailyMaintenance = guardedSchedule(
   "productConfigAgentDailyMaintenance",
   "30 2 * * *",
@@ -117,4 +127,5 @@ export const schedule = [
   fbtApplySchedule,
   sendTripCheckin,
   disableLeftUserCars,
+  singleDayOffWhitelistNotice,
 ];

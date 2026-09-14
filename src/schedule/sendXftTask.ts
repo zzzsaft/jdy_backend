@@ -31,7 +31,7 @@ const sendToQywx = async (record: object[], userid) => {
   if (records.length == 0) {
     return;
   }
-  let url = `http://hz.jc-times.com:2000/xft/sso?pageId=xftoahome`;
+  let url = `https://hz.jc-times.com:2026/xft/sso?pageId=xftoahome`;
   url = createWechatUrl(url);
   await new MessageService([userid]).sendTextNotice({
     main_title: {

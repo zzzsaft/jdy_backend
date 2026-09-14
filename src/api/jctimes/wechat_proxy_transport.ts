@@ -14,6 +14,7 @@ interface WechatProxyRequest {
   tokenType: WechatProxyTokenType;
   query?: any;
   payload?: any;
+  timeoutMs?: number;
 }
 
 interface ProxyUnavailableResult {
@@ -176,7 +177,7 @@ export const requestWechatProxy = async <T = any>(
       `${getWechatProxyHost()}/wechat/proxy`,
       { encrypted: encryptJson(payload, secret) },
       {
-        timeout: 15000,
+        timeout: request.timeoutMs ?? 15000,
         validateStatus: () => true,
         headers: { "Content-Type": "application/json" },
         proxy: false as false,

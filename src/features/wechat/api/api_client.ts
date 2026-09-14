@@ -34,6 +34,7 @@ export class ApiClient {
         tokenType: proxyOptions.tokenType,
         query: proxyOptions.query,
         payload: options.payload ?? {},
+        timeoutMs: options.proxyTimeoutMs,
       });
       if (proxyResult.ok) {
         const data = proxyResult.data;

@@ -1,8 +1,10 @@
 import _ from "lodash";
+import { personnelSyncInConnect, forwardXFTOnboarding } from "../../../api/connector/personnel.js";
 import { Department } from "../../../entity/basic/department.js";
 import { xftUserApiClient } from "../api/xft_user.js";
 
 export const addEmployeeToXft = async (data) => {
+  if (personnelSyncInConnect()) return forwardXFTOnboarding(data);
   return await xftUserApiClient.saveEmployee([
     {
       sequence: data["_widget_1720801227437"],

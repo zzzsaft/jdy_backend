@@ -12,8 +12,14 @@ import {
 import { User } from "../basic/employee.js";
 import { Department } from "../basic/department.js";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
+import {
+  filterSingleDayOffLimitDates,
+  isSingleDayOffLimitWhitelistDate,
+  toLocalDateKey,
+} from "../../utils/xftLeaveRules.js";
 
 const PASSED_APPROVE_STS = ["PAS", "已通过"];
+const REJECTED_APPROVE_STS = ["REJ", "已驳回", "已否决"];
 
 const onlyPassedLeaves = (query) =>
   query.andWhere("leave.approveSts IN (:...passedApproveSts)", {
@@ -134,7 +140,12 @@ export class XftAtdLeave extends BaseEntity {
     }
 
     const leaves = await query.select(["leave.begDate"]).getMany();
-    return new Set(leaves.map((leave) => dayKey(leave.begDate))).size;
+    return new Set(
+      leaves
+        .map((leave) => leave.begDate)
+        .filter((date) => !isSingleDayOffLimitWhitelistDate(date))
+        .map((date) => dayKey(date))
+    ).size;
   }
 
   static async countDepartmentLeaveUsersByDay(
@@ -166,7 +177,9 @@ export class XftAtdLeave extends BaseEntity {
     leaveDays: Date[],
     excludeLeaveRecSeq?: number
   ): Promise<Map<string, number>> {
-    const uniqueDays = [...new Set(leaveDays.map((day) => dayKey(day)))].sort();
+    const uniqueDays = [
+      ...new Set(filterSingleDayOffLimitDates(leaveDays).map((day) => dayKey(day))),
+    ].sort();
     const counts = new Map(uniqueDays.map((day) => [day, 0]));
     if (uniqueDays.length === 0) return counts;
 
@@ -203,6 +216,27 @@ export class XftAtdLeave extends BaseEntity {
       counts.set(day, users.size);
     }
     return counts;
+  }
+
+  static async findRejectedSingleDayOffUsersByDate(
+    date: Date | string
+  ): Promise<string[]> {
+    const dateKey = toLocalDateKey(date);
+    const startDate = startOfLocalDay(new Date(`${dateKey}T00:00:00`));
+    const endDate = endOfLocalDay(startDate);
+    const rows = await XftAtdLeave.createQueryBuilder("leave")
+      .select("DISTINCT leave.userId", "userId")
+      .where("leave.lveTypeName = :lveTypeName", { lveTypeName: "轮休假" })
+      .andWhere("leave.begDate <= :endDate", { endDate })
+      .andWhere("leave.endDate >= :startDate", { startDate })
+      .andWhere("leave.userId IS NOT NULL")
+      .andWhere("leave.userId != ''")
+      .andWhere("leave.approveSts IN (:...rejectedApproveSts)", {
+        rejectedApproveSts: REJECTED_APPROVE_STS,
+      })
+      .getRawMany();
+
+    return rows.map((row) => row.userId).filter(Boolean);
   }
 
   static async withLeaveRuleLocks<T>(

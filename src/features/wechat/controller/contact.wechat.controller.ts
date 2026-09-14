@@ -4,8 +4,10 @@ import { logger } from "../../../config/logger.js";
 import { User } from "../../../entity/basic/employee.js";
 import { Department } from "../../../entity/basic/department.js";
 import { contactApiClient } from "../api/contact.js";
+import { personnelSyncInConnect, forwardPersonnelContactEvent } from "../../../api/connector/personnel.js";
 
 export const handleContactEvent = async (msg: any) => {
+  if (personnelSyncInConnect()) return forwardPersonnelContactEvent(msg);
   const UserID = msg?.["UserID"]?.["value"];
   const corpId = msg?.["ToUserName"]?.["value"];
   let data;

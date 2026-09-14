@@ -1,6 +1,15 @@
 import { ApiClient } from "./api_client.js";
 import { getCorpToken, token, token_crm } from "./token.js";
 
+const configuredSsoProxyTimeoutMs = Number(
+  process.env.SSO_WECOM_PROXY_TIMEOUT_MS ?? 3000
+);
+const ssoProxyTimeoutMs =
+  Number.isFinite(configuredSsoProxyTimeoutMs) &&
+  configuredSsoProxyTimeoutMs > 0
+    ? configuredSsoProxyTimeoutMs
+    : 3000;
+
 export type WechatUserAppContext = {
   corpId: string;
   agentId: number;
@@ -31,6 +40,7 @@ class UserApiClient extends ApiClient {
         },
         tokenType: context === "crm" ? "crm" : "corp",
         localAccessToken: getAccessToken,
+        proxyTimeoutMs: ssoProxyTimeoutMs,
       },
       {
         name: "getUser",

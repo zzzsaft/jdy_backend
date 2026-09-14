@@ -1,6 +1,4 @@
 import { xftOrgnizationApiClient } from "./xft_orgnization.js";
-import crypto from "crypto";
-import nodeRSA from "node-rsa";
 import { xftUserApiClient } from "./xft_user.js";
 import _ from "lodash";
 import { Department } from "../../../entity/basic/department.js";
@@ -25,35 +23,6 @@ export const importDepartmentToXft = async () => {
     .filter((department) => department.id !== "1");
   await xftOrgnizationApiClient.importOrgnization(datas);
 };
-
-export const testRSA = () => {
-  //   const key = new nodeRSA({ b: 1024 });
-  const RSA_PRIVATE_KEY = process.env.RSA_PRIVATE_KEY;
-  const key = new nodeRSA(`-----BEGIN RSA PRIVATE KEY-----
-    ${RSA_PRIVATE_KEY}
-    -----END RSA PRIVATE KEY-----`);
-
-  // 导出公钥
-  const publicKey = key.exportKey("public");
-  const userInfo = {
-    userid: "LiangZhi",
-    timestamp: Math.floor(Date.now() / 1000),
-  };
-  const secret = encrypt(publicKey, Buffer.from(JSON.stringify(userInfo)));
-  console.log(secret);
-};
-
-function encrypt(publicKey: any, plaintext: Buffer): string {
-  return crypto
-    .publicEncrypt(
-      {
-        key: Buffer.from(publicKey),
-        padding: crypto.constants.RSA_PKCS1_PADDING,
-      },
-      plaintext
-    )
-    .toString("base64");
-}
 
 const getUserList = async () => {
   const { appid, entryid } = jdyFormDataApiClient.getFormId("员工档案");

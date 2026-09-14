@@ -13,6 +13,7 @@ import { Department } from "../../../../entity/basic/department.js";
 import { User } from "../../../../entity/basic/employee.js";
 import { XftTaskEvent } from "../../controller/todo.xft.controller.js";
 import { getDifference, isAfterTime } from "../../../../utils/dateUtils.js";
+import { filterSingleDayOffLimitDates } from "../../../../utils/xftLeaveRules.js";
 import { MessageService } from "../../../wechat/service/messageService.js";
 import { xftatdApiClient } from "../../api/xft_atd.js";
 import { xftOAApiClient } from "../../api/xft_oa.js";
@@ -227,7 +228,7 @@ export class LeaveEvent {
       org?.department_id &&
       this.isSingleDayOff()
     ) {
-      for (const day of this.getWeekdayLeaveDays()) {
+      for (const day of this.getRuleLimitedWeekdayLeaveDays()) {
         keys.push(
           `xft_leave:department_limit:${org.department_id}:${format(day, "yyyy-MM-dd")}`,
         );
@@ -282,9 +283,7 @@ export class LeaveEvent {
   };
 
   hasWeekdaySingleDayOff = () => {
-    return this.leaveDtlDtos?.some(
-      (dtos) => dtos["weekDay"] >= 2 && dtos["weekDay"] <= 6
-    );
+    return this.getRuleLimitedWeekdayLeaveDays().length > 0;
   };
 
   hasUsedMonthlyWeekdaySingleDayOff = async () => {
@@ -324,7 +323,7 @@ export class LeaveEvent {
       ? undefined
       : leaveRecSeq;
 
-    const leaveDays = this.getWeekdayLeaveDays();
+    const leaveDays = this.getRuleLimitedWeekdayLeaveDays();
     const usedCounts = await XftAtdLeave.countDepartmentLeaveUsersByDates(
       org.department_id,
       leaveDays,
@@ -356,6 +355,9 @@ export class LeaveEvent {
       const day = leaveDay.getDay();
       return day >= 1 && day <= 5;
     });
+
+  private getRuleLimitedWeekdayLeaveDays = () =>
+    filterSingleDayOffLimitDates(this.getWeekdayLeaveDays());
 
   sendNotice = async (userid: string[], status = this.task.status) => {
     let userids = Array.from(new Set([...userid, this.task.sendUserId]));
